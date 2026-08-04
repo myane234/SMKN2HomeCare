@@ -26,7 +26,7 @@ jobs:
           script: |
             cd /home/faruq/SMKN2HomeCare/API
             git pull origin main
-            composer install --no-dev --optimize-autoloader
+            composer install --optimize-autoloader
             php artisan config:clear
             php artisan cache:clear
             php artisan config:cache
