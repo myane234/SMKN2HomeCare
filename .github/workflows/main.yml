@@ -17,7 +17,7 @@ jobs:
           authkey: ${{ secrets.TS_AUTHKEY }}
 
 
-      - name: Executing remote ssh commands via Tailscale
+      - name: Execute ssh command
         uses: appleboy/ssh-action@master
         with:
           host: ${{ secrets.SERVER_TAILSCALE_IP }}
@@ -26,7 +26,9 @@ jobs:
           script: |
             cd /home/faruq/SMKN2HomeCare/API
             git pull origin main
-            composer install --no-dev --optimize-autoloader
+            composer update knuckles/scribe --no-dev --optimize-autoloader
+            php artisan config:clear
+            php artisan cache:clear
             php artisan config:cache
             php artisan route:cache
             php artisan scribe:generate
