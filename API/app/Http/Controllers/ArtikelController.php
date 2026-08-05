@@ -42,6 +42,10 @@ class ArtikelController extends Controller
             $query->where('kategori_artikel', $request->kategori_artikel);
         }
 
+        if ($request->has('sort_by') && $request->sort_by === 'views') {
+            $query->orderBy('views', 'desc');
+        }
+
         $data = $query->get()->map(function ($item) {
             $item->gambar_artikel = $item->gambar_artikel
                 ? url(Storage::url($item->gambar_artikel))
@@ -90,6 +94,7 @@ class ArtikelController extends Controller
     public function show($id)
     {
         $artikel = Artikel::findOrFail($id);
+        $artikel->increment('views');
 
         $artikel->gambar_artikel = $artikel->gambar_artikel
             ? url(Storage::url($artikel->gambar_artikel))
@@ -156,6 +161,42 @@ class ArtikelController extends Controller
         return response()->json([
             'success' => true,
             'message' => 'Artikel berhasil dihapus',
+        ], 200);
+    }
+
+    /**
+     * Upload satu atau beberapa gambar artikel sekaligus.
+     * Digunakan untuk fitur drag & drop gambar di editor artikel.
+     */
+    public function uploadImages(Request $request)
+    {
+        $request->validate([
+            'images'   => ['sometimes', 'array'],
+            'images.*' => ['required_without:image', 'image', 'mimes:jpeg,png,jpg,gif,svg,webp', 'max:5120'],
+            'image'    => ['sometimes', 'image', 'mimes:jpeg,png,jpg,gif,svg,webp', 'max:5120'],
+        ]);
+
+        $urls = [];
+
+        if ($request->hasFile('images')) {
+            foreach ($request->file('images') as $file) {
+                $path = $file->store('artikel', 'public');
+                $urls[] = url(Storage::url($path));
+            }
+        } elseif ($request->hasFile('image')) {
+            $path = $request->file('image')->store('artikel', 'public');
+            $urls[] = url(Storage::url($path));
+        } else {
+            return response()->json([
+                'success' => false,
+                'message' => 'Tidak ada file gambar yang diunggah.',
+            ], 400);
+        }
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Gambar berhasil diupload',
+            'urls'    => $urls,
         ], 200);
     }
 }
