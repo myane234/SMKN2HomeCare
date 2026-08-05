@@ -92,7 +92,7 @@ export default function GabungMitraPage() {
         {/* Teks Hero */}
         <div className="absolute inset-0 max-w-2xl mx-auto px-6 flex flex-col justify-end pb-8 items-start text-left z-10">
           <h1 className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight leading-snug">
-            Bergabung Menjadi Mitra Perawat
+            Bergabung Menjadi Mitra
           </h1>
           <p className="text-xs sm:text-sm text-gray-300 mt-2 font-light leading-relaxed">
             Perluas jangkauan layanan kesehatan Anda dan berikan perawatan medis berkualitas langsung di rumah pasien.
@@ -185,12 +185,12 @@ export default function GabungMitraPage() {
                 e.preventDefault();
                 setShowLoginModal(true);
               } else {
-                router.push("/gabung-mitra/perawat");
+                router.push("/gabung-mitra/nakes");
               }
             }}
             className="w-full inline-flex items-center justify-center px-6 py-3.5 bg-green-600 hover:bg-green-700 text-white font-bold text-sm rounded-xl transition-all shadow-md shadow-sky-500/20 active:scale-[0.98] cursor-pointer"
           >
-            Mulai Pendaftaran Perawat
+            Mulai Pendaftaran Nakes
           </button>
         </div>
 
@@ -203,12 +203,12 @@ export default function GabungMitraPage() {
               e.preventDefault();
               setShowLoginModal(true);
             } else {
-              router.push("/gabung-mitra/perawat");
+              router.push("/gabung-mitra/nakes");
             }
           }}
           className="w-full inline-flex items-center justify-center px-6 py-3 bg-sky-500 hover:bg-sky-600 text-white font-bold text-xs rounded-xl shadow-md transition active:scale-95 cursor-pointer"
         >
-          Mulai Pendaftaran Perawat
+          Mulai Pendaftaran Nakes
         </button>
       </div>
 
