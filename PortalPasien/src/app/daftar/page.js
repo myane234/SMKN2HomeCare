@@ -52,6 +52,7 @@ export default function DaftarPage() {
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
   const [successMsg, setSuccessMsg] = useState("");
+  const [fieldErrors, setFieldErrors] = useState({});
 
   // Form state
   const [form, setForm] = useState({
@@ -75,7 +76,6 @@ export default function DaftarPage() {
   // memicu reverse geocode.
   const [isEditingMap, setIsEditingMap] = useState(true);
 
-  const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState([]);
   const [showSearchResults, setShowSearchResults] = useState(false);
   const [isSearching, setIsSearching] = useState(false);
@@ -85,10 +85,20 @@ export default function DaftarPage() {
 
   const clientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID || "";
 
+  const clearFieldError = (name) => {
+    setFieldErrors((prev) => {
+      if (!prev[name]) return prev;
+      const next = { ...prev };
+      delete next[name];
+      return next;
+    });
+  };
+
   const handleChange = (e) => {
     const { name, value } = e.target;
     setForm((prev) => ({ ...prev, [name]: value }));
     if (errorMsg) setErrorMsg("");
+    clearFieldError(name);
   };
 
   // ── Saat pin di peta digeser ────────────────────────────────────────────────
@@ -115,10 +125,12 @@ export default function DaftarPage() {
     }, 500);
   };
 
-  // ── Saat user mengetik di input pencarian ──────────────────────────────────
-  const handleSearchAddressChange = (e) => {
+  // ── Saat user mengetik langsung di field Alamat Utama ──────────────────────
+  const handleAlamatChange = (e) => {
     const value = e.target.value;
-    setSearchQuery(value);
+    setForm((prev) => ({ ...prev, alamat_utama: value }));
+    if (errorMsg) setErrorMsg("");
+    clearFieldError("alamat_utama");
 
     if (!value.trim()) {
       setSearchResults([]);
@@ -146,7 +158,6 @@ export default function DaftarPage() {
     const lat = parseFloat(result.lat);
     const lng = parseFloat(result.lon);
 
-    // Set koordinat peta baru dan isi textbox alamat utama
     setForm((prev) => ({
       ...prev,
       latitude: lat,
@@ -154,10 +165,45 @@ export default function DaftarPage() {
       alamat_utama: result.display_name,
     }));
 
-    // Bersihkan state pencarian
-    setSearchQuery("");
     setSearchResults([]);
     setShowSearchResults(false);
+  };
+
+  // ── Validasi semua field, return object berisi pesan error per nama field ──
+  const validateForm = () => {
+    const errors = {};
+
+    if (!form.nama_lengkap.trim()) {
+      errors.nama_lengkap = "Nama lengkap wajib diisi.";
+    }
+
+    if (form.nik.length !== 16) {
+      errors.nik = "NIK harus terdiri dari 16 digit angka.";
+    }
+
+    if (!form.jenis_kelamin) {
+      errors.jenis_kelamin = "Jenis kelamin wajib dipilih.";
+    }
+
+    if (!form.alamat_utama.trim()) {
+      errors.alamat_utama = "Alamat utama wajib diisi.";
+    }
+
+    if (!form.email.trim()) {
+      errors.email = "Email wajib diisi.";
+    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email)) {
+      errors.email = "Format email tidak valid.";
+    }
+
+    if (form.password.length < 8) {
+      errors.password = "Password minimal 8 karakter.";
+    }
+
+    if (form.password !== form.password_confirmation) {
+      errors.password_confirmation = "Password dan konfirmasi password tidak sama.";
+    }
+
+    return errors;
   };
 
   // ── Submit register manual ─────────────────────────────────────────────────
@@ -166,14 +212,10 @@ export default function DaftarPage() {
     setErrorMsg("");
     setSuccessMsg("");
 
-    if (form.password !== form.password_confirmation) {
-      setErrorMsg("Password dan konfirmasi password tidak sama.");
-      return;
-    }
-    if (form.nik.length !== 16) {
-      setErrorMsg("NIK harus terdiri dari 16 digit.");
-      return;
-    }
+    const errors = validateForm();
+    setFieldErrors(errors);
+
+    if (Object.keys(errors).length > 0) return;
 
     setLoading(true);
     try {
@@ -190,7 +232,10 @@ export default function DaftarPage() {
         longitude: form.longitude,
       });
 
-      setSuccessMsg("Registrasi berhasil! Silakan periksa inbox/spam email Anda untuk memverifikasi akun sebelum login.");
+      setSuccessMsg("Registrasi berhasil! Mengalihkan ke halaman verifikasi email...");
+      setFieldErrors({});
+
+      const registeredEmail = form.email;
 
       setForm({
         nama_lengkap: "",
@@ -207,10 +252,25 @@ export default function DaftarPage() {
       });
 
       setTimeout(() => {
-        window.location.href = "/login";
-      }, 3000);
+        window.location.href = `/auth/verify-email?email=${encodeURIComponent(registeredEmail)}`;
+      }, 1200);
     } catch (err) {
-      setErrorMsg(err.message || "Registrasi gagal. Silakan coba lagi.");
+      if (err.fieldErrors && Object.keys(err.fieldErrors).length > 0) {
+        // Mapping error per-field dari server -> tampil di bawah textbox masing-masing
+        setFieldErrors(err.fieldErrors);
+
+        const errorCount = Object.keys(err.fieldErrors).length;
+
+        if (errorCount > 1) {
+          setErrorMsg(
+            `Beberapa Masalah Ditemukan — ada ${errorCount} data yang belum sesuai. Periksa kolom yang ditandai merah di atas.`
+          );
+        } else {
+          setErrorMsg(err.message || "Registrasi gagal. Silakan coba lagi.");
+        }
+      } else {
+        setErrorMsg(err.message || "Registrasi gagal. Silakan coba lagi.");
+      }
     } finally {
       setLoading(false);
     }
@@ -253,13 +313,6 @@ export default function DaftarPage() {
             Registrasi
           </h1>
 
-          {/* Pesan Error */}
-          {errorMsg && (
-            <div className="mb-5 rounded-lg bg-red-50 p-4 border border-red-200">
-              <p className="text-sm font-medium text-red-600">{errorMsg}</p>
-            </div>
-          )}
-
           {/* Pesan Sukses */}
           {successMsg && (
             <div className="mb-5 rounded-lg bg-green-50 p-4 border border-green-200">
@@ -281,8 +334,15 @@ export default function DaftarPage() {
                 onChange={handleChange}
                 placeholder="Nama sesuai KTP"
                 required
-                className="w-full rounded border border-gray-300 px-4 py-3 text-slate-900 outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200"
+                className={`w-full rounded border px-4 py-3 text-slate-900 outline-none transition focus:ring-2 ${
+                  fieldErrors.nama_lengkap
+                    ? "border-red-400 focus:border-red-500 focus:ring-red-200"
+                    : "border-gray-300 focus:border-indigo-500 focus:ring-indigo-200"
+                }`}
               />
+              {fieldErrors.nama_lengkap && (
+                <p className="mt-1.5 text-xs font-medium text-red-600">{fieldErrors.nama_lengkap}</p>
+              )}
             </div>
 
             {/* No. HP */}
@@ -315,9 +375,16 @@ export default function DaftarPage() {
                 placeholder="16 digit Nomor Induk Kependudukan"
                 maxLength={16}
                 required
-                className="w-full rounded border border-gray-300 px-4 py-3 text-slate-900 outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200"
+                className={`w-full rounded border px-4 py-3 text-slate-900 outline-none transition focus:ring-2 ${
+                  fieldErrors.nik
+                    ? "border-red-400 focus:border-red-500 focus:ring-red-200"
+                    : "border-gray-300 focus:border-indigo-500 focus:ring-indigo-200"
+                }`}
               />
               <p className="mt-1 text-xs text-gray-400">{form.nik.length}/16 digit</p>
+              {fieldErrors.nik && (
+                <p className="mt-1.5 text-xs font-medium text-red-600">{fieldErrors.nik}</p>
+              )}
             </div>
 
             {/* Golongan Darah - Disesuaikan Enum DB ('A', 'B', 'AB', 'O') */}
@@ -351,26 +418,34 @@ export default function DaftarPage() {
                 value={form.jenis_kelamin}
                 onChange={handleChange}
                 required
-                className="w-full rounded border border-gray-300 px-4 py-3 text-slate-900 outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200"
+                className={`w-full rounded border px-4 py-3 text-slate-900 outline-none transition focus:ring-2 ${
+                  fieldErrors.jenis_kelamin
+                    ? "border-red-400 focus:border-red-500 focus:ring-red-200"
+                    : "border-gray-300 focus:border-indigo-500 focus:ring-indigo-200"
+                }`}
               >
                 <option value="">Pilih Jenis Kelamin</option>
                 <option value="L">Laki-Laki</option>
                 <option value="P">Perempuan</option>
               </select>
+              {fieldErrors.jenis_kelamin && (
+                <p className="mt-1.5 text-xs font-medium text-red-600">{fieldErrors.jenis_kelamin}</p>
+              )}
             </div>
 
-            {/* Alamat Utama — bisa diketik langsung, dicari via autocomplete, atau dipilih lewat peta */}
+            {/* Alamat Utama — ketik/cari langsung di sini, atau sesuaikan lewat peta */}
             <div>
               <label htmlFor="reg-alamat" className="mb-2 block text-sm font-medium text-gray-700">
                 Alamat Utama
               </label>
 
-              {/* Search box dengan autocomplete (Nominatim) */}
               <div className="relative">
                 <input
+                  id="reg-alamat"
                   type="text"
-                  value={searchQuery}
-                  onChange={handleSearchAddressChange}
+                  name="alamat_utama"
+                  value={form.alamat_utama}
+                  onChange={handleAlamatChange}
                   onFocus={() => {
                     if (searchResults.length > 0) setShowSearchResults(true);
                   }}
@@ -379,7 +454,12 @@ export default function DaftarPage() {
                     setTimeout(() => setShowSearchResults(false), 150);
                   }}
                   placeholder="Cari alamat, jalan, atau kelurahan..."
-                  className="w-full rounded border border-gray-300 px-4 py-3 text-slate-900 outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200"
+                  required
+                  className={`w-full rounded border px-4 py-3 text-slate-900 outline-none transition focus:ring-2 ${
+                    fieldErrors.alamat_utama
+                      ? "border-red-400 focus:border-red-500 focus:ring-red-200"
+                      : "border-gray-300 focus:border-indigo-500 focus:ring-indigo-200"
+                  }`}
                 />
 
                 {isSearching && (
@@ -403,15 +483,9 @@ export default function DaftarPage() {
                     ))}
                   </ul>
                 )}
-
-                {showSearchResults && !isSearching && searchQuery.trim() && searchResults.length === 0 && (
-                  <div className="absolute z-20 mt-1 w-full rounded-lg border border-gray-200 bg-white px-4 py-2.5 text-sm text-gray-400 shadow-lg">
-                    Alamat tidak ditemukan
-                  </div>
-                )}
               </div>
 
-              {/* Peta — geser pin untuk memilih titik lokasi secara visual */}
+              {/* Peta — geser pin untuk menyesuaikan titik lokasi secara visual */}
               <div className="mt-3">
                 <MapPicker
                   lat={form.latitude || -6.2088}
@@ -420,19 +494,11 @@ export default function DaftarPage() {
                 />
               </div>
 
-              {/* Alamat lengkap — terisi otomatis dari pencarian/peta, tetap bisa diedit manual */}
-              <textarea
-                id="reg-alamat"
-                name="alamat_utama"
-                value={form.alamat_utama}
-                onChange={handleChange}
-                rows={3}
-                placeholder="Alamat akan terisi otomatis setelah mencari/memilih di peta, atau ketik manual di sini"
-                required
-                className="mt-3 w-full resize-none rounded border border-gray-300 px-4 py-3 text-slate-900 outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200"
-              />
               {isFetchingAddress && (
                 <p className="mt-1 text-xs text-indigo-500">Mengambil alamat dari titik peta...</p>
+              )}
+              {fieldErrors.alamat_utama && (
+                <p className="mt-1.5 text-xs font-medium text-red-600">{fieldErrors.alamat_utama}</p>
               )}
             </div>
 
@@ -449,8 +515,15 @@ export default function DaftarPage() {
                 onChange={handleChange}
                 placeholder="contoh@gmail.com"
                 required
-                className="w-full rounded border border-gray-300 px-4 py-3 text-slate-900 outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200"
+                className={`w-full rounded border px-4 py-3 text-slate-900 outline-none transition focus:ring-2 ${
+                  fieldErrors.email
+                    ? "border-red-400 focus:border-red-500 focus:ring-red-200"
+                    : "border-gray-300 focus:border-indigo-500 focus:ring-indigo-200"
+                }`}
               />
+              {fieldErrors.email && (
+                <p className="mt-1.5 text-xs font-medium text-red-600">{fieldErrors.email}</p>
+              )}
             </div>
 
             {/* Password */}
@@ -468,7 +541,11 @@ export default function DaftarPage() {
                   placeholder="Minimal 8 karakter"
                   required
                   minLength={8}
-                  className="w-full rounded border border-gray-300 px-4 py-3 pr-12 text-slate-900 outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200"
+                  className={`w-full rounded border px-4 py-3 pr-12 text-slate-900 outline-none transition focus:ring-2 ${
+                    fieldErrors.password
+                      ? "border-red-400 focus:border-red-500 focus:ring-red-200"
+                      : "border-gray-300 focus:border-indigo-500 focus:ring-indigo-200"
+                  }`}
                 />
                 <button
                   type="button"
@@ -479,6 +556,9 @@ export default function DaftarPage() {
                   {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
                 </button>
               </div>
+              {fieldErrors.password && (
+                <p className="mt-1.5 text-xs font-medium text-red-600">{fieldErrors.password}</p>
+              )}
             </div>
 
             {/* Konfirmasi Password */}
@@ -495,7 +575,11 @@ export default function DaftarPage() {
                   onChange={handleChange}
                   placeholder="••••••••"
                   required
-                  className="w-full rounded border border-gray-300 px-4 py-3 pr-12 text-slate-900 outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200"
+                  className={`w-full rounded border px-4 py-3 pr-12 text-slate-900 outline-none transition focus:ring-2 ${
+                    fieldErrors.password_confirmation
+                      ? "border-red-400 focus:border-red-500 focus:ring-red-200"
+                      : "border-gray-300 focus:border-indigo-500 focus:ring-indigo-200"
+                  }`}
                 />
                 <button
                   type="button"
@@ -506,6 +590,9 @@ export default function DaftarPage() {
                   {showConfirmPassword ? <EyeOff size={20} /> : <Eye size={20} />}
                 </button>
               </div>
+              {fieldErrors.password_confirmation && (
+                <p className="mt-1.5 text-xs font-medium text-red-600">{fieldErrors.password_confirmation}</p>
+              )}
             </div>
 
             {/* Daftar Button */}
@@ -517,6 +604,13 @@ export default function DaftarPage() {
             >
               {loading ? "Memproses..." : "Daftar"}
             </button>
+
+            {/* Pesan Error — kalau ada yang salah (mis. respons dari server), muncul di sini */}
+            {errorMsg && (
+              <div className="rounded-lg border border-red-200 bg-red-50 p-3.5 text-center">
+                <p className="text-sm font-medium text-red-600">{errorMsg}</p>
+              </div>
+            )}
 
             {/* Divider */}
             <div className="flex items-center">
