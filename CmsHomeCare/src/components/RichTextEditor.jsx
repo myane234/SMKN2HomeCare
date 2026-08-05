@@ -1,6 +1,126 @@
 import { useEffect, useRef } from 'react';
 import Quill from 'quill';
+import ImageDrop from 'quill-image-drop-and-paste';
 import 'quill/dist/quill.snow.css';
+
+// Register drag & drop + paste image module once (module scope, not per-render).
+Quill.register('modules/imageDrop', ImageDrop);
+
+// ---------------------------------------------------------------------------
+// Custom image-resize module (Quill 2 compatible).
+// Shows an overlay with 4 corner handles when an image is clicked, and lets
+// the user drag to resize while keeping the aspect ratio.
+// (The npm packages quill-image-resize / quill-image-resize-module-react are
+// built for Quill 1.x and bundle their own Quill copy, so they conflict with
+// Quill 2. Hence this small native implementation.)
+// ---------------------------------------------------------------------------
+class ImageResize {
+  constructor(quill, options = {}) {
+    this.quill = quill;
+    this.options = options;
+    this.img = null;
+    this.overlay = null;
+    this.handles = [];
+    this.minWidth = options.minWidth || 50;
+
+    this.handleClick = this.handleClick.bind(this);
+    this.handleMousedown = this.handleMousedown.bind(this);
+    this.handleMousemove = this.handleMousemove.bind(this);
+    this.handleMouseup = this.handleMouseup.bind(this);
+
+    this.quill.root.addEventListener('click', this.handleClick);
+  }
+
+  handleClick(evt) {
+    if (evt.target && evt.target.tagName === 'IMG') {
+      this.show(evt.target);
+    } else {
+      this.hide();
+    }
+  }
+
+  show(img) {
+    this.hide();
+    this.img = img;
+    img.classList.add('ql-image-resize-selected');
+
+    this.overlay = document.createElement('div');
+    this.overlay.className = 'ql-image-resize-overlay';
+    this.quill.root.parentNode.appendChild(this.overlay);
+
+    const positions = ['nw', 'ne', 'se', 'sw'];
+    positions.forEach((pos) => {
+      const box = document.createElement('div');
+      box.className = `ql-image-resize-handle ${pos}`;
+      box.addEventListener('mousedown', (e) => this.handleMousedown(e, pos));
+      this.overlay.appendChild(box);
+      this.handles.push(box);
+    });
+
+    this.reposition();
+  }
+
+  reposition() {
+    if (!this.overlay || !this.img) return;
+    const parent = this.quill.root.parentNode;
+    const imgRect = this.img.getBoundingClientRect();
+    const parentRect = parent.getBoundingClientRect();
+    this.overlay.style.left = `${imgRect.left - parentRect.left + parent.scrollLeft}px`;
+    this.overlay.style.top = `${imgRect.top - parentRect.top - parent.scrollTop}px`;
+    this.overlay.style.width = `${imgRect.width}px`;
+    this.overlay.style.height = `${imgRect.height}px`;
+  }
+
+  handleMousedown(evt, pos) {
+    evt.preventDefault();
+    evt.stopPropagation();
+    if (!this.img) return;
+    const startX = evt.clientX;
+    const startWidth = this.img.getBoundingClientRect().width;
+    this.dragPos = pos;
+    this.dragStartX = startX;
+    this.dragStartWidth = startWidth;
+    document.addEventListener('mousemove', this.handleMousemove);
+    document.addEventListener('mouseup', this.handleMouseup);
+  }
+
+  handleMousemove(evt) {
+    if (!this.img) return;
+    const delta = evt.clientX - this.dragStartX;
+    let newWidth = this.dragPos === 'nw' || this.dragPos === 'sw'
+      ? this.dragStartWidth - delta
+      : this.dragStartWidth + delta;
+    newWidth = Math.max(this.minWidth, Math.round(newWidth));
+    // Keep aspect ratio: set width, let height auto-scale.
+    this.img.style.width = `${newWidth}px`;
+    this.img.style.height = 'auto';
+    this.reposition();
+  }
+
+  handleMouseup() {
+    document.removeEventListener('mousemove', this.handleMousemove);
+    document.removeEventListener('mouseup', this.handleMouseup);
+    if (this.img) {
+      this.quill.update('user');
+    }
+  }
+
+  hide() {
+    if (this.img) {
+      this.img.classList.remove('ql-image-resize-selected');
+      this.img = null;
+    }
+    if (this.overlay) {
+      this.overlay.parentNode?.removeChild(this.overlay);
+      this.overlay = null;
+    }
+    this.handles.forEach((h) => h.removeEventListener('mousedown', this.handleMousedown));
+    this.handles = [];
+  }
+}
+
+// Register the custom resize module once (module scope, not per-render).
+Quill.register('modules/imageResize', ImageResize);
 
 // ---------------------------------------------------------------------------
 // Custom numeric font-size options (like Microsoft Word), instead of the
@@ -31,10 +151,9 @@ const TOOLBAR_OPTIONS = [
   [{ header: [1, 2, 3, false] }],
   [{ size: [false, ...SIZE_OPTIONS.map((opt) => opt.value)] }],
   ['bold', 'italic', 'underline'],
-  ['link'],
+  ['link', 'image'],
   [{ list: 'ordered' }, { list: 'bullet' }],
-  ['blockquote'],
-  ['clean'],
+  ['blockquote', 'clean'],
 ];
 
 // Tooltip text (with keyboard shortcuts)
@@ -150,6 +269,32 @@ function ensureEditorStylesInjected() {
     .ql-toolbar.ql-snow .ql-picker-item[data-tooltip] {
       position: relative;
     }
+
+    /* Image resize overlay + handles */
+    .ql-image-resize-overlay {
+      position: absolute;
+      box-sizing: border-box;
+      border: 2px solid #3b82f6;
+      pointer-events: none;
+      z-index: 20;
+    }
+    .ql-image-resize-handle {
+      position: absolute;
+      width: 10px;
+      height: 10px;
+      background: #fff;
+      border: 2px solid #3b82f6;
+      border-radius: 2px;
+      pointer-events: all;
+      box-sizing: border-box;
+    }
+    .ql-image-resize-handle.nw { top: -6px; left: -6px; cursor: nwse-resize; }
+    .ql-image-resize-handle.ne { top: -6px; right: -6px; cursor: nesw-resize; }
+    .ql-image-resize-handle.se { bottom: -6px; right: -6px; cursor: nwse-resize; }
+    .ql-image-resize-handle.sw { bottom: -6px; left: -6px; cursor: nesw-resize; }
+    .ql-image-resize-selected {
+      outline: 2px solid rgba(59, 130, 246, 0.4);
+    }
   `;
   document.head.appendChild(style);
 }
@@ -178,8 +323,10 @@ export default function RichTextEditor({ value, onChange, placeholder, error }) 
           maxStack: 500,
           userOnly: true,
         },
+        imageDrop: true, // aktifin drag & drop + paste gambar
+        imageResize: true, // aktifin resize gambar
       },
-      formats: ['header', 'size', 'bold', 'italic', 'underline', 'link', 'list', 'blockquote', 'clean'],
+      formats: ['header', 'size', 'bold', 'italic', 'underline', 'link', 'list', 'blockquote', 'clean', 'image'],
     });
 
     quillRef.current = quill;
@@ -221,7 +368,7 @@ export default function RichTextEditor({ value, onChange, placeholder, error }) 
 
     // Only update if value from parent is different and not equal to empty editor default
     const isCurrentEmpty = currentHtml === '<p><br></p>' || currentHtml === '<p></p>';
-    
+
     if (incomingValue !== currentHtml && !(incomingValue === '' && isCurrentEmpty)) {
       isInternalChange.current = true;
       quill.clipboard.dangerouslyPasteHTML(incomingValue);
