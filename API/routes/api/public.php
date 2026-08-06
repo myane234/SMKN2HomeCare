@@ -4,6 +4,7 @@ use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\LayananController;
 use App\Http\Controllers\PromoController;
 use App\Http\Controllers\ArtikelController;
+use App\Http\Controllers\KategoriArtikelController;
 use App\Http\Controllers\PasienController;
 use App\Http\Controllers\KategoriLayananController;
 use App\Http\Controllers\WilayahLayananController;
@@ -18,6 +19,7 @@ Route::get('/promo/active', [PromoController::class, 'getActivePromos']);
 Route::get('/promo/{promo}', [PromoController::class, 'show']);
 
 Route::get('/artikel', [ArtikelController::class, 'index']);
+Route::get('/artikel/kategori', [KategoriArtikelController::class, 'index']);
 Route::get('/artikel/{artikel}', [ArtikelController::class, 'show']);
 
 Route::get('/pasien', [PasienController::class, 'index']);
