@@ -153,25 +153,23 @@ public function changeUnverifiedEmail(Request $request)
     $request->validate([
         'old_email' => ['required', 'email'],
         'new_email' => ['required', 'email', 'unique:users,email'],
-        'password'  => ['required', 'string'],
     ]);
 
     $user = Users::where('email', $request->old_email)->first();
 
-    if (!$user || !Hash::check($request->password, $user->password)) {
+    if (!$user) {
         return response()->json([
             'success' => false,
-            'message' => 'Email lama atau password salah.'
-        ], 401);
+            'message' => 'Data pendaftaran tidak ditemukan.'
+        ], 404);
     }
 
     if ($user->hasVerifiedEmail()) {
         return response()->json([
             'success' => false,
-            'message' => 'Email ini sudah terverifikasi. Silakan login dan ubah email via menu profil.'
+            'message' => 'Email ini sudah terverifikasi.'
         ], 400);
     }
-
 
     $user->email = $request->new_email;
     $user->save();
