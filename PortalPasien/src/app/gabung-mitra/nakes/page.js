@@ -12,7 +12,8 @@ import {
   FiCheckCircle,
   FiX,
   FiPlus,
-  FiTrash2
+  FiTrash2,
+  FiSearch
 } from 'react-icons/fi';
 import api from '@/services/api';
 import { DAFTAR_UNIVERSITAS } from '@/services/dataUniversitas';
@@ -47,12 +48,17 @@ export default function RegisterNakesPage() {
     alamat_lengkap: '',
   });
 
-  // State Geolocation/Peta (Step 1)
+  // State Geolocation/Peta & Search Alamat (Step 1)
   const [latitude, setLatitude] = useState(null);
   const [longitude, setLongitude] = useState(null);
   const [isLocationDenied, setIsLocationDenied] = useState(false);
   const [locationError, setLocationError] = useState('');
   const [isFetchingAddress, setIsFetchingAddress] = useState(false);
+  
+  // State Search Box Alamat Peta
+  const [searchAddressInput, setSearchAddressInput] = useState('');
+  const [addressSuggestions, setAddressSuggestions] = useState([]);
+  const [isSearchingAddress, setIsSearchingAddress] = useState(false);
 
   // State Layanan & Area Kerja (Step 1)
   const [listKategori, setListKategori] = useState([]);
@@ -61,6 +67,12 @@ export default function RegisterNakesPage() {
   const [selectedLayanan, setSelectedLayanan] = useState([]);
   const [idWilayahLayanan, setIdWilayahLayanan] = useState('');
   const [listProvinsi, setListProvinsi] = useState([]);
+
+  // Ref untuk menghindari stale closure listProvinsi saat map event/callback terpanggil
+  const listProvinsiRef = useRef([]);
+  useEffect(() => {
+    listProvinsiRef.current = listProvinsi;
+  }, [listProvinsi]);
 
   // 🔹 State Form Data - Step 2 (Pendidikan & Legalitas)
   const [pendidikan, setPendidikan] = useState({
@@ -89,62 +101,15 @@ export default function RegisterNakesPage() {
   const [apiUniversitas, setApiUniversitas] = useState([]);
   const [isSearchingUniv, setIsSearchingUniv] = useState(false);
 
-  // Debounced API fetch for universities
-  useEffect(() => {
-    const query = pendidikan.nama_universitas;
-    if (!query || query.trim().length < 2) {
-      setApiUniversitas([]);
-      return;
-    }
-
-    const delayDebounce = setTimeout(async () => {
-      setIsSearchingUniv(true);
-      try {
-        const res = await fetch(
-          `http://universities.hipolabs.com/search?country=Indonesia&name=${encodeURIComponent(query)}`
-        );
-        if (res.ok) {
-          const data = await res.json();
-          const names = data.map((item) => item.name);
-          setApiUniversitas(names);
-        }
-      } catch (err) {
-        console.error('Gagal mengambil data universitas dari API:', err);
-      } finally {
-        setIsSearchingUniv(false);
-      }
-    }, 450);
-
-    return () => clearTimeout(delayDebounce);
-  }, [pendidikan.nama_universitas]);
-
-  const filteredUniversitas = (() => {
-    const query = (pendidikan.nama_universitas || '').toLowerCase().trim();
-    if (!query) return [];
-
-    const localFiltered = DAFTAR_UNIVERSITAS.filter((nama) =>
-      nama.toLowerCase().includes(query)
-    );
-
-    const combined = [...localFiltered, ...apiUniversitas];
-    
-    const seen = new Set();
-    const unique = [];
-    for (const item of combined) {
-      const lower = item.toLowerCase();
-      if (!seen.has(lower)) {
-        seen.add(lower);
-        unique.push(item);
-      }
-    }
-    
-    return unique.slice(0, 20);
-  })();
-
   // 🔹 State Pernyataan
   const [isAgreed, setIsAgreed] = useState(false);
 
-  // Refs for File Inputs to restore File object upon step switching
+  // UI States
+  const [loading, setLoading] = useState(false);
+  const [successMessage, setSuccessMessage] = useState('');
+  const [errorMessage, setErrorMessage] = useState('');
+
+  // Refs untuk restore File Object saat navigasi step
   const ijazahRef = useRef(null);
   const strRef = useRef(null);
   const sipRef = useRef(null);
@@ -152,52 +117,147 @@ export default function RegisterNakesPage() {
   const ktpRef = useRef(null);
   const skckRef = useRef(null);
 
-  useEffect(() => {
-    if (step === 2) {
-      const restoreFile = (file, ref) => {
-        if (file && ref.current) {
-          try {
-            const dataTransfer = new DataTransfer();
-            dataTransfer.items.add(file);
-            ref.current.files = dataTransfer.files;
-          } catch (e) {
-            console.error('DataTransfer not supported or failed to assign file:', e);
-          }
-        }
-      };
-      const timer = setTimeout(() => {
-        restoreFile(dokumen.ijazah, ijazahRef);
-        restoreFile(legalitas.str, strRef);
-        restoreFile(legalitas.sip, sipRef);
-        restoreFile(dokumen.cv, cvRef);
-        restoreFile(dokumen.ktp, ktpRef);
-        restoreFile(dokumen.skck, skckRef);
-      }, 100);
-      return () => clearTimeout(timer);
-    }
-  }, [step, dokumen.ijazah, legalitas.str, legalitas.sip, dokumen.cv, dokumen.ktp, dokumen.skck]);
+  // Helper pembersih string nama provinsi/daerah untuk pencocokan akurat
+  const cleanText = (str) => {
+    if (!str) return '';
+    return String(str)
+      .toLowerCase()
+      .replace(/provinsi\s+/g, '')
+      .replace(/prov\.\s*/g, '')
+      .replace(/daerah khusus ibukota\s+/g, '')
+      .replace(/daerah istimewa\s+/g, '')
+      .replace(/dki\s+/g, '')
+      .replace(/d\.i\.\s*/g, '')
+      .replace(/di\s+/g, '')
+      .replace(/[\.\,\-]/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim();
+  };
 
-  const handleRemoveFile = (e, field, ref, stateType) => {
-    e.preventDefault();
-    e.stopPropagation();
-    
-    if (stateType === 'legalitas') {
-      setLegalitas((prev) => ({ ...prev, [field]: null }));
-    } else if (stateType === 'dokumen') {
-      setDokumen((prev) => ({ ...prev, [field]: null }));
-    }
-    
-    if (ref && ref.current) {
-      ref.current.value = '';
+  // Helper Auto-resolve Provinsi berdasarkan data alamat OpenStreetMap
+  const resolveProvince = (addressObj, displayName) => {
+    const provinces = listProvinsiRef.current.length > 0 ? listProvinsiRef.current : listProvinsi;
+    if (!provinces || provinces.length === 0) return;
+
+    const rawState = addressObj?.state || addressObj?.province || addressObj?.region || '';
+    const rawDisplay = displayName || '';
+
+    const cleanState = cleanText(rawState);
+    const cleanDisplay = cleanText(rawDisplay);
+
+    const matched = provinces.find((w) => {
+      const provName = w.nama_provinsi || '';
+      const cleanProv = cleanText(provName);
+
+      if (!cleanProv) return false;
+
+      // 1. Match langsung antara nama provinsi bersih dengan state/province dari Geocoder
+      if (cleanState && (cleanState.includes(cleanProv) || cleanProv.includes(cleanState))) {
+        return true;
+      }
+
+      // 2. Direct match raw string
+      if (rawState && (rawState.toLowerCase().includes(provName.toLowerCase()) || provName.toLowerCase().includes(rawState.toLowerCase()))) {
+        return true;
+      }
+
+      // 3. Fallback match dengan display_name alamat lengkap
+      if (cleanDisplay && cleanDisplay.includes(cleanProv)) {
+        return true;
+      }
+
+      return false;
+    });
+
+    if (matched) {
+      setIdWilayahLayanan(matched.id_provinsi);
     }
   };
 
-  // State UI
-  const [loading, setLoading] = useState(false);
-  const [successMessage, setSuccessMessage] = useState('');
-  const [errorMessage, setErrorMessage] = useState('');
+  // Re-run resolveProvince saat listProvinsi selesai dimuat (jika koordinat/alamat sudah ada)
+  useEffect(() => {
+    if (listProvinsi.length > 0 && formData.alamat_lengkap) {
+      resolveProvince(null, formData.alamat_lengkap);
+    }
+  }, [listProvinsi]);
 
-  // 🔹 Fetch Data (Kategori & Wilayah) + Geolocation
+  // Debounce API Search Alamat ke OpenStreetMap (Nominatim)
+  useEffect(() => {
+    if (!searchAddressInput || searchAddressInput.trim().length < 3) {
+      setAddressSuggestions([]);
+      return;
+    }
+
+    const timer = setTimeout(async () => {
+      setIsSearchingAddress(true);
+      try {
+        const res = await fetch(
+          `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(
+            searchAddressInput
+          )}&countrycodes=id&limit=5&addressdetails=1&accept-language=id`
+        );
+        if (res.ok) {
+          const data = await res.json();
+          setAddressSuggestions(data || []);
+        }
+      } catch (err) {
+        console.error('Gagal mencari alamat:', err);
+      } finally {
+        setIsSearchingAddress(false);
+      }
+    }, 400);
+
+    return () => clearTimeout(timer);
+  }, [searchAddressInput]);
+
+  const handleSelectAddressSuggestion = (item) => {
+    const lat = parseFloat(item.lat);
+    const lng = parseFloat(item.lon);
+    
+    setLatitude(lat);
+    setLongitude(lng);
+    setIsLocationDenied(false);
+    setLocationError('');
+
+    const addressText = item.display_name || '';
+    setFormData((prev) => ({
+      ...prev,
+      alamat_lengkap: addressText,
+    }));
+
+    resolveProvince(item.address, addressText);
+
+    setAddressSuggestions([]);
+    setSearchAddressInput('');
+  };
+
+  // Reverse Geocoding dari Lat/Lng GPS atau Pergeseran Peta
+  const fetchAddressAndWilayah = async (lat, lng) => {
+    if (!lat || !lng) return;
+    setIsFetchingAddress(true);
+    try {
+      const res = await fetch(
+        `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&accept-language=id&addressdetails=1`
+      );
+      if (res.ok) {
+        const data = await res.json();
+        if (data && data.display_name) {
+          setFormData((prev) => ({
+            ...prev,
+            alamat_lengkap: data.display_name,
+          }));
+
+          resolveProvince(data.address, data.display_name);
+        }
+      }
+    } catch (err) {
+      console.error('Gagal mengambil alamat dari GPS:', err);
+    } finally {
+      setIsFetchingAddress(false);
+    }
+  };
+
+  // Initial Fetch Data (Kategori & Wilayah) + Geolocation
   useEffect(() => {
     const fetchKategori = async () => {
       try {
@@ -224,50 +284,6 @@ export default function RegisterNakesPage() {
     handleGetCurrentLocation();
   }, []);
 
-  const fetchAddressAndWilayah = async (lat, lng) => {
-    if (!lat || !lng) return;
-    setIsFetchingAddress(true);
-    try {
-      const res = await fetch(
-        `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&accept-language=id`
-      );
-      if (res.ok) {
-        const data = await res.json();
-        if (data && data.display_name) {
-          setFormData((prev) => ({
-            ...prev,
-            alamat_lengkap: data.display_name,
-          }));
-
-          if (data.address && listProvinsi.length > 0) {
-            const stateStr = (
-              data.address.state || 
-              data.address.province || 
-              data.address.region || 
-              data.display_name || ''
-            ).toLowerCase();
-
-            const matched = listProvinsi.find((w) => {
-              const provName = (w.nama_provinsi || '').toLowerCase();
-              if (!provName) return false;
-              const cleanProv = provName.replace(/provinsi\s+/g, '').replace(/dki\s+/g, '').trim();
-              const cleanState = stateStr.replace(/provinsi\s+/g, '').replace(/daerah khusus ibukota\s+/g, '').trim();
-              return stateStr.includes(provName) || (cleanProv && cleanState.includes(cleanProv));
-            });
-
-            if (matched) {
-              setIdWilayahLayanan(matched.id_provinsi);
-            }
-          }
-        }
-      }
-    } catch (err) {
-      console.error('Gagal mengambil alamat dari GPS:', err);
-    } finally {
-      setIsFetchingAddress(false);
-    }
-  };
-
   const handleGetCurrentLocation = () => {
     if (!navigator.geolocation) {
       setIsLocationDenied(true);
@@ -293,6 +309,53 @@ export default function RegisterNakesPage() {
       { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
     );
   };
+
+  // Handle Restore Files pada Step Change
+  useEffect(() => {
+    if (step === 2) {
+      const restoreFile = (file, ref) => {
+        if (file && ref.current) {
+          try {
+            const dataTransfer = new DataTransfer();
+            dataTransfer.items.add(file);
+            ref.current.files = dataTransfer.files;
+          } catch (e) {
+            console.error('DataTransfer failed to assign file:', e);
+          }
+        }
+      };
+      const timer = setTimeout(() => {
+        restoreFile(dokumen.ijazah, ijazahRef);
+        restoreFile(legalitas.str, strRef);
+        restoreFile(legalitas.sip, sipRef);
+        restoreFile(dokumen.cv, cvRef);
+        restoreFile(dokumen.ktp, ktpRef);
+        restoreFile(dokumen.skck, skckRef);
+      }, 100);
+      return () => clearTimeout(timer);
+    }
+  }, [step, dokumen.ijazah, legalitas.str, legalitas.sip, dokumen.cv, dokumen.ktp, dokumen.skck]);
+
+  const filteredUniversitas = (() => {
+    const query = (pendidikan.nama_universitas || '').toLowerCase().trim();
+    if (!query) return [];
+
+    const localFiltered = DAFTAR_UNIVERSITAS.filter((nama) =>
+      nama.toLowerCase().includes(query)
+    );
+
+    const combined = [...localFiltered, ...apiUniversitas];
+    const seen = new Set();
+    const unique = [];
+    for (const item of combined) {
+      const lower = item.toLowerCase();
+      if (!seen.has(lower)) {
+        seen.add(lower);
+        unique.push(item);
+      }
+    }
+    return unique.slice(0, 20);
+  })();
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -339,11 +402,10 @@ export default function RegisterNakesPage() {
     } else if (stateType === 'dokumen') {
       setDokumen((prev) => ({ ...prev, [field]: file }));
     }
-    
     setErrorMessage('');
   };
 
-  // Step 1 Validation
+  // Validations per Step
   const validateStep1 = () => {
     if (formData.nik.length !== 16) {
       setErrorMessage('Nomor NIK harus terdiri dari 16 digit angka.');
@@ -372,7 +434,6 @@ export default function RegisterNakesPage() {
     return true;
   };
 
-  // Step 2 Validation
   const validateStep2 = () => {
     if (!pendidikan.nama_universitas.trim()) {
       setErrorMessage('Harap isi Nama Universitas/Institusi.');
@@ -401,7 +462,6 @@ export default function RegisterNakesPage() {
     return true;
   };
 
-  // Step 3 Validation
   const validateStep3 = () => {
     if (!dokumen.cv) {
       setErrorMessage('Harap unggah Curriculum Vitae (CV).');
@@ -442,10 +502,7 @@ export default function RegisterNakesPage() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-
-    if (!validateStep3()) {
-      return;
-    }
+    if (!validateStep3()) return;
 
     setLoading(true);
     setErrorMessage('');
@@ -454,9 +511,6 @@ export default function RegisterNakesPage() {
     try {
       const dataToSend = new FormData();
 
-      // ============================================================
-      // 🔹 FIELD TEKS
-      // ============================================================
       dataToSend.append('nik', formData.nik);
       dataToSend.append('nama_lengkap', formData.nama_lengkap);
       dataToSend.append('nama_panggilan', formData.nama_panggilan);
@@ -473,9 +527,6 @@ export default function RegisterNakesPage() {
       dataToSend.append('id_wilayah_layanan', idWilayahLayanan);
       dataToSend.append('is_agreed', isAgreed); 
 
-      // ============================================================
-      // 🔹 PENDIDIKAN & LEGALITAS
-      // ============================================================
       dataToSend.append('lulusan', pendidikan.nama_universitas); 
       dataToSend.append('program_studi', pendidikan.program_studi); 
       dataToSend.append('tahun_lulus', pendidikan.tahun_lulus); 
@@ -484,9 +535,6 @@ export default function RegisterNakesPage() {
         dataToSend.append('no_sip', legalitas.no_sip);
       }
       
-      // ============================================================
-      // 🔹 DOKUMEN
-      // ============================================================
       dataToSend.append('ijazah', dokumen.ijazah);
       dataToSend.append('file_str', legalitas.str); 
       if (legalitas.sip) {
@@ -512,7 +560,6 @@ export default function RegisterNakesPage() {
     }
   };
 
-  // Helper untuk step indicator
   const getStepLabel = () => {
     switch(step) {
       case 1: return 'Isi data pribadi, lokasi domisili, area kerja, dan kategori layanan';
@@ -714,7 +761,7 @@ export default function RegisterNakesPage() {
 
                 <hr className="my-4 border-gray-100" />
 
-                {/* 4. TITIK GPS (PETA) */}
+                {/* 4. TITIK GPS (PETA & SEARCH ALAMAT) */}
                 <div className="mb-3">
                   <h2 className="text-xs font-bold text-sky-700 uppercase tracking-wider">Titik GPS</h2>
                 </div>
@@ -724,38 +771,80 @@ export default function RegisterNakesPage() {
                     <button
                       type="button"
                       onClick={handleGetCurrentLocation}
-                      className="flex items-center gap-1.5 px-3 py-1.5 bg-sky-50 hover:bg-sky-100 text-sky-600 rounded-lg text-xs font-bold transition border border-sky-200"
+                      className="flex items-center gap-1.5 px-3 py-1.5 bg-sky-50 hover:bg-sky-100 text-sky-600 rounded-lg text-xs font-bold transition border border-sky-200 shrink-0"
                     >
                       <FiMapPin className="w-3.5 h-3.5" /> Gunakan Lokasi Saat Ini
                     </button>
                   </div>
-                  
+
+                  {/* 🔍 SEARCH BAR UNTUK CARI ALAMAT / KOTA */}
                   <div className="relative">
+                    <label className="block text-xs font-medium text-gray-600 mb-1">
+                      Cari Lokasi di Peta
+                    </label>
+                    <div className="relative flex items-center">
+                      <input
+                        type="text"
+                        value={searchAddressInput}
+                        onChange={(e) => setSearchAddressInput(e.target.value)}
+                        placeholder="Ketik nama jalan, gedung, atau kota..."
+                        className="w-full pl-9 pr-10 py-2 text-xs sm:text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-sky-500 outline-none"
+                      />
+                      <FiSearch className="w-4 h-4 text-gray-400 absolute left-3 pointer-events-none" />
+                      {isSearchingAddress && (
+                        <span className="absolute right-3 text-xs text-sky-500 animate-pulse font-semibold">
+                          Mencari...
+                        </span>
+                      )}
+                    </div>
+
+                    {/* Dropdown Hasil Pencarian Alamat */}
+                    {addressSuggestions.length > 0 && (
+                      <div className="absolute z-30 mt-1 w-full bg-white border border-gray-200 rounded-xl shadow-lg max-h-56 overflow-y-auto">
+                        {addressSuggestions.map((item, idx) => (
+                          <button
+                            key={idx}
+                            type="button"
+                            className="w-full px-3.5 py-2.5 text-left text-xs sm:text-sm hover:bg-sky-50 border-b border-gray-100 last:border-b-0 flex items-start gap-2 text-gray-700 transition"
+                            onClick={() => handleSelectAddressSuggestion(item)}
+                          >
+                            <FiMapPin className="w-4 h-4 text-sky-500 shrink-0 mt-0.5" />
+                            <span className="line-clamp-2">{item.display_name}</span>
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                  
+                  {/* MAP DISPLAY (BISA DIGESER / GESER MARKER) */}
+                  <div className="relative rounded-xl overflow-hidden border border-gray-200">
                     <MapPicker
                       lat={latitude}
                       lng={longitude}
                       onChange={(lat, lng) => {
                         setLatitude(lat);
                         setLongitude(lng);
+                        setIsLocationDenied(false);
+                        setLocationError('');
                         fetchAddressAndWilayah(lat, lng);
                       }}
                     />
                     {isFetchingAddress && (
-                      <div className="absolute inset-0 bg-white/60 flex items-center justify-center rounded-xl z-10">
-                        <span className="text-xs font-semibold text-gray-700 animate-pulse">Memperbarui alamat...</span>
+                      <div className="absolute inset-0 bg-white/60 flex items-center justify-center rounded-xl z-10 backdrop-blur-xs">
+                        <span className="text-xs font-semibold text-sky-700 animate-pulse">Memperbarui alamat & wilayah...</span>
                       </div>
                     )}
                   </div>
 
                   <div className="grid grid-cols-2 gap-3 p-3 bg-gray-50 rounded-xl border border-gray-100 text-xs">
-                    <div>
+                    {/* <div>
                       <span className="text-gray-400 block">Latitude</span>
                       <span className="font-mono text-gray-700 font-semibold">{latitude !== null ? latitude.toFixed(6) : '-'}</span>
                     </div>
                     <div>
                       <span className="text-gray-400 block">Longitude</span>
                       <span className="font-mono text-gray-700 font-semibold">{longitude !== null ? longitude.toFixed(6) : '-'}</span>
-                    </div>
+                    </div> */}
                   </div>
                 </div>
 
@@ -942,7 +1031,7 @@ export default function RegisterNakesPage() {
                       <input type="file" ref={ijazahRef} accept=".png,.jpg,.jpeg,.pdf" required={!dokumen.ijazah} onChange={(e) => handleFileChange(e, 'ijazah', 'dokumen')} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" />
                       <div className="flex flex-col items-center justify-center gap-1.5 text-xs">
                         <FiUpload className="w-6 h-6 text-sky-500" />
-                        <span>{dokumen.ijazah ? dokumen.ijazah.name : 'Klik untuk unggah Ijazah'}</span>
+                        <span>{dokumen.ijazah ? dokumen.ijazah.name : 'Klik me-unggah Ijazah'}</span>
                       </div>
                     </div>
                   </div>
