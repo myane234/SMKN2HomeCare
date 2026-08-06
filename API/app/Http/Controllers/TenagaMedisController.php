@@ -5,19 +5,14 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use App\Models\TenagaMedis;
 use App\Models\Pasien;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
-use Illuminate\Validation\Rule;
 
-/**
- * @group Tenaga Medis Panel
- * 
- * Endpoint Pendaftaran & Manajemen Profil Tenaga Medis (Nakes)
- * Syarat Wajib: User harus terautentikasi DAN sudah memiliki profil Pasien terdaftar.
- */
 class TenagaMedisController extends Controller
 {
     /**
-     * Endpoint Pendaftaran Nakes (4 Step FE)
+     * Endpoint Pendaftaran Nakes
      */
     public function register(Request $request)
     {
@@ -30,24 +25,24 @@ class TenagaMedisController extends Controller
             ], 401);
         }
 
-        // GUARD 1: User harus terdaftar sebagai Pasien
+        // GUARD 1: Harus terdaftar sebagai Pasien
         $pasien = Pasien::where('id_user', $user->id_user)->first();
 
         if (!$pasien) {
             return response()->json([
                 'success' => false,
-                'message' => 'Pendaftaran Nakes gagal. Anda harus terdaftar dan login sebagai Pasien terlebih dahulu.'
+                'message' => 'Pendaftaran Nakes gagal. Anda harus terdaftar sebagai Pasien terlebih dahulu.'
             ], 403);
         }
 
-        // GUARD 2: Cek pendaftaran nakes yang sudah ada
+        // GUARD 2: Cek pendaftaran existing
         $existingNakes = TenagaMedis::where('id_user', $user->id_user)->first();
 
         if ($existingNakes) {
             if (in_array($existingNakes->status, ['pending', 'pelatihan'])) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Permohonan pendaftaran Nakes Anda sedang diproses oleh admin. Harap tunggu persetujuan.'
+                    'message' => 'Permohonan pendaftaran Nakes Anda sedang diproses oleh admin.'
                 ], 400);
             }
 
@@ -59,129 +54,167 @@ class TenagaMedisController extends Controller
             }
         }
 
-        // VALIDASI INPUT 4 STEP DARI FE
+        // VALIDASI INPUT (gagal di sini = belum ada file kesentuh, aman)
         $validate = $request->validate([
-            // Step 1: Data Diri
-            'nama_lengkap'       => ['required', 'string', 'max:255'],
+            // Data Diri
             'nik'                => ['required', 'string', 'regex:/^[0-9]{16}$/'],
-            'jenis_kelamin'      => ['nullable', 'in:L,P'],
-            'tempat_lahir'       => ['nullable', 'string', 'max:255'],
-            'tanggal_lahir'      => ['nullable', 'date'],
-            'alamat_lengkap'     => ['nullable', 'string', 'max:1000'],
-            'no_telp'            => ['nullable', 'string', 'max:15'],
-            'foto_profile'       => ['required', 'image', 'mimes:jpeg,png,jpg,webp', 'max:5120'],
+            'nama_lengkap'       => ['required', 'string', 'max:255'],
+            'nama_panggilan'     => ['required', 'string', 'max:100'],
+            'jenis_kelamin'      => ['required', 'in:L,P'],
+            'tempat_lahir'       => ['required', 'string', 'max:255'],
+            'tanggal_lahir'      => ['required', 'date'],
+            'agama'              => ['required', 'string', 'max:50'],
+            'no_telp'            => ['required', 'string', 'max:15'],
+            'id_wilayah_layanan' => ['required', 'integer', 'exists:master_provinsi,id_provinsi'],
+            'alamat_lengkap'     => ['required', 'string', 'max:1000'],
+            'foto_profile'       => ['nullable', 'image', 'mimes:jpeg,png,jpg,webp', 'max:5120'],
 
-            // Step 2: Legalitas & Profesi
+            // Jenis Tenaga Medis (self-assign nakes)
             'jenis_tenaga_medis' => ['required', 'string', 'max:100'],
+
+            // Profesi & Pendidikan
+            'universitas'        => ['required', 'string', 'max:255'],
+            'program_studi'      => ['required', 'string', 'max:255'],
+            'tahun_lulus'        => ['required', 'digits:4', 'integer'],
             'no_str'             => ['required', 'string', 'max:255'],
-            'no_sip'             => ['nullable', 'string', 'max:255'],
-            'no_npwp'            => ['nullable', 'string', 'max:255'],
-            'lulusan'            => ['nullable', 'string', 'max:255'],
+            'no_sip'             => ['required', 'string', 'max:255'],
 
-            // Step 3: Upload Dokumen File
-            'ijazah'             => ['nullable', 'file', 'mimes:pdf,jpg,jpeg,png', 'max:5120'],
-            'sertifikat'         => ['nullable', 'file', 'mimes:pdf,jpg,jpeg,png', 'max:5120'],
-            'file_cv'            => ['nullable', 'file', 'mimes:pdf,doc,docx', 'max:5120'],
-            'file_skck'          => ['nullable', 'file', 'mimes:pdf,jpg,jpeg,png', 'max:5120'],
-            'file_str'           => ['nullable', 'file', 'mimes:pdf,jpg,jpeg,png', 'max:5120'],
-            'file_sip'           => ['nullable', 'file', 'mimes:pdf,jpg,jpeg,png', 'max:5120'],
+            // Berkas Utama
+            'file_ktp'           => ['required', 'file', 'mimes:pdf,jpg,jpeg,png', 'max:5120'],
+            'ijazah'             => ['required', 'file', 'mimes:pdf,jpg,jpeg,png', 'max:5120'],
+            'file_skck'          => ['required', 'file', 'mimes:pdf,jpg,jpeg,png', 'max:5120'],
+            'file_cv'            => ['required', 'file', 'mimes:pdf,doc,docx,jpg,jpeg,png', 'max:5120'],
+            'file_str'           => ['required', 'file', 'mimes:pdf,jpg,jpeg,png', 'max:5120'],
+            'file_sip'           => ['required', 'file', 'mimes:pdf,jpg,jpeg,png', 'max:5120'],
 
-            // Step 4: Pengalaman & Seminar (Array / JSON String)
-            'pengalaman_kerja'   => ['nullable'],
-            'seminar_pelatihan'  => ['nullable'],
-
-            // GPS Coordinates
-            'latitude'           => ['nullable', 'numeric'],
-            'longitude'          => ['nullable', 'numeric'],
-            'id_wilayah_layanan' => ['nullable', 'integer'],
+            // Nullable
+            'tempat_kerja'       => ['nullable', 'string', 'max:255'],
+            'lama_bekerja'       => ['nullable', 'string', 'max:100'],
+            'dokumen_tambahan'   => ['nullable', 'array', 'max:10'],
+            'dokumen_tambahan.*' => ['file', 'mimes:pdf,jpg,jpeg,png,doc,docx', 'max:5120'],
         ], [
-            'nik.required'          => 'NIK wajib diisi.',
-            'nik.regex'             => 'NIK harus tepat 16 digit angka.',
-            'nama_lengkap.required' => 'Nama lengkap wajib diisi.',
-            'no_str.required'       => 'Nomor STR wajib diisi.',
-            'foto_profile.required' => 'Foto profil medis wajib diunggah.',
-            'foto_profile.image'    => 'Foto profil harus berupa gambar.',
-            'foto_profile.max'      => 'Ukuran foto maksimal 5 MB.',
-            'jenis_tenaga_medis.required' => 'Jenis tenaga medis wajib dipilih.',
+            'nik.required'                => 'NIK wajib diisi.',
+            'nik.regex'                   => 'NIK harus tepat 16 digit angka.',
+            'nama_lengkap.required'       => 'Nama lengkap wajib diisi.',
+            'nama_panggilan.required'     => 'Nama panggilan wajib diisi.',
+            'id_wilayah_layanan.required' => 'Wilayah operasional wajib dipilih.',
+            'id_wilayah_layanan.exists'   => 'Wilayah operasional tidak valid.',
+            'jenis_tenaga_medis.required' => 'Kategori/jenis tenaga medis wajib dipilih.',
+            'no_str.required'             => 'Nomor STR wajib diisi.',
+            'no_sip.required'             => 'Nomor SIP wajib diisi.',
+            'file_ktp.required'           => 'Foto KTP wajib diunggah.',
+            'ijazah.required'             => 'Foto Ijazah wajib diunggah.',
+            'file_skck.required'          => 'Foto SKCK wajib diunggah.',
+            'file_cv.required'            => 'File CV wajib diunggah.',
+            'file_str.required'           => 'Foto STR wajib diunggah.',
+            'file_sip.required'           => 'Foto SIP wajib diunggah.',
+            'dokumen_tambahan.max'        => 'Dokumen tambahan maksimal 10 file.',
+            'dokumen_tambahan.*.mimes'    => 'Dokumen tambahan harus berupa PDF, gambar, atau Word.',
         ]);
 
-        // HELPER UPLOAD FILE
-        $uploadFile = function ($fieldName, $folder = 'uploads/nakes/docs') use ($request) {
+        // Tracking semua path yang berhasil ke-upload, buat cleanup kalau proses gagal
+        $uploadedPaths = [];
+
+        $uploadFile = function ($fieldName, $folder = 'uploads/nakes/docs') use ($request, &$uploadedPaths) {
             if ($request->hasFile($fieldName)) {
                 $file = $request->file($fieldName);
                 $filename = $fieldName . '_' . time() . '_' . uniqid() . '.' . $file->getClientOriginalExtension();
                 $path = $file->storeAs($folder, $filename, 'public');
+                $uploadedPaths[] = $path;
                 return '/storage/' . $path;
             }
             return null;
         };
 
-        // Kumpulkan Lokasi File
-        $filesData = [
-            'foto_profile' => $uploadFile('foto_profile', 'uploads/nakes/profiles'),
-            'ijazah'       => $uploadFile('ijazah'),
-            'sertifikat'   => $uploadFile('sertifikat'),
-            'file_cv'      => $uploadFile('file_cv'),
-            'file_skck'    => $uploadFile('file_skck'),
-            'file_str'     => $uploadFile('file_str'),
-            'file_sip'     => $uploadFile('file_sip'),
-        ];
+        try {
+            // Upload dulu (di luar DB transaction, karena storage bukan bagian dari transaction)
+            $dokumenTambahanPaths = [];
+            if ($request->hasFile('dokumen_tambahan')) {
+                foreach ($request->file('dokumen_tambahan') as $file) {
+                    $filename = 'doc_extra_' . time() . '_' . uniqid() . '.' . $file->getClientOriginalExtension();
+                    $path = $file->storeAs('uploads/nakes/docs_extra', $filename, 'public');
+                    $uploadedPaths[] = $path;
+                    $dokumenTambahanPaths[] = '/storage/' . $path;
+                }
+            }
 
-        // Decodes JSON String jika dikirim via FormData FE
-        $pengalaman = $request->input('pengalaman_kerja');
-        if (is_string($pengalaman)) {
-            $pengalaman = json_decode($pengalaman, true);
+            $filesData = [
+                'foto_profile' => $uploadFile('foto_profile', 'uploads/nakes/profiles'),
+                'file_ktp'     => $uploadFile('file_ktp'),
+                'ijazah'       => $uploadFile('ijazah'),
+                'file_skck'    => $uploadFile('file_skck'),
+                'file_cv'      => $uploadFile('file_cv'),
+                'file_str'     => $uploadFile('file_str'),
+                'file_sip'     => $uploadFile('file_sip'),
+            ];
+
+            // Baru masuk transaction pas nulis ke DB
+            $nakes = DB::transaction(function () use (
+                $user, $pasien, $validate, $filesData, $dokumenTambahanPaths, $existingNakes
+            ) {
+                return TenagaMedis::updateOrCreate(
+                    ['id_user' => $user->id_user],
+                    [
+                        'id_pasien'          => $pasien->id_pasien,
+                        'id_wilayah_layanan' => $validate['id_wilayah_layanan'],
+
+                        'nik'                => $validate['nik'],
+                        'nama_lengkap'       => $validate['nama_lengkap'],
+                        'nama_panggilan'     => $validate['nama_panggilan'],
+                        'jenis_kelamin'      => $validate['jenis_kelamin'],
+                        'tempat_lahir'       => $validate['tempat_lahir'],
+                        'tanggal_lahir'      => $validate['tanggal_lahir'],
+                        'agama'              => $validate['agama'],
+                        'no_telp'            => $validate['no_telp'],
+                        'alamat_lengkap'     => $validate['alamat_lengkap'],
+
+                        'jenis_tenaga_medis' => $validate['jenis_tenaga_medis'],
+
+                        'universitas'        => $validate['universitas'],
+                        'program_studi'      => $validate['program_studi'],
+                        'tahun_lulus'        => $validate['tahun_lulus'],
+                        'no_str'             => $validate['no_str'],
+                        'no_sip'             => $validate['no_sip'],
+
+                        'foto_profile'       => $filesData['foto_profile'] ?? $existingNakes?->foto_profile,
+                        'file_ktp'           => $filesData['file_ktp'] ?? $existingNakes?->file_ktp,
+                        'ijazah'             => $filesData['ijazah'] ?? $existingNakes?->ijazah,
+                        'file_skck'          => $filesData['file_skck'] ?? $existingNakes?->file_skck,
+                        'file_cv'            => $filesData['file_cv'] ?? $existingNakes?->file_cv,
+                        'file_str'           => $filesData['file_str'] ?? $existingNakes?->file_str,
+                        'file_sip'           => $filesData['file_sip'] ?? $existingNakes?->file_sip,
+
+                        'tempat_kerja'       => $validate['tempat_kerja'] ?? null,
+                        'lama_bekerja'       => $validate['lama_bekerja'] ?? null,
+                        'dokumen_tambahan'   => !empty($dokumenTambahanPaths) ? $dokumenTambahanPaths : ($existingNakes?->dokumen_tambahan ?? null),
+
+                        'status'             => 'pending',
+                        'admin_notes'        => null,
+                    ]
+                );
+            });
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Pendaftaran Nakes berhasil dikirim. Menunggu persetujuan admin.',
+                'data'    => $nakes
+            ], 201);
+
+        } catch (\Throwable $e) {
+            // GAGAL -> bersihin semua file yang sempet ke-upload, jangan nyampah
+            foreach ($uploadedPaths as $path) {
+                if (Storage::disk('public')->exists($path)) {
+                    Storage::disk('public')->delete($path);
+                }
+            }
+
+            Log::error('Gagal register Nakes: ' . $e->getMessage());
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Pendaftaran Nakes gagal diproses. Silakan coba lagi.'
+            ], 500);
         }
-
-        $seminar = $request->input('seminar_pelatihan');
-        if (is_string($seminar)) {
-            $seminar = json_decode($seminar, true);
-        }
-
-        // SIMPAN / RE-APPLY DATA KE TABEL TENAGA_MEDIS
-        $nakes = TenagaMedis::updateOrCreate(
-            ['id_user' => $user->id_user],
-            [
-                'id_pasien'          => $pasien->id_pasien,
-                'id_wilayah_layanan' => $validate['id_wilayah_layanan'] ?? null,
-                'nama_lengkap'       => $validate['nama_lengkap'],
-                'nik'                => $validate['nik'],
-                'jenis_kelamin'      => $validate['jenis_kelamin'] ?? null,
-                'tempat_lahir'       => $validate['tempat_lahir'] ?? null,
-                'tanggal_lahir'      => $validate['tanggal_lahir'] ?? null,
-                'alamat_lengkap'     => $validate['alamat_lengkap'] ?? null,
-                'no_telp'            => $validate['no_telp'] ?? null,
-                
-                'jenis_tenaga_medis' => $validate['jenis_tenaga_medis'],
-                'no_str'             => $validate['no_str'],
-                'no_sip'             => $validate['no_sip'] ?? null,
-                'no_npwp'            => $validate['no_npwp'] ?? null,
-                'lulusan'            => $validate['lulusan'] ?? null,
-
-                'foto_profile'       => $filesData['foto_profile'] ?? $existingNakes?->foto_profile,
-                'ijazah'             => $filesData['ijazah'] ?? $existingNakes?->ijazah,
-                'sertifikat'         => $filesData['sertifikat'] ?? $existingNakes?->sertifikat,
-                'file_cv'            => $filesData['file_cv'] ?? $existingNakes?->file_cv,
-                'file_skck'          => $filesData['file_skck'] ?? $existingNakes?->file_skck,
-                'file_str'           => $filesData['file_str'] ?? $existingNakes?->file_str,
-                'file_sip'           => $filesData['file_sip'] ?? $existingNakes?->file_sip,
-
-                'pengalaman_kerja'   => $pengalaman,
-                'seminar_pelatihan'  => $seminar,
-
-                'latitude'           => $validate['latitude'] ?? null,
-                'longitude'          => $validate['longitude'] ?? null,
-
-                'status'             => 'pending',
-                'admin_notes'        => null,
-            ]
-        );
-
-        return response()->json([
-            'success' => true,
-            'message' => 'Pendaftaran Nakes berhasil dikirim. Menunggu persetujuan admin.',
-            'data'    => $nakes
-        ], 201);
     }
 
     /**
@@ -198,7 +231,6 @@ class TenagaMedisController extends Controller
             ], 401);
         }
 
-        // Menambahkan 'wilayahLayanan' ke dalam with()
         $tenagaMedis = TenagaMedis::with(['user', 'pasien', 'kategoriLayanan', 'wilayahLayanan'])
             ->where('id_user', $user->id_user)
             ->first();
@@ -217,63 +249,58 @@ class TenagaMedisController extends Controller
     }
 
     /**
-     * Update Detail Profil Nakes
+     * Update Profil Nakes
      */
     public function update(Request $request)
     {
         $user = $request->user();
 
         if (!$user) {
-            return response()->json([
-                'success' => false,
-                'message' => 'User tidak ditemukan.'
-            ], 401);
+            return response()->json(['success' => false, 'message' => 'User tidak ditemukan.'], 401);
         }
 
         $tenagaMedis = TenagaMedis::where('id_user', $user->id_user)->first();
 
         if (!$tenagaMedis) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Data Tenaga Medis tidak ditemukan.'
-            ], 404);
+            return response()->json(['success' => false, 'message' => 'Data Tenaga Medis tidak ditemukan.'], 404);
         }
 
         $validated = $request->validate([
-            'nama_lengkap'       => ['sometimes', 'required', 'string', 'max:255'],
             'nik'                => ['sometimes', 'required', 'string', 'regex:/^[0-9]{16}$/'],
-            'jenis_kelamin'      => ['sometimes', 'nullable', 'in:L,P'],
-            'tempat_lahir'       => ['sometimes', 'nullable', 'string', 'max:255'],
-            'tanggal_lahir'      => ['sometimes', 'nullable', 'date'],
-            'alamat_lengkap'     => ['sometimes', 'nullable', 'string', 'max:1000'],
-            'no_telp'            => ['sometimes', 'nullable', 'string', 'max:15'],
-
+            'nama_lengkap'       => ['sometimes', 'required', 'string', 'max:255'],
+            'nama_panggilan'     => ['sometimes', 'nullable', 'string', 'max:100'],
+            'jenis_kelamin'      => ['sometimes', 'required', 'in:L,P'],
+            'tempat_lahir'       => ['sometimes', 'required', 'string', 'max:255'],
+            'tanggal_lahir'      => ['sometimes', 'required', 'date'],
+            'agama'              => ['sometimes', 'required', 'string', 'max:50'],
+            'no_telp'            => ['sometimes', 'required', 'string', 'max:15'],
+            'id_wilayah_layanan' => ['sometimes', 'required', 'integer'],
+            'alamat_lengkap'     => ['sometimes', 'required', 'string', 'max:1000'],
+            
             'jenis_tenaga_medis' => ['sometimes', 'required', 'string', 'max:100'],
+            'universitas'        => ['sometimes', 'required', 'string', 'max:255'],
+            'program_studi'      => ['sometimes', 'required', 'string', 'max:255'],
+            'tahun_lulus'        => ['sometimes', 'required', 'digits:4', 'integer'],
             'no_str'             => ['sometimes', 'required', 'string', 'max:255'],
             'no_sip'             => ['sometimes', 'nullable', 'string', 'max:255'],
-            'no_npwp'            => ['sometimes', 'nullable', 'string', 'max:255'],
-            'lulusan'            => ['sometimes', 'nullable', 'string', 'max:255'],
 
             'foto_profile'       => ['sometimes', 'image', 'mimes:jpeg,png,jpg,webp', 'max:5120'],
+            'file_ktp'           => ['sometimes', 'file', 'mimes:pdf,jpg,jpeg,png', 'max:5120'],
             'ijazah'             => ['sometimes', 'file', 'mimes:pdf,jpg,jpeg,png', 'max:5120'],
-            'sertifikat'         => ['sometimes', 'file', 'mimes:pdf,jpg,jpeg,png', 'max:5120'],
-            'file_cv'            => ['sometimes', 'file', 'mimes:pdf,doc,docx', 'max:5120'],
             'file_skck'          => ['sometimes', 'file', 'mimes:pdf,jpg,jpeg,png', 'max:5120'],
+            'file_cv'            => ['sometimes', 'file', 'mimes:pdf,doc,docx', 'max:5120'],
             'file_str'           => ['sometimes', 'file', 'mimes:pdf,jpg,jpeg,png', 'max:5120'],
             'file_sip'           => ['sometimes', 'file', 'mimes:pdf,jpg,jpeg,png', 'max:5120'],
 
-            'pengalaman_kerja'   => ['sometimes', 'nullable'],
-            'seminar_pelatihan'  => ['sometimes', 'nullable'],
-
-            'latitude'           => ['sometimes', 'nullable', 'numeric'],
-            'longitude'          => ['sometimes', 'nullable', 'numeric'],
-            'id_wilayah_layanan' => ['sometimes', 'nullable', 'integer'],
+            'tempat_kerja'       => ['sometimes', 'nullable', 'string', 'max:255'],
+            'lama_bekerja'       => ['sometimes', 'nullable', 'string', 'max:100'],
+            'dokumen_tambahan'   => ['sometimes', 'array', 'max:10'],
+            'dokumen_tambahan.*' => ['file', 'mimes:pdf,jpg,jpeg,png,doc,docx', 'max:5120'],
 
             'kategori_layanan'   => ['sometimes', 'array'],
             'kategori_layanan.*' => ['exists:kategori_layanan,id_kategori_layanan'],
         ]);
 
-        // Helper update file
         $uploadFile = function ($fieldName, $folder = 'uploads/nakes/docs') use ($request) {
             if ($request->hasFile($fieldName)) {
                 $file = $request->file($fieldName);
@@ -284,8 +311,8 @@ class TenagaMedisController extends Controller
             return null;
         };
 
-        // File Updates
-        $fileFields = ['foto_profile', 'ijazah', 'sertifikat', 'file_cv', 'file_skck', 'file_str', 'file_sip'];
+        // File Single
+        $fileFields = ['foto_profile', 'file_ktp', 'ijazah', 'file_skck', 'file_cv', 'file_str', 'file_sip'];
         foreach ($fileFields as $field) {
             $folder = ($field === 'foto_profile') ? 'uploads/nakes/profiles' : 'uploads/nakes/docs';
             $uploadedPath = $uploadFile($field, $folder);
@@ -294,19 +321,20 @@ class TenagaMedisController extends Controller
             }
         }
 
-        // Handle JSON Arrays jika berupa String
-        if (isset($validated['pengalaman_kerja']) && is_string($validated['pengalaman_kerja'])) {
-            $validated['pengalaman_kerja'] = json_decode($validated['pengalaman_kerja'], true);
-        }
-
-        if (isset($validated['seminar_pelatihan']) && is_string($validated['seminar_pelatihan'])) {
-            $validated['seminar_pelatihan'] = json_decode($validated['seminar_pelatihan'], true);
+        // Multiple files
+        if ($request->hasFile('dokumen_tambahan')) {
+            $newExtraPaths = [];
+            foreach ($request->file('dokumen_tambahan') as $file) {
+                $filename = 'doc_extra_' . time() . '_' . uniqid() . '.' . $file->getClientOriginalExtension();
+                $path = $file->storeAs('uploads/nakes/docs_extra', $filename, 'public');
+                $newExtraPaths[] = '/storage/' . $path;
+            }
+            $validated['dokumen_tambahan'] = $newExtraPaths;
         }
 
         $tenagaMedis->fill($validated);
         $tenagaMedis->save();
 
-        // Sync Relasi Kategori Layanan jika disertakan
         if ($request->has('kategori_layanan')) {
             $tenagaMedis->kategoriLayanan()->sync($request->kategori_layanan);
         }
@@ -319,33 +347,47 @@ class TenagaMedisController extends Controller
     }
 
     /**
-     * Hapus Profil Nakes
+     * Hapus Profil Nakes (Cleanup File)
      */
     public function destroy(Request $request)
     {
         $user = $request->user();
 
         if (!$user) {
-            return response()->json([
-                'success' => false,
-                'message' => 'User tidak ditemukan.'
-            ], 401);
+            return response()->json(['success' => false, 'message' => 'User tidak ditemukan.'], 401);
         }
 
         $tenagaMedis = TenagaMedis::where('id_user', $user->id_user)->first();
 
         if (!$tenagaMedis) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Data Tenaga Medis tidak ditemukan.'
-            ], 404);
+            return response()->json(['success' => false, 'message' => 'Data Tenaga Medis tidak ditemukan.'], 404);
+        }
+
+        $singleFiles = ['foto_profile', 'file_ktp', 'ijazah', 'file_skck', 'file_cv', 'file_str', 'file_sip'];
+        foreach ($singleFiles as $field) {
+            if ($tenagaMedis->$field) {
+                $path = str_replace('/storage/', '', $tenagaMedis->$field);
+                if (Storage::disk('public')->exists($path)) {
+                    Storage::disk('public')->delete($path);
+                }
+            }
+        }
+
+        // Clean up dokumen tambahan
+        if (is_array($tenagaMedis->dokumen_tambahan)) {
+            foreach ($tenagaMedis->dokumen_tambahan as $extraPath) {
+                $path = str_replace('/storage/', '', $extraPath);
+                if (Storage::disk('public')->exists($path)) {
+                    Storage::disk('public')->delete($path);
+                }
+            }
         }
 
         $tenagaMedis->delete();
 
         return response()->json([
             'success' => true,
-            'message' => 'Data Nakes berhasil dihapus.'
+            'message' => 'Data Nakes dan seluruh berkas berhasil dihapus.'
         ], 200);
     }
 }

@@ -6,52 +6,50 @@ use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
 {
-    /**
-     * Run the migrations.
-     */
     public function up(): void
     {
         Schema::create('tenaga_medis', function (Blueprint $table) {
-            // Primary Key & Foreign Keys
             $table->bigIncrements('id_tenaga_medis');
-            $table->unsignedBigInteger('id_user')->index('tenaga_medis_id_user_foreign');
-            $table->unsignedBigInteger('id_pasien')->nullable()->index('tenaga_medis_id_pasien_foreign');
-            $table->unsignedBigInteger('id_wilayah_layanan')->nullable()->index('tenaga_medis_id_wilayah_layanan_foreign');
+            $table->unsignedBigInteger('id_user')->unique()->index('tenaga_medis_id_user_foreign');
+            $table->unsignedBigInteger('id_pasien')->index('tenaga_medis_id_pasien_foreign');
+            $table->unsignedBigInteger('id_wilayah_layanan')->index('tenaga_medis_id_wilayah_layanan_foreign');
 
-            // STEP 1: Data Diri & Profil Dasar
+            // DATA DIRI
+            $table->string('nik', 16)->unique();
             $table->string('nama_lengkap');
-            $table->string('nik', 16)->nullable();
-            $table->enum('jenis_kelamin', ['L', 'P'])->nullable();
-            $table->string('tempat_lahir')->nullable();
-            $table->date('tanggal_lahir')->nullable();
-            $table->string('alamat_lengkap', 1000)->nullable();
-            $table->string('no_telp', 15)->nullable();
+            $table->string('nama_panggilan', 100);
+            $table->enum('jenis_kelamin', ['L', 'P']);
+            $table->string('tempat_lahir');
+            $table->date('tanggal_lahir');
+            $table->string('agama', 50);
+            $table->string('no_telp', 15);
+            $table->text('alamat_lengkap');
             $table->string('foto_profile')->nullable();
 
-            // STEP 2: Legalitas & Profesi
+            // JENIS TENAGA MEDIS (self-assign oleh nakes pas register)
             $table->string('jenis_tenaga_medis', 100);
+
+            // PENDIDIKAN & LEGALITAS
+            $table->string('universitas');
+            $table->string('program_studi');
+            $table->year('tahun_lulus');
             $table->string('no_str');
-            $table->string('no_sip')->nullable();
-            $table->string('no_npwp')->nullable();
-            $table->string('lulusan')->nullable();
+            $table->string('no_sip');
 
-            // STEP 3: Upload Dokumen (Path File Storage)
-            $table->string('ijazah')->nullable();
-            $table->string('sertifikat')->nullable();
-            $table->string('file_cv')->nullable();
-            $table->string('file_skck')->nullable();
-            $table->string('file_str')->nullable();
-            $table->string('file_sip')->nullable();
+            // BERKAS UTAMA
+            $table->string('file_ktp');
+            $table->string('ijazah');
+            $table->string('file_skck');
+            $table->string('file_cv');
+            $table->string('file_str');
+            $table->string('file_sip');
 
-            // STEP 4: Pengalaman & Seminar (Format JSON)
-            $table->json('pengalaman_kerja')->nullable();
-            $table->json('seminar_pelatihan')->nullable();
+            // NULLABLE
+            $table->string('tempat_kerja')->nullable();
+            $table->string('lama_bekerja')->nullable();
+            $table->json('dokumen_tambahan')->nullable();
 
-            // LOKASI (GPS Coordinates)
-            $table->decimal('latitude', 10, 8)->nullable();
-            $table->decimal('longitude', 11, 8)->nullable();
-
-            // VERIFIKASI & STATUS
+            // STATUS & VERIFIKASI (dipegang admin, approve/reject doang)
             $table->enum('status', ['pending', 'pelatihan', 'approved', 'rejected'])->default('pending');
             $table->text('admin_notes')->nullable();
 
@@ -59,9 +57,6 @@ return new class extends Migration
         });
     }
 
-    /**
-     * Reverse the migrations.
-     */
     public function down(): void
     {
         Schema::dropIfExists('tenaga_medis');

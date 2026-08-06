@@ -17,65 +17,63 @@ class TenagaMedis extends Model
         'id_pasien',
         'id_wilayah_layanan',
 
-        'nama_lengkap',
+        // Data Diri
         'nik',
+        'nama_lengkap',
+        'nama_panggilan',
         'jenis_kelamin',
         'tempat_lahir',
         'tanggal_lahir',
-        'alamat_lengkap',
+        'agama',
         'no_telp',
+        'alamat_lengkap',
         'foto_profile',
 
+        // Pendidikan & Legalitas
         'jenis_tenaga_medis',
+        'universitas',
+        'program_studi',
+        'tahun_lulus',
         'no_str',
         'no_sip',
-        'no_npwp',
-        'lulusan',
 
-   
+        // File Berkas Utama
+        'file_ktp',
         'ijazah',
-        'sertifikat',
-        'file_cv',
         'file_skck',
+        'file_cv',
         'file_str',
         'file_sip',
 
-  
-        'pengalaman_kerja',
-        'seminar_pelatihan',
+        // Nullable Fields
+        'tempat_kerja',
+        'lama_bekerja',
+        'dokumen_tambahan',
 
-
-        'latitude',
-        'longitude',
-
-
+        // Status
         'status',
         'admin_notes',
     ];
 
-
     protected $casts = [
-        'pengalaman_kerja'  => 'array',
-        'seminar_pelatihan' => 'array',
-        'tanggal_lahir'     => 'date',
+        'dokumen_tambahan' => 'array',
+        'tanggal_lahir'    => 'date',
     ];
 
-  
     public function user()
     {
         return $this->belongsTo(Users::class, 'id_user', 'id_user');
     }
 
-   
     public function pasien()
     {
         return $this->belongsTo(Pasien::class, 'id_pasien', 'id_pasien');
     }
-    
+
     public function wilayahLayanan()
-    {
-        return $this->belongsTo(WilayahLayanan::class, 'id_wilayah_layanan', 'id_wilayah_layanan');
-    }
+{
+    return $this->belongsTo(WilayahLayanan::class, 'id_wilayah_layanan', 'id_provinsi');
+}
 
     public function kategoriLayanan()
     {
