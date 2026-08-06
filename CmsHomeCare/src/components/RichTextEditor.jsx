@@ -2,6 +2,8 @@ import { useEffect, useRef } from 'react';
 import Quill from 'quill';
 import ImageDrop from 'quill-image-drop-and-paste';
 import 'quill/dist/quill.snow.css';
+import { URL } from '../utils/getUrl.js';
+import { getAuthHeaders, handleUnauthorized } from '../utils/auth.js';
 
 // Register drag & drop + paste image module once (module scope, not per-render).
 Quill.register('modules/imageDrop', ImageDrop);
@@ -299,6 +301,47 @@ function ensureEditorStylesInjected() {
   document.head.appendChild(style);
 }
 
+// Upload gambar drag & drop / paste ke server, lalu sisipkan URL yang
+// dikembalikan. Dengan ini `isi_artikel` tidak menyimpan base64 raksasa,
+// sehingga request POST /artikel tetap kecil dan terhindar dari error
+// melebihi batas ukuran body serta gagal autentikasi.
+async function uploadImage(file) {
+  const formData = new FormData();
+  formData.append('image', file);
+
+  const res = await fetch(`${URL}/artikel/upload-images`, {
+    method: 'POST',
+    headers: getAuthHeaders({ Accept: 'application/json' }),
+    body: formData,
+  });
+
+if (res.status === 401) {
+    handleUnauthorized();
+    throw new Error('Sesi berakhir. Silakan login kembali.');
+  }
+
+  if (!res.ok) {
+    const body = await res.json().catch(() => null);
+    throw new Error(body?.message || 'Gagal mengunggah gambar');
+  }
+
+const body = await res.json();
+  const urls = body?.urls;
+  if (Array.isArray(urls) && urls.length > 0) {
+    // Backend mengembalikan URL absolut (mis. http://localhost/storage/...)
+    // karena APP_URL di backend = http://localhost. Di sini kita ubah menjadi
+    // path relatif /storage/... agar gambar termuat lewat Vite proxy (dev)
+    // atau domain frontend (produksi), bukan localhost yang tak bisa diakses.
+    const raw = urls[0];
+    if (typeof raw === 'string' && raw.includes('/storage/')) {
+      const pathPart = raw.substring(raw.indexOf('/storage/'));
+      return pathPart;
+    }
+    return raw;
+  }
+  throw new Error('URL gambar tidak ditemukan');
+}
+
 export default function RichTextEditor({ value, onChange, placeholder, error }) {
   const containerRef = useRef(null);
   const quillRef = useRef(null);
@@ -323,10 +366,28 @@ export default function RichTextEditor({ value, onChange, placeholder, error }) 
           maxStack: 500,
           userOnly: true,
         },
-        imageDrop: true, // aktifin drag & drop + paste gambar
+        imageDrop: {
+          // handler terpanggil setiap kali gambar di-drop / di-paste.
+          handler: async (dataUrl, type, imageData) => {
+            const index = quill.getSelection(true)?.index ?? quill.getLength() - 1;
+            try {
+              const file = imageData.toFile ? imageData.toFile() : dataUrl;
+              const url = await uploadImage(file);
+              quill.insertEmbed(index, 'image', url, 'user');
+              quill.setSelection(index + 1);
+            } catch (err) {
+              // Fallback: sisipkan base64 langsung agar artikel tetap bisa
+              // disimpan, meskipun upload ke server gagal (mis. token login
+              // sudah tidak valid / belum login ulang).
+console.warn('Upload ke server gagal, pakai base64:', err.message);
+              quill.insertEmbed(index, 'image', dataUrl, 'user');
+              quill.setSelection(index + 1);
+            }
+          },
+        },
         imageResize: true, // aktifin resize gambar
       },
-      formats: ['header', 'size', 'bold', 'italic', 'underline', 'link', 'list', 'blockquote', 'clean', 'image'],
+      formats: ['header', 'size', 'bold', 'italic', 'underline', 'link', 'list', 'blockquote', 'image'],
     });
 
     quillRef.current = quill;
