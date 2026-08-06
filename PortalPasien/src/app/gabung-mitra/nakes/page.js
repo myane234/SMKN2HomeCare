@@ -8,7 +8,6 @@ import {
   FiArrowRight, 
   FiArrowLeft,
   FiMapPin,
-  FiAlertCircle,
   FiCheckCircle,
   FiX,
   FiPlus,
@@ -16,8 +15,10 @@ import {
 } from 'react-icons/fi';
 import api from '@/services/api';
 import { DAFTAR_UNIVERSITAS } from '@/services/dataUniversitas';
+import { getProfileMe } from '@/services/profileService';
+import { registerNakes, getWilayahLayanan, getKategoriLayanan } from '@/services/nakesService';
 
-// Dynamic import MapPicker untuk menghindari SSR error dari Leaflet
+// Dynamic import MapPicker
 const MapPicker = dynamic(() => import('@/components/MapPicker'), {
   ssr: false,
   loading: () => (
@@ -30,10 +31,10 @@ const MapPicker = dynamic(() => import('@/components/MapPicker'), {
 export default function RegisterNakesPage() {
   const router = useRouter();
 
-  // 🔹 State Kontrol Multi-Step (1-3)
+  // 🔹 State Kontrol Multi-Step
   const [step, setStep] = useState(1);
 
-  // 🔹 State Form Data - Step 1 (Data Diri & Domisili)
+  // 🔹 State Form Data - Step 1
   const [formData, setFormData] = useState({
     nik: '',
     nama_lengkap: '',
@@ -47,14 +48,14 @@ export default function RegisterNakesPage() {
     alamat_lengkap: '',
   });
 
-  // State Geolocation/Peta (Step 1)
+  // State Geolocation/Peta
   const [latitude, setLatitude] = useState(null);
   const [longitude, setLongitude] = useState(null);
   const [isLocationDenied, setIsLocationDenied] = useState(false);
   const [locationError, setLocationError] = useState('');
   const [isFetchingAddress, setIsFetchingAddress] = useState(false);
 
-  // State Layanan & Area Kerja (Step 1)
+  // State Layanan & Area Kerja
   const [listKategori, setListKategori] = useState([]);
   const [isLayananOpen, setIsLayananOpen] = useState(true);
   const [searchLayanan, setSearchLayanan] = useState('');
@@ -62,7 +63,7 @@ export default function RegisterNakesPage() {
   const [idWilayahLayanan, setIdWilayahLayanan] = useState('');
   const [listProvinsi, setListProvinsi] = useState([]);
 
-  // 🔹 State Form Data - Step 2 (Pendidikan & Legalitas)
+  // 🔹 State Form Data - Step 2
   const [pendidikan, setPendidikan] = useState({
     nama_universitas: '',
     program_studi: '',
@@ -76,7 +77,7 @@ export default function RegisterNakesPage() {
     sip: null,
   });
 
-  // 🔹 State Form Data - Step 3 (Dokumen Pendukung)
+  // 🔹 State Form Data - Step 3
   const [dokumen, setDokumen] = useState({
     ijazah: null,
     cv: null,
@@ -84,10 +85,36 @@ export default function RegisterNakesPage() {
     skck: null,
   });
 
-  // State Autocomplete Universitas (Step 2)
+  // 🔹 State Pengalaman Kerja - Opsional
+  const [pengalamanKerja, setPengalamanKerja] = useState({
+    tempat_kerja: '',
+    lama_bekerja: '',
+  });
+
+  // 🔹 State Dokumen Tambahan - Opsional
+  const [dokumenTambahan, setDokumenTambahan] = useState([]);
+
+  // State Autocomplete Universitas
   const [isUniversitasOpen, setIsUniversitasOpen] = useState(false);
   const [apiUniversitas, setApiUniversitas] = useState([]);
   const [isSearchingUniv, setIsSearchingUniv] = useState(false);
+
+  // 🔹 State Pernyataan
+  const [isAgreed, setIsAgreed] = useState(false);
+
+  // Refs for File Inputs
+  const ijazahRef = useRef(null);
+  const strRef = useRef(null);
+  const sipRef = useRef(null);
+  const cvRef = useRef(null);
+  const ktpRef = useRef(null);
+  const skckRef = useRef(null);
+  const dokumenTambahanRefs = useRef([]);
+
+  // State UI
+  const [loading, setLoading] = useState(false);
+  const [successMessage, setSuccessMessage] = useState('');
+  const [errorMessage, setErrorMessage] = useState('');
 
   // Debounced API fetch for universities
   useEffect(() => {
@@ -141,17 +168,7 @@ export default function RegisterNakesPage() {
     return unique.slice(0, 20);
   })();
 
-  // 🔹 State Pernyataan
-  const [isAgreed, setIsAgreed] = useState(false);
-
-  // Refs for File Inputs to restore File object upon step switching
-  const ijazahRef = useRef(null);
-  const strRef = useRef(null);
-  const sipRef = useRef(null);
-  const cvRef = useRef(null);
-  const ktpRef = useRef(null);
-  const skckRef = useRef(null);
-
+  // 🔹 Restore files on step change
   useEffect(() => {
     if (step === 2) {
       const restoreFile = (file, ref) => {
@@ -192,36 +209,37 @@ export default function RegisterNakesPage() {
     }
   };
 
-  // State UI
-  const [loading, setLoading] = useState(false);
-  const [successMessage, setSuccessMessage] = useState('');
-  const [errorMessage, setErrorMessage] = useState('');
-
-  // 🔹 Fetch Data (Kategori & Wilayah) + Geolocation
+  // 🔹 Fetch Data
   useEffect(() => {
-    const fetchKategori = async () => {
+    const fetchData = async () => {
       try {
-        const res = await api.get('/api/layanan?ambil_kategori=true');
-        const data = res.data?.data || (Array.isArray(res.data) ? res.data : []);
-        setListKategori(data);
-      } catch (err) {
-        console.error("Gagal mengambil kategori layanan: ", err);
+        // Fetch wilayah layanan
+        const wilayahRes = await getWilayahLayanan();
+        const wilayahData = wilayahRes?.data || [];
+        setListProvinsi(wilayahData.filter((w) => w.is_active));
+
+        // Fetch kategori layanan
+        const kategoriRes = await getKategoriLayanan();
+        const kategoriData = kategoriRes?.data || [];
+        setListKategori(kategoriData);
+
+        // Fetch profile email
+        const profileRes = await getProfileMe();
+        if (profileRes?.success && profileRes?.data?.user?.email) {
+          setFormData((prev) => ({
+            ...prev,
+            email: profileRes.data.user.email,
+          }));
+        }
+
+        // Get current location
+        handleGetCurrentLocation();
+      } catch (error) {
+        console.error('Gagal mengambil data:', error);
       }
     };
 
-    const fetchWilayah = async () => {
-      try {
-        const res = await api.get('/api/wilayah-layanan');
-        const data = res.data?.data || (Array.isArray(res.data) ? res.data : []);
-        setListProvinsi(data.filter((w) => w.is_active));
-      } catch (err) {
-        console.error("Gagal mengambil wilayah layanan: ", err);
-      }
-    };
-
-    fetchKategori();
-    fetchWilayah();
-    handleGetCurrentLocation();
+    fetchData();
   }, []);
 
   const fetchAddressAndWilayah = async (lat, lng) => {
@@ -296,6 +314,7 @@ export default function RegisterNakesPage() {
 
   const handleChange = (e) => {
     const { name, value } = e.target;
+    if (name === 'email') return;
     setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
@@ -318,6 +337,11 @@ export default function RegisterNakesPage() {
   const handleLegalitasChange = (e) => {
     const { name, value } = e.target;
     setLegalitas((prev) => ({ ...prev, [name]: value }));
+  };
+
+  const handlePengalamanKerjaChange = (e) => {
+    const { name, value } = e.target;
+    setPengalamanKerja((prev) => ({ ...prev, [name]: value }));
   };
 
   const handleFileChange = (e, field, stateType) => {
@@ -343,7 +367,51 @@ export default function RegisterNakesPage() {
     setErrorMessage('');
   };
 
-  // Step 1 Validation
+  // Handler untuk Dokumen Tambahan
+  const handleTambahDokumenTambahan = () => {
+    const newId = Date.now();
+    setDokumenTambahan((prev) => [...prev, { id: newId, file: null }]);
+    
+    setTimeout(() => {
+      if (dokumenTambahanRefs.current[newId]) {
+        dokumenTambahanRefs.current[newId].focus();
+      }
+    }, 100);
+  };
+
+  const handleHapusDokumenTambahan = (id) => {
+    setDokumenTambahan((prev) => prev.filter((item) => item.id !== id));
+    delete dokumenTambahanRefs.current[id];
+  };
+
+  const handleDokumenTambahanChange = (id, file) => {
+    if (!file) return;
+
+    const validTypes = ['image/png', 'image/jpeg', 'image/jpg', 'application/pdf'];
+    const fileExtension = file.name.split('.').pop().toLowerCase();
+    const validExtensions = ['png', 'jpg', 'jpeg', 'pdf'];
+    
+    if (!validTypes.includes(file.type) && !validExtensions.includes(fileExtension)) {
+      setErrorMessage('File hanya boleh dalam format PDF, PNG, JPG, atau JPEG.');
+      return;
+    }
+
+    setDokumenTambahan((prev) =>
+      prev.map((item) =>
+        item.id === id ? { ...item, file: file } : item
+      )
+    );
+    setErrorMessage('');
+  };
+
+  const handleGantiDokumenTambahan = (id, e) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      handleDokumenTambahanChange(id, file);
+    }
+  };
+
+  // Validations
   const validateStep1 = () => {
     if (formData.nik.length !== 16) {
       setErrorMessage('Nomor NIK harus terdiri dari 16 digit angka.');
@@ -372,7 +440,6 @@ export default function RegisterNakesPage() {
     return true;
   };
 
-  // Step 2 Validation
   const validateStep2 = () => {
     if (!pendidikan.nama_universitas.trim()) {
       setErrorMessage('Harap isi Nama Universitas/Institusi.');
@@ -401,7 +468,6 @@ export default function RegisterNakesPage() {
     return true;
   };
 
-  // Step 3 Validation
   const validateStep3 = () => {
     if (!dokumen.cv) {
       setErrorMessage('Harap unggah Curriculum Vitae (CV).');
@@ -440,6 +506,7 @@ export default function RegisterNakesPage() {
     }
   };
 
+  // 🔹 SUBMIT - Menggunakan registerNakes service
   const handleSubmit = async (e) => {
     e.preventDefault();
 
@@ -455,58 +522,87 @@ export default function RegisterNakesPage() {
       const dataToSend = new FormData();
 
       // ============================================================
-      // 🔹 FIELD TEKS
+      // 🔹 FIELD TEKS - Sesuai dengan body di screenshot
       // ============================================================
       dataToSend.append('nik', formData.nik);
       dataToSend.append('nama_lengkap', formData.nama_lengkap);
       dataToSend.append('nama_panggilan', formData.nama_panggilan);
       dataToSend.append('jenis_kelamin', formData.jenis_kelamin);
-      dataToSend.append('tempat_lahir', formData.tempat_lahir); 
+      dataToSend.append('tempat_lahir', formData.tempat_lahir);
       dataToSend.append('tanggal_lahir', formData.tanggal_lahir);
-      dataToSend.append('agama', formData.agama); 
-      dataToSend.append('email', formData.email); 
-      dataToSend.append('no_telp', formData.nomor_hp); 
+      dataToSend.append('agama', formData.agama);
+      dataToSend.append('no_telp', formData.nomor_hp);
+      dataToSend.append('email', formData.email);
       dataToSend.append('alamat_lengkap', formData.alamat_lengkap);
-      dataToSend.append('latitude', latitude);
-      dataToSend.append('longitude', longitude);
-      dataToSend.append('jenis_tenaga_medis', selectedLayanan.join(', '));
       dataToSend.append('id_wilayah_layanan', idWilayahLayanan);
-      dataToSend.append('is_agreed', isAgreed); 
-
-      // ============================================================
-      // 🔹 PENDIDIKAN & LEGALITAS
-      // ============================================================
-      dataToSend.append('lulusan', pendidikan.nama_universitas); 
-      dataToSend.append('program_studi', pendidikan.program_studi); 
-      dataToSend.append('tahun_lulus', pendidikan.tahun_lulus); 
+      dataToSend.append('jenis_tenaga_medis', selectedLayanan.join(', '));
+      
+      // 🔹 PENDIDIKAN
+      dataToSend.append('universitas', pendidikan.nama_universitas);
+      dataToSend.append('program_studi', pendidikan.program_studi);
+      dataToSend.append('tahun_lulus', pendidikan.tahun_lulus);
+      
+      // 🔹 LEGALITAS
       dataToSend.append('no_str', legalitas.no_str);
       if (legalitas.no_sip) {
         dataToSend.append('no_sip', legalitas.no_sip);
       }
       
-      // ============================================================
-      // 🔹 DOKUMEN
-      // ============================================================
-      dataToSend.append('ijazah', dokumen.ijazah);
-      dataToSend.append('file_str', legalitas.str); 
-      if (legalitas.sip) {
-        dataToSend.append('file_sip', legalitas.sip); 
+      // 🔹 PENGALAMAN KERJA (Opsional)
+      if (pengalamanKerja.tempat_kerja) {
+        dataToSend.append('tempat_kerja', pengalamanKerja.tempat_kerja);
       }
+      if (pengalamanKerja.lama_bekerja) {
+        dataToSend.append('lama_bekerja', pengalamanKerja.lama_bekerja);
+      }
+      
+      // 🔹 GPS
+      dataToSend.append('latitude', latitude);
+      dataToSend.append('longitude', longitude);
+      
+      // 🔹 PERNYATAAN
+      dataToSend.append('is_agreed', isAgreed);
+
+      // ============================================================
+      // 🔹 FILE UPLOADS
+      // ============================================================
       dataToSend.append('file_cv', dokumen.cv);
       dataToSend.append('file_ktp', dokumen.ktp);
       dataToSend.append('file_skck', dokumen.skck);
+      dataToSend.append('ijazah', dokumen.ijazah);
+      dataToSend.append('file_str', legalitas.str);
+      if (legalitas.sip) {
+        dataToSend.append('file_sip', legalitas.sip);
+      }
 
-      const res = await api.post('/api/nakes/register', dataToSend, {
-        headers: { 'Content-Type': 'multipart/form-data' },
-      });
+      // ============================================================
+      // 🔹 DOKUMEN TAMBAHAN (Opsional)
+      // ============================================================
+      const dokumenTambahanFiles = dokumenTambahan
+        .filter((item) => item.file !== null)
+        .map((item) => item.file);
+      
+      if (dokumenTambahanFiles.length > 0) {
+        dokumenTambahanFiles.forEach((file) => {
+          dataToSend.append('dokumen_tambahan[]', file);
+        });
+      }
 
-      if (res.data?.success) {
-        setSuccessMessage(res.data.message || 'Pendaftaran mitra berhasil dikirim.');
+      // ============================================================
+      // 🔹 KIRIM KE API MENGGUNAKAN SERVICE
+      // ============================================================
+      const response = await registerNakes(dataToSend);
+
+      if (response?.success) {
+        setSuccessMessage(response.message || 'Pendaftaran mitra berhasil dikirim.');
       } else {
-        setErrorMessage(res.data?.message || 'Gagal mengirim pendaftaran.');
+        setErrorMessage(response?.message || 'Gagal mengirim pendaftaran.');
       }
     } catch (error) {
-      setErrorMessage(error.response?.data?.message || 'Terjadi kesalahan koneksi ke server API.');
+      console.error('Error submitting form:', error);
+      setErrorMessage(
+        error.response?.data?.message || 'Terjadi kesalahan koneksi ke server API.'
+      );
     } finally {
       setLoading(false);
     }
@@ -657,7 +753,15 @@ export default function RegisterNakesPage() {
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
                     <label className="block text-xs font-bold text-gray-700 mb-1">Email <span className="text-rose-500">*</span></label>
-                    <input type="email" name="email" required value={formData.email} onChange={handleChange} className="w-full px-4 py-2.5 text-xs sm:text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-sky-500 outline-none" />
+                    <input 
+                      type="email" 
+                      name="email" 
+                      required 
+                      value={formData.email} 
+                      disabled
+                      readOnly
+                      className="w-full px-4 py-2.5 text-xs sm:text-sm border border-gray-300 rounded-lg bg-gray-100 cursor-not-allowed outline-none" 
+                    />
                   </div>
                   <div>
                     <label className="block text-xs font-bold text-gray-700 mb-1">No. HP / WhatsApp <span className="text-rose-500">*</span></label>
@@ -667,9 +771,9 @@ export default function RegisterNakesPage() {
 
                 <hr className="my-4 border-gray-100" />
 
-                {/* 2. ALAMAT DOMISILI */}
+                {/* 1. ALAMAT DOMISILI */}
                 <div className="mb-3">
-                  <h2 className="text-xs font-bold text-sky-700 uppercase tracking-wider">Domisili</h2>
+                  <h2 className="text-xs font-bold text-sky-700 uppercase tracking-wider">Alamat</h2>
                 </div>
                 <div>
                   <label className="block text-xs font-bold text-gray-700 mb-1">Alamat Lengkap <span className="text-rose-500">*</span></label>
@@ -686,35 +790,7 @@ export default function RegisterNakesPage() {
 
                 <hr className="my-4 border-gray-100" />
 
-                {/* 3. AREA KERJA */}
-                <div className="mb-3">
-                  <h2 className="text-xs font-bold text-sky-700 uppercase tracking-wider">Area Kerja</h2>
-                </div>
-                <div>
-                  <label className="block text-xs font-bold text-gray-700 mb-1">Wilayah Operasional <span className="text-rose-500">*</span></label>
-                  <select
-                    name="id_wilayah_layanan"
-                    required
-                    value={idWilayahLayanan}
-                    onChange={(e) => setIdWilayahLayanan(e.target.value)}
-                    className="w-full px-4 py-2.5 text-xs sm:text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-sky-500 outline-none bg-white font-medium text-gray-700"
-                  >
-                    <option value="">-- Pilih Wilayah Operasional --</option>
-                    {listProvinsi && listProvinsi.length > 0 ? (
-                      listProvinsi.map((wilayah) => (
-                        <option key={wilayah.id_provinsi} value={wilayah.id_provinsi}>
-                          {wilayah.nama_provinsi}
-                        </option>
-                      ))
-                    ) : (
-                      <option value="" disabled>Memuat data wilayah...</option>
-                    )}
-                  </select>
-                </div>
-
-                <hr className="my-4 border-gray-100" />
-
-                {/* 4. TITIK GPS (PETA) */}
+                {/* 2. TITIK GPS (PETA) */}
                 <div className="mb-3">
                   <h2 className="text-xs font-bold text-sky-700 uppercase tracking-wider">Titik GPS</h2>
                 </div>
@@ -760,8 +836,36 @@ export default function RegisterNakesPage() {
                 </div>
 
                 <hr className="my-4 border-gray-100" />
+
+                {/* 3. AREA KERJA */}
+                <div className="mb-3">
+                  <h2 className="text-xs font-bold text-sky-700 uppercase tracking-wider">Area Kerja</h2>
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-gray-700 mb-1">Wilayah Operasional <span className="text-rose-500">*</span></label>
+                  <select
+                    name="id_wilayah_layanan"
+                    required
+                    value={idWilayahLayanan}
+                    onChange={(e) => setIdWilayahLayanan(e.target.value)}
+                    className="w-full px-4 py-2.5 text-xs sm:text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-sky-500 outline-none bg-white font-medium text-gray-700"
+                  >
+                    <option value="">-- Pilih Wilayah Operasional --</option>
+                    {listProvinsi && listProvinsi.length > 0 ? (
+                      listProvinsi.map((wilayah) => (
+                        <option key={wilayah.id_provinsi} value={wilayah.id_provinsi}>
+                          {wilayah.nama_provinsi}
+                        </option>
+                      ))
+                    ) : (
+                      <option value="" disabled>Memuat data wilayah...</option>
+                    )}
+                  </select>
+                </div>
+
+                <hr className="my-4 border-gray-100" />
                 
-                {/* 5. LAYANAN MEDIS */}
+                {/* 4. LAYANAN MEDIS */}
                 <div className="mb-3">
                   <h2 className="text-xs font-bold text-sky-700 uppercase tracking-wider">Layanan Medis</h2>
                 </div>
@@ -806,7 +910,6 @@ export default function RegisterNakesPage() {
             {/* STEP 2: KUALIFIKASI - PENDIDIKAN & LEGALITAS */}
             {step === 2 && (
               <form onSubmit={handleNextStep2} className="space-y-5">
-                {/* Pendidikan */}
                 <div className="mb-3">
                   <h2 className="text-xs font-bold text-sky-700 uppercase tracking-wider">Pendidikan</h2>
                 </div>
@@ -881,7 +984,6 @@ export default function RegisterNakesPage() {
                   />
                 </div>
 
-                {/* Legalitas Profesi */}
                 <div className="border-t border-gray-100 pt-4">
                   <h3 className="text-xs font-bold text-sky-700 uppercase tracking-wider mb-3">Legalitas Profesi</h3>
                   
@@ -933,7 +1035,6 @@ export default function RegisterNakesPage() {
                   </div>
                 </div>
 
-                {/* Pendidikan Pendukung - Ijazah */}
                 <div className="border-t border-gray-100 pt-4">
                   <h3 className="text-xs font-bold text-sky-700 uppercase tracking-wider mb-3">Pendidikan Pendukung</h3>
                   <div>
@@ -966,6 +1067,7 @@ export default function RegisterNakesPage() {
                   <h2 className="text-xs font-bold text-sky-700 uppercase tracking-wider">Dokumen Pendukung</h2>
                 </div>
 
+                {/* Upload CV - Posisi paling atas */}
                 <div>
                   <label className="block text-xs font-bold text-gray-700 mb-1.5">Upload CV <span className="text-rose-500">*</span> <span className="text-gray-400 font-normal">(PDF, PNG, JPG, JPEG)</span></label>
                   <div className="relative border-2 border-dashed border-gray-300 rounded-xl p-4 text-center hover:border-sky-400 bg-gray-50">
@@ -977,6 +1079,7 @@ export default function RegisterNakesPage() {
                   </div>
                 </div>
 
+                {/* Upload KTP */}
                 <div>
                   <label className="block text-xs font-bold text-gray-700 mb-1.5">Upload KTP <span className="text-rose-500">*</span> <span className="text-gray-400 font-normal">(PDF, PNG, JPG, JPEG)</span></label>
                   <div className="relative border-2 border-dashed border-gray-300 rounded-xl p-4 text-center hover:border-sky-400 bg-gray-50">
@@ -988,6 +1091,7 @@ export default function RegisterNakesPage() {
                   </div>
                 </div>
 
+                {/* Upload SKCK */}
                 <div>
                   <label className="block text-xs font-bold text-gray-700 mb-1.5">Upload SKCK <span className="text-rose-500">*</span> <span className="text-gray-400 font-normal">(PDF, PNG, JPG, JPEG)</span></label>
                   <div className="relative border-2 border-dashed border-gray-300 rounded-xl p-4 text-center hover:border-sky-400 bg-gray-50">
@@ -997,6 +1101,87 @@ export default function RegisterNakesPage() {
                       <span>{dokumen.skck ? dokumen.skck.name : 'Klik untuk unggah SKCK'}</span>
                     </div>
                   </div>
+                </div>
+
+                {/* Pengalaman Kerja - Opsional */}
+                <div className="border-t border-gray-100 pt-4">
+                  <h3 className="text-xs font-bold text-sky-700 uppercase tracking-wider mb-3">Pengalaman Kerja <span className="text-gray-400 font-normal">(Opsional)</span></h3>
+                  
+                  <div className="mb-3">
+                    <label className="block text-xs font-bold text-gray-700 mb-1">Nama Instansi / Tempat Kerja</label>
+                    <input
+                      type="text"
+                      name="tempat_kerja"
+                      placeholder="Contoh: RSUD Pasar Rebo"
+                      value={pengalamanKerja.tempat_kerja}
+                      onChange={handlePengalamanKerjaChange}
+                      className="w-full px-4 py-2.5 text-xs sm:text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-sky-500 outline-none"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-gray-700 mb-1">Lama Bekerja</label>
+                    <input
+                      type="text"
+                      name="lama_bekerja"
+                      placeholder="Contoh: 2 Tahun"
+                      value={pengalamanKerja.lama_bekerja}
+                      onChange={handlePengalamanKerjaChange}
+                      className="w-full px-4 py-2.5 text-xs sm:text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-sky-500 outline-none"
+                    />
+                  </div>
+                </div>
+
+                {/* Dokumen Tambahan - Opsional */}
+                <div className="border-t border-gray-100 pt-4">
+                  <div className="flex items-center justify-between mb-3">
+                    <h3 className="text-xs font-bold text-sky-700 uppercase tracking-wider">Dokumen Tambahan <span className="text-gray-400 font-normal">(Opsional)</span></h3>
+                    <button
+                      type="button"
+                      onClick={handleTambahDokumenTambahan}
+                      className="flex items-center gap-1 px-3 py-1.5 bg-sky-50 hover:bg-sky-100 text-sky-600 rounded-lg text-xs font-bold transition border border-sky-200"
+                    >
+                      <FiPlus className="w-3.5 h-3.5" /> Tambah
+                    </button>
+                  </div>
+
+                  {dokumenTambahan.length === 0 && (
+                    <div className="text-center py-6 text-xs text-gray-400 border-2 border-dashed border-gray-200 rounded-xl">
+                      Belum ada dokumen tambahan. Klik tombol <span className="font-semibold text-sky-500">+ Tambah</span> untuk menambahkan.
+                    </div>
+                  )}
+
+                  {dokumenTambahan.map((item, index) => (
+                    <div key={item.id} className="mb-3 relative group">
+                      <div className="flex items-center gap-2 mb-1.5">
+                        <span className="text-xs font-medium text-gray-600">Dokumen #{index + 1}</span>
+                        <button
+                          type="button"
+                          onClick={() => handleHapusDokumenTambahan(item.id)}
+                          className="text-rose-500 hover:text-rose-700 transition"
+                          aria-label="Hapus dokumen"
+                        >
+                          <FiTrash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                      <div className="relative border-2 border-dashed border-gray-300 rounded-xl p-4 text-center hover:border-sky-400 bg-gray-50">
+                        <input
+                          type="file"
+                          ref={(el) => {
+                            if (el) dokumenTambahanRefs.current[item.id] = el;
+                          }}
+                          accept=".png,.jpg,.jpeg,.pdf"
+                          onChange={(e) => handleGantiDokumenTambahan(item.id, e)}
+                          className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                        />
+                        <div className="flex flex-col items-center justify-center gap-1.5 text-xs">
+                          <FiUpload className="w-6 h-6 text-sky-500" />
+                          <span>{item.file ? item.file.name : 'Klik untuk unggah dokumen tambahan'}</span>
+                          <span className="text-gray-400 text-[10px]">PDF, PNG, JPG, JPEG</span>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
                 </div>
 
                 {/* Pernyataan */}

@@ -1,8 +1,20 @@
-import api from '@/services/api';
+import api from './api'; // PERBAIKAN 1: Path import diperbaiki
+
+/**
+ * Fetch profile data directly from API
+ */
+export const getProfileMe = async () => {
+  try {
+    const response = await api.get('/api/profile/me'); // PERBAIKAN 2: Ditambahkan /api
+    return response.data;
+  } catch (error) {
+    console.error("Gagal mengambil profil:", error);
+    throw error;
+  }
+};
 
 /**
  * Fetch profile data from /api/profile/me and store in cookies.
- * Auth token is automatically attached via axios interceptor.
  */
 export async function fetchAndStoreProfile() {
   try {
@@ -12,10 +24,8 @@ export async function fetchAndStoreProfile() {
     if (data?.success && data?.data) {
       const profile = data.data;
 
-      // Store full profile JSON in cookie
       document.cookie = `user_profile=${encodeURIComponent(JSON.stringify(profile))}; path=/; max-age=604800; SameSite=Lax`;
 
-      // Store individual fields for easy access
       if (profile.user?.email) {
         document.cookie = `profile_email=${encodeURIComponent(profile.user.email)}; path=/; max-age=604800; SameSite=Lax`;
       }
@@ -32,11 +42,9 @@ export async function fetchAndStoreProfile() {
         document.cookie = `is_profile_complete=${profile.is_profile_complete}; path=/; max-age=604800; SameSite=Lax`;
       }
 
-      // Store pasien data if available
       if (profile.pasien) {
         if (profile.pasien.nama_lengkap) {
           document.cookie = `profile_nama=${encodeURIComponent(profile.pasien.nama_lengkap)}; path=/; max-age=604800; SameSite=Lax`;
-          // Also update user_nama for Navbar compatibility
           document.cookie = `user_nama=${encodeURIComponent(profile.pasien.nama_lengkap)}; path=/; max-age=604800; SameSite=Lax`;
         }
         if (profile.pasien.nik) {
@@ -53,7 +61,6 @@ export async function fetchAndStoreProfile() {
         }
       }
 
-      // Store tenaga_medis data if available
       if (profile.tenaga_medis) {
         document.cookie = `tenaga_medis=${encodeURIComponent(JSON.stringify(profile.tenaga_medis))}; path=/; max-age=604800; SameSite=Lax`;
       }
@@ -89,8 +96,7 @@ export function getProfileFromCookies() {
 }
 
 /**
- * Update pasien profile via POST /api/pasien
- * Auth token is automatically attached via axios interceptor (Bearer).
+ * Update pasien profile via PUT /api/pasien
  */
 export async function updatePasienProfile(payload) {
   try {
@@ -98,7 +104,6 @@ export async function updatePasienProfile(payload) {
     const data = response.data;
 
     if (data?.success) {
-      // Refresh profile cookies with updated data
       await fetchAndStoreProfile();
       return { success: true, message: data.message || 'Profil berhasil diperbarui' };
     }
@@ -107,7 +112,6 @@ export async function updatePasienProfile(payload) {
   } catch (error) {
     console.error('[Profile] Gagal update profil:', error?.response?.data?.message || error.message);
     
-    // Handle validation errors from Laravel
     const errData = error?.response?.data;
     if (errData?.errors) {
       const firstError = Object.values(errData.errors)[0];
@@ -144,4 +148,3 @@ export function clearProfileCookies() {
     document.cookie = `${name}=; path=/; max-age=0`;
   });
 }
-
