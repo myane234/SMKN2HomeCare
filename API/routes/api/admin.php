@@ -17,61 +17,80 @@ use App\Http\Controllers\WilayahLayananController;
 use App\Http\Controllers\KotaKabupatenController;
 
 Route::middleware(['auth:sanctum', 'role:admin'])->group(function () {
+    
+    // Auth Admin & Super Admin
     Route::post('/admin/logout', [AdminAuthController::class, 'logout']);
     Route::post('/super-admin/logout', [SuperAdminAuthController::class, 'logout']);
     Route::get('/super-admin/me', [SuperAdminAuthController::class, 'me']);
 
+    // Management Layanan
     Route::post('/layanan', [LayananController::class, 'store']);
     Route::put('/layanan/{layanan}', [LayananController::class, 'update']);
     Route::delete('/layanan/{layanan}', [LayananController::class, 'destroy']);
 
+    // Management Promo
     Route::post('/promo', [PromoController::class, 'store']);
     Route::put('/promo/{promo}', [PromoController::class, 'update']);
     Route::delete('/promo/{promo}', [PromoController::class, 'destroy']);
 
+    // Management Artikel
     Route::post('/artikel', [ArtikelController::class, 'store']);
     Route::post('/artikel/upload-images', [ArtikelController::class, 'uploadImages']);
     Route::put('/artikel/{artikel}', [ArtikelController::class, 'update']);
     Route::delete('/artikel/{artikel}', [ArtikelController::class, 'destroy']);
 
-    //Super Admin
+    // Management Nakes - Admin
+    Route::prefix('admin/nakes')->group(function () {
+        Route::get('/requests', [AdminNakesController::class, 'index']);
+        Route::get('/requests/{id}', [AdminNakesController::class, 'show']);
+        
+        // Step Verification Routes
+        Route::post('/requests/{id}/pelatihan', [AdminNakesController::class, 'setPelatihan']); // Fixed: setPelatihan
+        Route::post('/requests/{id}/approve', [AdminNakesController::class, 'approve']);
+        Route::post('/requests/{id}/reject', [AdminNakesController::class, 'reject']);
+        
+        Route::get('/', [AdminNakesController::class, 'listActiveNakes']);
+    });
 
-    Route::get('/admin/nakes/requests', [AdminNakesController::class, 'index']);
-    Route::get('/admin/nakes/requests/{id}', [AdminNakesController::class, 'show']);
-    Route::post('/admin/nakes/requests/{id}/pelatihan', [AdminNakesController::class, 'pelatihan']);
-    Route::post('/admin/nakes/requests/{id}/approve', [AdminNakesController::class, 'approve']);
-    Route::post('/admin/nakes/requests/{id}/reject', [AdminNakesController::class, 'reject']);
-    Route::get('/admin/nakes', [AdminNakesController::class, 'listActiveNakes']);
+    // Management Nakes - Super Admin
+    Route::prefix('super-admin/nakes')->group(function () {
+        Route::get('/', [SuperAdminNakesController::class, 'index']);
+        Route::get('/{id}', [SuperAdminNakesController::class, 'show']);
+        Route::put('/{id}', [SuperAdminNakesController::class, 'update']);
+        Route::delete('/{id}', [SuperAdminNakesController::class, 'destroy']);
+    });
 
-    Route::get('/super-admin/nakes', [SuperAdminNakesController::class, 'index']);
-    Route::get('/super-admin/nakes/{id}', [SuperAdminNakesController::class, 'show']);
-    Route::put('/super-admin/nakes/{id}', [SuperAdminNakesController::class, 'update']);
-    Route::delete('/super-admin/nakes/{id}', [SuperAdminNakesController::class, 'destroy']);
-
+    // Admin & Bookings
     Route::get('/admin', [AdminController::class, 'index']);
     Route::delete('/admin/{id}', [AdminController::class, 'destroy']);
     Route::get('/admin/bookings', [BookingController::class, 'adminIndex']);
 
-    Route::get('/admin/pasien', [SuperAdminPasien::class, 'index']);
-    Route::get('/admin/pasien/{id_pasien}', [SuperAdminPasien::class, 'show']);
-    Route::put('/admin/pasien/{id_pasien}', [SuperAdminPasien::class, 'update']);
-    Route::patch('/admin/pasien/{id}', [SuperAdminPasien::class, 'toggleStatus']);
-    Route::delete('/admin/pasien/{id_pasien}', [SuperAdminPasien::class, 'destroy']);
+    // Management Pasien
+    Route::prefix('admin/pasien')->group(function () {
+        Route::get('/', [SuperAdminPasien::class, 'index']);
+        Route::get('/{id_pasien}', [SuperAdminPasien::class, 'show']);
+        Route::put('/{id_pasien}', [SuperAdminPasien::class, 'update']);
+        Route::patch('/{id}/toggle-status', [SuperAdminPasien::class, 'toggleStatus']);
+        Route::delete('/{id_pasien}', [SuperAdminPasien::class, 'destroy']);
+    });
 
-
-
-    //data Barang
-    Route::apiResource('/bhp-items', SuperAdminDatabarang::class);
+    // Master Data (BHP & Tarif)
+    Route::apiResource('/bhp-items', SuperAdminDataBarang::class);
     Route::apiResource('/master-tarif', SuperAdminMasterTarif::class);
 
-    //Provinsi
-    Route::post('/wilayah-layanan', [WilayahLayananController::class, 'store']);
-    Route::put('/wilayah-layanan/{wilayahLayanan}', [WilayahLayananController::class, 'update']);
-    Route::delete('/wilayah-layanan/{wilayahLayanan}', [WilayahLayananController::class, 'destroy']);
-    Route::patch('/wilayah-layanan/{wilayahLayanan}/toggle-status', [WilayahLayananController::class, 'toggleStatus']);
+    // Master Wilayah - Provinsi
+    Route::prefix('wilayah-layanan')->group(function () {
+        Route::post('/', [WilayahLayananController::class, 'store']);
+        Route::put('/{wilayahLayanan}', [WilayahLayananController::class, 'update']);
+        Route::delete('/{wilayahLayanan}', [WilayahLayananController::class, 'destroy']);
+        Route::patch('/{wilayahLayanan}/toggle-status', [WilayahLayananController::class, 'toggleStatus']);
+    });
 
-    //Kota Kabupaten
-    Route::post('/kota-kabupaten', [KotaKabupatenController::class, 'store']);
-    Route::put('/kota-kabupaten/{id}', [KotaKabupatenController::class, 'update']);
-    Route::delete('/kota-kabupaten/{id}', [KotaKabupatenController::class, 'destroy']);
+    // Master Wilayah - Kota / Kabupaten
+    Route::prefix('kota-kabupaten')->group(function () {
+        Route::post('/', [KotaKabupatenController::class, 'store']);
+        Route::put('/{id}', [KotaKabupatenController::class, 'update']);
+        Route::delete('/{id}', [KotaKabupatenController::class, 'destroy']);
+    });
+
 });

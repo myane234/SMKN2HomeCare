@@ -10,12 +10,12 @@ return new class extends Migration
     {
         Schema::create('tenaga_medis', function (Blueprint $table) {
             $table->bigIncrements('id_tenaga_medis');
-            $table->unsignedBigInteger('id_user')->index('tenaga_medis_id_user_foreign');
+            $table->unsignedBigInteger('id_user')->unique()->index('tenaga_medis_id_user_foreign');
             $table->unsignedBigInteger('id_pasien')->index('tenaga_medis_id_pasien_foreign');
             $table->unsignedBigInteger('id_wilayah_layanan')->index('tenaga_medis_id_wilayah_layanan_foreign');
 
             // DATA DIRI
-            $table->string('nik', 16);
+            $table->string('nik', 16)->unique();
             $table->string('nama_lengkap');
             $table->string('nama_panggilan', 100);
             $table->enum('jenis_kelamin', ['L', 'P']);
