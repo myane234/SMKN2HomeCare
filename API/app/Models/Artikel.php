@@ -16,5 +16,6 @@ class Artikel extends Model
         'kategori_artikel',
         'isi_artikel',
         'gambar_artikel',
+        'views',
     ];
 }

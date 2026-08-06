@@ -30,7 +30,7 @@ function extractData(body) {
 }
 
 /* ==========================================================
- *                     MASTER PROVINSI
+ *                   MASTER PROVINSI / WILAYAH LAYANAN
  * ========================================================== */
 
 /**
@@ -144,8 +144,47 @@ export async function getAllKotaKabupaten() {
 }
 
 /**
+ * Ambil data Kota / Kabupaten berdasarkan ID
+ */
+export async function getKotaKabupatenById(idKota) {
+  const res = await fetch(
+    `${URL}/kota-kabupaten/${encodeURIComponent(idKota)}`,
+    {
+      method: 'GET',
+      headers: getAuthHeaders({
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+      }),
+    }
+  );
+
+  const json = await parseJsonResponse(res);
+  return extractData(json);
+}
+
+/**
+ * Ambil data Kota / Kabupaten berdasarkan ID Provinsi
+ */
+export async function getKotaKabupatenByProvinsi(idProvinsi) {
+  const res = await fetch(
+    `${URL}/kota-kabupaten/provinsi/${encodeURIComponent(idProvinsi)}`,
+    {
+      method: 'GET',
+      headers: getAuthHeaders({
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+      }),
+    }
+  );
+
+  const json = await parseJsonResponse(res);
+  const data = extractData(json);
+  return Array.isArray(data) ? data : data ? [data] : [];
+}
+
+/**
  * Tambah Kota / Kabupaten baru
- * Body payload: { id_provinsi: number/string, nama_kota: string }
+ * Payload: { id_provinsi: number, nama_kota: string }
  */
 export async function createKotaKabupaten(data) {
   const res = await fetch(`${URL}/kota-kabupaten`, {
@@ -163,7 +202,7 @@ export async function createKotaKabupaten(data) {
 
 /**
  * Update Kota / Kabupaten berdasarkan ID Kota
- * Body payload: { id_provinsi: number/string, nama_kota: string }
+ * Payload: { id_provinsi: number, nama_kota: string }
  */
 export async function updateKotaKabupaten(idKota, data) {
   const res = await fetch(
@@ -197,24 +236,4 @@ export async function deleteKotaKabupaten(idKota) {
   );
 
   return await parseJsonResponse(res);
-}
-
-/**
- * Ambil data Kota / Kabupaten berdasarkan ID Provinsi (Opsional / Filter Dropdown)
- */
-export async function getKotaKabupatenByProvinsi(idProvinsi) {
-  const res = await fetch(
-    `${URL}/kota-kabupaten/provinsi/${encodeURIComponent(idProvinsi)}`,
-    {
-      method: 'GET',
-      headers: getAuthHeaders({
-        'Content-Type': 'application/json',
-        'Accept': 'application/json',
-      }),
-    }
-  );
-
-  const json = await parseJsonResponse(res);
-  const data = extractData(json);
-  return Array.isArray(data) ? data : data ? [data] : [];
 }

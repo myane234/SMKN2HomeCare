@@ -110,7 +110,7 @@ class CoreAuthController extends Controller
     }
 
     /**
-     * Endpoint Verifikasi Email dari Next.js
+     * Endpoint Verifikasi Email
      */
     public function verifyEmail(Request $request, $id, $hash)
 {
@@ -133,7 +133,7 @@ class CoreAuthController extends Controller
         ]);
     }
 
-    // Mark Email As Verified
+
     if ($user->markEmailAsVerified()) {
         event(new Verified($user));
     }
@@ -141,6 +141,46 @@ class CoreAuthController extends Controller
     return response()->json([
         'success' => true,
         'message' => 'Email berhasil diverifikasi! Silakan login.'
+    ]);
+}
+
+/**
+ * Ganti email saat Verif
+ */
+
+public function changeUnverifiedEmail(Request $request)
+{
+    $request->validate([
+        'old_email' => ['required', 'email'],
+        'new_email' => ['required', 'email', 'unique:users,email'],
+        'password'  => ['required', 'string'],
+    ]);
+
+    $user = Users::where('email', $request->old_email)->first();
+
+    if (!$user || !Hash::check($request->password, $user->password)) {
+        return response()->json([
+            'success' => false,
+            'message' => 'Email lama atau password salah.'
+        ], 401);
+    }
+
+    if ($user->hasVerifiedEmail()) {
+        return response()->json([
+            'success' => false,
+            'message' => 'Email ini sudah terverifikasi. Silakan login dan ubah email via menu profil.'
+        ], 400);
+    }
+
+
+    $user->email = $request->new_email;
+    $user->save();
+
+    $user->sendEmailVerificationNotification();
+
+    return response()->json([
+        'success' => true,
+        'message' => 'Email berhasil diperbarui. Link verifikasi baru telah dikirim ke ' . $request->new_email
     ]);
 }
 
@@ -211,7 +251,6 @@ class CoreAuthController extends Controller
             ], 403);
         }
 
-        // Generate Sanctum token
         $token = $user->createToken('auth-token')->plainTextToken;
 
         $pasien = Pasien::whereIdUser($user->id_user)->first();
