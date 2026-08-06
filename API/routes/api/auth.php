@@ -20,6 +20,7 @@ Route::get('/email/verify/{id}/{hash}', [CoreAuthController::class, 'verifyEmail
     ->middleware(['signed']);
 
 Route::post('/email/resend', [CoreAuthController::class, 'resendVerificationEmail']);
+Route::post('/change-unverified-email', [CoreAuthController::class, 'changeUnverifiedEmail']);
 
 Route::middleware('auth:sanctum')->get('/user', function (Request $request) {
     return $request->user();

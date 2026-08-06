@@ -9,6 +9,7 @@ use App\Models\TenagaMedis;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Auth\Events\Verified;
 
 /**
@@ -145,11 +146,22 @@ class CoreAuthController extends Controller
 }
 
     /**
-     * Endpoint Kirim Ulang Email Verifikasi
+     * Endpoint Kirim Ulang Email Verifikasi (Maks 3x per menit)
      */
     public function resendVerificationEmail(Request $request)
     {
         $request->validate(['email' => 'required|email']);
+
+        $key = 'resend-email:' . strtolower($request->email);
+        if (RateLimiter::tooManyAttempts($key, 3)) {
+            $seconds = RateLimiter::availableIn($key);
+            return response()->json([
+                'success' => false,
+                'message' => "Terlalu banyak mencoba resend email. Silakan tunggu {$seconds} detik lagi.",
+                'retry_after' => $seconds
+            ], 429);
+        }
+
         $user = Users::where('email', $request->email)->first();
 
         if (!$user) {
@@ -160,11 +172,50 @@ class CoreAuthController extends Controller
             return response()->json(['success' => false, 'message' => 'Email ini sudah terverifikasi.']);
         }
 
+        RateLimiter::hit($key, 60);
+
         $user->sendEmailVerificationNotification();
 
         return response()->json([
             'success' => true,
             'message' => 'Link verifikasi baru telah dikirim ke email Anda.'
+        ]);
+    }
+
+    /**
+     * Endpoint Ubah Email Belum Terverifikasi
+     */
+    public function changeUnverifiedEmail(Request $request)
+    {
+        $request->validate([
+            'old_email' => 'required|email',
+            'new_email' => 'required|email|unique:users,email',
+        ]);
+
+        $user = Users::where('email', $request->old_email)->first();
+
+        if (!$user) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Email lama tidak terdaftar.'
+            ], 404);
+        }
+
+        if ($user->hasVerifiedEmail()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Email ini sudah terverifikasi, tidak dapat diubah dari sini.'
+            ], 400);
+        }
+
+        $user->email = $request->new_email;
+        $user->save();
+
+        $user->sendEmailVerificationNotification();
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Alamat email berhasil diperbarui! Link verifikasi baru telah dikirim ke email baru Anda.'
         ]);
     }
 
