@@ -100,8 +100,7 @@ class ArtikelApiTest extends TestCase
         $this->assertCount(1, $urls);
         
         // Assert file exists on disk
-        $path = str_replace(url(Storage::url('')), '', $urls[0]);
-        $path = ltrim($path, '/');
+        $path = substr($urls[0], strpos($urls[0], 'artikel/'));
         Storage::disk('public')->assertExists($path);
 
         // 2. Test multiple images upload (using 'images[]' key)
@@ -120,8 +119,7 @@ class ArtikelApiTest extends TestCase
         $this->assertCount(2, $urls2);
 
         foreach ($urls2 as $url) {
-            $path = str_replace(url(Storage::url('')), '', $url);
-            $path = ltrim($path, '/');
+            $path = substr($url, strpos($url, 'artikel/'));
             Storage::disk('public')->assertExists($path);
         }
     }
