@@ -36,10 +36,13 @@ class ArtikelController extends Controller
      */
     public function index(Request $request)
     {
-        $query = Artikel::query();
+        $query = Artikel::with('kategori');
 
         if ($request->has('kategori_artikel')) {
-            $query->where('kategori_artikel', $request->kategori_artikel);
+            $query->whereHas('kategori', function($q) use ($request) {
+                $q->where('nama_kategori', $request->kategori_artikel)
+                  ->orWhere('id_kategori_artikel', $request->kategori_artikel);
+            });
         }
 
         if ($request->has('sort_by') && $request->sort_by === 'views') {
@@ -58,11 +61,19 @@ class ArtikelController extends Controller
      */
     public function store(Request $request)
     {
+        // Backward compatibility: map string kategori_artikel to id_kategori_artikel
+        if (!$request->has('id_kategori_artikel') && $request->has('kategori_artikel')) {
+            $kategori = \App\Models\KategoriArtikel::where('nama_kategori', $request->kategori_artikel)->first();
+            if ($kategori) {
+                $request->merge(['id_kategori_artikel' => $kategori->id_kategori_artikel]);
+            }
+        }
+
         $validated = $request->validate([
-            'judul_artikel'    => ['required', 'string', 'max:255'],
-            'kategori_artikel' => ['required', 'in:Tips Kesehatan,Kegiatan'],
-            'isi_artikel'      => ['required', 'string'],
-            'gambar_artikel'   => ['required', 'image', 'mimes:jpeg,png,jpg', 'max:2048'],
+            'judul_artikel'       => ['required', 'string', 'max:255'],
+            'id_kategori_artikel' => ['required', 'exists:kategori_artikels,id_kategori_artikel'],
+            'isi_artikel'         => ['required', 'string'],
+            'gambar_artikel'      => ['required', 'image', 'mimes:jpeg,png,jpg', 'max:2048'],
         ]);
 
         if ($request->hasFile('gambar_artikel')) {
@@ -71,6 +82,7 @@ class ArtikelController extends Controller
         }
 
         $artikel = Artikel::create($validated);
+        $artikel->load('kategori');
 
         return response()->json([
             'success' => true,
@@ -84,7 +96,7 @@ class ArtikelController extends Controller
      */
     public function show($id)
     {
-        $artikel = Artikel::findOrFail($id);
+        $artikel = Artikel::with('kategori')->findOrFail($id);
         $artikel->increment('views');
 
         return response()->json([
@@ -101,11 +113,19 @@ class ArtikelController extends Controller
     {
         $artikel = Artikel::findOrFail($id);
 
+        // Backward compatibility: map string kategori_artikel to id_kategori_artikel
+        if (!$request->has('id_kategori_artikel') && $request->has('kategori_artikel')) {
+            $kategori = \App\Models\KategoriArtikel::where('nama_kategori', $request->kategori_artikel)->first();
+            if ($kategori) {
+                $request->merge(['id_kategori_artikel' => $kategori->id_kategori_artikel]);
+            }
+        }
+
         $validated = $request->validate([
-            'judul_artikel'    => ['sometimes', 'required', 'string', 'max:255'],
-            'kategori_artikel' => ['sometimes', 'required', 'in:Tips Kesehatan,Kegiatan'],
-            'isi_artikel'      => ['sometimes', 'required', 'string'],
-            'gambar_artikel'   => ['sometimes', 'required', 'image', 'mimes:jpeg,png,jpg', 'max:2048'],
+            'judul_artikel'       => ['sometimes', 'required', 'string', 'max:255'],
+            'id_kategori_artikel' => ['sometimes', 'required', 'exists:kategori_artikels,id_kategori_artikel'],
+            'isi_artikel'         => ['sometimes', 'required', 'string'],
+            'gambar_artikel'      => ['sometimes', 'required', 'image', 'mimes:jpeg,png,jpg', 'max:2048'],
         ]);
 
         if ($request->hasFile('gambar_artikel')) {
@@ -121,6 +141,7 @@ class ArtikelController extends Controller
 
         $artikel->fill($validated);
         $artikel->save();
+        $artikel->load('kategori');
 
         return response()->json([
             'success' => true,
