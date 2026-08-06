@@ -1,137 +1,220 @@
-const API_BASE_URL = 'https://api.example.com/api'; // Ganti dengan base URL API Anda
+import { URL } from '../utils/getUrl.js';
+import { getAuthHeaders } from '../utils/auth.js';
 
-const getHeaders = () => {
-  const token = localStorage.getItem('token');
-  return {
-    'Content-Type': 'application/json',
-    ...(token ? { Authorization: `Bearer ${token}` } : {}),
-  };
-};
+/**
+ * Helper untuk parsing response JSON dan menangani error HTTP/Laravel
+ */
+async function parseJsonResponse(response) {
+  const body = await response.json().catch(() => null);
 
-// ==================== WILAYAH LAYANAN / PROVINSI ====================
+  if (!response.ok) {
+    const errorMsg =
+      body?.message ||
+      (body?.errors ? Object.values(body.errors).flat().join(', ') : null) ||
+      `Error ${response.status}: Terjadi kesalahan pada server`;
 
+    throw new Error(errorMsg);
+  }
+
+  return body;
+}
+
+/**
+ * Helper untuk mengekstrak data dari wrapper { success, message, data }
+ */
+function extractData(body) {
+  if (body && typeof body === 'object' && body.data !== undefined) {
+    return body.data;
+  }
+  return body;
+}
+
+/* ==========================================================
+ *                     MASTER PROVINSI
+ * ========================================================== */
+
+/**
+ * Ambil semua data wilayah layanan (Provinsi)
+ */
 export async function getAllWilayahLayanan() {
-  try {
-    const response = await fetch(`${API_BASE_URL}/provinsi`, {
-      method: 'GET',
-      headers: getHeaders(),
-    });
-    const result = await response.json();
-    if (!response.ok) throw new Error(result.message || 'Gagal memuat data provinsi');
-    return result.data || result;
-  } catch (error) {
-    console.error('Error getAllWilayahLayanan:', error);
-    throw error;
-  }
+  const res = await fetch(`${URL}/wilayah-layanan`, {
+    method: 'GET',
+    headers: getAuthHeaders({
+      'Content-Type': 'application/json',
+      'Accept': 'application/json',
+    }),
+  });
+
+  const json = await parseJsonResponse(res);
+  const data = extractData(json);
+  return Array.isArray(data) ? data : data ? [data] : [];
 }
 
-export async function createWilayahLayanan(payload) {
-  try {
-    const response = await fetch(`${API_BASE_URL}/provinsi`, {
-      method: 'POST',
-      headers: getHeaders(),
-      body: JSON.stringify(payload),
-    });
-    const result = await response.json();
-    if (!response.ok) throw new Error(result.message || 'Gagal menambah provinsi');
-    return result.data || result;
-  } catch (error) {
-    console.error('Error createWilayahLayanan:', error);
-    throw error;
-  }
+/**
+ * Tambah wilayah layanan baru (Provinsi)
+ */
+export async function createWilayahLayanan(data) {
+  const res = await fetch(`${URL}/wilayah-layanan`, {
+    method: 'POST',
+    headers: getAuthHeaders({
+      'Content-Type': 'application/json',
+      'Accept': 'application/json',
+    }),
+    body: JSON.stringify(data),
+  });
+
+  const json = await parseJsonResponse(res);
+  return extractData(json);
 }
 
-export async function updateWilayahLayanan(id, payload) {
-  try {
-    const response = await fetch(`${API_BASE_URL}/provinsi/${id}`, {
+/**
+ * Update wilayah layanan berdasarkan ID Provinsi
+ */
+export async function updateWilayahLayanan(idProvinsi, data) {
+  const res = await fetch(
+    `${URL}/wilayah-layanan/${encodeURIComponent(idProvinsi)}`,
+    {
       method: 'PUT',
-      headers: getHeaders(),
-      body: JSON.stringify(payload),
-    });
-    const result = await response.json();
-    if (!response.ok) throw new Error(result.message || 'Gagal memperbarui provinsi');
-    return result.data || result;
-  } catch (error) {
-    console.error('Error updateWilayahLayanan:', error);
-    throw error;
-  }
+      headers: getAuthHeaders({
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+      }),
+      body: JSON.stringify(data),
+    }
+  );
+
+  const json = await parseJsonResponse(res);
+  return extractData(json);
 }
 
-export async function deleteWilayahLayanan(id) {
-  try {
-    const response = await fetch(`${API_BASE_URL}/provinsi/${id}`, {
+/**
+ * Hapus wilayah layanan (Provinsi)
+ */
+export async function deleteWilayahLayanan(idProvinsi) {
+  const res = await fetch(
+    `${URL}/wilayah-layanan/${encodeURIComponent(idProvinsi)}`,
+    {
       method: 'DELETE',
-      headers: getHeaders(),
-    });
-    const result = await response.json();
-    if (!response.ok) throw new Error(result.message || 'Gagal menghapus provinsi');
-    return result.data || result;
-  } catch (error) {
-    console.error('Error deleteWilayahLayanan:', error);
-    throw error;
-  }
+      headers: getAuthHeaders({
+        'Accept': 'application/json',
+      }),
+    }
+  );
+
+  return await parseJsonResponse(res);
 }
 
-// ==================== KOTA / KABUPATEN ====================
+/**
+ * Toggle status aktif/non-aktif wilayah layanan (Provinsi)
+ */
+export async function toggleWilayahLayananStatus(idProvinsi) {
+  const res = await fetch(
+    `${URL}/wilayah-layanan/${encodeURIComponent(idProvinsi)}/toggle-status`,
+    {
+      method: 'PATCH',
+      headers: getAuthHeaders({
+        'Accept': 'application/json',
+      }),
+    }
+  );
 
+  const json = await parseJsonResponse(res);
+  return extractData(json);
+}
+
+/* ==========================================================
+ *                   MASTER KOTA / KABUPATEN
+ * ========================================================== */
+
+/**
+ * Ambil semua data Kota / Kabupaten
+ */
 export async function getAllKotaKabupaten() {
-  try {
-    const response = await fetch(`${API_BASE_URL}/kabupaten`, {
-      method: 'GET',
-      headers: getHeaders(),
-    });
-    const result = await response.json();
-    if (!response.ok) throw new Error(result.message || 'Gagal memuat data kota/kabupaten');
-    return result.data || result;
-  } catch (error) {
-    console.error('Error getAllKotaKabupaten:', error);
-    throw error;
-  }
+  const res = await fetch(`${URL}/kota-kabupaten`, {
+    method: 'GET',
+    headers: getAuthHeaders({
+      'Content-Type': 'application/json',
+      'Accept': 'application/json',
+    }),
+  });
+
+  const json = await parseJsonResponse(res);
+  const data = extractData(json);
+  return Array.isArray(data) ? data : data ? [data] : [];
 }
 
-export async function createKotaKabupaten(payload) {
-  try {
-    const response = await fetch(`${API_BASE_URL}/kabupaten`, {
-      method: 'POST',
-      headers: getHeaders(),
-      body: JSON.stringify(payload),
-    });
-    const result = await response.json();
-    if (!response.ok) throw new Error(result.message || 'Gagal menambah kota/kabupaten');
-    return result.data || result;
-  } catch (error) {
-    console.error('Error createKotaKabupaten:', error);
-    throw error;
-  }
+/**
+ * Tambah Kota / Kabupaten baru
+ * Body payload: { id_provinsi: number/string, nama_kota: string }
+ */
+export async function createKotaKabupaten(data) {
+  const res = await fetch(`${URL}/kota-kabupaten`, {
+    method: 'POST',
+    headers: getAuthHeaders({
+      'Content-Type': 'application/json',
+      'Accept': 'application/json',
+    }),
+    body: JSON.stringify(data),
+  });
+
+  const json = await parseJsonResponse(res);
+  return extractData(json);
 }
 
-export async function updateKotaKabupaten(id, payload) {
-  try {
-    const response = await fetch(`${API_BASE_URL}/kabupaten/${id}`, {
+/**
+ * Update Kota / Kabupaten berdasarkan ID Kota
+ * Body payload: { id_provinsi: number/string, nama_kota: string }
+ */
+export async function updateKotaKabupaten(idKota, data) {
+  const res = await fetch(
+    `${URL}/kota-kabupaten/${encodeURIComponent(idKota)}`,
+    {
       method: 'PUT',
-      headers: getHeaders(),
-      body: JSON.stringify(payload),
-    });
-    const result = await response.json();
-    if (!response.ok) throw new Error(result.message || 'Gagal memperbarui kota/kabupaten');
-    return result.data || result;
-  } catch (error) {
-    console.error('Error updateKotaKabupaten:', error);
-    throw error;
-  }
+      headers: getAuthHeaders({
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+      }),
+      body: JSON.stringify(data),
+    }
+  );
+
+  const json = await parseJsonResponse(res);
+  return extractData(json);
 }
 
-export async function deleteKotaKabupaten(id) {
-  try {
-    const response = await fetch(`${API_BASE_URL}/kabupaten/${id}`, {
+/**
+ * Hapus Kota / Kabupaten berdasarkan ID Kota
+ */
+export async function deleteKotaKabupaten(idKota) {
+  const res = await fetch(
+    `${URL}/kota-kabupaten/${encodeURIComponent(idKota)}`,
+    {
       method: 'DELETE',
-      headers: getHeaders(),
-    });
-    const result = await response.json();
-    if (!response.ok) throw new Error(result.message || 'Gagal menghapus kota/kabupaten');
-    return result.data || result;
-  } catch (error) {
-    console.error('Error deleteKotaKabupaten:', error);
-    throw error;
-  }
+      headers: getAuthHeaders({
+        'Accept': 'application/json',
+      }),
+    }
+  );
+
+  return await parseJsonResponse(res);
+}
+
+/**
+ * Ambil data Kota / Kabupaten berdasarkan ID Provinsi (Opsional / Filter Dropdown)
+ */
+export async function getKotaKabupatenByProvinsi(idProvinsi) {
+  const res = await fetch(
+    `${URL}/kota-kabupaten/provinsi/${encodeURIComponent(idProvinsi)}`,
+    {
+      method: 'GET',
+      headers: getAuthHeaders({
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+      }),
+    }
+  );
+
+  const json = await parseJsonResponse(res);
+  const data = extractData(json);
+  return Array.isArray(data) ? data : data ? [data] : [];
 }
