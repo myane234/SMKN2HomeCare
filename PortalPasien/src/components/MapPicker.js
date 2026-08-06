@@ -17,14 +17,17 @@ export default function MapPicker({ lat, lng, onChange, draggable = true }) {
   const markerRef = useRef(null);
 
   useEffect(() => {
+    const validLat = lat !== null && lat !== undefined && !isNaN(lat) ? lat : -6.2088;
+    const validLng = lng !== null && lng !== undefined && !isNaN(lng) ? lng : 106.8456;
+
     if (!mapRef.current) {
-      const map = L.map('map-container').setView([lat || -6.2088, lng || 106.8456], 15);
+      const map = L.map('map-container').setView([validLat, validLng], 15);
 
       L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
         attribution: '&copy; OpenStreetMap',
       }).addTo(map);
 
-      const marker = L.marker([lat || -6.2088, lng || 106.8456], {
+      const marker = L.marker([validLat, validLng], {
         draggable: draggable,
         icon: customIcon,
       }).addTo(map);
@@ -44,10 +47,18 @@ export default function MapPicker({ lat, lng, onChange, draggable = true }) {
       mapRef.current = map;
       markerRef.current = marker;
     } else {
-      mapRef.current.setView([lat, lng], 15);
-      markerRef.current.setLatLng([lat, lng]);
+      // Hanya perbarui jika parameter input yang masuk adalah koordinat valid
+      if (lat !== null && lat !== undefined && !isNaN(lat) && lng !== null && lng !== undefined && !isNaN(lng)) {
+        if (mapRef.current) {
+          mapRef.current.setView([validLat, validLng], 15);
+        }
+        if (markerRef.current) {
+          markerRef.current.setLatLng([validLat, validLng]);
+        }
+      }
+
       // Update draggable state if it changed
-      if (markerRef.current.dragging) {
+      if (markerRef.current && markerRef.current.dragging) {
         if (draggable) {
           markerRef.current.dragging.enable();
         } else {

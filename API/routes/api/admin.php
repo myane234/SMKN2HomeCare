@@ -14,6 +14,7 @@ use App\Http\Controllers\SuperAdminMasterData\SuperAdminPasien;
 use App\Http\Controllers\SuperAdminMasterData\SuperAdminDataBarang;
 use App\Http\Controllers\SuperAdminMasterData\SuperAdminMasterTarif;
 use App\Http\Controllers\WilayahLayananController;
+use App\Http\Controllers\KotaKabupatenController;
 
 Route::middleware(['auth:sanctum', 'role:admin'])->group(function () {
     Route::post('/admin/logout', [AdminAuthController::class, 'logout']);
@@ -63,8 +64,14 @@ Route::middleware(['auth:sanctum', 'role:admin'])->group(function () {
     Route::apiResource('/bhp-items', SuperAdminDatabarang::class);
     Route::apiResource('/master-tarif', SuperAdminMasterTarif::class);
 
+    //Provinsi
     Route::post('/wilayah-layanan', [WilayahLayananController::class, 'store']);
     Route::put('/wilayah-layanan/{wilayahLayanan}', [WilayahLayananController::class, 'update']);
     Route::delete('/wilayah-layanan/{wilayahLayanan}', [WilayahLayananController::class, 'destroy']);
     Route::patch('/wilayah-layanan/{wilayahLayanan}/toggle-status', [WilayahLayananController::class, 'toggleStatus']);
+
+    //Kota Kabupaten
+    Route::post('/kota-kabupaten', [KotaKabupatenController::class, 'store']);
+    Route::put('/kota-kabupaten/{id}', [KotaKabupatenController::class, 'update']);
+    Route::delete('/kota-kabupaten/{id}', [KotaKabupatenController::class, 'destroy']);
 });
