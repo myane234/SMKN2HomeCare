@@ -30,7 +30,7 @@ class DatabaseSeeder extends Seeder
             ProvinsiSeeder::class,
             KotaKabupatenSeeder::class,
             ArtikelSeeder::class,
-            TenagaMedisSeeder::class
+            // TenagaMedisSeeder::class
         ]);
 
         // Jika ingin membuat data pasien tetap langsung di sini, silakan:
