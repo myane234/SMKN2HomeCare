@@ -4,7 +4,8 @@ import { useEffect, useState, Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import axios from "axios";
 import Link from "next/link";
-import { Mail, RefreshCw, CheckCircle2, Pencil, Check, X } from "lucide-react";
+import { Mail, RefreshCw, CheckCircle2, Pencil, Check, X, AlertTriangle, Clock } from "lucide-react";
+import { changeUnverifiedEmail, resendVerificationEmail } from "@/services/Auth";
 
 function VerifyEmailContent() {
   const searchParams = useSearchParams();
@@ -16,10 +17,62 @@ function VerifyEmailContent() {
 
   const [email, setEmail] = useState(searchParams.get("email") || "");
 
-  // ── State untuk ubah alamat email (jaga-jaga salah ketik pas daftar) ───────
+  // ── State untuk ubah alamat email ──────────────────────────────────────────
   const [isEditingEmail, setIsEditingEmail] = useState(false);
   const [emailDraft, setEmailDraft] = useState(email);
+  const [isChangingEmail, setIsChangingEmail] = useState(false);
   const [emailError, setEmailError] = useState("");
+
+  // ── State untuk kirim ulang email verifikasi ────────────────────────────────
+  const [resending, setResending] = useState(false);
+  const [resendMsg, setResendMsg] = useState("");
+  const [resendError, setResendError] = useState("");
+  const [cooldownSeconds, setCooldownSeconds] = useState(0);
+
+  // Synch local state if searchParams change
+  useEffect(() => {
+    const qEmail = searchParams.get("email");
+    if (qEmail) {
+      setEmail(qEmail);
+    }
+  }, [searchParams]);
+
+  // Handle countdown timer & sync with localStorage
+  useEffect(() => {
+    if (!email) return;
+
+    const storageKey = `resend_cooldown_until_${email}`;
+    const storedUntil = localStorage.getItem(storageKey);
+
+    if (storedUntil) {
+      const untilTime = parseInt(storedUntil, 10);
+      const now = Date.now();
+      if (untilTime > now) {
+        const remaining = Math.ceil((untilTime - now) / 1000);
+        setCooldownSeconds(remaining);
+      } else {
+        localStorage.removeItem(storageKey);
+      }
+    }
+  }, [email]);
+
+  useEffect(() => {
+    if (cooldownSeconds <= 0) return;
+
+    const timer = setInterval(() => {
+      setCooldownSeconds((prev) => {
+        if (prev <= 1) {
+          if (email) {
+            localStorage.removeItem(`resend_cooldown_until_${email}`);
+          }
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+
+    return () => clearInterval(timer);
+  }, [cooldownSeconds, email]);
 
   const handleStartEditEmail = () => {
     setEmailDraft(email);
@@ -32,46 +85,109 @@ function VerifyEmailContent() {
     setEmailError("");
   };
 
-  const handleSaveEmail = () => {
-    const trimmed = emailDraft.trim();
+  const handleSaveEmail = async () => {
+    const trimmedNew = emailDraft.trim();
 
-    if (!trimmed) {
-      setEmailError("Email tidak boleh kosong.");
+    if (!trimmedNew) {
+      setEmailError("Email baru tidak boleh kosong.");
       return;
     }
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed)) {
-      setEmailError("Format email tidak valid.");
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmedNew)) {
+      setEmailError("Format email baru tidak valid.");
       return;
     }
 
-    setEmail(trimmed);
-    setIsEditingEmail(false);
+    setIsChangingEmail(true);
     setEmailError("");
     setResendMsg("");
+    setResendError("");
 
-    // Update query string supaya email yang benar tetap ada kalau halaman di-refresh
-    const params = new URLSearchParams(window.location.search);
-    params.set("email", trimmed);
-    router.replace(`?${params.toString()}`);
+    try {
+      const res = await changeUnverifiedEmail({
+        old_email: email,
+        new_email: trimmedNew,
+      });
+
+      setEmail(trimmedNew);
+      setIsEditingEmail(false);
+      setResendMsg(res?.message || "Email berhasil diubah dan tautan verifikasi telah dikirim!");
+
+      // Update query string
+      const params = new URLSearchParams(window.location.search);
+      params.set("email", trimmedNew);
+      router.replace(`?${params.toString()}`);
+    } catch (err) {
+      setEmailError(err.message || "Gagal mengubah email.");
+    } finally {
+      setIsChangingEmail(false);
+    }
   };
 
-  // ── State untuk kirim ulang email verifikasi ────────────────────────────────
-  const [resending, setResending] = useState(false);
-  const [resendMsg, setResendMsg] = useState("");
+  // Check attempt rate limits (max 3 times per minute)
+  const getRecentAttempts = (emailAddr) => {
+    const key = `resend_attempts_${emailAddr}`;
+    const raw = localStorage.getItem(key);
+    if (!raw) return [];
+    try {
+      const timestamps = JSON.parse(raw);
+      const now = Date.now();
+      // Keep attempts in last 60 seconds
+      return timestamps.filter((t) => now - t < 60000);
+    } catch (e) {
+      return [];
+    }
+  };
+
+  const recordAttempt = (emailAddr) => {
+    const key = `resend_attempts_${emailAddr}`;
+    const attempts = getRecentAttempts(emailAddr);
+    attempts.push(Date.now());
+    localStorage.setItem(key, JSON.stringify(attempts));
+    return attempts;
+  };
+
+  const startCooldown = (seconds = 60) => {
+    setCooldownSeconds(seconds);
+    if (email) {
+      const until = Date.now() + seconds * 1000;
+      localStorage.setItem(`resend_cooldown_until_${email}`, until.toString());
+    }
+  };
 
   const handleResend = async () => {
-    if (!email) return;
-    setResending(true);
+    if (!email || resending || cooldownSeconds > 0) return;
+
     setResendMsg("");
+    setResendError("");
+
+    // Check recent 60-second window attempts
+    const attempts = getRecentAttempts(email);
+    if (attempts.length >= 3) {
+      startCooldown(60);
+      setResendError("Batas 3 kali kirim ulang per menit tercapai. Harap tunggu 1 menit.");
+      return;
+    }
+
+    setResending(true);
+
     try {
-      // Catatan: kalau email baru saja diubah, endpoint ini idealnya juga yang
-      // memperbarui alamat email di akun yang belum diverifikasi, bukan cuma
-      // kirim ulang ke email lama. Sesuaikan dengan endpoint backend kamu.
-      // await axios.post('/api/email/resend', { email });
-      await new Promise((resolve) => setTimeout(resolve, 1000));
-      setResendMsg("Email verifikasi telah dikirim ulang.");
+      const res = await resendVerificationEmail(email);
+      const updatedAttempts = recordAttempt(email);
+
+      setResendMsg(res?.message || "Email verifikasi telah dikirim ulang.");
+
+      // If user reaches 3 attempts now, start 60s cooldown
+      if (updatedAttempts.length >= 3) {
+        startCooldown(60);
+      }
     } catch (err) {
-      setResendMsg("Gagal mengirim ulang email. Silakan coba lagi nanti.");
+      if (err.isRateLimited) {
+        const seconds = err.retryAfter || 60;
+        startCooldown(seconds);
+        setResendError(`Terlalu banyak permintaan resend email. Silakan tunggu ${seconds} detik lagi.`);
+      } else {
+        setResendError(err.message || "Gagal mengirim ulang email. Silakan coba lagi nanti.");
+      }
     } finally {
       setResending(false);
     }
@@ -80,8 +196,6 @@ function VerifyEmailContent() {
   useEffect(() => {
     let verifyUrl = searchParams.get("verify_url");
 
-    // Belum ada verify_url berarti user baru saja daftar dan diarahkan ke sini
-    // untuk diminta cek inbox-nya dulu — belum klik link verifikasi apa pun.
     if (!verifyUrl) {
       setStatus("awaiting");
       return;
@@ -105,7 +219,6 @@ function VerifyEmailContent() {
           setStatus("success");
           setMessage(res.data?.message || "Email Anda berhasil diverifikasi!");
 
-          // Redirect ke halaman login setelah 3 detik
           setTimeout(() => {
             router.push("/login");
           }, 3000);
@@ -126,7 +239,7 @@ function VerifyEmailContent() {
   return (
     <div className="flex min-h-screen items-center justify-center bg-gray-100 px-4">
       <div className="w-full max-w-md rounded-2xl bg-white p-8 text-center shadow-xl">
-        {/* Awaiting State — baru daftar, belum klik link di email */}
+        {/* Awaiting State */}
         {status === "awaiting" && (
           <div className="space-y-4">
             <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-indigo-50">
@@ -156,33 +269,36 @@ function VerifyEmailContent() {
                 </button>
               </div>
             ) : (
-              <div className="text-left">
-                <label htmlFor="edit-email" className="mb-1.5 block text-xs font-medium text-gray-700">
-                  Ubah Alamat Email
-                </label>
-                <input
-                  id="edit-email"
-                  type="email"
-                  value={emailDraft}
-                  onChange={(e) => {
-                    setEmailDraft(e.target.value);
-                    if (emailError) setEmailError("");
-                  }}
-                  placeholder="contoh@gmail.com"
-                  className={`w-full rounded border px-3 py-2.5 text-sm text-slate-900 outline-none transition focus:ring-2 ${
-                    emailError
-                      ? "border-red-400 focus:border-red-500 focus:ring-red-200"
-                      : "border-gray-300 focus:border-indigo-500 focus:ring-indigo-200"
-                  }`}
-                />
+              <div className="text-left space-y-3 rounded-xl border border-slate-200 bg-slate-50 p-4">
+                <div>
+                  <label htmlFor="edit-email" className="mb-1 block text-xs font-semibold text-gray-700">
+                    Alamat Email Baru
+                  </label>
+                  <input
+                    id="edit-email"
+                    type="email"
+                    value={emailDraft}
+                    onChange={(e) => {
+                      setEmailDraft(e.target.value);
+                      if (emailError) setEmailError("");
+                    }}
+                    placeholder="contoh@gmail.com"
+                    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-slate-900 outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200"
+                  />
+                </div>
+
                 {emailError && (
-                  <p className="mt-1.5 text-xs font-medium text-red-600">{emailError}</p>
+                  <div className="rounded-md border border-red-200 bg-red-50 p-2 text-xs font-medium text-red-600">
+                    {emailError}
+                  </div>
                 )}
-                <div className="mt-3 flex gap-2">
+
+                <div className="flex gap-2 pt-1">
                   <button
                     type="button"
                     onClick={handleCancelEditEmail}
-                    className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-full border border-gray-300 bg-white py-2 text-xs font-medium text-gray-700 transition hover:bg-gray-50"
+                    disabled={isChangingEmail}
+                    className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-full border border-gray-300 bg-white py-2 text-xs font-medium text-gray-700 transition hover:bg-gray-50 disabled:opacity-50"
                   >
                     <X className="h-3.5 w-3.5" />
                     Batal
@@ -190,30 +306,41 @@ function VerifyEmailContent() {
                   <button
                     type="button"
                     onClick={handleSaveEmail}
-                    className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-full bg-indigo-500 py-2 text-xs font-semibold text-white transition hover:bg-indigo-600"
+                    disabled={isChangingEmail}
+                    className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-full bg-indigo-600 py-2 text-xs font-semibold text-white transition hover:bg-indigo-700 disabled:opacity-50"
                   >
-                    <Check className="h-3.5 w-3.5" />
-                    Simpan &amp; Kirim Ulang
+                    {isChangingEmail ? (
+                      <RefreshCw className="h-3.5 w-3.5 animate-spin" />
+                    ) : (
+                      <Check className="h-3.5 w-3.5" />
+                    )}
+                    {isChangingEmail ? "Menyimpan..." : "Simpan & Kirim Ulang"}
                   </button>
                 </div>
-                <p className="mt-2 text-[11px] text-gray-400">
-                  Setelah disimpan, klik &quot;Kirim Ulang Email Verifikasi&quot; di bawah untuk mengirim tautan ke email baru.
-                </p>
               </div>
             )}
 
             <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-left">
               <p className="text-xs text-amber-800">
                 Tidak menemukan emailnya? Periksa folder <strong>Spam</strong> atau{" "}
-                <strong>Promosi</strong>.
+                <strong>Promosi</strong>. Maksimal 3 kali kirim ulang per menit.
               </p>
             </div>
 
             {resendMsg && (
               <div className="rounded-lg border border-green-200 bg-green-50 p-3">
                 <p className="flex items-center justify-center gap-1.5 text-xs font-medium text-green-700">
-                  <CheckCircle2 className="h-4 w-4" />
+                  <CheckCircle2 className="h-4 w-4 shrink-0" />
                   {resendMsg}
+                </p>
+              </div>
+            )}
+
+            {resendError && (
+              <div className="rounded-lg border border-red-200 bg-red-50 p-3">
+                <p className="flex items-center justify-center gap-1.5 text-xs font-medium text-red-700">
+                  <AlertTriangle className="h-4 w-4 shrink-0" />
+                  {resendError}
                 </p>
               </div>
             )}
@@ -221,23 +348,32 @@ function VerifyEmailContent() {
             <button
               type="button"
               onClick={handleResend}
-              disabled={resending || !email}
+              disabled={resending || !email || cooldownSeconds > 0}
               className="inline-flex w-full items-center justify-center gap-2 rounded-full border border-gray-300 bg-white py-3 text-sm font-medium text-gray-700 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-60"
             >
-              <RefreshCw className={`h-4 w-4 ${resending ? "animate-spin" : ""}`} />
-              {resending ? "Mengirim ulang..." : "Kirim Ulang Email Verifikasi"}
+              {cooldownSeconds > 0 ? (
+                <>
+                  <Clock className="h-4 w-4 text-amber-500 animate-pulse" />
+                  <span>Kirim ulang lagi dalam ({cooldownSeconds}s)</span>
+                </>
+              ) : (
+                <>
+                  <RefreshCw className={`h-4 w-4 ${resending ? "animate-spin" : ""}`} />
+                  <span>{resending ? "Mengirim ulang..." : "Kirim Ulang Email Verifikasi"}</span>
+                </>
+              )}
             </button>
 
             <Link
               href="/login"
-              className="inline-block w-full rounded-full bg-indigo-500 py-3 text-sm font-semibold text-white transition hover:bg-indigo-600"
+              className="inline-block w-full rounded-full bg-indigo-500 py-3 text-sm font-semibold text-white transition hover:bg-indigo-600 text-center"
             >
               Kembali ke Halaman Login
             </Link>
           </div>
         )}
 
-        {/* Loading State — sedang proses verifikasi dari link email */}
+        {/* Loading State */}
         {status === "loading" && (
           <div className="space-y-4">
             <div className="mx-auto h-12 w-12 animate-spin rounded-full border-4 border-indigo-500 border-t-transparent"></div>
