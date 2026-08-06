@@ -29,6 +29,7 @@ Route::middleware(['auth:sanctum', 'role:admin'])->group(function () {
     Route::delete('/promo/{promo}', [PromoController::class, 'destroy']);
 
     Route::post('/artikel', [ArtikelController::class, 'store']);
+    Route::post('/artikel/upload-images', [ArtikelController::class, 'uploadImages']);
     Route::put('/artikel/{artikel}', [ArtikelController::class, 'update']);
     Route::delete('/artikel/{artikel}', [ArtikelController::class, 'destroy']);
 

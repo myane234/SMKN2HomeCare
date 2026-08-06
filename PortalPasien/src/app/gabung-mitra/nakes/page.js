@@ -30,7 +30,7 @@ const MapPicker = dynamic(() => import('@/components/MapPicker'), {
 export default function RegisterNakesPage() {
   const router = useRouter();
 
-  // 🔹 State Kontrol Multi-Step (1-2)
+  // 🔹 State Kontrol Multi-Step (1-3)
   const [step, setStep] = useState(1);
 
   // 🔹 State Form Data - Step 1 (Data Diri & Domisili)
@@ -62,17 +62,26 @@ export default function RegisterNakesPage() {
   const [idWilayahLayanan, setIdWilayahLayanan] = useState('');
   const [listProvinsi, setListProvinsi] = useState([]);
 
-  // 🔹 State Form Data - Step 2 (Kualifikasi & Dokumen Utama)
+  // 🔹 State Form Data - Step 2 (Pendidikan & Legalitas)
   const [pendidikan, setPendidikan] = useState({
     nama_universitas: '',
     program_studi: '',
     tahun_lulus: '',
+  });
+
+  const [legalitas, setLegalitas] = useState({
     no_str: '',
-    no_sip: '', 
-    ijazah: null,
+    no_sip: '',
     str: null,
     sip: null,
+  });
+
+  // 🔹 State Form Data - Step 3 (Dokumen Pendukung)
+  const [dokumen, setDokumen] = useState({
+    ijazah: null,
     cv: null,
+    ktp: null,
+    skck: null,
   });
 
   // State Autocomplete Universitas (Step 2)
@@ -104,7 +113,7 @@ export default function RegisterNakesPage() {
       } finally {
         setIsSearchingUniv(false);
       }
-    }, 450); // 450ms debounce
+    }, 450);
 
     return () => clearTimeout(delayDebounce);
   }, [pendidikan.nama_universitas]);
@@ -113,15 +122,12 @@ export default function RegisterNakesPage() {
     const query = (pendidikan.nama_universitas || '').toLowerCase().trim();
     if (!query) return [];
 
-    // Filter local list
     const localFiltered = DAFTAR_UNIVERSITAS.filter((nama) =>
       nama.toLowerCase().includes(query)
     );
 
-    // Combine local and API results
     const combined = [...localFiltered, ...apiUniversitas];
     
-    // Case-insensitive deduplication
     const seen = new Set();
     const unique = [];
     for (const item of combined) {
@@ -143,6 +149,8 @@ export default function RegisterNakesPage() {
   const strRef = useRef(null);
   const sipRef = useRef(null);
   const cvRef = useRef(null);
+  const ktpRef = useRef(null);
+  const skckRef = useRef(null);
 
   useEffect(() => {
     if (step === 2) {
@@ -157,16 +165,32 @@ export default function RegisterNakesPage() {
           }
         }
       };
-      // Short timeout to let the Step 2 DOM mount completely
       const timer = setTimeout(() => {
-        restoreFile(pendidikan.ijazah, ijazahRef);
-        restoreFile(pendidikan.str, strRef);
-        restoreFile(pendidikan.sip, sipRef);
-        restoreFile(pendidikan.cv, cvRef);
+        restoreFile(dokumen.ijazah, ijazahRef);
+        restoreFile(legalitas.str, strRef);
+        restoreFile(legalitas.sip, sipRef);
+        restoreFile(dokumen.cv, cvRef);
+        restoreFile(dokumen.ktp, ktpRef);
+        restoreFile(dokumen.skck, skckRef);
       }, 100);
       return () => clearTimeout(timer);
     }
-  }, [step, pendidikan.ijazah, pendidikan.str, pendidikan.sip, pendidikan.cv]);
+  }, [step, dokumen.ijazah, legalitas.str, legalitas.sip, dokumen.cv, dokumen.ktp, dokumen.skck]);
+
+  const handleRemoveFile = (e, field, ref, stateType) => {
+    e.preventDefault();
+    e.stopPropagation();
+    
+    if (stateType === 'legalitas') {
+      setLegalitas((prev) => ({ ...prev, [field]: null }));
+    } else if (stateType === 'dokumen') {
+      setDokumen((prev) => ({ ...prev, [field]: null }));
+    }
+    
+    if (ref && ref.current) {
+      ref.current.value = '';
+    }
+  };
 
   // State UI
   const [loading, setLoading] = useState(false);
@@ -291,11 +315,15 @@ export default function RegisterNakesPage() {
     setPendidikan((prev) => ({ ...prev, [name]: value }));
   };
 
-  const handlePendidikanFileChange = (e, field) => {
+  const handleLegalitasChange = (e) => {
+    const { name, value } = e.target;
+    setLegalitas((prev) => ({ ...prev, [name]: value }));
+  };
+
+  const handleFileChange = (e, field, stateType) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    // Validasi untuk dokumen (Ijazah, STR, SIP, CV) - hanya PDF, PNG, JPG, JPEG
     const validTypes = ['image/png', 'image/jpeg', 'image/jpg', 'application/pdf'];
     const fileExtension = file.name.split('.').pop().toLowerCase();
     const validExtensions = ['png', 'jpg', 'jpeg', 'pdf'];
@@ -306,77 +334,116 @@ export default function RegisterNakesPage() {
       return;
     }
 
-    setPendidikan((prev) => ({ ...prev, [field]: file }));
+    if (stateType === 'legalitas') {
+      setLegalitas((prev) => ({ ...prev, [field]: file }));
+    } else if (stateType === 'dokumen') {
+      setDokumen((prev) => ({ ...prev, [field]: file }));
+    }
+    
     setErrorMessage('');
+  };
+
+  // Step 1 Validation
+  const validateStep1 = () => {
+    if (formData.nik.length !== 16) {
+      setErrorMessage('Nomor NIK harus terdiri dari 16 digit angka.');
+      return false;
+    }
+    if (!formData.tempat_lahir.trim()) {
+      setErrorMessage('Harap isi Tempat Lahir.');
+      return false;
+    }
+    if (!formData.alamat_lengkap.trim()) {
+      setErrorMessage('Harap isi Alamat Lengkap Domisili.');
+      return false;
+    }
+    if (!idWilayahLayanan) {
+      setErrorMessage('Harap pilih area kerja / wilayah provinsi operasional Anda.');
+      return false;
+    }
+    if (isLocationDenied || latitude === null || longitude === null) {
+      setErrorMessage('Lokasi GPS Anda belum terdeteksi/aktif.');
+      return false;
+    }
+    if (selectedLayanan.length === 0) {
+      setErrorMessage('Harap pilih minimal satu kategori layanan medis.');
+      return false;
+    }
+    return true;
+  };
+
+  // Step 2 Validation
+  const validateStep2 = () => {
+    if (!pendidikan.nama_universitas.trim()) {
+      setErrorMessage('Harap isi Nama Universitas/Institusi.');
+      return false;
+    }
+    if (!pendidikan.program_studi.trim()) {
+      setErrorMessage('Harap isi Program Studi.');
+      return false;
+    }
+    if (!pendidikan.tahun_lulus) {
+      setErrorMessage('Harap isi Tahun Lulus.');
+      return false;
+    }
+    if (!legalitas.no_str.trim()) {
+      setErrorMessage('Harap isi Nomor STR.');
+      return false;
+    }
+    if (!legalitas.str) {
+      setErrorMessage('Harap unggah STR.');
+      return false;
+    }
+    if (!dokumen.ijazah) {
+      setErrorMessage('Harap unggah Ijazah.');
+      return false;
+    }
+    return true;
+  };
+
+  // Step 3 Validation
+  const validateStep3 = () => {
+    if (!dokumen.cv) {
+      setErrorMessage('Harap unggah Curriculum Vitae (CV).');
+      return false;
+    }
+    if (!dokumen.ktp) {
+      setErrorMessage('Harap unggah KTP.');
+      return false;
+    }
+    if (!dokumen.skck) {
+      setErrorMessage('Harap unggah SKCK.');
+      return false;
+    }
+    if (!isAgreed) {
+      setErrorMessage('Harap centang pernyataan bahwa seluruh data dan dokumen yang diunggah adalah benar.');
+      return false;
+    }
+    return true;
   };
 
   const handleNextStep1 = (e) => {
     e.preventDefault();
+    if (validateStep1()) {
+      setErrorMessage('');
+      setStep(2);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+  };
 
-    if (formData.nik.length !== 16) {
-      setErrorMessage('Nomor NIK harus terdiri dari 16 digit angka.');
-      return;
+  const handleNextStep2 = (e) => {
+    e.preventDefault();
+    if (validateStep2()) {
+      setErrorMessage('');
+      setStep(3);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
     }
-    if (!formData.tempat_lahir.trim()) {
-      setErrorMessage('Harap isi Tempat Lahir.');
-      return;
-    }
-    if (!formData.alamat_lengkap.trim()) {
-      setErrorMessage('Harap isi Alamat Lengkap Domisili.');
-      return;
-    }
-    if (!idWilayahLayanan) {
-      setErrorMessage('Harap pilih area kerja / wilayah provinsi operasional Anda.');
-      return;
-    }
-    if (isLocationDenied || latitude === null || longitude === null) {
-      setErrorMessage('Lokasi GPS Anda belum terdeteksi/aktif.');
-      return;
-    }
-    if (selectedLayanan.length === 0) {
-      setErrorMessage('Harap pilih minimal satu kategori layanan medis.');
-      return;
-    }
-
-    setErrorMessage('');
-    setStep(2);
-    window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    if (!isAgreed) {
-      setErrorMessage('Harap centang pernyataan bahwa seluruh data dan dokumen yang diunggah adalah benar.');
-      return;
-    }
-
-    if (!pendidikan.nama_universitas.trim()) {
-      setErrorMessage('Harap isi Nama Universitas/Institusi.');
-      return;
-    }
-    if (!pendidikan.program_studi.trim()) {
-      setErrorMessage('Harap isi Program Studi.');
-      return;
-    }
-    if (!pendidikan.tahun_lulus) {
-      setErrorMessage('Harap isi Tahun Lulus.');
-      return;
-    }
-    if (!pendidikan.no_str.trim()) {
-      setErrorMessage('Harap isi Nomor STR.');
-      return;
-    }
-    if (!pendidikan.ijazah) {
-      setErrorMessage('Harap unggah Ijazah.');
-      return;
-    }
-    if (!pendidikan.str) {
-      setErrorMessage('Harap unggah STR.');
-      return;
-    }
-    if (!pendidikan.cv) {
-      setErrorMessage('Harap unggah Curriculum Vitae (CV).');
+    if (!validateStep3()) {
       return;
     }
 
@@ -412,16 +479,22 @@ export default function RegisterNakesPage() {
       dataToSend.append('lulusan', pendidikan.nama_universitas); 
       dataToSend.append('program_studi', pendidikan.program_studi); 
       dataToSend.append('tahun_lulus', pendidikan.tahun_lulus); 
-      dataToSend.append('no_str', pendidikan.no_str);
-      if (pendidikan.no_sip) {
-        dataToSend.append('no_sip', pendidikan.no_sip);
+      dataToSend.append('no_str', legalitas.no_str);
+      if (legalitas.no_sip) {
+        dataToSend.append('no_sip', legalitas.no_sip);
       }
-      dataToSend.append('ijazah', pendidikan.ijazah);
-      dataToSend.append('file_str', pendidikan.str); 
-      if (pendidikan.sip) {
-        dataToSend.append('file_sip', pendidikan.sip); 
+      
+      // ============================================================
+      // 🔹 DOKUMEN
+      // ============================================================
+      dataToSend.append('ijazah', dokumen.ijazah);
+      dataToSend.append('file_str', legalitas.str); 
+      if (legalitas.sip) {
+        dataToSend.append('file_sip', legalitas.sip); 
       }
-      dataToSend.append('file_cv', pendidikan.cv);
+      dataToSend.append('file_cv', dokumen.cv);
+      dataToSend.append('file_ktp', dokumen.ktp);
+      dataToSend.append('file_skck', dokumen.skck);
 
       const res = await api.post('/api/nakes/register', dataToSend, {
         headers: { 'Content-Type': 'multipart/form-data' },
@@ -439,6 +512,16 @@ export default function RegisterNakesPage() {
     }
   };
 
+  // Helper untuk step indicator
+  const getStepLabel = () => {
+    switch(step) {
+      case 1: return 'Isi data pribadi, lokasi domisili, area kerja, dan kategori layanan';
+      case 2: return 'Lengkapi kualifikasi pendidikan dan legalitas profesi';
+      case 3: return 'Unggah dokumen pendukung dan kirim pendaftaran';
+      default: return '';
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gray-50 py-10 px-4 sm:px-6">
       <div className="max-w-xl mx-auto bg-white rounded-2xl shadow-sm border border-gray-100 p-6 sm:p-8">
@@ -451,23 +534,21 @@ export default function RegisterNakesPage() {
             </h1>
             {!successMessage && (
               <span className="text-xs font-semibold px-2.5 py-1 bg-sky-50 text-sky-600 rounded-full border border-sky-100">
-                Langkah {step} dari 2
+                Langkah {step} dari 3
               </span>
             )}
           </div>
           <p className="text-xs sm:text-sm text-gray-500 mt-1">
             {successMessage 
               ? 'Permohonan pendaftaran Anda telah tercatat' 
-              : step === 1 
-                ? 'Isi data pribadi, lokasi domisili, area kerja, dan kategori layanan' 
-                : 'Lengkapi kualifikasi pendidikan dan unggah dokumen utama'}
+              : getStepLabel()}
           </p>
 
           {!successMessage && (
             <div className="w-full bg-gray-100 h-1.5 rounded-full mt-4 overflow-hidden">
               <div 
                 className="bg-sky-500 h-full transition-all duration-300"
-                style={{ width: `${(step / 2) * 100}%` }}
+                style={{ width: `${(step / 3) * 100}%` }}
               />
             </div>
           )}
@@ -540,7 +621,6 @@ export default function RegisterNakesPage() {
                   </div>
                 </div>
 
-                {/* Grid Tempat & Tanggal Lahir */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-4">
                   <div>
                     <label className="block text-xs font-bold text-gray-700 mb-1">Tempat Lahir <span className="text-rose-500">*</span></label>
@@ -589,10 +669,10 @@ export default function RegisterNakesPage() {
 
                 {/* 2. ALAMAT DOMISILI */}
                 <div className="mb-3">
-                  <h2 className="text-xs font-bold text-sky-700 uppercase tracking-wider">2. Alamat Domisili</h2>
+                  <h2 className="text-xs font-bold text-sky-700 uppercase tracking-wider">Domisili</h2>
                 </div>
                 <div>
-                  <label className="block text-xs font-bold text-gray-700 mb-1">Alamat Lengkap Domisili <span className="text-rose-500">*</span></label>
+                  <label className="block text-xs font-bold text-gray-700 mb-1">Alamat Lengkap <span className="text-rose-500">*</span></label>
                   <textarea
                     name="alamat_lengkap"
                     required
@@ -608,10 +688,10 @@ export default function RegisterNakesPage() {
 
                 {/* 3. AREA KERJA */}
                 <div className="mb-3">
-                  <h2 className="text-xs font-bold text-sky-700 uppercase tracking-wider">3. Area Kerja</h2>
+                  <h2 className="text-xs font-bold text-sky-700 uppercase tracking-wider">Area Kerja</h2>
                 </div>
                 <div>
-                  <label className="block text-xs font-bold text-gray-700 mb-1">Area Kerja / Wilayah Provinsi Operasional <span className="text-rose-500">*</span></label>
+                  <label className="block text-xs font-bold text-gray-700 mb-1">Wilayah Operasional <span className="text-rose-500">*</span></label>
                   <select
                     name="id_wilayah_layanan"
                     required
@@ -636,7 +716,7 @@ export default function RegisterNakesPage() {
 
                 {/* 4. TITIK GPS (PETA) */}
                 <div className="mb-3">
-                  <h2 className="text-xs font-bold text-sky-700 uppercase tracking-wider">4. Titik GPS (Peta)</h2>
+                  <h2 className="text-xs font-bold text-sky-700 uppercase tracking-wider">Titik GPS</h2>
                 </div>
                 <div className="space-y-3">
                   <div className="flex items-center justify-between">
@@ -680,7 +760,11 @@ export default function RegisterNakesPage() {
                 </div>
 
                 <hr className="my-4 border-gray-100" />
-                <div className="mb-3"><h2 className="text-xs font-bold text-sky-700 uppercase tracking-wider">5. Layanan Medis</h2></div>
+                
+                {/* 5. LAYANAN MEDIS */}
+                <div className="mb-3">
+                  <h2 className="text-xs font-bold text-sky-700 uppercase tracking-wider">Layanan Medis</h2>
+                </div>
                 <div>
                   <label className="block text-xs font-bold text-gray-700 mb-1.5">Pilih Kategori Layanan / Jenis Tenaga Medis <span className="text-rose-500">*</span></label>
                   <div className="border border-gray-200 rounded-xl p-3.5 bg-gray-50/50 space-y-3">
@@ -690,6 +774,15 @@ export default function RegisterNakesPage() {
                     </div>
                     {isLayananOpen && (
                       <div className="bg-white border border-gray-200 rounded-xl p-3 space-y-2">
+                        <div className="relative">
+                          <input
+                            type="text"
+                            placeholder="Cari layanan..."
+                            value={searchLayanan}
+                            onChange={(e) => setSearchLayanan(e.target.value)}
+                            className="w-full px-3 py-2 text-xs sm:text-sm border border-gray-200 rounded-lg focus:ring-2 focus:ring-sky-500 outline-none"
+                          />
+                        </div>
                         {filteredLayanan.map((item, index) => {
                           const label = item.nama_kategori || item.nama_layanan || item.label || 'Layanan';
                           return (
@@ -710,12 +803,16 @@ export default function RegisterNakesPage() {
               </form>
             )}
 
-            {/* STEP 2: KUALIFIKASI & DOKUMEN UTAMA */}
+            {/* STEP 2: KUALIFIKASI - PENDIDIKAN & LEGALITAS */}
             {step === 2 && (
-              <form onSubmit={handleSubmit} className="space-y-5">
-                <div className="mb-3"><h2 className="text-xs font-bold text-sky-700 uppercase tracking-wider">Informasi Pendidikan</h2></div>
+              <form onSubmit={handleNextStep2} className="space-y-5">
+                {/* Pendidikan */}
+                <div className="mb-3">
+                  <h2 className="text-xs font-bold text-sky-700 uppercase tracking-wider">Pendidikan</h2>
+                </div>
+                
                 <div className="relative">
-                  <label className="block text-xs font-bold text-gray-700 mb-1">Nama Universitas / Institusi <span className="text-rose-500">*</span></label>
+                  <label className="block text-xs font-bold text-gray-700 mb-1">Nama Universitas <span className="text-rose-500">*</span></label>
                   <input
                     type="text"
                     name="nama_universitas"
@@ -784,84 +881,137 @@ export default function RegisterNakesPage() {
                   />
                 </div>
 
-                <div>
-                  <label className="block text-xs font-bold text-gray-700 mb-1">Nomor STR <span className="text-rose-500">*</span></label>
-                  <input
-                    type="text"
-                    name="no_str"
-                    required
-                    placeholder="Masukkan Nomor STR Aktif"
-                    value={pendidikan.no_str}
-                    onChange={handlePendidikanChange}
-                    className="w-full px-4 py-2.5 text-xs sm:text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-sky-500 outline-none"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-bold text-gray-700 mb-1">Nomor SIP (Optional)</label>
-                  <input
-                    type="text"
-                    name="no_sip"
-                    placeholder="Masukkan Nomor SIP"
-                    value={pendidikan.no_sip}
-                    onChange={handlePendidikanChange}
-                    className="w-full px-4 py-2.5 text-xs sm:text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-sky-500 outline-none"
-                  />
-                </div>
-
+                {/* Legalitas Profesi */}
                 <div className="border-t border-gray-100 pt-4">
-                  <h3 className="text-xs font-bold text-gray-700 uppercase tracking-wider mb-3">Unggah Dokumen Utama</h3>
+                  <h3 className="text-xs font-bold text-sky-700 uppercase tracking-wider mb-3">Legalitas Profesi</h3>
+                  
                   <div className="mb-3">
-                    <label className="block text-xs font-bold text-gray-700 mb-1.5">File Ijazah <span className="text-rose-500">*</span> <span className="text-gray-400 font-normal">(PDF, PNG, JPG, JPEG)</span></label>
+                    <label className="block text-xs font-bold text-gray-700 mb-1">Nomor STR <span className="text-rose-500">*</span></label>
+                    <input
+                      type="text"
+                      name="no_str"
+                      required
+                      placeholder="Masukkan Nomor STR Aktif"
+                      value={legalitas.no_str}
+                      onChange={handleLegalitasChange}
+                      className="w-full px-4 py-2.5 text-xs sm:text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-sky-500 outline-none"
+                    />
+                  </div>
+
+                  <div className="mb-3">
+                    <label className="block text-xs font-bold text-gray-700 mb-1.5">Upload STR <span className="text-rose-500">*</span> <span className="text-gray-400 font-normal">(PDF, PNG, JPG, JPEG)</span></label>
                     <div className="relative border-2 border-dashed border-gray-300 rounded-xl p-4 text-center hover:border-sky-400 bg-gray-50">
-                      <input type="file" ref={ijazahRef} accept=".png,.jpg,.jpeg,.pdf" required={!pendidikan.ijazah} onChange={(e) => handlePendidikanFileChange(e, 'ijazah')} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" />
+                      <input type="file" ref={strRef} accept=".png,.jpg,.jpeg,.pdf" required={!legalitas.str} onChange={(e) => handleFileChange(e, 'str', 'legalitas')} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" />
                       <div className="flex flex-col items-center justify-center gap-1.5 text-xs">
                         <FiUpload className="w-6 h-6 text-sky-500" />
-                        <span>{pendidikan.ijazah ? pendidikan.ijazah.name : 'Klik untuk unggah Ijazah'}</span>
+                        <span>{legalitas.str ? legalitas.str.name : 'Klik untuk unggah STR'}</span>
                       </div>
                     </div>
                   </div>
+
                   <div className="mb-3">
-                    <label className="block text-xs font-bold text-gray-700 mb-1.5">File STR <span className="text-rose-500">*</span> <span className="text-gray-400 font-normal">(PDF, PNG, JPG, JPEG)</span></label>
-                    <div className="relative border-2 border-dashed border-gray-300 rounded-xl p-4 text-center hover:border-sky-400 bg-gray-50">
-                      <input type="file" ref={strRef} accept=".png,.jpg,.jpeg,.pdf" required={!pendidikan.str} onChange={(e) => handlePendidikanFileChange(e, 'str')} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" />
-                      <div className="flex flex-col items-center justify-center gap-1.5 text-xs">
-                        <FiUpload className="w-6 h-6 text-sky-500" />
-                        <span>{pendidikan.str ? pendidikan.str.name : 'Klik untuk unggah STR'}</span>
-                      </div>
-                    </div>
+                    <label className="block text-xs font-bold text-gray-700 mb-1">Nomor SIP <span className="text-gray-400 font-normal">(Opsional)</span></label>
+                    <input
+                      type="text"
+                      name="no_sip"
+                      placeholder="Masukkan Nomor SIP"
+                      value={legalitas.no_sip}
+                      onChange={handleLegalitasChange}
+                      className="w-full px-4 py-2.5 text-xs sm:text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-sky-500 outline-none"
+                    />
                   </div>
-                  <div className="mb-3">
-                    <label className="block text-xs font-bold text-gray-700 mb-1.5">File SIP <span className="text-gray-400 font-normal">(PDF, PNG, JPG, JPEG - Optional)</span></label>
-                    <div className="relative border-2 border-dashed border-gray-300 rounded-xl p-4 text-center hover:border-sky-400 bg-gray-50">
-                      <input type="file" ref={sipRef} accept=".png,.jpg,.jpeg,.pdf" onChange={(e) => handlePendidikanFileChange(e, 'sip')} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" />
-                      <div className="flex flex-col items-center justify-center gap-1.5 text-xs">
-                        <FiUpload className="w-6 h-6 text-sky-500" />
-                        <span>{pendidikan.sip ? pendidikan.sip.name : 'Klik untuk unggah SIP (Optional)'}</span>
-                      </div>
-                    </div>
-                  </div>
+
                   <div>
-                    <label className="block text-xs font-bold text-gray-700 mb-1.5">File CV <span className="text-rose-500">*</span> <span className="text-gray-400 font-normal">(PDF, PNG, JPG, JPEG)</span></label>
+                    <label className="block text-xs font-bold text-gray-700 mb-1.5">Upload SIP <span className="text-gray-400 font-normal">(PDF, PNG, JPG, JPEG - Opsional)</span></label>
                     <div className="relative border-2 border-dashed border-gray-300 rounded-xl p-4 text-center hover:border-sky-400 bg-gray-50">
-                      <input type="file" ref={cvRef} accept=".png,.jpg,.jpeg,.pdf" required={!pendidikan.cv} onChange={(e) => handlePendidikanFileChange(e, 'cv')} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" />
+                      <input type="file" ref={sipRef} accept=".png,.jpg,.jpeg,.pdf" onChange={(e) => handleFileChange(e, 'sip', 'legalitas')} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" />
                       <div className="flex flex-col items-center justify-center gap-1.5 text-xs">
                         <FiUpload className="w-6 h-6 text-sky-500" />
-                        <span>{pendidikan.cv ? pendidikan.cv.name : 'Klik untuk unggah CV'}</span>
+                        <span>{legalitas.sip ? legalitas.sip.name : 'Klik untuk unggah SIP (Opsional)'}</span>
                       </div>
                     </div>
                   </div>
                 </div>
 
-                <div className="bg-gray-50 rounded-xl p-4 border border-gray-200">
-                  <div className="flex items-start gap-3">
-                    <input type="checkbox" id="agreement" checked={isAgreed} onChange={(e) => setIsAgreed(e.target.checked)} className="w-5 h-5 mt-0.5 text-sky-600 rounded border-gray-300" />
-                    <label htmlFor="agreement" className="text-xs sm:text-sm text-gray-700 font-medium">Saya menyatakan bahwa seluruh data dan dokumen yang saya unggah adalah benar.</label>
+                {/* Pendidikan Pendukung - Ijazah */}
+                <div className="border-t border-gray-100 pt-4">
+                  <h3 className="text-xs font-bold text-sky-700 uppercase tracking-wider mb-3">Pendidikan Pendukung</h3>
+                  <div>
+                    <label className="block text-xs font-bold text-gray-700 mb-1.5">Upload Ijazah <span className="text-rose-500">*</span> <span className="text-gray-400 font-normal">(PDF, PNG, JPG, JPEG)</span></label>
+                    <div className="relative border-2 border-dashed border-gray-300 rounded-xl p-4 text-center hover:border-sky-400 bg-gray-50">
+                      <input type="file" ref={ijazahRef} accept=".png,.jpg,.jpeg,.pdf" required={!dokumen.ijazah} onChange={(e) => handleFileChange(e, 'ijazah', 'dokumen')} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" />
+                      <div className="flex flex-col items-center justify-center gap-1.5 text-xs">
+                        <FiUpload className="w-6 h-6 text-sky-500" />
+                        <span>{dokumen.ijazah ? dokumen.ijazah.name : 'Klik untuk unggah Ijazah'}</span>
+                      </div>
+                    </div>
                   </div>
                 </div>
 
                 <div className="flex gap-3 pt-3">
                   <button type="button" onClick={() => setStep(1)} className="w-1/3 py-3 bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold text-xs sm:text-sm rounded-xl transition flex items-center justify-center gap-1.5">
+                    <FiArrowLeft className="w-4 h-4" /> Kembali
+                  </button>
+                  <button type="submit" className="w-2/3 py-3 bg-sky-500 hover:bg-sky-600 text-white font-bold text-xs sm:text-sm rounded-xl transition flex items-center justify-center gap-2">
+                    Selanjutnya <FiArrowRight className="w-4 h-4" />
+                  </button>
+                </div>
+              </form>
+            )}
+
+            {/* STEP 3: DOKUMEN PENDUKUNG & PERNYATAAN */}
+            {step === 3 && (
+              <form onSubmit={handleSubmit} className="space-y-5">
+                <div className="mb-3">
+                  <h2 className="text-xs font-bold text-sky-700 uppercase tracking-wider">Dokumen Pendukung</h2>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-gray-700 mb-1.5">Upload CV <span className="text-rose-500">*</span> <span className="text-gray-400 font-normal">(PDF, PNG, JPG, JPEG)</span></label>
+                  <div className="relative border-2 border-dashed border-gray-300 rounded-xl p-4 text-center hover:border-sky-400 bg-gray-50">
+                    <input type="file" ref={cvRef} accept=".png,.jpg,.jpeg,.pdf" required={!dokumen.cv} onChange={(e) => handleFileChange(e, 'cv', 'dokumen')} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" />
+                    <div className="flex flex-col items-center justify-center gap-1.5 text-xs">
+                      <FiUpload className="w-6 h-6 text-sky-500" />
+                      <span>{dokumen.cv ? dokumen.cv.name : 'Klik untuk unggah CV'}</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-gray-700 mb-1.5">Upload KTP <span className="text-rose-500">*</span> <span className="text-gray-400 font-normal">(PDF, PNG, JPG, JPEG)</span></label>
+                  <div className="relative border-2 border-dashed border-gray-300 rounded-xl p-4 text-center hover:border-sky-400 bg-gray-50">
+                    <input type="file" ref={ktpRef} accept=".png,.jpg,.jpeg,.pdf" required={!dokumen.ktp} onChange={(e) => handleFileChange(e, 'ktp', 'dokumen')} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" />
+                    <div className="flex flex-col items-center justify-center gap-1.5 text-xs">
+                      <FiUpload className="w-6 h-6 text-sky-500" />
+                      <span>{dokumen.ktp ? dokumen.ktp.name : 'Klik untuk unggah KTP'}</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-gray-700 mb-1.5">Upload SKCK <span className="text-rose-500">*</span> <span className="text-gray-400 font-normal">(PDF, PNG, JPG, JPEG)</span></label>
+                  <div className="relative border-2 border-dashed border-gray-300 rounded-xl p-4 text-center hover:border-sky-400 bg-gray-50">
+                    <input type="file" ref={skckRef} accept=".png,.jpg,.jpeg,.pdf" required={!dokumen.skck} onChange={(e) => handleFileChange(e, 'skck', 'dokumen')} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" />
+                    <div className="flex flex-col items-center justify-center gap-1.5 text-xs">
+                      <FiUpload className="w-6 h-6 text-sky-500" />
+                      <span>{dokumen.skck ? dokumen.skck.name : 'Klik untuk unggah SKCK'}</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Pernyataan */}
+                <div className="border-t border-gray-100 pt-4">
+                  <h3 className="text-xs font-bold text-sky-700 uppercase tracking-wider mb-3">Pernyataan</h3>
+                  <div className="bg-gray-50 rounded-xl p-4 border border-gray-200">
+                    <div className="flex items-start gap-3">
+                      <input type="checkbox" id="agreement" checked={isAgreed} onChange={(e) => setIsAgreed(e.target.checked)} className="w-5 h-5 mt-0.5 text-sky-600 rounded border-gray-300" />
+                      <label htmlFor="agreement" className="text-xs sm:text-sm text-gray-700 font-medium">Saya menyatakan bahwa seluruh data dan dokumen yang saya unggah adalah benar.</label>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex gap-3 pt-3">
+                  <button type="button" onClick={() => setStep(2)} className="w-1/3 py-3 bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold text-xs sm:text-sm rounded-xl transition flex items-center justify-center gap-1.5">
                     <FiArrowLeft className="w-4 h-4" /> Kembali
                   </button>
                   <button type="submit" disabled={loading} className="w-2/3 py-3 bg-sky-500 hover:bg-sky-600 text-white font-bold text-xs sm:text-sm rounded-xl transition">
