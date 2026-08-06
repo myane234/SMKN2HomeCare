@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Facades\Storage;
 
 class Artikel extends Model
 {
@@ -18,4 +19,12 @@ class Artikel extends Model
         'gambar_artikel',
         'views',
     ];
+
+    /**
+     * Accessor untuk mendapatkan URL penuh dari gambar artikel.
+     */
+    public function getGambarArtikelAttribute($value)
+    {
+        return $value ? Storage::disk('public')->url($value) : null;
+    }
 }
