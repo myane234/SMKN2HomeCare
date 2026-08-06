@@ -118,7 +118,7 @@ export default function PageNakesRequestDetail() {
   function renderStatusBadge(status) {
     const s = String(status || 'pending').toLowerCase();
     if (s === 'approved') {
-      return <span className="rounded-full bg-green-100 px-3 py-1 text-xs font-semibold text-green-700">Sudah Disetujui</span>;
+      return <span className="rounded-full bg-green-100 px-3 py-1 text-xs font-semibold text-green-700"> Disetujui</span>;
     }
     if (s === 'pelatihan') {
       return <span className="rounded-full bg-blue-100 px-3 py-1 text-xs font-semibold text-blue-700">Menunggu Pelatihan</span>;
@@ -126,7 +126,7 @@ export default function PageNakesRequestDetail() {
     if (s === 'rejected') {
       return <span className="rounded-full bg-red-100 px-3 py-1 text-xs font-semibold text-red-700">Ditolak</span>;
     }
-    return <span className="rounded-full bg-amber-100 px-3 py-1 text-xs font-semibold text-amber-700">Menunggu Verifikasi</span>;
+    return <span className="rounded-full bg-amber-100 px-3 py-1 text-xs font-semibold text-amber-700">Verfikasi</span>;
   }
 
   if (loading) return <div className="p-10 text-center text-sm text-slate-500">Memuat detail permohonan...</div>;

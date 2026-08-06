@@ -154,7 +154,7 @@ export default function PageNakesRequest() {
     if (s === 'approved') {
       return (
         <span className="inline-block rounded-full bg-green-100 px-2.5 py-1 text-xs font-semibold text-green-700">
-          Sudah Disetujui
+          Disetujui
         </span>
       );
     }
@@ -174,7 +174,7 @@ export default function PageNakesRequest() {
     }
     return (
       <span className="inline-block rounded-full bg-amber-100 px-2.5 py-1 text-xs font-semibold text-amber-700">
-        Menunggu Verifikasi
+         Verifikasi
       </span>
     );
   }
@@ -191,17 +191,20 @@ export default function PageNakesRequest() {
         </div>
       </div>
 
-      {/* Filter / Search */}
+      {/* Filter / Search Bar */}
       <div className="mb-4 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-        <div className="flex flex-col gap-2.5 sm:flex-row sm:items-center">
-          <input
-            type="text"
-            placeholder="Cari nama, email, NIK, No STR..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="form-input w-full sm:w-[280px]"
-          />
+        {/* Input Search */}
+        <input
+          type="text"
+          placeholder="Cari nama, email, NIK, No STR..."
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          className="form-input w-full sm:w-[280px]"
+        />
 
+        {/* Group Dropdown Filter (Wilayah & Status) */}
+        <div className="flex flex-col gap-2.5 sm:flex-row sm:items-center">
+          {/* Dropdown Wilayah */}
           <select
             value={wilayahFilter}
             onChange={(e) => setWilayahFilter(e.target.value)}
@@ -214,60 +217,19 @@ export default function PageNakesRequest() {
               </option>
             ))}
           </select>
-        </div>
 
-        {/* Buttons Filter Status */}
-        <div className="flex flex-wrap gap-1.5">
-          <button
-            onClick={() => setStatusFilter('all')}
-            className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors ${
-              statusFilter === 'all'
-                ? 'bg-primary text-white shadow-xs'
-                : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'
-            }`}
+          {/* Dropdown Filter Status */}
+          <select
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value)}
+            className="form-input w-full sm:w-[180px] bg-white cursor-pointer"
           >
-            Semua
-          </button>
-          <button
-            onClick={() => setStatusFilter('pending')}
-            className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors ${
-              statusFilter === 'pending'
-                ? 'bg-amber-600 text-white shadow-xs'
-                : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'
-            }`}
-          >
-            Pending
-          </button>
-          <button
-            onClick={() => setStatusFilter('pelatihan')}
-            className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors ${
-              statusFilter === 'pelatihan'
-                ? 'bg-blue-600 text-white shadow-xs'
-                : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'
-            }`}
-          >
-            Sedang Pelatihan
-          </button>
-          <button
-            onClick={() => setStatusFilter('approved')}
-            className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors ${
-              statusFilter === 'approved'
-                ? 'bg-green-600 text-white shadow-xs'
-                : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'
-            }`}
-          >
-            Sudah Disetujui
-          </button>
-          <button
-            onClick={() => setStatusFilter('rejected')}
-            className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors ${
-              statusFilter === 'rejected'
-                ? 'bg-red-600 text-white shadow-xs'
-                : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'
-            }`}
-          >
-            Ditolak
-          </button>
+            <option value="all">Semua Status</option>
+            <option value="pending">Pending</option>
+            <option value="pelatihan">Sedang Pelatihan</option>
+            <option value="approved">Disetujui</option>
+            <option value="rejected">Ditolak</option>
+          </select>
         </div>
       </div>
 
@@ -354,7 +316,6 @@ export default function PageNakesRequest() {
                       </td>
                       <td className="border-b border-slate-200 px-4 py-3.5 text-sm">
                         <div className="flex justify-end gap-1.5">
-                          {/* 🟢 Redirect Ke Halaman Detail Baru */}
                           <button
                             className="btn-outline btn-sm"
                             onClick={() => navigate(`/nakes-request/${reqId}`, { state: { requestData: item } })}
@@ -421,14 +382,10 @@ export default function PageNakesRequest() {
               <div>
                 <p className="text-sm text-slate-500">
                   Menampilkan{' '}
-                  <span className="font-medium">
-                    {filtered.length > 0 ? (currentPage - 1) * itemsPerPage + 1 : 0}
-                  </span>{' '}
-                  sampai{' '}
                   <span className="font-semibold">
-                    {Math.min(currentPage * itemsPerPage, filtered.length)}
+                    {filtered.length > 0 ? (currentPage - 1) * itemsPerPage + 1 : 0}–{Math.min(currentPage * itemsPerPage, filtered.length)}
                   </span>{' '}
-                  dari <span className="font-medium">{filtered.length}</span> data
+                  dari <span className="font-semibold">{filtered.length}</span> data
                 </p>
               </div>
               <div>
