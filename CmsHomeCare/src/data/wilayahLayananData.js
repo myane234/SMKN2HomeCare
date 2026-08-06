@@ -1,4 +1,6 @@
-const API_BASE_URL = 'https://api.example.com/api'; // Ganti dengan base URL API Anda
+// const API_BASE_URL = 'https://api.example.com/api'; // Ganti dengan base URL API Anda
+
+import { URL } from '../utils/getUrl.js';
 
 const getHeaders = () => {
   const token = localStorage.getItem('token');
@@ -12,7 +14,7 @@ const getHeaders = () => {
 
 export async function getAllWilayahLayanan() {
   try {
-    const response = await fetch(`${API_BASE_URL}/provinsi`, {
+    const response = await fetch(`${URL}/provinsi`, {
       method: 'GET',
       headers: getHeaders(),
     });
@@ -27,7 +29,7 @@ export async function getAllWilayahLayanan() {
 
 export async function createWilayahLayanan(payload) {
   try {
-    const response = await fetch(`${API_BASE_URL}/provinsi`, {
+    const response = await fetch(`${URL}/provinsi`, {
       method: 'POST',
       headers: getHeaders(),
       body: JSON.stringify(payload),
@@ -43,7 +45,7 @@ export async function createWilayahLayanan(payload) {
 
 export async function updateWilayahLayanan(id, payload) {
   try {
-    const response = await fetch(`${API_BASE_URL}/provinsi/${id}`, {
+    const response = await fetch(`${URL}/provinsi/${id}`, {
       method: 'PUT',
       headers: getHeaders(),
       body: JSON.stringify(payload),
@@ -59,7 +61,7 @@ export async function updateWilayahLayanan(id, payload) {
 
 export async function deleteWilayahLayanan(id) {
   try {
-    const response = await fetch(`${API_BASE_URL}/provinsi/${id}`, {
+    const response = await fetch(`${URL}/provinsi/${id}`, {
       method: 'DELETE',
       headers: getHeaders(),
     });
@@ -76,7 +78,7 @@ export async function deleteWilayahLayanan(id) {
 
 export async function getAllKotaKabupaten() {
   try {
-    const response = await fetch(`${API_BASE_URL}/kabupaten`, {
+    const response = await fetch(`${URL}/kabupaten`, {
       method: 'GET',
       headers: getHeaders(),
     });
@@ -91,7 +93,7 @@ export async function getAllKotaKabupaten() {
 
 export async function createKotaKabupaten(payload) {
   try {
-    const response = await fetch(`${API_BASE_URL}/kabupaten`, {
+    const response = await fetch(`${URL}/kabupaten`, {
       method: 'POST',
       headers: getHeaders(),
       body: JSON.stringify(payload),
@@ -107,7 +109,7 @@ export async function createKotaKabupaten(payload) {
 
 export async function updateKotaKabupaten(id, payload) {
   try {
-    const response = await fetch(`${API_BASE_URL}/kabupaten/${id}`, {
+    const response = await fetch(`${URL}/kabupaten/${id}`, {
       method: 'PUT',
       headers: getHeaders(),
       body: JSON.stringify(payload),
@@ -123,7 +125,7 @@ export async function updateKotaKabupaten(id, payload) {
 
 export async function deleteKotaKabupaten(id) {
   try {
-    const response = await fetch(`${API_BASE_URL}/kabupaten/${id}`, {
+    const response = await fetch(`${URL}/kabupaten/${id}`, {
       method: 'DELETE',
       headers: getHeaders(),
     });
