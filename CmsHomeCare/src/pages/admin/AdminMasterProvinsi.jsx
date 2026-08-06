@@ -7,7 +7,7 @@ import {
   createWilayahLayanan,
   updateWilayahLayanan,
   deleteWilayahLayanan,
-  toggleWilayahLayananStatus,
+ 
 } from '../../data/wilayahLayananData';
 
 export default function AdminMasterProvinsi() {
