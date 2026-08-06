@@ -28,6 +28,7 @@ class DatabaseSeeder extends Seeder
             LayananSeeder::class,
             PromoSeeder::class,
             ProvinsiSeeder::class,
+            KotaKabupatenSeeder::class,
             ArtikelSeeder::class,
             TenagaMedisSeeder::class
         ]);
