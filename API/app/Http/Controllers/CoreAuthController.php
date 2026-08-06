@@ -50,7 +50,7 @@ class CoreAuthController extends Controller
                     'id_user' => $user->id_user,
                     'email' => $user->email,
                     'is_active' => $user->is_active,
-                    'email_verified_at' => $user->email_verified_at, 
+                    'email_verified_at' => $user->email_verified_at,
                 ],
                 'roles' => $userRoles,
                 'is_profile_complete' => (bool) $isProfileComplete,
@@ -71,8 +71,8 @@ class CoreAuthController extends Controller
             'nama_lengkap' => ['required', 'string'],
             'no_hp' => ['nullable', 'string'],
             'nik' => ['required', 'string', 'size:16'],
-            'golongan_darah' => ['nullable', 'in:A,B,AB,O'], 
-            'jenis_kelamin' => ['required', 'in:L,P'], 
+            'golongan_darah' => ['nullable', 'in:A,B,AB,O'],
+            'jenis_kelamin' => ['required', 'in:L,P'],
             'alamat_utama' => ['required', 'string']
         ]);
 
@@ -85,7 +85,7 @@ class CoreAuthController extends Controller
                 'is_active' => true
             ]);
 
-            $createdUser->roles()->attach(2); 
+            $createdUser->roles()->attach(2);
 
             return Pasien::create([
                 'id_user' => $createdUser->id_user,
@@ -117,7 +117,7 @@ class CoreAuthController extends Controller
 
     $user = Users::where('id_user', $id)->firstOrFail();
 
-  
+
     if (! hash_equals((string) $hash, sha1($user->getEmailForVerification()))) {
         return response()->json([
             'success' => false,
@@ -153,25 +153,23 @@ public function changeUnverifiedEmail(Request $request)
     $request->validate([
         'old_email' => ['required', 'email'],
         'new_email' => ['required', 'email', 'unique:users,email'],
-        'password'  => ['required', 'string'],
     ]);
 
     $user = Users::where('email', $request->old_email)->first();
 
-    if (!$user || !Hash::check($request->password, $user->password)) {
+    if (!$user) {
         return response()->json([
             'success' => false,
-            'message' => 'Email lama atau password salah.'
-        ], 401);
+            'message' => 'Data pendaftaran tidak ditemukan.'
+        ], 404);
     }
 
     if ($user->hasVerifiedEmail()) {
         return response()->json([
             'success' => false,
-            'message' => 'Email ini sudah terverifikasi. Silakan login dan ubah email via menu profil.'
+            'message' => 'Email ini sudah terverifikasi.'
         ], 400);
     }
-
 
     $user->email = $request->new_email;
     $user->save();
@@ -255,7 +253,7 @@ public function changeUnverifiedEmail(Request $request)
 
         $pasien = Pasien::whereIdUser($user->id_user)->first();
         $tenagaMedis = TenagaMedis::where('id_user', $user->id_user)->first();
-        
+
         $isProfileComplete = $pasien && $pasien->nik && $pasien->golongan_darah && $pasien->jenis_kelamin && $pasien->alamat_utama;
 
         $nama = 'Guest';
