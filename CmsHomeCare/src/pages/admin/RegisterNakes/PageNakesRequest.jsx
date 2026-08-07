@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import {
   getAllNakesRequests,
   approveNakesRequest,
-  pelatihanNakesRequest,
+  approvePelatihanNakes, // Disesuaikan dengan ekspor di nakesRequestData.js
   rejectNakesRequest,
 } from '../../../data/nakesRequestData';
 import { getImageUrl } from '../../../data/imageHelper';
@@ -107,7 +107,7 @@ export default function PageNakesRequest() {
     const targetId = pelatihanTarget.id_tenaga_medis ?? pelatihanTarget.id ?? pelatihanTarget.id_nakes_request;
     setProcessing(true);
     try {
-      await pelatihanNakesRequest(targetId, adminNotes);
+      await approvePelatihanNakes(targetId, adminNotes);
       setPelatihanTarget(null);
       setAdminNotes('');
       loadData();
@@ -174,7 +174,7 @@ export default function PageNakesRequest() {
     }
     return (
       <span className="inline-block rounded-full bg-amber-100 px-2.5 py-1 text-xs font-semibold text-amber-700">
-         Verifikasi
+        Verifikasi
       </span>
     );
   }
@@ -309,8 +309,8 @@ export default function PageNakesRequest() {
                         <span className="badge badge-aktif">{profesi}</span>
                       </td>
                       <td className="border-b border-slate-200 px-4 py-3.5 text-sm">
-                        {item.lulusan ?? '-'}
-                      </td>
+                {item.lulusan ?? item.pendidikan ?? item.pendidikan_terakhir ?? item.institusi ?? item.universitas ?? item.asal_institusi ?? '-'}
+              </td>
                       <td className="border-b border-slate-200 px-4 py-3.5 text-sm">
                         {renderStatusBadge(item.status)}
                       </td>
