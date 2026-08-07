@@ -5,8 +5,16 @@ import { getAllPromo } from '../data/PromoEndpoint';
 import { getAllArtikel } from '../data/artikelData';
 import { getSession } from '../utils/auth';
 import { FaStethoscope, FaGift, FaRegFileAlt } from 'react-icons/fa';
+import { isSuperAdmin } from '../utils/role';
+import AdminDashboard from './admin/AdminDashboard';
 
 export default function Dashboard() {
+  const isSuper = isSuperAdmin();
+
+  if (isSuper) {
+    return <AdminDashboard />;
+  }
+
   const [layanan, setLayanan] = useState([]);
   const [promo, setPromo] = useState([]);
   const [artikel, setArtikel] = useState([]);

@@ -29,11 +29,7 @@ export default function LoginAdminCms() {
     const result = await login(form.email, form.password, isSuperAdminPath);
     setLoading(false);
     if (result.success) {
-      if (result.roles?.includes('super_admin')) {
-        navigate('/admin/dashboard', { replace: true });
-      } else {
-        navigate('/dashboard', { replace: true });
-      }
+      navigate('/dashboard', { replace: true });
     } else {
       setError(result.message);
     }
