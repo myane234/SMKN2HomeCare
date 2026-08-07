@@ -21,34 +21,44 @@ import {
 import { getLayanan } from "@/services/layananService";
 
 export default function Navbar() {
-    const [isScrolled, setIsScrolled] = useState(false);
+    const [isStickyVisible, setIsStickyVisible] = useState(false);
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
     const [isSearchOpen, setIsSearchOpen] = useState(false);
     const [searchQuery, setSearchQuery] = useState("");
-const [isLoggedIn, setIsLoggedIn] = useState(false);
+    const [isLoggedIn, setIsLoggedIn] = useState(false);
     const [searchData, setSearchData] = useState([]);
     const [searchLoading, setSearchLoading] = useState(false);
     const searchInputRef = useRef(null);
     const pathname = usePathname();
+    const originalNavRef = useRef(null);
 
     useEffect(() => {
         setIsLoggedIn(document.cookie.includes("is_logged_in=true"));
 
         const handleScroll = () => {
-            setIsScrolled(window.scrollY > 50);
+            if (originalNavRef.current) {
+                const navHeight = originalNavRef.current.offsetHeight;
+                // Show sticky navbar when original navbar is completely scrolled away
+                if (window.scrollY > navHeight) {
+                    setIsStickyVisible(true);
+                } else {
+                    setIsStickyVisible(false);
+                }
+            }
         };
         
-        window.addEventListener("scroll", handleScroll);
+        window.addEventListener("scroll", handleScroll, { passive: true });
+        // Initial check
+        handleScroll();
+        
         return () => window.removeEventListener("scroll", handleScroll);
     }, []);
 
-    // Close menus when route changes
     useEffect(() => {
         setIsMobileMenuOpen(false);
         setIsSearchOpen(false);
     }, [pathname]);
 
-    // Fetch layanan data when search opens
     useEffect(() => {
         if (isSearchOpen) {
             async function fetchServices() {
@@ -72,19 +82,16 @@ const [isLoggedIn, setIsLoggedIn] = useState(false);
         }
     }, [isSearchOpen]);
 
-// Slugify helper - harus konsisten dengan halaman detail
     function slugify(text) {
         return text?.toLowerCase().replace(/&/g, "dan").replace(/\s+/g, "-").replace(/(^-|-$)/g, "") || "";
     }
 
-    // Build search items from API data
     const searchItems = searchData.map(service => ({
         name: service.nama_layanan || service.nama || service.title || "",
         category: service.kategori_layanan || service.kategori || service.category || "",
         href: `/layanan/${slugify(service.kategori_layanan || service.kategori || service.category)}/${slugify(service.nama_layanan || service.nama || service.title)}`
     }));
 
-    // Search query filtering
     const filteredSearchItems = searchQuery.trim() === ""
         ? []
         : searchItems.filter(item => 
@@ -92,115 +99,198 @@ const [isLoggedIn, setIsLoggedIn] = useState(false);
             item.category.toLowerCase().includes(searchQuery.toLowerCase())
         );
 
+    // Navbar content component to avoid duplication
+    const NavbarContent = ({ isSticky = false }) => (
+        <>
+            {/* Logo */}
+            <Link href="/" className={`transition-all duration-300 ease-in-out hover:opacity-80 ${isSticky ? 'scale-95' : ''}`}>
+                <Image 
+                    src="/images/logo/logo.png"
+                    alt="SmartHomeCare Logo"
+                    width={140}
+                    height={50}
+                    className={`transition-all duration-300 ease-in-out ${
+                        isSticky ? "h-8 w-auto md:h-9" : "h-9 w-auto md:h-11"
+                    }`}
+                />
+            </Link>
+
+            {/* Desktop Menu */}
+            <ul className="hidden lg:flex items-center gap-1 font-medium text-gray-700">
+                <li>
+                    <Link 
+                        href="/" 
+                        className={`relative px-4 py-2 rounded-lg text-sm transition-all duration-300 ease-in-out hover:bg-gray-50 ${
+                            pathname === "/" 
+                                ? "text-green-600 font-semibold" 
+                                : "text-gray-600 hover:text-green-600"
+                        }`}
+                    >
+                        Beranda
+                        {pathname === "/" && (
+                            <span className="absolute bottom-0 left-1/2 -translate-x-1/2 w-5 h-0.5 bg-green-500 rounded-full" />
+                        )}
+                    </Link>
+                </li>
+                <li>
+                    <Link 
+                        href="/tentang-kami" 
+                        className={`relative px-4 py-2 rounded-lg text-sm transition-all duration-300 ease-in-out hover:bg-gray-50 ${
+                            pathname === "/tentang-kami" 
+                                ? "text-green-600 font-semibold" 
+                                : "text-gray-600 hover:text-green-600"
+                        }`}
+                    >
+                        Tentang Kami
+                        {pathname === "/tentang-kami" && (
+                            <span className="absolute bottom-0 left-1/2 -translate-x-1/2 w-5 h-0.5 bg-green-500 rounded-full" />
+                        )}
+                    </Link>
+                </li>
+                <li>
+                    <Link 
+                        href="/promo" 
+                        className={`relative px-4 py-2 rounded-lg text-sm transition-all duration-300 ease-in-out hover:bg-gray-50 ${
+                            pathname.startsWith("/promo") 
+                                ? "text-green-600 font-semibold" 
+                                : "text-gray-600 hover:text-green-600"
+                        }`}
+                    >
+                        Promo
+                        {pathname.startsWith("/promo") && (
+                            <span className="absolute bottom-0 left-1/2 -translate-x-1/2 w-5 h-0.5 bg-green-500 rounded-full" />
+                        )}
+                    </Link>
+                </li>
+                <li>
+                    <Link 
+                        href="/layanan" 
+                        className={`relative px-4 py-2 rounded-lg text-sm transition-all duration-300 ease-in-out hover:bg-gray-50 ${
+                            pathname.startsWith("/layanan") 
+                                ? "text-green-600 font-semibold" 
+                                : "text-gray-600 hover:text-green-600"
+                        }`}
+                    >
+                        Layanan
+                        {pathname.startsWith("/layanan") && (
+                            <span className="absolute bottom-0 left-1/2 -translate-x-1/2 w-5 h-0.5 bg-green-500 rounded-full" />
+                        )}
+                    </Link>
+                </li>
+                <li>
+                    <Link 
+                        href="/artikel" 
+                        className={`relative px-4 py-2 rounded-lg text-sm transition-all duration-300 ease-in-out hover:bg-gray-50 ${
+                            pathname === "/artikel" 
+                                ? "text-green-600 font-semibold" 
+                                : "text-gray-600 hover:text-green-600"
+                        }`}
+                    >
+                        Artikel
+                        {pathname === "/artikel" && (
+                            <span className="absolute bottom-0 left-1/2 -translate-x-1/2 w-5 h-0.5 bg-green-500 rounded-full" />
+                        )}
+                    </Link>
+                </li>
+                <li>
+                    <Link 
+                        href="/gabung-mitra" 
+                        className={`relative px-4 py-2 rounded-lg text-sm transition-all duration-300 ease-in-out hover:bg-gray-50 ${
+                            pathname === "/gabung-mitra" 
+                                ? "text-green-600 font-semibold" 
+                                : "text-gray-600 hover:text-green-600"
+                        }`}
+                    >
+                        Gabung Mitra
+                        {pathname === "/gabung-mitra" && (
+                            <span className="absolute bottom-0 left-1/2 -translate-x-1/2 w-5 h-0.5 bg-green-500 rounded-full" />
+                        )}
+                    </Link>
+                </li>
+            </ul>
+
+            {/* Right Area */}
+            <div className="hidden lg:flex items-center text-gray-700 gap-2">
+                <button 
+                    onClick={() => setIsSearchOpen(true)} 
+                    className="cursor-pointer p-2.5 rounded-lg hover:bg-gray-50 transition-all duration-300 ease-in-out hover:text-green-600 hover:scale-105 active:scale-95"
+                    aria-label="Cari Layanan"
+                >
+                    <FiSearch size={20} />
+                </button>
+                
+                {isLoggedIn ? (
+                    <Link 
+                        href="/profile" 
+                        className="p-2.5 rounded-lg hover:bg-gray-50 transition-all duration-300 ease-in-out hover:text-green-600 hover:scale-105 active:scale-95"
+                    >
+                        <FiUsers size={20} />
+                    </Link>
+                ) : (
+                    <Link href="/login">
+                        <button className="rounded-lg bg-green-500 px-5 py-2.5 font-semibold text-white transition-all duration-300 ease-in-out hover:bg-green-600 hover:shadow-lg hover:shadow-green-500/25 hover:scale-105 active:scale-95">
+                            Masuk
+                        </button>
+                    </Link>
+                )}
+            </div>
+
+            {/* Mobile Hamburger Trigger */}
+            <div className="flex items-center gap-2 lg:hidden">
+                <button
+                    onClick={() => setIsSearchOpen(true)}
+                    className="text-gray-700 p-2 rounded-lg hover:bg-gray-50 transition-all duration-300 ease-in-out hover:text-green-600 hover:scale-105 active:scale-95"
+                    aria-label="Cari Layanan"
+                >
+                    <FiSearch size={20} />
+                </button>
+                <button
+                    onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+                    className="text-gray-700 p-2 rounded-lg hover:bg-gray-50 transition-all duration-300 ease-in-out hover:text-green-600 hover:scale-105 active:scale-95 focus:outline-none"
+                    aria-label="Menu"
+                >
+                    {isMobileMenuOpen ? <FiX size={24} /> : <FiMenu size={24} />}
+                </button>
+            </div>
+        </>
+    );
+
     return (
         <>
-            {/* Top Navbar */}
-            <nav className={`relative z-50 flex w-full items-center justify-between px-4 md:px-8 py-4 transition-all duration-300 ${
-                isScrolled
-                    ? "bg-[#CEF2FF]/95 backdrop-blur-md shadow-lg"
-                    : "bg-[#CEE2FF]"
+            {/* Original Navbar - Visible at top, scrolls away naturally */}
+            <div ref={originalNavRef} className="relative z-40">
+                <nav className="flex w-full items-center justify-between px-4 md:px-8 py-4 bg-blue-100 shadow-sm">
+                    <NavbarContent isSticky={false} />
+                </nav>
+            </div>
+
+            {/* Sticky Navbar - Appears after original navbar scrolls away */}
+            <nav 
+                className={`fixed top-0 left-0 right-0 z-50 transition-all duration-500 ease-in-out ${
+                    isStickyVisible 
+                        ? "opacity-100 translate-y-0 pointer-events-auto" 
+                        : "opacity-0 -translate-y-full pointer-events-none"
                 }`}
             >
-                <Link href="/">
-                    <Image 
-                        src="/images/logo/logo.png"
-                        alt="SmartHomeCare Logo"
-                        width={140}
-                        height={50}
-                        className="h-9 w-auto md:h-12"
-                    />
-                </Link>
-
-                {/* Desktop Menu */}
-                <ul className="hidden lg:flex items-center gap-8 font-medium text-gray-700">
-                    <li>
-                        <Link href="/" className={`transition hover:text-green-600 ${pathname === "/" ? "text-green-600 font-semibold" : ""}`}>
-                            Beranda
-                        </Link>
-                    </li>
-                    <li>
-                        <Link href="/tentang-kami" className={`transition hover:text-green-600 ${pathname === "/tentang-kami" ? "text-green-600 font-semibold" : ""}`}>
-                            Tentang Kami
-                        </Link>
-                    </li>
-                    <li>
-                        <Link href="/promo" className={`transition hover:text-green-600 ${pathname.startsWith("/promo") ? "text-green-600 font-semibold" : ""}`}>
-                            Promo
-                        </Link>
-                    </li>
-                    <li>
-                        <Link href="/layanan" className={`transition hover:text-green-600 ${pathname.startsWith("/layanan") ? "text-green-600 font-semibold" : ""}`}>
-                            Layanan
-                        </Link>
-                    </li>
-                    <li>
-                        <Link href="/artikel" className={`transition hover:text-green-600 ${pathname === "/artikel" ? "text-green-600 font-semibold" : ""}`}>
-                            Artikel
-                        </Link>
-                    </li>
-                    
-                    {/* HANYA MUNCUL JIKA SUDAH LOGIN (DESKTOP) */}
-                    {isLoggedIn && (
-                        <li>
-                            <Link href="/gabung-mitra" className={`transition hover:text-green-600 ${pathname === "/gabung-mitra" ? "text-green-600 font-semibold" : ""}`}>
-                                Gabung Mitra
-                            </Link>
-                        </li>
-                    )}
-                </ul>
-
-                {/* Right Area (Desktop) */}
-                <div className="hidden lg:flex items-center text-gray-700 gap-5">
-                    <button 
-                        onClick={() => setIsSearchOpen(true)} 
-                        className="cursor-pointer hover:text-green-600 transition p-1"
-                        aria-label="Cari Layanan"
-                    >
-                        <FiSearch size={22} />
-                    </button>
-                    
-                    {isLoggedIn ? (
-                        <Link href="/profile" className="text-gray-700 hover:text-green-600 transition">
-                            <FiUsers size={22} />
-                        </Link>
-                    ) : (
-                        <Link href="/login">
-                            <button className="rounded-lg bg-green-500 px-5 py-2 font-semibold text-white transition hover:bg-green-700">
-                                Masuk
-                            </button>
-                        </Link>
-                    )}
-                </div>
-
-                {/* Mobile Hamburger Trigger */}
-                <div className="flex items-center gap-3 lg:hidden">
-                    <button
-                        onClick={() => setIsSearchOpen(true)}
-                        className="text-gray-700 hover:text-green-600 p-2"
-                        aria-label="Cari Layanan"
-                    >
-                        <FiSearch size={22} />
-                    </button>
-                    <button
-                        onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-                        className="text-gray-700 hover:text-green-600 p-2 focus:outline-none"
-                        aria-label="Menu"
-                    >
-                        {isMobileMenuOpen ? <FiX size={26} /> : <FiMenu size={26} />}
-                    </button>
+                <div className="flex w-full items-center justify-between px-4 md:px-8 py-3 bg-blue-100 shadow-[0_2px_16px_rgba(0,0,0,0.1)] backdrop-blur-sm bg-blue-100/95">
+                    <NavbarContent isSticky={true} />
                 </div>
             </nav>
 
-            {/* Mobile Dropdown Menu Drawer */}
+            {/* Mobile Dropdown Menu */}
             {isMobileMenuOpen && (
-                <div className="fixed inset-x-0 top-[60px] md:top-[76px] bottom-[64px] z-40 bg-white overflow-y-auto shadow-2xl p-6 lg:hidden flex flex-col justify-between border-t border-slate-100">
+                <div className="fixed inset-x-0 top-[60px] md:top-[76px] bottom-[64px] z-40 bg-white overflow-y-auto shadow-[0_8px_32px_rgba(0,0,0,0.12)] p-6 lg:hidden flex flex-col justify-between border-t border-slate-100/80 animate-slide-down">
                     <div className="space-y-6">
-                        <ul className="space-y-4 font-semibold text-lg text-gray-800">
+                        <ul className="space-y-1 font-semibold text-lg text-gray-800">
                             <li>
                                 <Link 
                                     href="/" 
                                     onClick={() => setIsMobileMenuOpen(false)}
-                                    className={`flex items-center gap-3 py-2 transition-all ${pathname === "/" ? "text-green-600" : "text-gray-800"}`}
+                                    className={`flex items-center gap-3 px-3 py-3 rounded-lg transition-all duration-300 ease-in-out ${
+                                        pathname === "/" 
+                                            ? "bg-green-50 text-green-600" 
+                                            : "text-gray-700 hover:bg-gray-50 hover:text-green-600"
+                                    }`}
                                 >
                                     <FiHome size={20} />
                                     <span>Beranda</span>
@@ -210,7 +300,11 @@ const [isLoggedIn, setIsLoggedIn] = useState(false);
                                 <Link 
                                     href="/tentang-kami" 
                                     onClick={() => setIsMobileMenuOpen(false)}
-                                    className={`flex items-center gap-3 py-2 transition-all ${pathname === "/tentang-kami" ? "text-green-600" : "text-gray-800"}`}
+                                    className={`flex items-center gap-3 px-3 py-3 rounded-lg transition-all duration-300 ease-in-out ${
+                                        pathname === "/tentang-kami" 
+                                            ? "bg-green-50 text-green-600" 
+                                            : "text-gray-700 hover:bg-gray-50 hover:text-green-600"
+                                    }`}
                                 >
                                     <FiInfo size={20} />
                                     <span>Tentang Kami</span>
@@ -220,7 +314,11 @@ const [isLoggedIn, setIsLoggedIn] = useState(false);
                                 <Link 
                                     href="/promo" 
                                     onClick={() => setIsMobileMenuOpen(false)}
-                                    className={`flex items-center gap-3 py-2 transition-all ${pathname.startsWith("/promo") ? "text-green-600" : "text-gray-800"}`}
+                                    className={`flex items-center gap-3 px-3 py-3 rounded-lg transition-all duration-300 ease-in-out ${
+                                        pathname.startsWith("/promo") 
+                                            ? "bg-green-50 text-green-600" 
+                                            : "text-gray-700 hover:bg-gray-50 hover:text-green-600"
+                                    }`}
                                 >
                                     <FiPercent size={20} />
                                     <span>Promo</span>
@@ -230,7 +328,11 @@ const [isLoggedIn, setIsLoggedIn] = useState(false);
                                 <Link 
                                     href="/layanan" 
                                     onClick={() => setIsMobileMenuOpen(false)}
-                                    className={`flex items-center gap-3 py-2 transition-all ${pathname.startsWith("/layanan") ? "text-green-600" : "text-gray-800"}`}
+                                    className={`flex items-center gap-3 px-3 py-3 rounded-lg transition-all duration-300 ease-in-out ${
+                                        pathname.startsWith("/layanan") 
+                                            ? "bg-green-50 text-green-600" 
+                                            : "text-gray-700 hover:bg-gray-50 hover:text-green-600"
+                                    }`}
                                 >
                                     <FiActivity size={20} />
                                     <span>Layanan</span>
@@ -240,33 +342,40 @@ const [isLoggedIn, setIsLoggedIn] = useState(false);
                                 <Link 
                                     href="/artikel" 
                                     onClick={() => setIsMobileMenuOpen(false)}
-                                    className={`flex items-center gap-3 py-2 transition-all ${pathname === "/artikel" ? "text-green-600" : "text-gray-800"}`}
+                                    className={`flex items-center gap-3 px-3 py-3 rounded-lg transition-all duration-300 ease-in-out ${
+                                        pathname === "/artikel" 
+                                            ? "bg-green-50 text-green-600" 
+                                            : "text-gray-700 hover:bg-gray-50 hover:text-green-600"
+                                    }`}
                                 >
                                     <FiBook size={20} />
                                     <span>Artikel</span>
                                 </Link>
                             </li>
-
-                            {/* HANYA MUNCUL JIKA SUDAH LOGIN (MOBILE DRAWER) */}
-                            {isLoggedIn && (
-                                <li>
-                                    <Link 
-                                        href="/gabung-mitra" 
-                                        onClick={() => setIsMobileMenuOpen(false)}
-                                        className={`flex items-center gap-3 py-2 transition-all ${pathname === "/gabung-mitra" ? "text-green-600" : "text-gray-800"}`}
-                                    >
-                                        <FiUsers size={20} />
-                                        <span>Gabung Mitra</span>
-                                    </Link>
-                                </li>
-                            )}
-
+                            <li>
+                                <Link 
+                                    href="/gabung-mitra" 
+                                    onClick={() => setIsMobileMenuOpen(false)}
+                                    className={`flex items-center gap-3 px-3 py-3 rounded-lg transition-all duration-300 ease-in-out ${
+                                        pathname === "/gabung-mitra" 
+                                            ? "bg-green-50 text-green-600" 
+                                            : "text-gray-700 hover:bg-gray-50 hover:text-green-600"
+                                    }`}
+                                >
+                                    <FiUsers size={20} />
+                                    <span>Gabung Mitra</span>
+                                </Link>
+                            </li>
                             {isLoggedIn && (
                                 <li>
                                     <Link 
                                         href="/profile" 
                                         onClick={() => setIsMobileMenuOpen(false)}
-                                        className={`flex items-center gap-3 py-2 transition-all ${pathname === "/profile" ? "text-green-600" : "text-gray-800"}`}
+                                        className={`flex items-center gap-3 px-3 py-3 rounded-lg transition-all duration-300 ease-in-out ${
+                                            pathname === "/profile" 
+                                                ? "bg-green-50 text-green-600" 
+                                                : "text-gray-700 hover:bg-gray-50 hover:text-green-600"
+                                        }`}
                                     >
                                         <FiUserCheck size={20} />
                                         <span>Profil Saya</span>
@@ -275,11 +384,10 @@ const [isLoggedIn, setIsLoggedIn] = useState(false);
                             )}
                         </ul>
                     </div>
-
                     {!isLoggedIn && (
-                        <div className="mt-8 border-t border-gray-100 pt-6">
+                        <div className="mt-8 border-t border-gray-100/80 pt-6">
                             <Link href="/login" onClick={() => setIsMobileMenuOpen(false)}>
-                                <button className="flex w-full items-center justify-center gap-2 rounded-xl bg-green-500 py-3 font-bold text-white transition hover:bg-green-600">
+                                <button className="flex w-full items-center justify-center gap-2 rounded-xl bg-green-500 py-3.5 font-bold text-white transition-all duration-300 ease-in-out hover:bg-green-600 hover:shadow-lg hover:shadow-green-500/25 hover:scale-[1.02] active:scale-98">
                                     <FiLogIn size={18} />
                                     <span>Masuk Akun</span>
                                 </button>
@@ -289,53 +397,83 @@ const [isLoggedIn, setIsLoggedIn] = useState(false);
                 </div>
             )}
 
-            {/* FIXED Bottom Navigation Bar (Mobile / Tablet) */}
-            <nav className="fixed bottom-0 left-0 right-0 z-50 bg-white/95 backdrop-blur-md border-t border-slate-200/80 py-2.5 px-4 lg:hidden flex justify-around items-center text-gray-500 shadow-[0_-4px_12px_rgba(0,0,0,0.05)] pb-[calc(0.6rem+env(safe-area-inset-bottom,0px))]">
+            {/* Fixed Bottom Navigation Bar */}
+            <nav className="fixed bottom-0 left-0 right-0 z-50 bg-white border-t border-slate-200/80 py-2.5 px-4 lg:hidden flex justify-around items-center text-gray-500 shadow-[0_-4px_20px_rgba(0,0,0,0.06)] pb-[calc(0.6rem+env(safe-area-inset-bottom,0px))]">
                 <Link 
                     href="/" 
-                    className={`flex flex-col items-center gap-1 text-[11px] sm:text-xs transition-colors ${pathname === "/" ? "text-green-600 font-bold" : "hover:text-green-600"}`}
+                    className={`flex flex-col items-center gap-1 text-[11px] sm:text-xs transition-all duration-300 ease-in-out group ${
+                        pathname === "/" 
+                            ? "text-green-600 font-bold" 
+                            : "hover:text-green-600"
+                    }`}
                 >
-                    <FiHome className={`w-5 h-5 sm:w-6 sm:h-6 ${pathname === "/" ? "stroke-[2.5]" : "stroke-2"}`} />
-                    <span>Beranda</span>
+                    <div className={`p-1.5 rounded-lg transition-all duration-300 ease-in-out ${
+                        pathname === "/" 
+                            ? "bg-green-50" 
+                            : "group-hover:bg-green-50/50"
+                    }`}>
+                        <FiHome className={`w-5 h-5 sm:w-5.5 sm:h-5.5 transition-all duration-300 ${
+                            pathname === "/" ? "stroke-[2.5]" : "stroke-2"
+                        }`} />
+                    </div>
+                    <span className="transition-colors duration-300">Beranda</span>
                 </Link>
 
                 <Link 
                     href="/layanan" 
-                    className={`flex flex-col items-center gap-1 text-[11px] sm:text-xs transition-colors ${pathname.startsWith("/layanan") ? "text-green-600 font-bold" : "hover:text-green-600"}`}
+                    className={`flex flex-col items-center gap-1 text-[11px] sm:text-xs transition-all duration-300 ease-in-out group ${
+                        pathname.startsWith("/layanan") 
+                            ? "text-green-600 font-bold" 
+                            : "hover:text-green-600"
+                    }`}
                 >
-                    <FiGrid className={`w-5 h-5 sm:w-6 sm:h-6 ${pathname.startsWith("/layanan") ? "stroke-[2.5]" : "stroke-2"}`} />
-                    <span>Layanan</span>
+                    <div className={`p-1.5 rounded-lg transition-all duration-300 ease-in-out ${
+                        pathname.startsWith("/layanan") 
+                            ? "bg-green-50" 
+                            : "group-hover:bg-green-50/50"
+                    }`}>
+                        <FiGrid className={`w-5 h-5 sm:w-5.5 sm:h-5.5 transition-all duration-300 ${
+                            pathname.startsWith("/layanan") ? "stroke-[2.5]" : "stroke-2"
+                        }`} />
+                    </div>
+                    <span className="transition-colors duration-300">Layanan</span>
                 </Link>
 
                 <Link
                     href={isLoggedIn ? "/profile" : "/login"}
-                    className={`flex flex-col items-center gap-1 text-[11px] sm:text-xs transition-colors ${
+                    className={`flex flex-col items-center gap-1 text-[11px] sm:text-xs transition-all duration-300 ease-in-out group ${
                         (pathname === "/profile" || pathname === "/login")
                         ? "text-green-600 font-semibold"
                         : "hover:text-green-600"
                     }`}
-                    >
-                    <FiUsers
-                        className={`w-5 h-5 sm:w-6 sm:h-6 ${
+                >
+                    <div className={`p-1.5 rounded-lg transition-all duration-300 ease-in-out ${
                         (pathname === "/profile" || pathname === "/login")
-                            ? "stroke-[2.5]"
-                            : "stroke-2"
-                        }`}
-                    />
-                    <span>{isLoggedIn ? "Profil" : "Masuk"}</span>
+                            ? "bg-green-50" 
+                            : "group-hover:bg-green-50/50"
+                    }`}>
+                        <FiUsers
+                            className={`w-5 h-5 sm:w-5.5 sm:h-5.5 transition-all duration-300 ${
+                                (pathname === "/profile" || pathname === "/login")
+                                    ? "stroke-[2.5]"
+                                    : "stroke-2"
+                            }`}
+                        />
+                    </div>
+                    <span className="transition-colors duration-300">{isLoggedIn ? "Profil" : "Masuk"}</span>
                 </Link>
             </nav>
 
             {/* Search Modal */}
             {isSearchOpen && (
-                <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-start justify-center pt-[15vh] px-4">
-                    <div className="bg-white rounded-3xl w-full max-w-2xl shadow-2xl p-6 relative overflow-hidden border border-slate-100">
+                <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-start justify-center pt-[15vh] px-4 transition-opacity duration-300 ease-in-out">
+                    <div className="bg-white rounded-2xl w-full max-w-2xl shadow-2xl p-6 relative overflow-hidden border border-slate-100/80 animate-scale-up">
                         <button 
                             onClick={() => {
                                 setIsSearchOpen(false);
                                 setSearchQuery("");
                             }}
-                            className="absolute right-4 top-4 text-gray-400 hover:text-gray-600 p-2 rounded-full hover:bg-slate-100 transition cursor-pointer"
+                            className="absolute right-4 top-4 text-gray-400 hover:text-gray-600 p-2 rounded-lg hover:bg-gray-50 transition-all duration-300 ease-in-out cursor-pointer hover:scale-110 active:scale-95"
                             aria-label="Tutup"
                         >
                             <FiX size={20} />
@@ -353,14 +491,15 @@ const [isLoggedIn, setIsLoggedIn] = useState(false);
                                 value={searchQuery}
                                 onChange={(e) => setSearchQuery(e.target.value)}
                                 placeholder="Ketik nama layanan (misal: Pijat Bayi, Luka)..."
-                                className="w-full bg-slate-50 border border-slate-200 rounded-2xl py-3.5 pl-12 pr-4 text-gray-800 focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent transition text-base"
+                                className="w-full bg-gray-50 border border-gray-200 rounded-xl py-3.5 pl-12 pr-4 text-gray-800 focus:outline-none focus:ring-2 focus:ring-green-500/50 focus:border-green-500 transition-all duration-300 ease-in-out text-base placeholder:text-gray-400"
                             />
                             <FiSearch className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
                         </div>
 
-<div className="max-h-[350px] overflow-y-auto space-y-2 pr-1">
+                        <div className="max-h-[350px] overflow-y-auto space-y-2 pr-1 scrollbar-thin">
                             {searchLoading ? (
                                 <div className="text-center py-8 text-gray-400">
+                                    <div className="inline-block animate-spin rounded-full h-6 w-6 border-2 border-green-500 border-t-transparent mb-2" />
                                     <p className="font-medium text-sm">Memuat data layanan...</p>
                                 </div>
                             ) : searchQuery.trim() === "" ? (
@@ -380,7 +519,7 @@ const [isLoggedIn, setIsLoggedIn] = useState(false);
                                                     setIsSearchOpen(false);
                                                     setSearchQuery("");
                                                 }}
-                                                className="flex items-center gap-2 p-3 rounded-xl border border-slate-100 hover:border-green-500 hover:bg-[#EAF8E7] transition text-sm text-gray-700 font-medium"
+                                                className="flex items-center gap-2 p-3 rounded-xl border border-slate-200 hover:border-green-500 hover:bg-green-50/50 transition-all duration-300 ease-in-out text-sm text-gray-700 font-medium hover:scale-[1.02] active:scale-98"
                                             >
                                                 <FiActivity className="text-green-500 flex-shrink-0" />
                                                 <span className="truncate">{rec.name}</span>
@@ -399,25 +538,27 @@ const [isLoggedIn, setIsLoggedIn] = useState(false);
                                                 setIsSearchOpen(false);
                                                 setSearchQuery("");
                                             }}
-                                            className="flex items-center justify-between p-3.5 rounded-xl hover:bg-slate-50 border border-transparent hover:border-slate-100 transition group"
+                                            className="flex items-center justify-between p-3.5 rounded-xl hover:bg-gray-50 border border-transparent hover:border-slate-200 transition-all duration-300 ease-in-out group hover:scale-[1.01] active:scale-98"
                                         >
                                             <div className="flex items-center gap-3">
                                                 <div className="w-8 h-8 rounded-lg bg-green-50 flex items-center justify-center text-green-600 font-bold text-xs flex-shrink-0">
                                                     SHC
                                                 </div>
                                                 <div>
-                                                    <p className="text-sm font-semibold text-gray-800 group-hover:text-green-600 transition">{item.name}</p>
+                                                    <p className="text-sm font-semibold text-gray-800 group-hover:text-green-600 transition-colors duration-300">{item.name}</p>
                                                     <p className="text-[10px] text-gray-400 font-medium">{item.category}</p>
                                                 </div>
                                             </div>
-                                            <span className="text-xs text-sky-600 font-medium group-hover:underline">Lihat Layanan →</span>
+                                            <span className="text-xs text-green-600 font-medium opacity-0 group-hover:opacity-100 transition-all duration-300 translate-x-2 group-hover:translate-x-0">
+                                                Lihat →
+                                            </span>
                                         </Link>
                                     ))}
                                 </div>
                             ) : (
                                 <div className="text-center py-8 text-gray-400">
-                                    <p className="font-medium text-sm">Layanan {searchQuery} tidak ditemukan.</p>
-                                    <p className="text-xs mt-1">Coba gunakan kata kunci lain.</p>
+                                    <p className="font-medium text-sm">Layanan tidak ditemukan</p>
+                                    <p className="text-xs mt-1">Coba gunakan kata kunci lain</p>
                                 </div>
                             )}
                         </div>
@@ -425,6 +566,55 @@ const [isLoggedIn, setIsLoggedIn] = useState(false);
                 </div>
             )}
 
+            {/* Global animation styles */}
+            <style jsx global>{`
+                @keyframes slide-down {
+                    from {
+                        opacity: 0;
+                        transform: translateY(-8px);
+                    }
+                    to {
+                        opacity: 1;
+                        transform: translateY(0);
+                    }
+                }
+                
+                @keyframes scale-up {
+                    from {
+                        opacity: 0;
+                        transform: scale(0.95);
+                    }
+                    to {
+                        opacity: 1;
+                        transform: scale(1);
+                    }
+                }
+                
+                .animate-slide-down {
+                    animation: slide-down 0.3s ease-in-out forwards;
+                }
+                
+                .animate-scale-up {
+                    animation: scale-up 0.3s ease-in-out forwards;
+                }
+
+                .scrollbar-thin::-webkit-scrollbar {
+                    width: 4px;
+                }
+                
+                .scrollbar-thin::-webkit-scrollbar-track {
+                    background: transparent;
+                }
+                
+                .scrollbar-thin::-webkit-scrollbar-thumb {
+                    background: #d1d5db;
+                    border-radius: 9999px;
+                }
+                
+                .scrollbar-thin::-webkit-scrollbar-thumb:hover {
+                    background: #9ca3af;
+                }
+            `}</style>
         </>
     );
 }
