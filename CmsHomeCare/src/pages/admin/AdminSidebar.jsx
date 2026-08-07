@@ -1,7 +1,7 @@
 import { NavLink } from 'react-router-dom';
 import { useState, useEffect, useRef, useCallback } from 'react';
 import logo from '../../assets/logo.png';
-import { FaChartBar, FaUserMd, FaUserPlus, FaCalendarCheck, FaAngleLeft, FaUsers, FaMapMarkerAlt } from 'react-icons/fa';
+import { FaChartBar, FaUserMd, FaUserPlus, FaCalendarCheck, FaAngleLeft, FaUsers, FaMapMarkerAlt, FaCity, FaTags } from 'react-icons/fa';
 
 const menuItems = [
   { to: '/admin/dashboard', label: 'Dashboard', icon: <FaChartBar /> },
@@ -12,8 +12,10 @@ const menuItems = [
     children: [
       { to: '/admin/users', label: 'Pasien', icon: <FaUsers /> },
       { to: '/admin/master-provinsi', label: 'Provinsi', icon: <FaMapMarkerAlt /> },
+      { to: '/admin/master-kabupaten', label: 'Kota / Kabupaten', icon: <FaCity /> },
       { to: '/admin/master-barang', label: 'Stock Barang', icon: <FaChartBar /> },
       { to: '/admin/master-tarif', label: 'Tarif', icon: <FaChartBar /> },
+      { to: '/admin/master-kategori', label: 'Kategori', icon: <FaTags /> },
       { to: '/admin/nakes', label: 'Nakes', icon: <FaUserMd />, end: true },
       { to: '/admin/nakes/requests', label: 'Registrasi Nakes', icon: <FaUserPlus /> },
     ],
@@ -87,7 +89,6 @@ export default function AdminSidebar({ open, onClose, collapsed, onCollapse }) {
         />
       )}
 
-      {/* 🟢 FIX 1: Menggabungkan style ke dalam 1 objek tunggal */}
       <aside
         ref={asideRef}
         style={{

@@ -24,6 +24,8 @@ import DataUser from './pages/admin/AdminUser';
 import DataBarang from './pages/admin/AdminMasterBarang'
 import DataMasterTarif from './pages/admin/AdminMasterTarif';
 import AdminMasterProvinsi from './pages/admin/AdminMasterProvinsi';
+import AdminMasterkotakabupaten from './pages/admin/AdminMasterkotakabupaten';
+import AdminMasterKategori from './pages/admin/AdminMasterKategori';
 import { getUserRoles } from './utils/role';
 
 import 'leaflet/dist/leaflet.css';
@@ -86,6 +88,9 @@ function App() {
         <Route path="/admin/master-tarif" element={<DataMasterTarif/>}/>
         {/**Master Provinsi */}
         <Route path="/admin/master-provinsi" element={<AdminMasterProvinsi />} />
+        <Route path="/admin/master-kabupaten" element={<AdminMasterkotakabupaten />} />
+        {/**Master Kategori Layanan & Artikel */}
+        <Route path="/admin/master-kategori" element={<AdminMasterKategori />} />
       </Route>
 
       {/* Default redirect */}

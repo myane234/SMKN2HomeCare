@@ -15,6 +15,8 @@ use App\Http\Controllers\SuperAdminMasterData\SuperAdminDataBarang;
 use App\Http\Controllers\SuperAdminMasterData\SuperAdminMasterTarif;
 use App\Http\Controllers\WilayahLayananController;
 use App\Http\Controllers\KotaKabupatenController;
+use App\Http\Controllers\KategoriLayananController;
+use App\Http\Controllers\KategoriArtikelController;
 
 Route::middleware(['auth:sanctum', 'role:admin'])->group(function () {
     
@@ -39,6 +41,19 @@ Route::middleware(['auth:sanctum', 'role:admin'])->group(function () {
     Route::put('/artikel/{artikel}', [ArtikelController::class, 'update']);
     Route::delete('/artikel/{artikel}', [ArtikelController::class, 'destroy']);
 
+    // Kategori Layanan CRUD
+    Route::post('/layanan/kategori', [KategoriLayananController::class, 'store']);
+    Route::get('/layanan/kategori/{id}', [KategoriLayananController::class, 'show']);
+    Route::put('/layanan/kategori/{id}', [KategoriLayananController::class, 'update']);
+    Route::delete('/layanan/kategori/{id}', [KategoriLayananController::class, 'destroy']);
+
+    // Kategori Artikel CRUD
+    Route::post('/artikel/kategori', [KategoriArtikelController::class, 'store']);
+    Route::get('/artikel/kategori/{id}', [KategoriArtikelController::class, 'show']);
+    Route::put('/artikel/kategori/{id}', [KategoriArtikelController::class, 'update']);
+    Route::delete('/artikel/kategori/{id}', [KategoriArtikelController::class, 'destroy']);
+
+    //Super Admin
     // Management Nakes - Admin
     Route::prefix('admin/nakes')->group(function () {
         Route::get('/requests', [AdminNakesController::class, 'index']);

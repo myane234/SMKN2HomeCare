@@ -111,7 +111,34 @@ export async function resendVerificationEmail(email) {
   } catch (err) {
     console.error('Resend email error:', err);
     if (axios.isAxiosError(err) && err.response?.data) {
-      throw new Error(err.response.data.message || 'Gagal mengirim ulang email verifikasi.');
+      const data = err.response.data;
+      const error = new Error(data.message || 'Gagal mengirim ulang email verifikasi.');
+      if (err.response.status === 429) {
+        error.retryAfter = data.retry_after || 60;
+        error.isRateLimited = true;
+      }
+      throw error;
+    }
+    throw err;
+  }
+}
+
+export async function changeUnverifiedEmail({ old_email, new_email }) {
+  try {
+    const res = await api.post('/api/change-unverified-email', {
+      old_email,
+      new_email,
+    });
+    return res.data;
+  } catch (err) {
+    console.error('Change email error:', err);
+    if (axios.isAxiosError(err) && err.response?.data) {
+      const validationErrors = err.response.data.errors;
+      if (validationErrors) {
+        const firstError = Object.values(validationErrors)[0];
+        throw new Error(Array.isArray(firstError) ? firstError[0] : firstError);
+      }
+      throw new Error(err.response.data.message || 'Gagal mengubah email.');
     }
     throw err;
   }

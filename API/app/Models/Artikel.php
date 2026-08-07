@@ -14,11 +14,29 @@ class Artikel extends Model
 
     protected $fillable = [
         'judul_artikel',
-        'kategori_artikel',
+        'id_kategori_artikel',
         'isi_artikel',
         'gambar_artikel',
         'views',
     ];
+
+    protected $appends = ['kategori_artikel'];
+
+    /**
+     * Relasi ke KategoriArtikel.
+     */
+    public function kategori()
+    {
+        return $this->belongsTo(KategoriArtikel::class, 'id_kategori_artikel', 'id_kategori_artikel');
+    }
+
+    /**
+     * Accessor untuk mendapatkan nama kategori sebagai string demi backward compatibility.
+     */
+    public function getKategoriArtikelAttribute()
+    {
+        return $this->kategori ? $this->kategori->nama_kategori : null;
+    }
 
     /**
      * Accessor untuk mendapatkan URL penuh dari gambar artikel.
