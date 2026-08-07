@@ -251,7 +251,7 @@ export default function PageBooking() {
                 {paginatedBookings.map((booking, index) => (
                   <tr
                     key={booking.id_booking}
-                    onClick={() => navigate(`/admin/bookings/${booking.id_booking}`)}
+                    onClick={() => navigate(`/bookings/${booking.id_booking}`)}
                     className="hover:bg-slate-50 transition cursor-pointer"
                   >
                     <td className="border-b border-slate-200 px-4 py-3 text-center text-slate-500">{startIndex + index + 1}</td>
@@ -266,7 +266,7 @@ export default function PageBooking() {
                       <button
                         onClick={(e) => {
                           e.stopPropagation();
-                          navigate(`/admin/bookings/${booking.id_booking}`);
+                          navigate(`/bookings/${booking.id_booking}`);
                         }}
                         className="rounded-lg bg-blue-50 px-3 py-1.5 text-xs font-semibold text-blue-600 hover:bg-blue-100"
                       >
@@ -384,7 +384,7 @@ export function PageBookingDetail() {
     <div className="p-6 max-w-5xl mx-auto">
       <div className="mb-6 flex items-center justify-between">
         <button
-          onClick={() => navigate("/admin/bookings")}
+          onClick={() => navigate("/booking")}
           className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 transition"
         >
           <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">

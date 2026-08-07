@@ -25,13 +25,5 @@ export default function ProtectedRoute({ children, requiredRole, excludeSuperAdm
     }
   }
 
-  // Jika ini khusus admin biasa (excludeSuperAdmin = true), tolak super_admin
-  if (excludeSuperAdmin) {
-    const userRoles = getUserRoles();
-    if (userRoles.includes('super_admin')) {
-      return <Navigate to="/admin/dashboard" replace />;
-    }
-  }
-
   return children;
 }

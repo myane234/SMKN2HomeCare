@@ -1,7 +1,6 @@
 import { Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { useState, useRef, useEffect } from 'react';
 import Sidebar from './Sidebar';
-import AdminSidebar from '../pages/admin/AdminSidebar';
 import { getSession, logout } from '../utils/auth';
 import { isSuperAdmin } from '../utils/role';
 
@@ -29,7 +28,6 @@ export default function AdminLayout() {
   const menuRef = useRef(null);
   const startXRef = useRef(0);
   const startWidthRef = useRef(sidebarWidth);
-  const useAdminSidebar = location.pathname.startsWith('/admin');
 
   // Restore collapsed preference dari localStorage
   useEffect(() => {
@@ -112,11 +110,7 @@ export default function AdminLayout() {
   return (
     <div className="flex h-screen overflow-hidden bg-slate-50">
       {/* Sidebar Kiri */}
-      {useAdminSidebar ? (
-        <AdminSidebar {...sidebarProps} />
-      ) : (
-        <Sidebar {...sidebarProps} />
-      )}
+      <Sidebar {...sidebarProps} />
 
       {/* Resize Handle (Garis batas pemisah yang bisa digeser) */}
       <div
@@ -131,7 +125,7 @@ export default function AdminLayout() {
       {/* Area Kanan (Header + Konten Utama) */}
       <div className="flex flex-1 flex-col overflow-y-auto min-w-0">
         {/* Header */}
-        <header className="sticky top-0 z-20 flex h-16 items-center justify-between border-b border-slate-200/80 bg-white/90 backdrop-blur-md px-4 sm:px-6">
+        <header className="sticky top-0 z-20 flex h-16 shrink-0 items-center justify-between border-b border-slate-200/80 bg-white/90 backdrop-blur-md px-4 sm:px-6">
           {/* Mobile hamburger */}
           <button
             className="flex h-9 w-9 items-center justify-center rounded-lg text-slate-500 hover:bg-slate-100 hover:text-slate-900 transition-colors md:hidden"

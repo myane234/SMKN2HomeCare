@@ -99,7 +99,7 @@ export default function AdminDashboard() {
             <h2 className="text-base font-bold">Nakes Resmi / Aktif Terbaru</h2>
             <p className="text-xs text-slate-500">Tenaga kesehatan yang sudah lolos pelatihan dan akunnya aktif</p>
           </div>
-          <Link to="/admin/nakes" className="btn-outline">
+          <Link to="/nakes" className="btn-outline">
             Lihat Semua
           </Link>
         </div>
