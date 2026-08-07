@@ -1,8 +1,5 @@
 import { useEffect, useState } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
-import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
-import L from 'leaflet';
-import 'leaflet/dist/leaflet.css';
 
 import {
   getAllNakesRequests,
@@ -11,18 +8,6 @@ import {
   rejectNakesRequest,
 } from '../../../data/nakesRequestData';
 import { getImageUrl } from '../../../data/imageHelper';
-
-// Fix Icon Leaflet default di React
-import markerIcon2x from 'leaflet/dist/images/marker-icon-2x.png';
-import markerIcon from 'leaflet/dist/images/marker-icon.png';
-import markerShadow from 'leaflet/dist/images/marker-shadow.png';
-
-delete L.Icon.Default.prototype._getIconUrl;
-L.Icon.Default.mergeOptions({
-  iconUrl: markerIcon,
-  iconRetinaUrl: markerIcon2x,
-  shadowUrl: markerShadow,
-});
 
 export default function PageNakesRequestDetail() {
   const { id } = useParams();
@@ -61,7 +46,7 @@ export default function PageNakesRequestDetail() {
     }
   }, [id, data]);
 
-  // Handler Actions
+  // Handlers
   async function handleQuickApprove() {
     if (!window.confirm(`Setujui & aktifkan akun ${data?.nama_lengkap || 'Nakes'}?`)) return;
     setProcessing(true);
@@ -136,10 +121,40 @@ export default function PageNakesRequestDetail() {
   const isPending = !data.status || data.status === 'pending';
   const isPelatihan = data.status === 'pelatihan';
 
-  // Parse Koordinat
-  const lat = parseFloat(data.latitude);
-  const lng = parseFloat(data.longitude);
-  const hasValidCoords = !isNaN(lat) && !isNaN(lng);
+  // Helper membaca file dokumen
+  const getDocUrl = (keys) => {
+    for (const key of keys) {
+      if (data[key]) return data[key];
+      if (data.dokumen && data.dokumen[key]) return data.dokumen[key];
+    }
+    return null;
+  };
+
+  const strUrl = getDocUrl(['foto_str', 'photo_str', 'file_str', 'str_file', 'str']);
+  const sipUrl = getDocUrl(['foto_sip', 'photo_sip', 'file_sip', 'sip_file', 'sip']);
+  const ijazahUrl = getDocUrl(['foto_ijazah', 'photo_ijazah', 'file_ijazah', 'ijazah_file', 'ijazah']);
+  const skckUrl = getDocUrl(['foto_skck', 'photo_skck', 'file_skck', 'skck_file', 'skck']);
+  const cvUrl = getDocUrl(['foto_cv', 'photo_cv', 'file_cv', 'cv_file', 'cv']);
+  const ktpUrl = getDocUrl(['foto_ktp', 'photo_ktp', 'file_ktp', 'ktp_file', 'ktp']);
+
+  let rawTambahan = data.dokumen_tambahan ?? data.file_tambahan ?? data.dokumen_lain ?? null;
+  let arrayDocTambahan = [];
+  if (Array.isArray(rawTambahan)) {
+    arrayDocTambahan = rawTambahan;
+  } else if (rawTambahan) {
+    arrayDocTambahan = [rawTambahan];
+  }
+
+  const profileImg = data.foto_profile || data.user?.foto_profile || data.pasien?.foto_profile;
+  const jenisNakes = data.jenis_nakes ?? data.jenis_tenaga_medis ?? data.kategori_layanan ?? data.profesi ?? '-';
+  const alamatLengkap = data.alamat_lengkap ?? data.alamat ?? '';
+
+  // Penanganan pembacaan wilayah yang aman dari JSON backend
+  const wilayahOperasionalText =
+    data.wilayah_layanan?.nama_provinsi ||
+    (typeof data.wilayah_operasional === 'string' ? data.wilayah_operasional : null) ||
+    (typeof data.wilayah === 'string' ? data.wilayah : null) ||
+    '-';
 
   return (
     <div className="max-w-5xl mx-auto pb-12 font-sans">
@@ -155,7 +170,6 @@ export default function PageNakesRequestDetail() {
           <h1 className="text-xl font-bold text-slate-900">Detail Permohonan Registrasi</h1>
         </div>
 
-        {/* Quick Action Buttons */}
         <div className="flex items-center gap-2">
           {isPending && (
             <>
@@ -169,7 +183,7 @@ export default function PageNakesRequestDetail() {
               <button
                 onClick={() => setShowRejectModal(true)}
                 disabled={processing}
-                className="btn-danger btn-sm px-3 py-2 text-xs"
+                className="btn-danger btn-sm px-3 py-2 text-xs bg-red-600 text-white rounded-lg hover:bg-red-700"
               >
                 Tolak
               </button>
@@ -188,7 +202,7 @@ export default function PageNakesRequestDetail() {
               <button
                 onClick={() => setShowRejectModal(true)}
                 disabled={processing}
-                className="btn-danger btn-sm px-3 py-2 text-xs"
+                className="btn-danger btn-sm px-3 py-2 text-xs bg-red-600 text-white rounded-lg hover:bg-red-700"
               >
                 Tolak
               </button>
@@ -201,9 +215,9 @@ export default function PageNakesRequestDetail() {
         {/* Left Sidebar */}
         <div className="space-y-6">
           <div className="card p-5 text-center bg-white rounded-xl shadow-xs border border-slate-200">
-            {data.foto_profile || data.foto_ktp ? (
+            {profileImg ? (
               <img
-                src={getImageUrl(data.foto_profile || data.foto_ktp)}
+                src={getImageUrl(profileImg)}
                 alt={data.nama_lengkap}
                 className="mx-auto h-32 w-32 rounded-full border-4 border-slate-100 object-cover shadow-md mb-3"
               />
@@ -216,11 +230,12 @@ export default function PageNakesRequestDetail() {
             {data.nama_panggilan && (
               <p className="text-xs text-slate-500">Panggil: {data.nama_panggilan}</p>
             )}
-            <p className="text-xs font-semibold text-emerald-600 mt-0.5">{data.kategori_layanan ?? data.jenis_tenaga_medis ?? '-'}</p>
+            
+            <p className="text-xs font-semibold text-emerald-600 mt-1">{jenisNakes}</p>
 
             <div className="mt-4 flex justify-center">{renderStatusBadge(data.status)}</div>
 
-            <div className="mt-6 border-t border-slate-100 pt-4 text-left space-y-2 text-xs">
+            <div className="mt-6 border-t border-slate-100 pt-4 text-left space-y-3 text-xs">
               <div>
                 <span className="text-slate-400 block">Email Terdaftar</span>
                 <span className="font-semibold text-slate-800">{data.email ?? data.user?.email ?? '-'}</span>
@@ -232,55 +247,45 @@ export default function PageNakesRequestDetail() {
               <div>
                 <span className="text-slate-400 block">Wilayah Operasional</span>
                 <span className="inline-block mt-1 rounded-md bg-sky-50 px-2 py-1 font-semibold text-sky-700 border border-sky-200">
-                  {data.wilayah_operasional ?? '-'}
+                  {wilayahOperasionalText}
                 </span>
               </div>
             </div>
           </div>
 
-          {/* Leaflet Map Integration */}
+          {/* Alamat Utama Peta Google Maps Embed */}
           <div className="card p-5 bg-white rounded-xl shadow-xs border border-slate-200">
             <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-3">
-              Lokasi Domisili (Peta)
+              Alamat Utama (Peta Lokasi)
             </h3>
-            {hasValidCoords ? (
-              <div className="space-y-3">
-                <div className="h-56 w-full rounded-xl overflow-hidden border border-slate-200 z-0">
-                  <MapContainer
-                    center={[lat, lng]}
-                    zoom={15}
-                    scrollWheelZoom={false}
-                    className="h-full w-full"
-                  >
-                    <TileLayer
-                      attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
-                      url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-                    />
-                    <Marker position={[lat, lng]}>
-                      <Popup>
-                        <div className="text-xs font-sans">
-                          <strong>{data.nama_lengkap}</strong><br />
-                          {data.alamat_lengkap}
-                        </div>
-                      </Popup>
-                    </Marker>
-                  </MapContainer>
+
+            <div className="relative h-64 w-full rounded-xl overflow-hidden border border-slate-200 bg-slate-100 mb-3">
+              {alamatLengkap ? (
+                <iframe
+                  title="Peta Alamat Utama"
+                  width="100%"
+                  height="100%"
+                  className="border-0"
+                  loading="lazy"
+                  allowFullScreen
+                  src={`https://maps.google.com/maps?q=${encodeURIComponent(
+                    alamatLengkap
+                  )}&t=&z=15&ie=UTF8&iwloc=&output=embed`}
+                ></iframe>
+              ) : (
+                <div className="flex h-full w-full flex-col items-center justify-center p-4 text-center">
+                  <span className="text-2xl mb-1">📍</span>
+                  <p className="text-xs text-slate-400">Teks alamat belum tersedia</p>
                 </div>
-                <div className="flex items-center justify-between text-xs text-slate-500">
-                  <span>Lat: {lat.toFixed(6)}, Lng: {lng.toFixed(6)}</span>
-                  <a
-                    href={`https://maps.google.com/?q=${lat},${lng}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-emerald-600 font-semibold hover:underline"
-                  >
-                    Buka Google Maps ↗
-                  </a>
-                </div>
-              </div>
-            ) : (
-              <p className="text-xs text-slate-400 italic">Koordinat lokasi tidak valid / belum diatur.</p>
-            )}
+              )}
+            </div>
+
+            <div className="border-t border-slate-100 pt-3">
+              <span className="text-slate-400 block text-xs font-medium">Detail Alamat</span>
+              <p className="text-xs font-semibold text-slate-800 leading-relaxed mt-1">
+                {alamatLengkap || '-'}
+              </p>
+            </div>
           </div>
         </div>
 
@@ -305,16 +310,12 @@ export default function PageNakesRequestDetail() {
               <div>
                 <span className="text-slate-400 block">Tempat & Tanggal Lahir</span>
                 <span className="font-semibold text-slate-800">
-                  {data.tempat_lahir ?? '-'}, {formatDate(data.tanggal_lahir)}
+                  {data.tempat_lahir ?? '-'}{data.tanggal_lahir ? `, ${formatDate(data.tanggal_lahir)}` : ''}
                 </span>
               </div>
               <div>
                 <span className="text-slate-400 block">Agama</span>
                 <span className="font-semibold text-slate-800">{data.agama ?? '-'}</span>
-              </div>
-              <div className="sm:col-span-2">
-                <span className="text-slate-400 block">Alamat Lengkap</span>
-                <span className="font-semibold text-slate-800">{data.alamat_lengkap ?? '-'}</span>
               </div>
             </div>
           </div>
@@ -327,11 +328,11 @@ export default function PageNakesRequestDetail() {
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-xs">
               <div>
                 <span className="text-slate-400 block">Universitas</span>
-                <span className="font-semibold text-slate-800">{data.universitas ?? '-'}</span>
+                <span className="font-semibold text-slate-800">{data.universitas ?? data.institusi ?? '-'}</span>
               </div>
               <div>
                 <span className="text-slate-400 block">Program Studi</span>
-                <span className="font-semibold text-slate-800">{data.program_studi ?? '-'}</span>
+                <span className="font-semibold text-slate-800">{data.program_studi ?? data.jurusan ?? '-'}</span>
               </div>
               <div>
                 <span className="text-slate-400 block">Tahun Lulus</span>
@@ -346,8 +347,8 @@ export default function PageNakesRequestDetail() {
                 <span className="font-semibold text-slate-800">{data.no_sip ?? '-'}</span>
               </div>
               <div>
-                <span className="text-slate-400 block">Kategori Layanan</span>
-                <span className="font-semibold text-slate-800">{data.kategori_layanan ?? '-'}</span>
+                <span className="text-slate-400 block">Jenis Nakes</span>
+                <span className="font-semibold text-slate-800">{jenisNakes}</span>
               </div>
             </div>
           </div>
@@ -359,37 +360,36 @@ export default function PageNakesRequestDetail() {
             </h3>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               {[
-                { title: 'Foto STR', field: 'photo_str' },
-                { title: 'Foto SIP', field: 'photo_sip' },
-                { title: 'Foto Ijazah', field: 'photo_ijazah' },
-                { title: 'Foto SKCK', field: 'photo_skck' },
-                { title: 'Foto CV', field: 'photo_cv' },
-                { title: 'Foto KTP', field: 'photo_ktp' },
-              ].map((doc) => {
-                const url = data[doc.field];
-                return (
-                  <div key={doc.field} className="flex items-center justify-between rounded-lg border border-slate-200 p-3 bg-slate-50/50">
-                    <div>
-                      <p className="text-xs font-bold text-slate-800">{doc.title}</p>
-                      <p className="text-[10px] text-slate-400">{url ? 'Tersedia' : 'Belum diunggah'}</p>
-                    </div>
-                    {url && (
-                      <a
-                        href={getImageUrl(url)}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="btn-outline btn-sm text-xs py-1 px-2.5 bg-white"
-                      >
-                        Lihat Berkas
-                      </a>
-                    )}
+                { title: 'Foto STR', url: strUrl },
+                { title: 'Foto SIP', url: sipUrl },
+                { title: 'Foto Ijazah', url: ijazahUrl },
+                { title: 'Foto SKCK', url: skckUrl },
+                { title: 'Foto CV', url: cvUrl },
+                { title: 'Foto KTP', url: ktpUrl },
+              ].map((doc, idx) => (
+                <div key={idx} className="flex items-center justify-between rounded-lg border border-slate-200 p-3 bg-slate-50/50">
+                  <div>
+                    <p className="text-xs font-bold text-slate-800">{doc.title}</p>
+                    <p className="text-[10px] text-slate-400">{doc.url ? 'Tersedia' : 'Belum diunggah'}</p>
                   </div>
-                );
-              })}
+                  {doc.url ? (
+                    <a
+                      href={getImageUrl(doc.url)}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="rounded-md border border-slate-300 bg-white px-2.5 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50"
+                    >
+                      Lihat Berkas
+                    </a>
+                  ) : (
+                    <span className="text-xs text-slate-400 italic">-</span>
+                  )}
+                </div>
+              ))}
             </div>
           </div>
 
-          {/* Opsional: Tempat Kerja, Lama Bekerja & Dokumen Tambahan */}
+          {/* Tempat Kerja & Dokumen Tambahan */}
           <div className="card p-5 bg-white rounded-xl shadow-xs border border-slate-200">
             <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-4 border-b border-slate-100 pb-2">
               Informasi Opsional & Dokumen Tambahan
@@ -405,22 +405,28 @@ export default function PageNakesRequestDetail() {
               </div>
             </div>
 
-            {data.dokumen_tambahan && (
-              <div className="mt-3 pt-3 border-t border-slate-100 flex items-center justify-between">
-                <div>
-                  <p className="text-xs font-bold text-slate-800">Dokumen Tambahan</p>
-                  <p className="text-[10px] text-slate-400">Tersedia</p>
-                </div>
-                <a
-                  href={getImageUrl(data.dokumen_tambahan)}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="btn-outline btn-sm text-xs py-1 px-2.5 bg-white"
-                >
-                  Lihat Berkas
-                </a>
-              </div>
-            )}
+            <div className="mt-3 pt-3 border-t border-slate-100 space-y-2">
+              <p className="text-xs font-bold text-slate-800">Dokumen Tambahan</p>
+              {arrayDocTambahan.length > 0 ? (
+                arrayDocTambahan.map((docPath, index) => (
+                  <div key={index} className="flex items-center justify-between rounded-lg border border-slate-200 p-2 bg-slate-50/50">
+                    <p className="text-xs font-medium text-slate-700 truncate max-w-[250px]">
+                      Dokumen {arrayDocTambahan.length > 1 ? `#${index + 1}` : ''}
+                    </p>
+                    <a
+                      href={getImageUrl(docPath)}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="rounded-md border border-slate-300 bg-white px-2.5 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50"
+                    >
+                      Lihat Berkas
+                    </a>
+                  </div>
+                ))
+              ) : (
+                <p className="text-xs text-slate-400 italic">- Tidak ada dokumen -</p>
+              )}
+            </div>
           </div>
         </div>
       </div>
