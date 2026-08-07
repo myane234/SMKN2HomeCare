@@ -1,13 +1,26 @@
 
 import { URL } from '../utils/getUrl.js';
-import { getAuthHeaders } from '../utils/auth.js';
+import { getAuthHeaders, handleUnauthorized } from '../utils/auth.js';
 
 export const KATEGORI_ARTIKEL_OPTIONS = ['Tips Kesehatan', 'Kegiatan'];
+
+// Pemetaan kategori artikel ke id_kategori (untuk backend produksi yang
+// menggunakan foreign key id_kategori, bukan string kategori_artikel).
+const KATEGORI_ID_MAP = {
+  'Tips Kesehatan': 1,
+  'Kegiatan': 2,
+};
 
 function buildFormData(payload) {
   const fd = new FormData();
   fd.append('judul_artikel', payload.judul_artikel);
   fd.append('kategori_artikel', payload.kategori_artikel);
+  // Kirim id_kategori agar backend produksi yang memakai foreign key
+  // id_kategori dapat menyimpan artikel dengan benar.
+  const kategoriId = KATEGORI_ID_MAP[payload.kategori_artikel];
+  if (kategoriId) {
+    fd.append('id_kategori', kategoriId);
+  }
   fd.append('isi_artikel', payload.isi_artikel);
   if (payload.gambar_artikel instanceof File) {
     fd.append('gambar_artikel', payload.gambar_artikel);
@@ -17,6 +30,11 @@ function buildFormData(payload) {
 
 async function parseJsonResponse(response) {
   const body = await response.json().catch(() => null);
+  if (response.status === 401) {
+    // Token tidak valid / kedaluwarsa -> arahkan ke login
+    handleUnauthorized();
+    throw new Error('Sesi berakhir. Silakan login kembali.');
+  }
   if (!response.ok) {
     const message = body?.message ?? 'Terjadi kesalahan pada server';
     throw new Error(message);
@@ -55,7 +73,7 @@ export async function createArtikel(payload) {
   const formData = buildFormData(payload);
   const res = await fetch(`${URL}/artikel`, {
     method: 'POST',
-    headers: getAuthHeaders(),
+    headers: getAuthHeaders({ Accept: 'application/json' }),
     body: formData,
   });
   const json = await parseJsonResponse(res);
@@ -67,7 +85,7 @@ export async function updateArtikel(id, payload) {
   formData.append('_method', 'PUT');
   const res = await fetch(`${URL}/artikel/${encodeURIComponent(id)}`, {
     method: 'POST',
-    headers: getAuthHeaders(),
+    headers: getAuthHeaders({ Accept: 'application/json' }),
     body: formData,
   });
   const json = await parseJsonResponse(res);

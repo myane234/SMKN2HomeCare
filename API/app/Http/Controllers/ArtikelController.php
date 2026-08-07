@@ -177,19 +177,25 @@ class ArtikelController extends Controller
     public function uploadImages(Request $request)
     {
         $request->validate([
-            'images'   => ['required_without:image', 'array'],
+            'images'   => ['array'],
             'images.*' => ['image', 'mimes:jpeg,png,jpg,gif,svg,webp', 'max:5120'],
-            'image'    => ['required_without:images', 'image', 'mimes:jpeg,png,jpg,gif,svg,webp', 'max:5120'],
+            'image'    => ['image', 'mimes:jpeg,png,jpg,gif,svg,webp', 'max:5120'],
         ]);
 
         $urls = [];
 
+        // Proses semua file dari field `images[]` (mendukung banyak gambar sekaligus)
         if ($request->hasFile('images')) {
             foreach ($request->file('images') as $file) {
                 $path = $file->store('artikel', 'public');
                 $urls[] = Storage::disk('public')->url($path);
             }
-        } elseif ($request->hasFile('image')) {
+        }
+
+        // Proses file dari field `image` (gambar tunggal) — diproses terpisah
+        // sehingga jika `images[]` DAN `image` dikirim bersamaan, semua file
+        // tetap tersimpan dan URL-nya dikembalikan.
+        if ($request->hasFile('image')) {
             $path = $request->file('image')->store('artikel', 'public');
             $urls[] = Storage::disk('public')->url($path);
         }

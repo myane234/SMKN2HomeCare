@@ -75,9 +75,32 @@ export function isAuthenticated() {
   return !!getSession();
 }
 
+/**
+ * Menghapus sesi CMS (token) dari localStorage.
+ */
+export function clearSession() {
+  localStorage.removeItem(AUTH_KEY);
+}
+
+/**
+ * Menangani respons 401 (token tidak valid / kedaluwarsa).
+ * Menghapus sesi dan mengarahkan user ke halaman login.
+ */
+export function handleUnauthorized() {
+  clearSession();
+  if (typeof window !== 'undefined' && !window.location.pathname.startsWith('/login')) {
+    window.location.href = '/login';
+  }
+}
+
 export function getAuthHeaders(additionalHeaders = {}) {
   const session = getSession();
-  const headers = { ...additionalHeaders };
+  const headers = {
+    // Pastikan backend selalu merespons JSON (401 yang jelas),
+    // bukan mencoba redirect ke route 'login' (yang tidak ada).
+    Accept: 'application/json',
+    ...additionalHeaders,
+  };
   if (session?.token) {
     headers['Authorization'] = `Bearer ${session.token}`;
   }

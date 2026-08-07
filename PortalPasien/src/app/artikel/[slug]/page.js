@@ -60,6 +60,21 @@ function estimateReadTime(html) {
   return Math.max(1, Math.round(words / 200));
 }
 
+// Resolve every <img src="..."> inside the article body (HTML from the Quill
+// editor in CMS) to a full, accessible URL. The editor stores relative paths
+// like /storage/artikel/xxx.jpg (or occasionally http://localhost/...), which
+// won't load correctly in the portal. We reuse the same resolveImageUrl()
+// logic used for the hero image so in-text images display properly.
+function resolveContentImageUrls(html) {
+  if (!html) return html;
+  return String(html).replace(/<img\s+([^>]*?)src=["']([^"']+)["']([^>]*?)>/gi, (match, before, src, after) => {
+    const resolved = resolveImageUrl(src);
+    // Only rewrite when the resolved URL actually differs from the raw src.
+    if (resolved === src) return match;
+    return `<img ${before}src="${resolved}"${after}>`;
+  });
+}
+
 export default function DetailArtikel() {
   const params = useParams();
   const slug = params?.slug;
@@ -142,8 +157,9 @@ export default function DetailArtikel() {
   const title = getTextValue(article, ["judul_artikel", "judul", "title"]);
   const category = getTextValue(article, ["kategori_artikel", "kategori", "category"]) || "Artikel";
   const date = formatDate(getTextValue(article, ["created_at", "updated_at", "tanggal", "published_at"]));
-  const image = resolveImageUrl(getTextValue(article, ["gambar_artikel", "gambar", "image", "foto"]));
-  const content = getTextValue(article, ["isi_artikel", "konten", "content", "body"]);
+const image = resolveImageUrl(getTextValue(article, ["gambar_artikel", "gambar", "image", "foto"]));
+  const rawContent = getTextValue(article, ["isi_artikel", "konten", "content", "body"]);
+  const content = resolveContentImageUrls(rawContent);
   const readTime = estimateReadTime(content);
 
   return (
