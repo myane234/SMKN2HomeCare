@@ -363,7 +363,7 @@ function LayananPageContent() {
         type="button"
         onClick={handleGoToCart}
         aria-label="Buka keranjang"
-        className="fixed bottom-6 right-6 z-60 flex h-16 w-16 items-center justify-center rounded-full bg-emerald-500 text-white shadow-xl transition hover:bg-emerald-600 hover:scale-105"
+        className="fixed bottom-24 right-4 sm:right-6 z-40 flex h-14 w-14 sm:h-16 sm:w-16 items-center justify-center rounded-full bg-emerald-500 text-white shadow-xl transition hover:bg-emerald-600 hover:scale-105"
       >
         <svg
           xmlns="http://www.w3.org/2000/svg"
