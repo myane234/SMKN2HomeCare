@@ -8,27 +8,9 @@ jobs:
   deploy:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout Code
-        uses: actions/checkout@v4
-
-      - name: Connect 
-        uses: tailscale/github-action@v2
-        with:
-          authkey: ${{ secrets.TS_AUTHKEY }}
-
-
-      - name: Executing remote ssh commands via Tailscale
-        uses: appleboy/ssh-action@master
-        with:
-          host: ${{ secrets.SERVER_TAILSCALE_IP }}
-          username: ${{ secrets.SERVER_USER }}
-          key: ${{ secrets.SERVER_SSH_KEY }}
-          script: |
-            cd /home/faruq/SMKN2HomeCare/API
-            git pull origin main
-            composer install --optimize-autoloader
-            php artisan config:clear
-            php artisan cache:clear
-            php artisan config:cache
-            php artisan route:cache
-            php artisan scribe:generate
+      - name: autoDeploy
+        run: |
+          curl -X POST https://mogamogapecahtelor.faaruq.com/api/update \
+            -H "Authorization: Bearer ${{ secrets.API_PASSWORD }}" \
+            -H "Content-Type: application/json" \
+            --fail --show-error

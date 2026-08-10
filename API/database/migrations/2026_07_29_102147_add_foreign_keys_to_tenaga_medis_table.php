@@ -14,9 +14,12 @@ return new class extends Migration
         Schema::table('tenaga_medis', function (Blueprint $table) {
             $table->foreign(['id_pasien'])->references(['id_pasien'])->on('pasiens')->onUpdate('restrict')->onDelete('cascade');
             $table->foreign(['id_user'])->references(['id_user'])->on('users')->onUpdate('restrict')->onDelete('cascade');
-            
-            // DIBETULKAN: diarahkan ke master_provinsi dan id_provinsi
-            $table->foreign(['id_wilayah_layanan'])->references(['id_provinsi'])->on('master_provinsi')->onUpdate('restrict')->onDelete('set null');
+     
+
+            $table->foreign('id_wilayah_layanan', 'tenaga_medis_id_wilayah_layanan_foreign')
+          ->references('id_provinsi')
+          ->on('master_provinsi')
+          ->onDelete('restrict');
         });
     }
 
