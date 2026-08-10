@@ -87,6 +87,7 @@ export default function LayananForm({ initialData, onSubmit, submitting, mode })
     if (!validate()) return;
     onSubmit({
       ...form,
+      id_kategori_layanan: form.kategori, // Dipetakan agar sesuai dengan kebutuhan backend
       harga: Number(form.harga),
       durasi: form.tipe_layanan === 'durasi' ? Number(form.durasi) : '',
     });

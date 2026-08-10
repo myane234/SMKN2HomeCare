@@ -24,7 +24,7 @@ function mapApiItem(item) {
   return {
     id: item.id_layanan ?? item.id,
     nama: item.nama_layanan ?? item.nama ?? '',
-    kategori: item.kategori_layanan ?? item.kategori ?? '',
+    kategori: item.id_kategori_layanan ?? item.kategori_layanan ?? item.kategori ?? '',
     harga: Number(item.harga ?? 0),
     tipe_layanan: item.tipe_layanan ?? 'tindakan',
     durasi: item.durasi_menit ?? item.durasi ?? '',
@@ -37,20 +37,28 @@ function mapApiItem(item) {
 
 function toFormData(item) {
   const fd = new FormData();
+  
+  // Ambil ID kategori dengan mengecek berbagai kemungkinan struktur data yang dikirim
+  const kategoriId = item.id_kategori_layanan ?? item.kategori?.id_kategori_layanan ?? item.kategori ?? '';
+
   fd.append('nama_layanan', item.nama ?? '');
-  fd.append('id_kategori_layanan', item.kategori ?? '');
+  fd.append('id_kategori_layanan', kategoriId);
   fd.append('harga', item.harga ?? 0);
   fd.append('tipe_layanan', item.tipe_layanan ?? 'tindakan');
+  
   if (item.tipe_layanan === 'durasi') {
     fd.append('durasi_menit', item.durasi ?? 0);
   } else {
     fd.append('durasi_menit', '');
   }
+  
   fd.append('include_transport', item.transport ? 1 : 0);
   fd.append('deskripsi_layanan', item.deskripsi ?? '');
+  
   if (item.gambar instanceof File) {
     fd.append('foto_layanan', item.gambar);
   }
+  
   return fd;
 }
 
@@ -81,17 +89,14 @@ export async function getAllLayanan() {
 
 export async function getKategoriLayanan() {
   const res = await fetch(`${URL}/layanan?ambil_kategori=true`, {
-    'method': 'GET',
-    'headers': {
+    method: 'GET',
+    headers: {
       'Content-Type': 'application/json'
     }
   })
 
   const body = await parseJsonResponse(res);
-
-  const data = body.data;
-
-  return data;
+  return body.data;
 }
 
 export async function getLayananById(id) {
@@ -116,7 +121,6 @@ export async function createLayanan(payload) {
     method: 'POST',
     headers: getAuthHeaders(),
     body: toFormData(payload),
-
   })
 
   const body = await parseJsonResponse(res)
@@ -131,7 +135,6 @@ export async function updateLayanan(id, payload) {
     method: 'POST',
     headers: getAuthHeaders(),
     body: fd,
-
   })
 
   const body = await parseJsonResponse(res)
