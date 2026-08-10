@@ -4,6 +4,8 @@ import { notFound } from "next/navigation";
 import { cookies } from "next/headers";
 import LoginRequiredModal from "@/components/LoginRequiredModal";
 
+import { resolveImageUrl } from "@/services/resolveImage";
+
 const API_URL =
   process.env.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_API_BASE_URL || "https://citra.faaruq.com";
 
@@ -12,14 +14,6 @@ function slugify(text) {
     .toLowerCase()
     .replace(/&/g, "dan")
     .replace(/\s+/g, "-");
-}
-
-function imageUrl(path) {
-  if (!path) return "/images/default-service.png";
-
-  if (path.startsWith("http")) return path;
-
-  return `${API_URL}${path}`;
 }
 
 function formatRupiah(value) {
@@ -89,11 +83,12 @@ export default async function DetailLayanan({ params, searchParams }) {
         <div className="lg:col-span-4">
 
           <Image
-            src={imageUrl(service.foto_layanan)}
+            src={resolveImageUrl(service.foto_layanan, service.updated_at)}
             alt={service.nama_layanan}
             width={500}
             height={600}
             className="rounded-3xl object-cover"
+            unoptimized
           />
 
         </div>
