@@ -1,7 +1,7 @@
 // app/pembayaran/paymentQR/page.jsx
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { 
   FiArrowLeft, 
@@ -16,7 +16,7 @@ import {
 import { QrCode } from 'lucide-react';
 import Image from 'next/image';
 
-export default function PaymentQRPage() {
+function PaymentQRContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   
@@ -453,5 +453,20 @@ export default function PaymentQRPage() {
         )}
       </div>
     </div>
+  );
+}
+
+export default function PaymentQRPage() {
+  return (
+    <Suspense fallback={
+      <div className="flex min-h-screen items-center justify-center bg-slate-50">
+        <div className="text-center">
+          <div className="mx-auto h-12 w-12 animate-spin rounded-full border-b-2 border-blue-600"></div>
+          <p className="mt-4 text-gray-600">Memuat detail pembayaran...</p>
+        </div>
+      </div>
+    }>
+      <PaymentQRContent />
+    </Suspense>
   );
 }

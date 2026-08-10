@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { 
   FiArrowLeft, 
@@ -47,7 +47,7 @@ const METODE_PEMBAYARAN = [
   },
 ];
 
-export default function PilihMetodePembayaranPage() {
+function PilihMetodePembayaranContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   
@@ -247,5 +247,20 @@ export default function PilihMetodePembayaranPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function PilihMetodePembayaranPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen flex items-center justify-center bg-slate-50">
+        <div className="text-center">
+          <div className="mx-auto h-12 w-12 animate-spin rounded-full border-b-2 border-sky-600"></div>
+          <p className="mt-4 text-gray-600">Memuat metode pembayaran...</p>
+        </div>
+      </div>
+    }>
+      <PilihMetodePembayaranContent />
+    </Suspense>
   );
 }
