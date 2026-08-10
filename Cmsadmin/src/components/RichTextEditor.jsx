@@ -9,6 +9,66 @@ import { getAuthHeaders, handleUnauthorized } from '../utils/auth.js';
 Quill.register('modules/imageDrop', ImageDrop);
 
 // ---------------------------------------------------------------------------
+// Custom Image format / blot preserving inline styles (width/height) in Quill 2
+// ---------------------------------------------------------------------------
+const BaseImage = Quill.import('formats/image');
+
+class CustomImage extends BaseImage {
+  static create(value) {
+    const node = super.create(value);
+    if (typeof value === 'object' && value !== null) {
+      if (value.url || value.src) node.setAttribute('src', value.url || value.src);
+      if (value.style) node.setAttribute('style', value.style);
+      if (value.width) node.setAttribute('width', value.width);
+      if (value.height) node.setAttribute('height', value.height);
+    } else if (typeof value === 'string') {
+      node.setAttribute('src', value);
+    }
+    return node;
+  }
+
+  static formats(domNode) {
+    const formats = super.formats(domNode) || {};
+    if (domNode.hasAttribute('style')) {
+      formats.style = domNode.getAttribute('style');
+    }
+    if (domNode.hasAttribute('width')) {
+      formats.width = domNode.getAttribute('width');
+    }
+    if (domNode.hasAttribute('height')) {
+      formats.height = domNode.getAttribute('height');
+    }
+    return formats;
+  }
+
+  format(name, value) {
+    if (name === 'style') {
+      if (value) {
+        this.domNode.setAttribute('style', value);
+      } else {
+        this.domNode.removeAttribute('style');
+      }
+    } else if (name === 'width') {
+      if (value) {
+        this.domNode.setAttribute('width', value);
+      } else {
+        this.domNode.removeAttribute('width');
+      }
+    } else if (name === 'height') {
+      if (value) {
+        this.domNode.setAttribute('height', value);
+      } else {
+        this.domNode.removeAttribute('height');
+      }
+    } else {
+      super.format(name, value);
+    }
+  }
+}
+
+Quill.register(CustomImage, true);
+
+// ---------------------------------------------------------------------------
 // Custom image-resize module (Quill 2 compatible).
 // Shows an overlay with 4 corner handles when an image is clicked, and lets
 // the user drag to resize while keeping the aspect ratio.
@@ -93,9 +153,11 @@ class ImageResize {
       ? this.dragStartWidth - delta
       : this.dragStartWidth + delta;
     newWidth = Math.max(this.minWidth, Math.round(newWidth));
-    // Keep aspect ratio: set width, let height auto-scale.
+    // Keep aspect ratio: set style width and height
     this.img.style.width = `${newWidth}px`;
     this.img.style.height = 'auto';
+    this.img.setAttribute('width', `${newWidth}`);
+    this.img.setAttribute('style', `width: ${newWidth}px; height: auto;`);
     this.reposition();
   }
 
@@ -103,7 +165,14 @@ class ImageResize {
     document.removeEventListener('mousemove', this.handleMousemove);
     document.removeEventListener('mouseup', this.handleMouseup);
     if (this.img) {
+      const widthVal = this.img.style.width || `${this.img.getBoundingClientRect().width}px`;
+      this.img.setAttribute('style', `width: ${widthVal}; height: auto;`);
+      this.img.setAttribute('width', parseInt(widthVal, 10));
+
       this.quill.update('user');
+      if (typeof this.options.onResize === 'function') {
+        this.options.onResize();
+      }
     }
   }
 
@@ -315,7 +384,7 @@ async function uploadImage(file) {
     body: formData,
   });
 
-if (res.status === 401) {
+  if (res.status === 401) {
     handleUnauthorized();
     throw new Error('Sesi berakhir. Silakan login kembali.');
   }
@@ -325,18 +394,20 @@ if (res.status === 401) {
     throw new Error(body?.message || 'Gagal mengunggah gambar');
   }
 
-const body = await res.json();
+  const body = await res.json();
   const urls = body?.urls;
   if (Array.isArray(urls) && urls.length > 0) {
-    // Backend mengembalikan URL absolut (mis. http://localhost/storage/...)
-    // karena APP_URL di backend = http://localhost. Di sini kita ubah menjadi
-    // path relatif /storage/... agar gambar termuat lewat Vite proxy (dev)
-    // atau domain frontend (produksi), bukan localhost yang tak bisa diakses.
     const raw = urls[0];
-    if (typeof raw === 'string' && raw.includes('/storage/')) {
-      const pathPart = raw.substring(raw.indexOf('/storage/'));
-      return pathPart;
+
+    if (typeof raw === 'string') {
+      const withoutHost = raw.replace(/^https?:\/\/(localhost|127\.0\.0\.1|0\.0\.0\.0)(?::\d+)?/i, '');
+      const path = withoutHost.includes('/storage/')
+        ? withoutHost.substring(withoutHost.indexOf('/storage/'))
+        : `/${withoutHost.replace(/^\/+/, '')}`;
+
+      return path.startsWith('/storage/') ? path : `/storage/${path.replace(/^\/+/, '')}`;
     }
+
     return raw;
   }
   throw new Error('URL gambar tidak ditemukan');
@@ -379,15 +450,36 @@ export default function RichTextEditor({ value, onChange, placeholder, error }) 
               // Fallback: sisipkan base64 langsung agar artikel tetap bisa
               // disimpan, meskipun upload ke server gagal (mis. token login
               // sudah tidak valid / belum login ulang).
-console.warn('Upload ke server gagal, pakai base64:', err.message);
+              console.warn('Upload ke server gagal, pakai base64:', err.message);
               quill.insertEmbed(index, 'image', dataUrl, 'user');
               quill.setSelection(index + 1);
             }
           },
         },
-        imageResize: true, // aktifin resize gambar
+        imageResize: {
+          onResize: () => {
+            if (onChange && quillRef.current) {
+              const html = quillRef.current.root?.innerHTML || '';
+              const cleanHtml = html === '<p></p>' || html === '<p><br></p>' ? '' : html;
+              onChange(cleanHtml);
+            }
+          },
+        },
       },
-      formats: ['header', 'size', 'bold', 'italic', 'underline', 'link', 'list', 'blockquote', 'image'],
+      formats: [
+        'header',
+        'size',
+        'bold',
+        'italic',
+        'underline',
+        'link',
+        'list',
+        'blockquote',
+        'image',
+        'style',
+        'width',
+        'height',
+      ],
     });
 
     quillRef.current = quill;
