@@ -14,7 +14,8 @@ import {
   FaUsers,
   FaMapMarkerAlt,
   FaCity,
-  FaTags
+  FaTags,
+  FaCreditCard
 } from 'react-icons/fa';
 import { isSuperAdmin } from '../utils/role';
 
@@ -37,6 +38,8 @@ const superAdminMenus = [
       { to: '/master-barang', label: 'Stock Barang', icon: <FaChartBar /> },
       { to: '/master-tarif', label: 'Tarif', icon: <FaChartBar /> },
       { to: '/master-kategori', label: 'Kategori', icon: <FaTags /> },
+      { to: '/master-kategori-pembayaran', label: 'Kategori Pembayaran', icon: <FaTags /> },
+      { to: '/master-metode-pembayaran', label: 'Metode Pembayaran', icon: <FaCreditCard /> },
       { to: '/nakes', label: 'Nakes', icon: <FaUserMd />, end: true },
       { to: '/nakes/requests', label: 'Registrasi Nakes', icon: <FaUserPlus /> },
     ],

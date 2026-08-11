@@ -26,6 +26,8 @@ import DataMasterTarif from './pages/admin/AdminMasterTarif';
 import AdminMasterProvinsi from './pages/admin/AdminMasterProvinsi';
 import AdminMasterkotakabupaten from './pages/admin/AdminMasterkotakabupaten';
 import AdminMasterKategori from './pages/admin/AdminMasterKategori';
+import AdminMasterMetodePembayaran from './pages/admin/AdminMasterMetodePembayaran';
+import AdminMasterKategoriPembayaran from './pages/admin/AdminMasterKategoriPembayaran';
 import { getUserRoles } from './utils/role';
 
 import 'leaflet/dist/leaflet.css';
@@ -75,6 +77,8 @@ function App() {
         <Route path="/master-provinsi" element={<ProtectedRoute requiredRole="super_admin"><AdminMasterProvinsi /></ProtectedRoute>} />
         <Route path="/master-kabupaten" element={<ProtectedRoute requiredRole="super_admin"><AdminMasterkotakabupaten /></ProtectedRoute>} />
         <Route path="/master-kategori" element={<ProtectedRoute requiredRole="super_admin"><AdminMasterKategori /></ProtectedRoute>} />
+        <Route path="/master-metode-pembayaran" element={<ProtectedRoute requiredRole="super_admin"><AdminMasterMetodePembayaran /></ProtectedRoute>} />
+        <Route path="/master-kategori-pembayaran" element={<ProtectedRoute requiredRole="super_admin"><AdminMasterKategoriPembayaran /></ProtectedRoute>} />
       </Route>
 
       {/* Default redirects */}
