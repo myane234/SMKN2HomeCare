@@ -44,6 +44,8 @@ const superAdminMenus = [
       },
       { to: '/master-barang', label: 'Stock Barang', icon: <FaChartBar /> },
       { to: '/master-tarif', label: 'Tarif', icon: <FaChartBar /> },
+      { to: '/master-komponen-tarif', label: 'Komponen Tarif', icon: <FaChartBar /> },
+      { to: '/master-tarif-transport', label: 'Tarif Transport', icon: <FaChartBar /> },  
       { to: '/master-kategori', label: 'Kategori', icon: <FaTags /> },
       {
         type: 'subgroup',
