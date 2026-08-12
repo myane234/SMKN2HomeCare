@@ -201,6 +201,7 @@ export default function DataBarang() {
             <table className="w-full min-w-180 border-collapse">
               <thead>
                 <tr className="bg-slate-50 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
+                  <th className="border-b border-slate-200 px-4 py-3 text-center w-12">No</th>
                   <th className="border-b border-slate-200 px-4 py-3 text-left">Nama Barang</th>
                   <th className="border-b border-slate-200 px-4 py-3 text-right">Harga Satuan</th>
                   <th className="border-b border-slate-200 px-4 py-3 text-center">Jumlah Stok</th>
@@ -211,60 +212,66 @@ export default function DataBarang() {
               <tbody>
                 {paginatedData.length === 0 ? (
                   <tr>
-                    <td colSpan="5" className="px-4 py-8 text-center text-sm text-slate-500">
+                    <td colSpan="6" className="px-4 py-8 text-center text-sm text-slate-500">
                       Tidak ada data barang yang ditemukan.
                     </td>
                   </tr>
                 ) : (
-                  paginatedData.map((item) => (
-                    <tr key={item.id_bhp} className="hover:bg-slate-50">
-                      <td className="border-b border-slate-200 px-4 py-3.5 text-sm">
-                        <div className="flex items-center gap-3">
-                          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-emerald-50 text-emerald-600 border border-emerald-200">
-                            <FaBoxOpen className="text-base" />
+                  paginatedData.map((item, index) => {
+                    const nomorUrut = (currentPage - 1) * itemsPerPage + index + 1;
+                    return (
+                      <tr key={item.id_bhp} className="hover:bg-slate-50">
+                        <td className="border-b border-slate-200 px-4 py-3.5 text-sm text-center font-medium text-slate-500">
+                          {nomorUrut}
+                        </td>
+                        <td className="border-b border-slate-200 px-4 py-3.5 text-sm">
+                          <div className="flex items-center gap-3">
+                            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-emerald-50 text-emerald-600 border border-emerald-200">
+                              <FaBoxOpen className="text-base" />
+                            </div>
+                            <div>
+                              <div className="font-semibold text-slate-900">{item.nama_barang}</div>
+                              <div className="text-xs text-slate-400">ID: #{item.id_bhp}</div>
+                            </div>
                           </div>
-                          <div>
-                            <div className="font-semibold text-slate-900">{item.nama_barang}</div>
-                            <div className="text-xs text-slate-400">ID: #{item.id_bhp}</div>
-                          </div>
-                        </div>
-                      </td>
-                      <td className="border-b border-slate-200 px-4 py-3.5 text-sm text-right font-medium text-slate-800">
-                        {formatRupiah(item.harga_satuan)}
-                      </td>
-                      <td className="border-b border-slate-200 px-4 py-3.5 text-sm text-center font-semibold text-slate-700">
-                        {item.stok}
-                      </td>
-                      <td className="border-b border-slate-200 px-4 py-3.5 text-sm text-center">
-                        {item.stok > 0 ? (
-                          <span className="badge badge-aktif">Tersedia</span>
-                        ) : (
-                          <span className="badge badge-nonaktif">Habis</span>
-                        )}
-                      </td>
-                      <td className="border-b border-slate-200 px-4 py-3.5 text-sm text-center">
-                        <div className="flex items-center justify-center gap-1.5">
-                          {/* Tombol Edit */}
-                          <button
-                            onClick={() => handleEditClick(item)}
-                            className="p-1.5 text-slate-600 bg-slate-50 border border-slate-200 rounded hover:bg-slate-100 transition-colors"
-                            title="Edit Barang"
-                          >
-                            <FaEdit />
-                          </button>
+                        </td>
+                        <td className="border-b border-slate-200 px-4 py-3.5 text-sm text-right font-medium text-slate-800">
+                          {formatRupiah(item.harga_satuan)}
+                        </td>
+                        <td className="border-b border-slate-200 px-4 py-3.5 text-sm text-center font-semibold text-slate-700">
+                          {item.stok}
+                        </td>
+                        <td className="border-b border-slate-200 px-4 py-3.5 text-sm text-center">
+                          {item.stok > 0 ? (
+                            <span className="badge badge-aktif">Tersedia</span>
+                          ) : (
+                            <span className="badge badge-nonaktif">Habis</span>
+                          )}
+                        </td>
+                        <td className="border-b border-slate-200 px-4 py-3.5 text-sm text-center">
+                          <div className="flex items-center justify-center gap-1.5">
+                            {/* Tombol Edit */}
+                            <button
+                              onClick={() => handleEditClick(item)}
+                              className="p-1.5 text-slate-600 bg-slate-50 border border-slate-200 rounded hover:bg-slate-100 transition-colors"
+                              title="Edit Barang"
+                            >
+                              <FaEdit />
+                            </button>
 
-                          {/* Tombol Hapus */}
-                          <button
-                            onClick={() => handleDeleteClick(item)}
-                            className="p-1.5 text-red-600 bg-red-50 border border-red-200 rounded hover:bg-red-100 transition-colors"
-                            title="Hapus Barang"
-                          >
-                            <FaTrash />
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))
+                            {/* Tombol Hapus */}
+                            <button
+                              onClick={() => handleDeleteClick(item)}
+                              className="p-1.5 text-red-600 bg-red-50 border border-red-200 rounded hover:bg-red-100 transition-colors"
+                              title="Hapus Barang"
+                            >
+                              <FaTrash />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })
                 )}
               </tbody>
             </table>

@@ -44,7 +44,6 @@ export default function DataNakes() {
         setKategoriList(kategoriData);
 
         const mapped = nakesData.map((item) => {
-          // 🔹 1. Parsing Kategori Layanan dari Response
           let kategoriArr = [];
           if (Array.isArray(item.kategori_layanan) && item.kategori_layanan.length > 0) {
             kategoriArr = item.kategori_layanan.map((k) => ({
@@ -52,7 +51,6 @@ export default function DataNakes() {
               nama_kategori: k.nama_kategori
             }));
           } else if (item.jenis_tenaga_medis) {
-            // Fallback jika kategori_layanan masih [] (misal: "Ibu dan Anak")
             const names = item.jenis_tenaga_medis.split(',').map(s => s.trim()).filter(Boolean);
             kategoriArr = names.map((name) => {
               const matchedKat = kategoriData.find(k => k.nama_kategori.toLowerCase() === name.toLowerCase());
@@ -63,7 +61,6 @@ export default function DataNakes() {
             });
           }
 
-          // 🔹 2. Parsing Wilayah Layanan
           let wilayahStr = '';
           if (item.wilayah_layanan && typeof item.wilayah_layanan === 'object') {
             wilayahStr = item.wilayah_layanan.nama_wilayah || item.wilayah_layanan.nama || '';
@@ -244,69 +241,76 @@ export default function DataNakes() {
           ) : (
             <table className="w-full min-w-225 border-collapse">
               <thead>
-                <tr>
-                  <th className="border-b border-slate-200 px-4 py-3 text-left text-xs font-medium uppercase tracking-wide text-slate-500">Nakes</th>
-                  <th className="border-b border-slate-200 px-4 py-3 text-left text-xs font-medium uppercase tracking-wide text-slate-500">Kategori Layanan</th>
-                  <th className="border-b border-slate-200 px-4 py-3 text-left text-xs font-medium uppercase tracking-wide text-slate-500">Wilayah Operasional</th>
-                  <th className="border-b border-slate-200 px-4 py-3 text-left text-xs font-medium uppercase tracking-wide text-slate-500">Aksi</th>
+                <tr className="bg-slate-50 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
+                  <th className="border-b border-slate-200 px-4 py-3 text-center w-12">No</th>
+                  <th className="border-b border-slate-200 px-4 py-3 text-left">Nakes</th>
+                  <th className="border-b border-slate-200 px-4 py-3 text-left">Kategori Layanan</th>
+                  <th className="border-b border-slate-200 px-4 py-3 text-left">Wilayah Operasional</th>
+                  <th className="border-b border-slate-200 px-4 py-3 text-left">Aksi</th>
                 </tr>
               </thead>
               <tbody>
                 {paginatedData.length === 0 ? (
                   <tr>
-                    <td colSpan="4" className="px-4 py-8 text-center text-sm text-slate-500">
+                    <td colSpan="5" className="px-4 py-8 text-center text-sm text-slate-500">
                       Tidak ada data yang ditemukan.
                     </td>
                   </tr>
                 ) : (
-                  paginatedData.map((item) => (
-                    <tr key={item.id} className="hover:bg-slate-50">
-                      <td className="border-b border-slate-200 px-4 py-3 text-sm">
-                        <div className="flex items-center gap-3">
-                          <img 
-                            src={getImageUrl(item.foto)} 
-                            alt={item.nama} 
-                            className="h-10 w-10 rounded-full object-cover bg-slate-200" 
-                            onError={(e) => e.target.src = '/nakesgambar.jpg'} 
-                          />
-                          <div>
-                            <div className="font-semibold text-slate-900">{item.nama}</div>
-                            <div className="text-xs text-slate-500">STR: {item.nomorStr}</div>
+                  paginatedData.map((item, index) => {
+                    const nomorUrut = (currentPage - 1) * itemsPerPage + index + 1;
+                    return (
+                      <tr key={item.id} className="hover:bg-slate-50">
+                        <td className="border-b border-slate-200 px-4 py-3.5 text-sm text-center font-medium text-slate-500">
+                          {nomorUrut}
+                        </td>
+                        <td className="border-b border-slate-200 px-4 py-3.5 text-sm">
+                          <div className="flex items-center gap-3">
+                            <img 
+                              src={getImageUrl(item.foto)} 
+                              alt={item.nama} 
+                              className="h-10 w-10 rounded-full object-cover bg-slate-200" 
+                              onError={(e) => e.target.src = '/nakesgambar.jpg'} 
+                            />
+                            <div>
+                              <div className="font-semibold text-slate-900">{item.nama}</div>
+                              <div className="text-xs text-slate-500">STR: {item.nomorStr}</div>
+                            </div>
                           </div>
-                        </div>
-                      </td>
-                      <td className="border-b border-slate-200 px-4 py-3 text-sm">
-                        <div className="flex flex-wrap gap-1">
-                          {item.kategoriLayanan.length > 0 ? (
-                            item.kategoriLayanan.map((k, idx) => (
-                              <span key={idx} className="bg-primary-light text-primary-dark px-2 py-0.5 rounded text-xs font-medium">
-                                {k.nama_kategori}
-                              </span>
-                            ))
+                        </td>
+                        <td className="border-b border-slate-200 px-4 py-3.5 text-sm">
+                          <div className="flex flex-wrap gap-1">
+                            {item.kategoriLayanan.length > 0 ? (
+                              item.kategoriLayanan.map((k, idx) => (
+                                <span key={idx} className="bg-primary-light text-primary-dark px-2 py-0.5 rounded text-xs font-medium">
+                                  {k.nama_kategori}
+                                </span>
+                              ))
+                            ) : (
+                              <span className="text-slate-400 italic">Belum diatur</span>
+                            )}
+                          </div>
+                        </td>
+                        <td className="border-b border-slate-200 px-4 py-3.5 text-sm">
+                          {item.wilayahLayanan ? (
+                            <span className="text-slate-800 font-medium">{item.wilayahLayanan}</span>
                           ) : (
                             <span className="text-slate-400 italic">Belum diatur</span>
                           )}
-                        </div>
-                      </td>
-                      <td className="border-b border-slate-200 px-4 py-3 text-sm">
-                        {item.wilayahLayanan ? (
-                          <span className="text-slate-800 font-medium">{item.wilayahLayanan}</span>
-                        ) : (
-                          <span className="text-slate-400 italic">Belum diatur</span>
-                        )}
-                      </td>
-                      <td className="border-b border-slate-200 px-4 py-3 text-sm">
-                        <div className="flex gap-2">
-                          <button onClick={() => handleEditClick(item)} className="btn-outline btn-sm inline-flex items-center gap-2">
-                            <FaEdit /> Edit
-                          </button>
-                          <button onClick={() => handleDeleteClick(item)} className="btn-danger btn-sm inline-flex items-center gap-2">
-                            Hapus
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))
+                        </td>
+                        <td className="border-b border-slate-200 px-4 py-3.5 text-sm">
+                          <div className="flex gap-2">
+                            <button onClick={() => handleEditClick(item)} className="btn-outline btn-sm inline-flex items-center gap-2">
+                              <FaEdit /> Edit
+                            </button>
+                            <button onClick={() => handleDeleteClick(item)} className="btn-danger btn-sm inline-flex items-center gap-2">
+                              Hapus
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })
                 )}
               </tbody>
             </table>
