@@ -1,12 +1,14 @@
 import { NavLink } from 'react-router-dom';
 import { useState, useEffect, useRef, useCallback } from 'react';
 import logo from '../assets/logo.png';
+import { canAccessPath } from '../utils/role';
 import {
   FaStethoscope,
   FaGift,
   FaRegFileAlt,
   FaChartBar,
   FaUserShield,
+  FaShieldAlt,
   FaUserMd,
   FaUserPlus,
   FaCalendarCheck,
@@ -16,17 +18,18 @@ import {
   FaTags,
   FaCreditCard,
   FaGlobeAmericas,
-  FaWallet
+  FaWallet,
+  FaCogs
 } from 'react-icons/fa';
 
-const menuItems = [
+const rawMenuItems = [
   { to: '/dashboard', label: 'Dashboard', icon: <FaChartBar />, end: true },
   { to: '/layanan', label: 'Layanan', icon: <FaStethoscope /> },
   { to: '/promo', label: 'Promo', icon: <FaGift /> },
   { to: '/artikel', label: 'Artikel', icon: <FaRegFileAlt /> },
 ];
 
-const superAdminMenus = [
+const rawSuperAdminMenus = [
   {
     type: 'group',
     label: 'Master Data',
@@ -59,17 +62,46 @@ const superAdminMenus = [
     ],
   },
   { to: '/booking', label: 'Booking', icon: <FaCalendarCheck /> },
-  { to: '/kelola-admin', label: 'Kelola Admin', icon: <FaUserShield /> },
+  {
+    type: 'group',
+    label: 'Config',
+    icon: <FaCogs />,
+    children: [
+      { to: '/kelola-admin', label: 'Kelola Admin', icon: <FaUserShield /> },
+      { to: '/tier-admin', label: 'Tier Admin', icon: <FaShieldAlt /> },
+    ],
+  },
 ];
 
-const COLLAPSED_WIDTH = 68;
 const MIN_WIDTH = 200;
 const MAX_WIDTH = 360;
 const DEFAULT_WIDTH = 240;
 const STORAGE_KEY = 'sidebar_width';
 
-export default function Sidebar({ open, onClose, collapsed, onCollapse }) {
-  const menus = [...menuItems, ...superAdminMenus];
+export default function Sidebar({ open, onClose, collapsed }) {
+  // Filter menu items based on tier permissions
+  const filterMenuItems = (items) => {
+    return items
+      .map((item) => {
+        if (item.type === 'group') {
+          const filteredChildren = filterMenuItems(item.children);
+          if (filteredChildren.length === 0) return null;
+          return { ...item, children: filteredChildren };
+        }
+        if (item.type === 'subgroup') {
+          const filteredChildren = filterMenuItems(item.children);
+          if (filteredChildren.length === 0) return null;
+          return { ...item, children: filteredChildren };
+        }
+        if (canAccessPath(item.to)) {
+          return item;
+        }
+        return null;
+      })
+      .filter(Boolean);
+  };
+
+  const menus = filterMenuItems([...rawMenuItems, ...rawSuperAdminMenus]);
 
   const [width, setWidth] = useState(() => {
     if (typeof window === 'undefined') return DEFAULT_WIDTH;
@@ -77,19 +109,14 @@ export default function Sidebar({ open, onClose, collapsed, onCollapse }) {
     return saved >= MIN_WIDTH && saved <= MAX_WIDTH ? saved : DEFAULT_WIDTH;
   });
   const [isResizing, setIsResizing] = useState(false);
-  
-  // State dropdown untuk Master Data dan sub-dropdown di dalamnya
+
+  // Accordion states
   const [masterDataOpen, setMasterDataOpen] = useState(true);
+  const [configOpen, setConfigOpen] = useState(true);
   const [wilayahOpen, setWilayahOpen] = useState(true);
   const [pembayaranOpen, setPembayaranOpen] = useState(true);
 
   const asideRef = useRef(null);
-
-  const handleResizeStart = useCallback((e) => {
-    if (collapsed) return;
-    e.preventDefault();
-    setIsResizing(true);
-  }, [collapsed]);
 
   useEffect(() => {
     if (!isResizing) return;
@@ -125,7 +152,6 @@ export default function Sidebar({ open, onClose, collapsed, onCollapse }) {
 
   return (
     <>
-      {/* Mobile overlay */}
       {open && (
         <div
           className="fixed inset-0 z-30 bg-slate-900/40 backdrop-blur-[2px] md:hidden"
@@ -174,11 +200,17 @@ export default function Sidebar({ open, onClose, collapsed, onCollapse }) {
           <nav className="flex flex-col gap-0.5 p-2 flex-1 overflow-y-auto overflow-x-hidden">
             {menus.map((item) => {
               if (item.type === 'group') {
+                const isConfigGroup = item.label === 'Config';
+                const isGroupOpen = isConfigGroup ? configOpen : masterDataOpen;
+                const toggleGroupOpen = isConfigGroup
+                  ? () => setConfigOpen((prev) => !prev)
+                  : () => setMasterDataOpen((prev) => !prev);
+
                 return (
                   <div key={item.label} className="flex flex-col">
                     <button
                       type="button"
-                      onClick={() => setMasterDataOpen((prev) => !prev)}
+                      onClick={toggleGroupOpen}
                       className="group relative flex items-center rounded-xl px-3.5 py-2.5 text-left text-sm font-medium transition-all duration-150 text-slate-500 hover:bg-primary-light hover:text-primary-dark"
                     >
                       <span className="flex h-[22px] w-[22px] flex-shrink-0 items-center justify-center text-[15px]">
@@ -197,19 +229,19 @@ export default function Sidebar({ open, onClose, collapsed, onCollapse }) {
                       </span>
 
                       {!collapsed && (
-                        <span className={`ml-auto text-[11px] transition-transform ${masterDataOpen ? 'rotate-180' : ''}`}>
+                        <span className={`ml-auto text-[11px] transition-transform ${isGroupOpen ? 'rotate-180' : ''}`}>
                           ▼
                         </span>
                       )}
                     </button>
 
-                    {(masterDataOpen || collapsed) && (
+                    {(isGroupOpen || collapsed) && (
                       <div className={`mt-1 flex flex-col gap-1 ${collapsed ? '' : 'ml-2 border-l border-slate-200/80 pl-2'}`}>
                         {item.children.map((child) => {
                           if (child.type === 'subgroup') {
                             const isWilayah = child.label === 'Wilayah';
                             const isOpen = isWilayah ? wilayahOpen : pembayaranOpen;
-                            const toggleOpen = isWilayah 
+                            const toggleOpen = isWilayah
                               ? () => setWilayahOpen((prev) => !prev)
                               : () => setPembayaranOpen((prev) => !prev);
 

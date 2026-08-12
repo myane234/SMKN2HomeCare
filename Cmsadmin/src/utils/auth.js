@@ -25,7 +25,8 @@ export async function login(email, password, isSuperAdminPath = false) {
         roles = []; 
       }
 
-      if (body.data.tier_admin === 'Super Admin' && !roles.includes('super_admin')) {
+      const tierAdmin = body.data.tier_admin || (isSuperAdminPath ? 'Super Admin' : 'Admin');
+      if (tierAdmin === 'Super Admin' && !roles.includes('super_admin')) {
         roles.push('super_admin');
       }
 
@@ -34,12 +35,14 @@ export async function login(email, password, isSuperAdminPath = false) {
         email,
         name: body.data.nama || 'Admin',
         roles: roles,
+        tier_admin: tierAdmin,
+        permissions: body.data.permissions || null,
         loggedInAt: new Date().toISOString(),
       };
       localStorage.setItem(AUTH_KEY, JSON.stringify(session));
       console.log(' Session saved:', JSON.stringify(session, null, 2));
       console.log(' Is Super Admin?', roles.includes('super_admin'));
-      return { success: true, roles: session.roles };
+      return { success: true, roles: session.roles, tier_admin: session.tier_admin };
     }
     
     return { success: false, message: body.message || 'Email atau password salah' };

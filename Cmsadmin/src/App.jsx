@@ -1,9 +1,7 @@
 import { Routes, Route, Navigate } from 'react-router-dom';
 import LoginAdminCms from './pages/LoginAdminCms';
-// import LoginSuperAdmin from './pages/super-admin/loginAdmin';
 import LoginSuperAdmin from './pages/LoginAdminCms';
 import Dashboard from './pages/Dashboard';
-import AdminDashboard from './pages/admin/AdminDashboard';
 import DataNakes from './pages/admin/DataNakes';
 import PageLayanan from './pages/PageLayanan';
 import PagePromo from './pages/PagePromo';
@@ -20,15 +18,15 @@ import PageBooking, { PageBookingDetail } from "./pages/admin/PageBooking";
 import AdminLayout from './components/AdminLayout';
 import ProtectedRoute from './components/ProtectedRoute';
 import KelolaAdmin from './pages/KelolaAdmin';
+import KelolaTierAdmin from './pages/KelolaTierAdmin';
 import DataUser from './pages/admin/AdminUser';
-import DataBarang from './pages/admin/AdminMasterBarang'
+import DataBarang from './pages/admin/AdminMasterBarang';
 import DataMasterTarif from './pages/admin/AdminMasterTarif';
 import AdminMasterProvinsi from './pages/admin/AdminMasterProvinsi';
 import AdminMasterkotakabupaten from './pages/admin/AdminMasterkotakabupaten';
 import AdminMasterKategori from './pages/admin/AdminMasterKategori';
 import AdminMasterMetodePembayaran from './pages/admin/AdminMasterMetodePembayaran';
 import AdminMasterKategoriPembayaran from './pages/admin/AdminMasterKategoriPembayaran';
-import { getUserRoles } from './utils/role';
 
 import 'leaflet/dist/leaflet.css';
 
@@ -51,34 +49,37 @@ function App() {
         {/* Shared Dashboard Route */}
         <Route path="/dashboard" element={<Dashboard />} />
 
-        {/* Shared Routes */}
-        <Route path="/layanan" element={<PageLayanan />} />
-        <Route path="/layanan/tambah" element={<FormTambah />} />
-        <Route path="/layanan/:id/edit" element={<FormEdit />} />
-        <Route path="/promo" element={<PagePromo />} />
-        <Route path="/promo/tambah" element={<PromoTambah />} />
-        <Route path="/promo/:id_promo/edit" element={<PromoEdit />} />
-        <Route path="/artikel" element={<PageArtikel />} />
-        <Route path="/artikel/tambah" element={<FormTambahArtikel />} />
-        <Route path="/artikel/:id/edit" element={<FormEditArtikel />} />
+        {/* Content Routes */}
+        <Route path="/layanan" element={<ProtectedRoute requiredPath="/layanan"><PageLayanan /></ProtectedRoute>} />
+        <Route path="/layanan/tambah" element={<ProtectedRoute requiredPath="/layanan"><FormTambah /></ProtectedRoute>} />
+        <Route path="/layanan/:id/edit" element={<ProtectedRoute requiredPath="/layanan"><FormEdit /></ProtectedRoute>} />
+        <Route path="/promo" element={<ProtectedRoute requiredPath="/promo"><PagePromo /></ProtectedRoute>} />
+        <Route path="/promo/tambah" element={<ProtectedRoute requiredPath="/promo"><PromoTambah /></ProtectedRoute>} />
+        <Route path="/promo/:id_promo/edit" element={<ProtectedRoute requiredPath="/promo"><PromoEdit /></ProtectedRoute>} />
+        <Route path="/artikel" element={<ProtectedRoute requiredPath="/artikel"><PageArtikel /></ProtectedRoute>} />
+        <Route path="/artikel/tambah" element={<ProtectedRoute requiredPath="/artikel"><FormTambahArtikel /></ProtectedRoute>} />
+        <Route path="/artikel/:id/edit" element={<ProtectedRoute requiredPath="/artikel"><FormEditArtikel /></ProtectedRoute>} />
 
-        {/* Super Admin specific routes (without /admin prefix) */}
-        <Route path="/nakes" element={<ProtectedRoute requiredRole="super_admin"><DataNakes /></ProtectedRoute>} />
-        <Route path="/nakes/requests" element={<ProtectedRoute requiredRole="super_admin"><PageNakesRequest /></ProtectedRoute>} />
-        <Route path="/nakes-request/:id" element={<ProtectedRoute requiredRole="super_admin"><PageNakesRequestDetail /></ProtectedRoute>} />
-        <Route path="/booking" element={<ProtectedRoute requiredRole="super_admin"><PageBooking /></ProtectedRoute>} />
-        <Route path="/bookings/:id" element={<ProtectedRoute requiredRole="super_admin"><PageBookingDetail /></ProtectedRoute>} />
-        <Route path="/users" element={<ProtectedRoute requiredRole="super_admin"><DataUser /></ProtectedRoute>} />
-        <Route path="/kelola-admin" element={<ProtectedRoute requiredRole="super_admin"><KelolaAdmin /></ProtectedRoute>} />
+        {/* Nakes & Bookings */}
+        <Route path="/nakes" element={<ProtectedRoute requiredPath="/nakes"><DataNakes /></ProtectedRoute>} />
+        <Route path="/nakes/requests" element={<ProtectedRoute requiredPath="/nakes/requests"><PageNakesRequest /></ProtectedRoute>} />
+        <Route path="/nakes-request/:id" element={<ProtectedRoute requiredPath="/nakes/requests"><PageNakesRequestDetail /></ProtectedRoute>} />
+        <Route path="/booking" element={<ProtectedRoute requiredPath="/booking"><PageBooking /></ProtectedRoute>} />
+        <Route path="/bookings/:id" element={<ProtectedRoute requiredPath="/booking"><PageBookingDetail /></ProtectedRoute>} />
+        <Route path="/users" element={<ProtectedRoute requiredPath="/users"><DataUser /></ProtectedRoute>} />
+
+        {/* Config / Admin & Tier Management */}
+        <Route path="/kelola-admin" element={<ProtectedRoute requiredPath="/kelola-admin"><KelolaAdmin /></ProtectedRoute>} />
+        <Route path="/tier-admin" element={<ProtectedRoute requiredPath="/tier-admin"><KelolaTierAdmin /></ProtectedRoute>} />
         
         {/* Master Data */}
-        <Route path="/master-barang" element={<ProtectedRoute requiredRole="super_admin"><DataBarang /></ProtectedRoute>} />
-        <Route path="/master-tarif" element={<ProtectedRoute requiredRole="super_admin"><DataMasterTarif /></ProtectedRoute>} />
-        <Route path="/master-provinsi" element={<ProtectedRoute requiredRole="super_admin"><AdminMasterProvinsi /></ProtectedRoute>} />
-        <Route path="/master-kabupaten" element={<ProtectedRoute requiredRole="super_admin"><AdminMasterkotakabupaten /></ProtectedRoute>} />
-        <Route path="/master-kategori" element={<ProtectedRoute requiredRole="super_admin"><AdminMasterKategori /></ProtectedRoute>} />
-        <Route path="/master-metode-pembayaran" element={<ProtectedRoute requiredRole="super_admin"><AdminMasterMetodePembayaran /></ProtectedRoute>} />
-        <Route path="/master-kategori-pembayaran" element={<ProtectedRoute requiredRole="super_admin"><AdminMasterKategoriPembayaran /></ProtectedRoute>} />
+        <Route path="/master-barang" element={<ProtectedRoute requiredPath="/master-barang"><DataBarang /></ProtectedRoute>} />
+        <Route path="/master-tarif" element={<ProtectedRoute requiredPath="/master-tarif"><DataMasterTarif /></ProtectedRoute>} />
+        <Route path="/master-provinsi" element={<ProtectedRoute requiredPath="/master-provinsi"><AdminMasterProvinsi /></ProtectedRoute>} />
+        <Route path="/master-kabupaten" element={<ProtectedRoute requiredPath="/master-kabupaten"><AdminMasterkotakabupaten /></ProtectedRoute>} />
+        <Route path="/master-kategori" element={<ProtectedRoute requiredPath="/master-kategori"><AdminMasterKategori /></ProtectedRoute>} />
+        <Route path="/master-metode-pembayaran" element={<ProtectedRoute requiredPath="/master-metode-pembayaran"><AdminMasterMetodePembayaran /></ProtectedRoute>} />
+        <Route path="/master-kategori-pembayaran" element={<ProtectedRoute requiredPath="/master-kategori-pembayaran"><AdminMasterKategoriPembayaran /></ProtectedRoute>} />
       </Route>
 
       {/* Default redirects */}
