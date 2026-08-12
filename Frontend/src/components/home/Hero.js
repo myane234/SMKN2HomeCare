@@ -3,8 +3,9 @@
 import { useEffect, useState } from "react";
 import Image from "next/image";
 import { FiChevronLeft, FiChevronRight } from "react-icons/fi";
+import api from "@/services/api";
 
-const slides = [
+const defaultSlides = [
   {
     id: 1,
     image: "/images/hero/hero-1.jpg",
@@ -30,6 +31,35 @@ const slides = [
 
 export default function Hero() {
   const [currentSlide, setCurrentSlide] = useState(0);
+  const [homeData, setHomeData] = useState(null);
+
+  useEffect(() => {
+    async function fetchHomeContent() {
+      try {
+        const res = await api.get("/api/resource/content/home", {
+          validateStatus: (status) => status < 500,
+        });
+        if (res.status === 200 && res.data) {
+          setHomeData(res.data);
+        }
+      } catch (err) {
+        // Fallback ke default content jika request gagal
+      }
+    }
+    fetchHomeContent();
+  }, []);
+
+  const slides = defaultSlides.map((slide, index) => {
+    if (index === 0 && homeData) {
+      return {
+        ...slide,
+        title: homeData.home_text_banner || slide.title,
+        description: homeData.home_description || slide.description,
+        image: homeData.home_banner || slide.image,
+      };
+    }
+    return slide;
+  });
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -39,7 +69,7 @@ export default function Hero() {
     }, 5000);
 
     return () => clearInterval(interval);
-  }, []);
+  }, [slides.length]);
 
   const nextSlide = () => {
     setCurrentSlide((prev) =>

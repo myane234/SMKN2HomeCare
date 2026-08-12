@@ -14,6 +14,7 @@ import PromoEdit from './pages/PromoEdit';
 import PageArtikel from './pages/PageArtikel';
 import FormTambahArtikel from './pages/FormTambahArtikel';
 import FormEditArtikel from './pages/FormEditArtikel';
+import PageKelolaKonten from './pages/PageKelolaKonten';
 import PageNakesRequest from './pages/admin/registerNakes/PageNakesRequest';
 import PageNakesRequestDetail from './pages/admin/RegisterNakes/PageNakesRequestDetail';
 import PageBooking, { PageBookingDetail } from "./pages/admin/PageBooking";
@@ -61,6 +62,7 @@ function App() {
         <Route path="/artikel" element={<PageArtikel />} />
         <Route path="/artikel/tambah" element={<FormTambahArtikel />} />
         <Route path="/artikel/:id/edit" element={<FormEditArtikel />} />
+        <Route path="/kelola-konten" element={<PageKelolaKonten />} />
 
         {/* Super Admin specific routes (without /admin prefix) */}
         <Route path="/nakes" element={<ProtectedRoute requiredRole="super_admin"><DataNakes /></ProtectedRoute>} />

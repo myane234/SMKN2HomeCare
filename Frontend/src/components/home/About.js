@@ -1,8 +1,33 @@
+"use client";
+
+import { useEffect, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { FiTarget, FiHeart, FiStar, FiArrowRight } from "react-icons/fi";
+import api from "@/services/api";
 
 export default function About() {
+  const [aboutData, setAboutData] = useState(null);
+
+  useEffect(() => {
+    async function fetchAboutContent() {
+      try {
+        const res = await api.get("/api/resource/content/about", {
+          validateStatus: (status) => status < 500,
+        });
+        if (res.status === 200 && res.data) {
+          setAboutData(res.data);
+        }
+      } catch (err) {
+        // Fallback ke default content jika request gagal
+      }
+    }
+    fetchAboutContent();
+  }, []);
+
+  const description = aboutData?.about_description_text || "Platform layanan kesehatan berbasis homecare yang menghadirkan tenaga kesehatan profesional langsung ke rumah Anda. Kami berkomitmen memberikan pelayanan yang aman, mudah, dan terpercaya.";
+  const imageSrc = aboutData?.about_description_image || "/images/tentang-kami/TentangHomeCare.png";
+
   return (
     <section className="relative py-16 sm:py-24 lg:py-32 overflow-hidden bg-white">
       {/* Background gradient halus */}
@@ -31,9 +56,7 @@ export default function About() {
 
             {/* Description */}
             <p className="mt-6 text-base sm:text-lg text-gray-600 leading-relaxed max-w-lg">
-              Platform layanan kesehatan berbasis homecare yang menghadirkan tenaga kesehatan 
-              profesional langsung ke rumah Anda. Kami berkomitmen memberikan pelayanan yang 
-              aman, mudah, dan terpercaya.
+              {description}
             </p>
 
             {/* Desktop: Tombol di bawah teks */}
@@ -55,7 +78,7 @@ export default function About() {
               <div className="relative rounded-[32px] overflow-hidden shadow-2xl shadow-transparent/50">
                 <div className="relative aspect-[4/5] w-full bg-gradient-to-br from-transparent to-transparent/30">
                   <Image
-                    src="/images/tentang-kami/TentangHomeCare.png"
+                    src={imageSrc}
                     alt="Tenaga kesehatan SmartHomeCare profesional"
                     fill
                     className="object-cover object-center"
@@ -124,9 +147,7 @@ export default function About() {
 
             {/* 3. Deskripsi */}
             <p className="mt-4 text-base text-gray-600 leading-relaxed max-w-lg">
-              Platform layanan kesehatan berbasis homecare yang menghadirkan tenaga kesehatan 
-              profesional langsung ke rumah Anda. Kami berkomitmen memberikan pelayanan yang 
-              aman, mudah, dan terpercaya.
+              {description}
             </p>
 
             {/* 4. Gambar Perawat dengan Floating Cards */}
@@ -135,7 +156,7 @@ export default function About() {
               <div className="relative rounded-[32px] overflow-hidden shadow-2xl shadow-blue-100/50">
                 <div className="relative aspect-[4/5] w-full bg-gradient-to-br from-transparent to-transparent/30">
                   <Image
-                    src="/images/tentang-kami/TentangHomeCare.png"
+                    src={imageSrc}
                     alt="Tenaga kesehatan SmartHomeCare profesional"
                     fill
                     className="object-cover object-center"

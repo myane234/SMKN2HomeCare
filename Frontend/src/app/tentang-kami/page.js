@@ -2,6 +2,7 @@
 
 import Image from "next/image";
 import { useEffect, useRef, useState } from "react";
+import api from "@/services/api";
 
 // Koordinat titik referensi (lat, lng) tiap provinsi — key = nama_provinsi uppercase.
 const PROVINCE_COORDS = {
@@ -42,12 +43,35 @@ const PROVINCE_COORDS = {
 };
 
 export default function TentangKami() {
+  const [content, setContent] = useState(null);
+
+  useEffect(() => {
+    async function fetchAbout() {
+      try {
+        const res = await api.get("/api/resource/content/about", {
+          validateStatus: (status) => status < 500,
+        });
+        if (res.status === 200 && res.data) {
+          setContent(res.data);
+        }
+      } catch (err) {
+        // Fallback ke default content jika request gagal
+      }
+    }
+    fetchAbout();
+  }, []);
+
+  const heroImage = content?.about_banner || "/images/tentang-kami/HeroTentangKami.jpeg";
+  const heroTextBanner = content?.about_text_banner || "SmartHomeCare";
+  const descText = content?.about_description_text || "SmartHomeCare menghadirkan layanan kesehatan profesional langsung ke rumah dengan proses pemesanan yang mudah, aman, dan terpercaya sehingga pasien dapat memperoleh pelayanan terbaik tanpa harus meninggalkan kenyamanan rumah.";
+  const descImage = content?.about_description_image || "/images/tentang-kami/kenapaSmartHomeCare.jpeg";
+
   return (
     <>
       {/* Hero */}
       <section className="relative h-[280px] sm:h-[400px] lg:h-[500px] overflow-hidden">
         <Image
-          src="/images/tentang-kami/HeroTentangKami.jpeg"
+          src={heroImage}
           alt="Tentang SmartHomeCare"
           fill
           priority
@@ -65,14 +89,11 @@ export default function TentangKami() {
             </p>
 
             <h1 className="text-3xl sm:text-5xl lg:text-6xl font-bold leading-tight">
-              SmartHomeCare
+              {heroTextBanner}
             </h1>
 
             <p className="mx-auto mt-4 sm:mt-6 max-w-3xl text-xs sm:text-base lg:text-lg leading-6 sm:leading-8 text-gray-100">
-              SmartHomeCare menghadirkan layanan kesehatan profesional
-              langsung ke rumah dengan proses pemesanan yang mudah,
-              aman, dan terpercaya sehingga pasien dapat memperoleh
-              pelayanan terbaik tanpa harus meninggalkan kenyamanan rumah.
+              {descText}
             </p>
           </div>
         </div>
@@ -91,24 +112,13 @@ export default function TentangKami() {
             </h2>
 
             <p className="mt-4 sm:mt-8 text-sm sm:text-base leading-7 sm:leading-8 text-gray-600">
-              SmartHomeCare hadir untuk membantu masyarakat memperoleh
-              layanan kesehatan profesional tanpa harus datang ke rumah
-              sakit atau klinik. Kami memahami bahwa setiap pasien memiliki
-              kondisi dan kebutuhan yang berbeda, sehingga pelayanan yang
-              nyaman di rumah menjadi solusi yang lebih efektif bagi banyak orang.
-            </p>
-
-            <p className="mt-4 sm:mt-5 text-sm sm:text-base leading-7 sm:leading-8 text-gray-600">
-              Melalui tenaga kesehatan yang telah terverifikasi, SmartHomeCare
-              berkomitmen memberikan pelayanan yang aman, profesional, dan
-              berkualitas agar setiap pasien dapat memperoleh perawatan yang
-              sesuai dengan kebutuhannya.
+              {descText}
             </p>
           </div>
 
           <div className="w-full h-auto">
             <Image
-              src="/images/tentang-kami/kenapaSmartHomeCare.jpeg"
+              src={descImage}
               alt="Pelayanan SmartHomeCare"
               width={600}
               height={500}
@@ -126,28 +136,38 @@ export default function TentangKami() {
           </p>
 
           <div className="mt-8 sm:mt-10 space-y-8 sm:space-y-10">
-            <div>
-              <h3 className="text-lg sm:text-xl font-bold text-gray-800">Visi</h3>
+            {content?.visi_misi ? (
+              <div>
+                <p className="mt-2 sm:mt-4 text-sm sm:text-base leading-7 sm:leading-8 text-gray-600 whitespace-pre-line">
+                  {content.visi_misi}
+                </p>
+              </div>
+            ) : (
+              <>
+                <div>
+                  <h3 className="text-lg sm:text-xl font-bold text-gray-800">Visi</h3>
 
-              <p className="mt-2 sm:mt-4 text-sm sm:text-base leading-7 sm:leading-8 text-gray-600">
-                Menjadi platform layanan homecare terpercaya di Indonesia
-                yang menghadirkan pelayanan kesehatan profesional secara
-                mudah, aman, dan berorientasi pada kebutuhan setiap pasien.
-              </p>
-            </div>
+                  <p className="mt-2 sm:mt-4 text-sm sm:text-base leading-7 sm:leading-8 text-gray-600">
+                    Menjadi platform layanan homecare terpercaya di Indonesia
+                    yang menghadirkan pelayanan kesehatan profesional secara
+                    mudah, aman, dan berorientasi pada kebutuhan setiap pasien.
+                  </p>
+                </div>
 
-            <div className="border-t border-gray-200 pt-8 sm:pt-10">
-              <h3 className="text-lg sm:text-xl font-bold text-gray-800">Misi</h3>
+                <div className="border-t border-gray-200 pt-8 sm:pt-10">
+                  <h3 className="text-lg sm:text-xl font-bold text-gray-800">Misi</h3>
 
-              <p className="mt-2 sm:mt-4 text-sm sm:text-base leading-7 sm:leading-8 text-gray-600">
-                Kami berkomitmen menghadirkan layanan kesehatan yang mudah
-                diakses melalui tenaga kesehatan profesional yang telah
-                terverifikasi, memanfaatkan teknologi untuk mempermudah
-                proses pelayanan, serta terus menjaga kualitas layanan agar
-                setiap pasien memperoleh pengalaman yang aman, nyaman,
-                dan terpercaya.
-              </p>
-            </div>
+                  <p className="mt-2 sm:mt-4 text-sm sm:text-base leading-7 sm:leading-8 text-gray-600">
+                    Kami berkomitmen menghadirkan layanan kesehatan yang mudah
+                    diakses melalui tenaga kesehatan profesional yang telah
+                    terverifikasi, memanfaatkan teknologi untuk mempermudah
+                    proses pelayanan, serta terus menjaga kualitas layanan agar
+                    setiap pasien memperoleh pengalaman yang aman, nyaman,
+                    dan terpercaya.
+                  </p>
+                </div>
+              </>
+            )}
           </div>
         </div>
       </section>
@@ -160,9 +180,8 @@ export default function TentangKami() {
               Cara Kerja
             </h2>
 
-            <p className="mx-auto mt-3 sm:mt-5 max-w-2xl text-sm sm:text-base lg:text-lg leading-7 sm:leading-8 text-gray-600">
-              Hanya dengan beberapa langkah sederhana, layanan kesehatan
-              dapat hadir langsung ke rumah Anda.
+            <p className="mx-auto mt-3 sm:mt-5 max-w-2xl text-sm sm:text-base lg:text-lg leading-7 sm:leading-8 text-gray-600 whitespace-pre-line">
+              {content?.cara_kerja || "Hanya dengan beberapa langkah sederhana, layanan kesehatan dapat hadir langsung ke rumah Anda."}
             </p>
           </div>
 
@@ -208,7 +227,7 @@ export default function TentangKami() {
         <div className="mx-auto grid max-w-7xl items-center gap-8 lg:gap-15 px-6 lg:grid-cols-2">
           <div className="w-full h-auto">
             <Image
-              src="/images/tentang-kami/TentangHomeCare.jpeg"
+              src={descImage}
               alt="Mengapa Memilih SmartHomeCare"
               width={600}
               height={600}
@@ -266,12 +285,8 @@ export default function TentangKami() {
             Memberikan Pelayanan Terbaik untuk Setiap Pasien
           </h2>
 
-          <p className="mx-auto mt-6 sm:mt-8 max-w-3xl text-sm sm:text-base leading-7 sm:leading-8 text-gray-600">
-            SmartHomeCare berkomitmen menghadirkan pelayanan kesehatan yang
-            profesional, aman, dan berorientasi pada kebutuhan pasien.
-            Melalui tenaga kesehatan yang telah terverifikasi serta sistem
-            pelayanan yang mudah digunakan, kami terus berupaya memberikan
-            pengalaman layanan homecare yang berkualitas bagi setiap keluarga.
+          <p className="mx-auto mt-6 sm:mt-8 max-w-3xl text-sm sm:text-base leading-7 sm:leading-8 text-gray-600 whitespace-pre-line">
+            {content?.komitmen || "SmartHomeCare berkomitmen menghadirkan pelayanan kesehatan yang profesional, aman, dan berorientasi pada kebutuhan pasien. Melalui tenaga kesehatan yang telah terverifikasi serta sistem pelayanan yang mudah digunakan, kami terus berupaya memberikan pengalaman layanan homecare yang berkualitas bagi setiap keluarga."}
           </p>
         </div>
       </section>
@@ -599,7 +614,7 @@ function WilayahLayananMapSection() {
               <div className="max-h-[380px] space-y-1 overflow-y-auto pr-1">
                 {filteredActive.length === 0 ? (
                   <p className="py-6 text-center text-xs text-gray-400">
-                    Provinsi "{searchQuery}" tidak ditemukan.
+                    Provinsi &quot;{searchQuery}&quot; tidak ditemukan.
                   </p>
                 ) : (
                   filteredActive.map((name, i) => (

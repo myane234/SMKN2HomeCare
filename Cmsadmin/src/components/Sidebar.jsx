@@ -15,7 +15,8 @@ import {
   FaMapMarkerAlt,
   FaCity,
   FaTags,
-  FaCreditCard
+  FaCreditCard,
+  FaDesktop
 } from 'react-icons/fa';
 import { isSuperAdmin } from '../utils/role';
 
@@ -24,6 +25,7 @@ const menuItems = [
   { to: '/layanan', label: 'Layanan', icon: <FaStethoscope /> },
   { to: '/promo', label: 'Promo', icon: <FaGift /> },
   { to: '/artikel', label: 'Artikel', icon: <FaRegFileAlt /> },
+  { to: '/kelola-konten', label: 'Kelola Konten', icon: <FaDesktop /> },
 ];
 
 const superAdminMenus = [
