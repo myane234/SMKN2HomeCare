@@ -231,12 +231,20 @@ export default function AdminMasterTarifTransport() {
   if (viewMode === 'add' || viewMode === 'edit') {
     return (
       <div className="p-6">
-        <button
-          onClick={handleBackToList}
-          className="mb-4 inline-flex items-center gap-2 text-sm text-slate-600 hover:text-slate-900 transition-colors"
-        >
-          <FaArrowLeft className="text-xs" /> Kembali ke Daftar Tarif Transport
-        </button>
+        {/* Breadcrumb Navigation */}
+        <nav className="mb-4 flex items-center gap-2 text-sm text-slate-500">
+          <button
+            type="button"
+            onClick={handleBackToList}
+            className="hover:text-slate-800 transition-colors cursor-pointer"
+          >
+            Master Tarif Transport
+          </button>
+          <span>&gt;</span>
+          <span className="font-semibold text-slate-800 capitalize">
+            {viewMode === 'add' ? 'Create' : 'Edit'}
+          </span>
+        </nav>
 
         <div className="mb-6">
           <h1 className="text-2xl font-bold text-slate-800">
