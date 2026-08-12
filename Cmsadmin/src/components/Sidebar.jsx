@@ -7,7 +7,6 @@ import {
   FaRegFileAlt,
   FaChartBar,
   FaUserShield,
-  FaAngleLeft,
   FaUserMd,
   FaUserPlus,
   FaCalendarCheck,
@@ -15,9 +14,10 @@ import {
   FaMapMarkerAlt,
   FaCity,
   FaTags,
-  FaCreditCard
+  FaCreditCard,
+  FaGlobeAmericas,
+  FaWallet
 } from 'react-icons/fa';
-import { isSuperAdmin } from '../utils/role';
 
 const menuItems = [
   { to: '/dashboard', label: 'Dashboard', icon: <FaChartBar />, end: true },
@@ -33,13 +33,27 @@ const superAdminMenus = [
     icon: <FaUserMd />,
     children: [
       { to: '/users', label: 'Pasien', icon: <FaUsers /> },
-      { to: '/master-provinsi', label: 'Provinsi', icon: <FaMapMarkerAlt /> },
-      { to: '/master-kabupaten', label: 'Kota / Kabupaten', icon: <FaCity /> },
+      {
+        type: 'subgroup',
+        label: 'Wilayah',
+        icon: <FaGlobeAmericas />,
+        children: [
+          { to: '/master-provinsi', label: 'Provinsi', icon: <FaMapMarkerAlt /> },
+          { to: '/master-kabupaten', label: 'Kota / Kabupaten', icon: <FaCity /> },
+        ],
+      },
       { to: '/master-barang', label: 'Stock Barang', icon: <FaChartBar /> },
       { to: '/master-tarif', label: 'Tarif', icon: <FaChartBar /> },
       { to: '/master-kategori', label: 'Kategori', icon: <FaTags /> },
-      { to: '/master-kategori-pembayaran', label: 'Kategori Pembayaran', icon: <FaTags /> },
-      { to: '/master-metode-pembayaran', label: 'Metode Pembayaran', icon: <FaCreditCard /> },
+      {
+        type: 'subgroup',
+        label: 'Pembayaran',
+        icon: <FaWallet />,
+        children: [
+          { to: '/master-kategori-pembayaran', label: 'Kategori Pembayaran', icon: <FaTags /> },
+          { to: '/master-metode-pembayaran', label: 'Metode Pembayaran', icon: <FaCreditCard /> },
+        ],
+      },
       { to: '/nakes', label: 'Nakes', icon: <FaUserMd />, end: true },
       { to: '/nakes/requests', label: 'Registrasi Nakes', icon: <FaUserPlus /> },
     ],
@@ -55,7 +69,7 @@ const DEFAULT_WIDTH = 240;
 const STORAGE_KEY = 'sidebar_width';
 
 export default function Sidebar({ open, onClose, collapsed, onCollapse }) {
-  const menus = isSuperAdmin() ? [...menuItems, ...superAdminMenus] : menuItems;
+  const menus = [...menuItems, ...superAdminMenus];
 
   const [width, setWidth] = useState(() => {
     if (typeof window === 'undefined') return DEFAULT_WIDTH;
@@ -63,10 +77,13 @@ export default function Sidebar({ open, onClose, collapsed, onCollapse }) {
     return saved >= MIN_WIDTH && saved <= MAX_WIDTH ? saved : DEFAULT_WIDTH;
   });
   const [isResizing, setIsResizing] = useState(false);
+  
+  // State dropdown untuk Master Data dan sub-dropdown di dalamnya
   const [masterDataOpen, setMasterDataOpen] = useState(true);
-  const asideRef = useRef(null);
+  const [wilayahOpen, setWilayahOpen] = useState(true);
+  const [pembayaranOpen, setPembayaranOpen] = useState(true);
 
-  const currentWidth = collapsed ? COLLAPSED_WIDTH : width;
+  const asideRef = useRef(null);
 
   const handleResizeStart = useCallback((e) => {
     if (collapsed) return;
@@ -101,7 +118,7 @@ export default function Sidebar({ open, onClose, collapsed, onCollapse }) {
   }, [isResizing]);
 
   useEffect(() => {
-    if (isResizing) return; // persist only once drag finishes
+    if (isResizing) return;
     if (typeof window === 'undefined') return;
     window.localStorage.setItem(STORAGE_KEY, String(width));
   }, [width, isResizing]);
@@ -128,7 +145,6 @@ export default function Sidebar({ open, onClose, collapsed, onCollapse }) {
           transition: isResizing ? 'none' : 'width 220ms cubic-bezier(0.4,0,0.2,1)',
         }}
       >
-        {/* Inner panel — carries the background/border/shadow and clips its own content only */}
         <div
           className={
             'flex h-full w-full flex-shrink-0 flex-col overflow-hidden ' +
@@ -189,52 +205,144 @@ export default function Sidebar({ open, onClose, collapsed, onCollapse }) {
 
                     {(masterDataOpen || collapsed) && (
                       <div className={`mt-1 flex flex-col gap-1 ${collapsed ? '' : 'ml-2 border-l border-slate-200/80 pl-2'}`}>
-                        {item.children.map((child) => (
-                          <NavLink
-                            key={child.to}
-                            to={child.to}
-                            end={child.end}
-                            onClick={onClose}
-                            title={collapsed ? child.label : undefined}
-                            className={({ isActive }) =>
-                              'group relative flex items-center rounded-xl transition-all duration-150 ' +
-                              (collapsed ? 'justify-center px-0 py-2.5' : 'gap-3 px-3 py-2') + ' ' +
-                              (isActive
-                                ? 'bg-primary text-white shadow-[0_2px_10px_0_rgba(31,157,90,0.22)]'
-                                : 'text-slate-500 hover:bg-primary-light hover:text-primary-dark')
-                            }
-                          >
-                            {({ isActive }) => (
-                              <>
-                                <span
-                                  className={
-                                    'flex h-[20px] w-[20px] flex-shrink-0 items-center justify-center text-[13px] ' +
-                                    (isActive ? 'text-white' : '')
-                                  }
-                                >
-                                  {child.icon}
-                                </span>
+                        {item.children.map((child) => {
+                          if (child.type === 'subgroup') {
+                            const isWilayah = child.label === 'Wilayah';
+                            const isOpen = isWilayah ? wilayahOpen : pembayaranOpen;
+                            const toggleOpen = isWilayah 
+                              ? () => setWilayahOpen((prev) => !prev)
+                              : () => setPembayaranOpen((prev) => !prev);
 
-                                <span
-                                  className="text-sm font-medium whitespace-nowrap overflow-hidden"
-                                  style={{
-                                    maxWidth: collapsed ? '0px' : '220px',
-                                    opacity: collapsed ? 0 : 1,
-                                    transition: 'max-width 220ms cubic-bezier(0.4,0,0.2,1), opacity 180ms ease',
-                                  }}
+                            return (
+                              <div key={child.label} className="flex flex-col">
+                                <button
+                                  type="button"
+                                  onClick={toggleOpen}
+                                  className="group relative flex items-center rounded-xl px-3 py-2 text-left text-sm font-medium transition-all duration-150 text-slate-500 hover:bg-primary-light hover:text-primary-dark"
                                 >
-                                  {child.label}
-                                </span>
+                                  <span className="flex h-[20px] w-[20px] flex-shrink-0 items-center justify-center text-[13px]">
+                                    {child.icon}
+                                  </span>
 
-                                {collapsed && (
-                                  <span className="pointer-events-none absolute left-full ml-3 z-50 hidden rounded-lg bg-slate-900 px-2.5 py-1.5 text-xs font-semibold text-white shadow-lg group-hover:flex whitespace-nowrap">
+                                  <span
+                                    className="ml-3 text-sm font-medium whitespace-nowrap overflow-hidden"
+                                    style={{
+                                      maxWidth: collapsed ? '0px' : '220px',
+                                      opacity: collapsed ? 0 : 1,
+                                      transition: 'max-width 220ms cubic-bezier(0.4,0,0.2,1), opacity 180ms ease',
+                                    }}
+                                  >
                                     {child.label}
                                   </span>
+
+                                  {!collapsed && (
+                                    <span className={`ml-auto text-[10px] transition-transform ${isOpen ? 'rotate-180' : ''}`}>
+                                      ▼
+                                    </span>
+                                  )}
+                                </button>
+
+                                {(isOpen || collapsed) && (
+                                  <div className={`mt-1 flex flex-col gap-1 ${collapsed ? '' : 'ml-3 border-l border-slate-200/80 pl-2'}`}>
+                                    {child.children.map((subChild) => (
+                                      <NavLink
+                                        key={subChild.to}
+                                        to={subChild.to}
+                                        end={subChild.end}
+                                        onClick={onClose}
+                                        title={collapsed ? subChild.label : undefined}
+                                        className={({ isActive }) =>
+                                          'group relative flex items-center rounded-xl transition-all duration-150 ' +
+                                          (collapsed ? 'justify-center px-0 py-2.5' : 'gap-3 px-3 py-2') + ' ' +
+                                          (isActive
+                                            ? 'bg-primary text-white shadow-[0_2px_10px_0_rgba(31,157,90,0.22)]'
+                                            : 'text-slate-500 hover:bg-primary-light hover:text-primary-dark')
+                                        }
+                                      >
+                                        {({ isActive }) => (
+                                          <>
+                                            <span
+                                              className={
+                                                'flex h-[18px] w-[18px] flex-shrink-0 items-center justify-center text-[12px] ' +
+                                                (isActive ? 'text-white' : '')
+                                              }
+                                            >
+                                              {subChild.icon}
+                                            </span>
+
+                                            <span
+                                              className="text-sm font-medium whitespace-nowrap overflow-hidden"
+                                              style={{
+                                                maxWidth: collapsed ? '0px' : '220px',
+                                                opacity: collapsed ? 0 : 1,
+                                                transition: 'max-width 220ms cubic-bezier(0.4,0,0.2,1), opacity 180ms ease',
+                                              }}
+                                            >
+                                              {subChild.label}
+                                            </span>
+
+                                            {collapsed && (
+                                              <span className="pointer-events-none absolute left-full ml-3 z-50 hidden rounded-lg bg-slate-900 px-2.5 py-1.5 text-xs font-semibold text-white shadow-lg group-hover:flex whitespace-nowrap">
+                                                {subChild.label}
+                                              </span>
+                                            )}
+                                          </>
+                                        )}
+                                      </NavLink>
+                                    ))}
+                                  </div>
                                 )}
-                              </>
-                            )}
-                          </NavLink>
-                        ))}
+                              </div>
+                            );
+                          }
+
+                          return (
+                            <NavLink
+                              key={child.to}
+                              to={child.to}
+                              end={child.end}
+                              onClick={onClose}
+                              title={collapsed ? child.label : undefined}
+                              className={({ isActive }) =>
+                                'group relative flex items-center rounded-xl transition-all duration-150 ' +
+                                (collapsed ? 'justify-center px-0 py-2.5' : 'gap-3 px-3 py-2') + ' ' +
+                                (isActive
+                                  ? 'bg-primary text-white shadow-[0_2px_10px_0_rgba(31,157,90,0.22)]'
+                                  : 'text-slate-500 hover:bg-primary-light hover:text-primary-dark')
+                              }
+                            >
+                              {({ isActive }) => (
+                                <>
+                                  <span
+                                    className={
+                                      'flex h-[20px] w-[20px] flex-shrink-0 items-center justify-center text-[13px] ' +
+                                      (isActive ? 'text-white' : '')
+                                    }
+                                  >
+                                    {child.icon}
+                                  </span>
+
+                                  <span
+                                    className="text-sm font-medium whitespace-nowrap overflow-hidden"
+                                    style={{
+                                      maxWidth: collapsed ? '0px' : '220px',
+                                      opacity: collapsed ? 0 : 1,
+                                      transition: 'max-width 220ms cubic-bezier(0.4,0,0.2,1), opacity 180ms ease',
+                                    }}
+                                  >
+                                    {child.label}
+                                  </span>
+
+                                  {collapsed && (
+                                    <span className="pointer-events-none absolute left-full ml-3 z-50 hidden rounded-lg bg-slate-900 px-2.5 py-1.5 text-xs font-semibold text-white shadow-lg group-hover:flex whitespace-nowrap">
+                                      {child.label}
+                                    </span>
+                                  )}
+                                </>
+                              )}
+                            </NavLink>
+                          );
+                        })}
                       </div>
                     )}
                   </div>
@@ -289,46 +397,6 @@ export default function Sidebar({ open, onClose, collapsed, onCollapse }) {
               );
             })}
           </nav>
-
-          {/* Login Super Admin */}
-          {!isSuperAdmin() && (
-            <div
-              className="border-t border-slate-200/80 p-2"
-              style={{
-                overflow: 'hidden',
-              }}
-            >
-              {collapsed ? (
-                <a
-                  href="/super-admin/login"
-                  title="Login Super Admin"
-                  className="group relative flex items-center justify-center rounded-xl py-3 text-slate-400 hover:bg-primary-light hover:text-primary-dark transition-colors"
-                >
-                  <FaUserShield className="text-base flex-shrink-0" />
-                  <span className="pointer-events-none absolute left-full ml-3 z-50 hidden rounded-lg bg-slate-900 px-2.5 py-1.5 text-xs font-semibold text-white shadow-lg group-hover:flex whitespace-nowrap">
-                    Login Super Admin
-                  </span>
-                </a>
-              ) : (
-                <a
-                  href="/super-admin/login"
-                  className="flex w-full items-center justify-center gap-2 rounded-xl bg-primary/10 px-4 py-2.5 text-sm font-bold text-primary-dark hover:bg-primary hover:text-white transition-all duration-150"
-                >
-                  <FaUserShield className="flex-shrink-0" />
-                  <span
-                    className="whitespace-nowrap overflow-hidden"
-                    style={{
-                      maxWidth: collapsed ? '0px' : '220px',
-                      opacity: collapsed ? 0 : 1,
-                      transition: 'max-width 220ms cubic-bezier(0.4,0,0.2,1), opacity 180ms ease',
-                    }}
-                  >
-                    Login Super Admin
-                  </span>
-                </a>
-              )}
-            </div>
-          )}
         </div>
       </aside>
     </>
