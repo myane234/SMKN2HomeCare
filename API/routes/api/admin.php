@@ -17,6 +17,7 @@ use App\Http\Controllers\WilayahLayananController;
 use App\Http\Controllers\KotaKabupatenController;
 use App\Http\Controllers\KategoriLayananController;
 use App\Http\Controllers\KategoriArtikelController;
+use App\Http\Controllers\ContentController;
 
 Route::middleware(['auth:sanctum', 'role:admin'])->group(function () {
     
@@ -24,6 +25,11 @@ Route::middleware(['auth:sanctum', 'role:admin'])->group(function () {
     Route::post('/admin/logout', [AdminAuthController::class, 'logout']);
     Route::post('/super-admin/logout', [SuperAdminAuthController::class, 'logout']);
     Route::get('/super-admin/me', [SuperAdminAuthController::class, 'me']);
+
+    // Content Management (Home & About)
+    Route::post('/resource/content/home', [ContentController::class, 'updateHome']);
+    Route::post('/resource/content/about', [ContentController::class, 'updateAbout']);
+
 
     // Management Layanan
     Route::post('/layanan', [LayananController::class, 'store']);
