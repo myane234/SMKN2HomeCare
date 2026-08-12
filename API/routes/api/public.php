@@ -10,6 +10,8 @@ use App\Http\Controllers\KategoriLayananController;
 use App\Http\Controllers\WilayahLayananController;
 use App\Http\Controllers\KotaKabupatenController;
 
+use App\Http\Controllers\ContentController;
+
 Route::get('/layanan', [LayananController::class, 'index']);
 Route::get('/layanan/kategori', [KategoriLayananController::class, 'index']);
 Route::get('/layanan/{layanan}', [LayananController::class, 'show']);
@@ -24,6 +26,10 @@ Route::get('/artikel/{artikel}', [ArtikelController::class, 'show']);
 
 Route::get('/pasien', [PasienController::class, 'index']);
 
+// Content Management Public Routes
+Route::get('/resource/content/home', [ContentController::class, 'getHome']);
+Route::get('/resource/content/about', [ContentController::class, 'getAbout']);
+
 //Provinsi
 Route::get('/wilayah-layanan', [WilayahLayananController::class, 'index']);
 Route::get('/wilayah-layanan/{wilayahLayanan}', [WilayahLayananController::class, 'show']);
@@ -33,4 +39,5 @@ Route::get('/wilayah-layanan/{wilayahLayanan}', [WilayahLayananController::class
 Route::get('/kota-kabupaten', [KotaKabupatenController::class, 'index']);
 Route::get('/kota-kabupaten/provinsi/{id_provinsi}', [KotaKabupatenController::class, 'getByProvinsi']);
 Route::get('/kota-kabupaten/{id}', [KotaKabupatenController::class, 'show']);
+
 
