@@ -29,6 +29,8 @@ Route::get('/pasien', [PasienController::class, 'index']);
 // Content Management Public Routes
 Route::get('/resource/content/home', [ContentController::class, 'getHome']);
 Route::get('/resource/content/about', [ContentController::class, 'getAbout']);
+Route::get('/resource/content/artikel/kategori', [KategoriArtikelController::class, 'index']);
+Route::get('/resource/content/artikel/kategori/{id}', [KategoriArtikelController::class, 'show']);
 
 //Provinsi
 Route::get('/wilayah-layanan', [WilayahLayananController::class, 'index']);
