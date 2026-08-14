@@ -399,73 +399,85 @@ export default function AdminMasterKelurahan() {
                 />
               </div>
 
-              {/* Custom Combobox Searchable untuk Kecamatan */}
-              <div className="relative" ref={dropdownRef}>
-                <label className="block text-xs font-semibold text-slate-600 mb-1">
-                  Pilih Kecamatan
-                </label>
+              {/* Combobox Kecamatan */}
+<div className="relative" ref={dropdownRef}>
+  <label className="block text-xs font-semibold text-slate-600 mb-1">
+    Pilih Kecamatan
+  </label>
+  <div className="relative w-full">
+    <input
+      type="text"
+      placeholder="Ketik atau pilih kecamatan..."
+      value={kecamatanSearch}
+      onFocus={() => {
+        setIsKecamatanOpen(true);
+        console.log('🔽 Dropdown opened');
+      }}
+      onClick={() => {
+        setIsKecamatanOpen(true);
+        console.log('🖱️ Input clicked');
+      }}
+      onChange={(e) => {
+        setKecamatanSearch(e.target.value);
+        setIsKecamatanOpen(true);
+        if (!e.target.value) {
+          setFormData({ ...formData, id_kecamatan: '' });
+        }
+      }}
+      className="w-full px-3 py-2 pr-8 bg-white border border-slate-200 rounded-lg text-sm text-slate-800 focus:outline-none focus:border-blue-500 shadow-sm"
+    />
+    <FaChevronDown
+      className={`absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs transition-transform pointer-events-none ${
+        isKecamatanOpen ? 'rotate-180' : ''
+      }`}
+      onClick={() => setIsKecamatanOpen(!isKecamatanOpen)}
+    />
+  </div>
 
-                <div className="relative w-full">
-                  <input
-                    type="text"
-                    placeholder="Ketik atau pilih kecamatan..."
-                    value={kecamatanSearch}
-                    onFocus={() => setIsKecamatanOpen(true)}
-                    onChange={(e) => {
-                      setKecamatanSearch(e.target.value);
-                      setIsKecamatanOpen(true);
-                      if (!e.target.value) {
-                        setFormData({ ...formData, id_kecamatan: '' });
-                      }
-                    }}
-                    className="w-full px-3 py-2 pr-8 bg-white border border-slate-200 rounded-lg text-sm text-slate-800 focus:outline-none focus:border-blue-500 shadow-sm"
-                  />
-                  <FaChevronDown
-                    className={`absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs transition-transform pointer-events-none ${
-                      isKecamatanOpen ? 'rotate-180' : ''
-                    }`}
-                  />
-                </div>
+  {/* Dropdown - PASTIKAN INI MUNCUL */}
+  {isKecamatanOpen && (
+    <div className="absolute z-[9999] left-0 right-0 mt-1 max-h-48 overflow-y-auto bg-white border border-slate-200 rounded-lg shadow-xl">
+      {kecamatanList.length === 0 ? (
+        <div className="px-3 py-2.5 text-xs text-slate-400 text-center">
+          ⚠️ Tidak ada data kecamatan
+        </div>
+      ) : filteredKecamatanList.length === 0 ? (
+        <div className="px-3 py-2.5 text-xs text-slate-400 text-center">
+          🔍 Kecamatan tidak ditemukan
+        </div>
+      ) : (
+        filteredKecamatanList.map((kec) => {
+          const id = kec.id_kecamatan || kec.id;
+          const nama = kec.nama_kecamatan || '';
+          const kota = kec.nama_kota || kec.nama_regency || '';
+          return (
+            <div
+              key={id}
+              onClick={() => {
+                setFormData({ ...formData, id_kecamatan: id });
+                setKecamatanSearch(nama);
+                setIsKecamatanOpen(false);
+                console.log('✅ Dipilih:', nama, 'ID:', id);
+              }}
+              className="px-3 py-2 text-sm text-slate-700 hover:bg-blue-50 hover:text-blue-600 cursor-pointer transition-colors border-b border-slate-100 last:border-0"
+            >
+              {nama} {kota ? `(${kota})` : ''}
+            </div>
+          );
+        })
+      )}
+    </div>
+  )}
 
-                {/* Dropdown List Hasil Filter */}
-                {isKecamatanOpen && (
-                  <div className="absolute z-50 left-0 right-0 mt-1 max-h-48 overflow-y-auto bg-white border border-slate-200 rounded-lg shadow-xl">
-                    {filteredKecamatanList.length === 0 ? (
-                      <div className="px-3 py-2.5 text-xs text-slate-400 text-center">
-                        Kecamatan tidak ditemukan
-                      </div>
-                    ) : (
-                      filteredKecamatanList.map((kec) => {
-                        const id = kec.id_kecamatan || kec.id;
-                        const nama = kec.nama_kecamatan || '';
-                        const kota = kec.nama_kota || kec.nama_regency || '';
-                        return (
-                          <div
-                            key={id}
-                            onClick={() => {
-                              setFormData({ ...formData, id_kecamatan: id });
-                              setKecamatanSearch(nama);
-                              setIsKecamatanOpen(false);
-                            }}
-                            className="px-3 py-2 text-sm text-slate-700 hover:bg-blue-50 hover:text-blue-600 cursor-pointer transition-colors"
-                          >
-                            {nama} {kota ? `(${kota})` : ''}
-                          </div>
-                        );
-                      })
-                    )}
-                  </div>
-                )}
-
-                {/* Hidden Input untuk Validasi HTML5 'required' */}
-                <input
-                  type="text"
-                  required
-                  value={formData.id_kecamatan}
-                  onChange={() => {}}
-                  className="opacity-0 absolute -bottom-2 h-0 w-0 pointer-events-none"
-                />
-              </div>
+  {/* Hidden input untuk validasi */}
+  <input
+    type="text"
+    required
+    value={formData.id_kecamatan}
+    onChange={() => {}}
+    className="opacity-0 absolute -bottom-2 h-0 w-0 pointer-events-none"
+  />
+</div>
 
               <div className="flex flex-col-reverse sm:flex-row justify-end gap-2 pt-4 border-t border-slate-100 mt-6">
                 <button
