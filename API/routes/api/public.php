@@ -31,6 +31,10 @@ Route::get('/resource/content/home', [ContentController::class, 'getHome']);
 Route::get('/resource/content/about', [ContentController::class, 'getAbout']);
 Route::get('/resource/content/artikel/kategori', [KategoriArtikelController::class, 'index']);
 Route::get('/resource/content/artikel/kategori/{id}', [KategoriArtikelController::class, 'show']);
+Route::get('/resource/content/layanan/kategori', [KategoriLayananController::class, 'index']);
+Route::get('/resource/content/layanan/kategori/{id}', [KategoriLayananController::class, 'show']);
+Route::get('/resource/content/layanan', [LayananController::class, 'index']);
+Route::get('/resource/content/promo', [PromoController::class, 'frontendIndex']);
 
 //Provinsi
 Route::get('/wilayah-layanan', [WilayahLayananController::class, 'index']);

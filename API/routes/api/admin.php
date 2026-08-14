@@ -48,6 +48,12 @@ Route::middleware(['auth:sanctum', 'role:admin'])->group(function () {
     Route::delete('/artikel/{artikel}', [ArtikelController::class, 'destroy']);
 
     // Kategori Layanan CRUD
+    Route::get('/resource/content/layanan/kategori', [KategoriLayananController::class, 'index']);
+    Route::post('/resource/content/layanan/kategori', [KategoriLayananController::class, 'store']);
+    Route::get('/resource/content/layanan/kategori/{id}', [KategoriLayananController::class, 'show']);
+    Route::put('/resource/content/layanan/kategori/{id}', [KategoriLayananController::class, 'update']);
+    Route::delete('/resource/content/layanan/kategori/{id}', [KategoriLayananController::class, 'destroy']);
+
     Route::post('/layanan/kategori', [KategoriLayananController::class, 'store']);
     Route::get('/layanan/kategori/{id}', [KategoriLayananController::class, 'show']);
     Route::put('/layanan/kategori/{id}', [KategoriLayananController::class, 'update']);
