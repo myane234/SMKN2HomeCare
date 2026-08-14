@@ -1,3 +1,4 @@
+// src/components/Sidebar.jsx
 import { NavLink } from 'react-router-dom';
 import { useState, useEffect, useRef, useCallback } from 'react';
 import logo from '../assets/logo.png';
@@ -19,7 +20,9 @@ import {
   FaCreditCard,
   FaGlobeAmericas,
   FaWallet,
-  FaCogs
+  FaCogs,
+  FaBuilding,
+  FaMap, // <-- TAMBAHKAN import FaMap untuk Kelurahan
 } from 'react-icons/fa';
 
 const rawMenuItems = [
@@ -52,9 +55,15 @@ const rawSuperAdminMenus = [
             icon: <FaCity />,
           },
           {
+            to: "/master-kecamatan",
+            label: "Kecamatan",
+            icon: <FaBuilding />,
+          },
+          // TAMBAHKAN MENU KELURAHAN DI SINI
+          {
             to: "/master-kelurahan",
             label: "Kelurahan",
-            icon: <FaCity />,
+            icon: <FaMap />,
           },
         ],
       },
@@ -63,9 +72,6 @@ const rawSuperAdminMenus = [
       { to: '/master-komponen-tarif', label: 'Komponen Tarif', icon: <FaChartBar /> },
       { to: '/master-tarif-transport', label: 'Tarif Transport', icon: <FaChartBar /> },  
       { to: '/master-kategori', label: 'Kategori', icon: <FaTags /> },
-      { to: "/master-barang", label: "Stock Barang", icon: <FaChartBar /> },
-      { to: "/master-tarif", label: "Tarif", icon: <FaChartBar /> },
-      { to: "/master-kategori", label: "Kategori", icon: <FaTags /> },
       {
         type: "subgroup",
         label: "Pembayaran",
