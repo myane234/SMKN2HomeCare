@@ -19,7 +19,8 @@ import {
   FaCreditCard,
   FaGlobeAmericas,
   FaWallet,
-  FaCogs
+  FaCogs,
+  FaBuilding
 } from 'react-icons/fa';
 
 const rawMenuItems = [
@@ -51,6 +52,12 @@ const rawSuperAdminMenus = [
             label: "Kota / Kabupaten",
             icon: <FaCity />,
           },
+          // Menu Kecamatan ditambahkan di sini agar masuk ke sub-wilayah
+          {
+            to: "/master-kecamatan",
+            label: "Kecamatan",
+            icon: <FaBuilding />, // Atau icon lain yang diinginkan
+          },
         ],
       },
       { to: '/master-barang', label: 'Stock Barang', icon: <FaChartBar /> },
@@ -58,9 +65,6 @@ const rawSuperAdminMenus = [
       { to: '/master-komponen-tarif', label: 'Komponen Tarif', icon: <FaChartBar /> },
       { to: '/master-tarif-transport', label: 'Tarif Transport', icon: <FaChartBar /> },  
       { to: '/master-kategori', label: 'Kategori', icon: <FaTags /> },
-      { to: "/master-barang", label: "Stock Barang", icon: <FaChartBar /> },
-      { to: "/master-tarif", label: "Tarif", icon: <FaChartBar /> },
-      { to: "/master-kategori", label: "Kategori", icon: <FaTags /> },
       {
         type: "subgroup",
         label: "Pembayaran",
