@@ -13,7 +13,11 @@ import {
   FiSettings,
   FiArrowLeft,
   FiEdit2,
-  FiShuffle,
+  FiClock,
+  FiCheckCircle,
+  FiAlertCircle,
+  FiBriefcase,
+  FiAward
 } from 'react-icons/fi';
 import { logoutUser } from '../../services/Auth.js';
 import { getProfileFromCookies } from '@/services/profileService';
@@ -28,13 +32,13 @@ export default function ProfilePage() {
     const profileData = getProfileFromCookies();
     if (profileData) {
       setProfile(profileData);
-      
+
       // Read active role from cookie or default to first role
       const savedRole = document.cookie
         .split('; ')
         .find(row => row.startsWith('active_role='))
         ?.split('=')[1];
-      
+
       if (savedRole && profileData.roles?.includes(savedRole)) {
         setActiveRole(savedRole);
       } else if (profileData.roles?.length > 0) {
@@ -43,25 +47,22 @@ export default function ProfilePage() {
     }
   }, []);
 
-  // Check if user has both roles
+  // Check if user has multiple roles
   const hasMultipleRoles = profile?.roles?.length >= 2;
-  const isNakes = profile?.roles?.includes('nakes') || profile?.roles?.includes('Nakes');
-  const isPasien = profile?.roles?.includes('pasien') || profile?.roles?.includes('Pasien');
 
   // Get user display name
   const userName = profile?.pasien?.nama_lengkap || 
                    profile?.tenaga_medis?.nama_lengkap || 
                    'User';
   const userInitial = userName.charAt(0).toUpperCase();
-  
+
   // Get current role label
   const roleLabel = activeRole === 'nakes' ? 'Tenaga Medis' : 'Pasien';
 
   const handleSwitchRole = (newRole) => {
     setActiveRole(newRole);
     document.cookie = `active_role=${newRole}; path=/; max-age=604800; SameSite=Lax`;
-    
-    // Navigate to appropriate dashboard
+
     if (newRole === 'nakes') {
       router.push('/nakes/dashboard');
     } else {
@@ -72,30 +73,18 @@ export default function ProfilePage() {
   const handleLogout = async () => {
     setIsLoading(true);
     try {
-      // 1. Panggil API logout ke backend
       await logoutUser();
-      
-    
       localStorage.removeItem('token'); 
-      // sessionStorage.clear(); // Jika pakai session storage
-      
-      // 3. Arahkan ke halaman login dan refresh state
       router.push('/login');
-      router.router?.refresh?.(); // Opsional untuk Next.js
+      router.refresh?.();
     } catch (error) {
       console.error("Logout gagal:", error);
-      
-      // Opsional: Jika misal server error tapi ingin dipaksa logout lokal:
-      // localStorage.removeItem('token');
-      // router.push('/login');
-      
       alert("Gagal logout, silakan coba lagi.");
     } finally {
       setIsLoading(false);
     }
   };
 
-  // Menu items (tetap Profil Pasien, karena nakes punya dashboard sendiri)
   const menuItems = [
     { 
       label: 'Profil Pasien', 
@@ -108,9 +97,160 @@ export default function ProfilePage() {
     { label: 'Pengaturan', icon: <FiSettings size={20} />, href: '/settings' },
   ];
 
+  // 🔹 LOGIKA DYNAMIC CARD NAKES BASED ON TENAGA_MEDIS STATUS
+  const renderNakesPortalCard = () => {
+    const tenagaMedis = profile?.tenaga_medis;
+
+    // KONDISI 1: Belum Pernah Daftar (tenaga_medis === null)
+    if (!tenagaMedis) {
+      return (
+        <div className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-3xl p-5 shadow-sm mb-4">
+          <div className="flex items-start justify-between gap-3">
+            <div className="p-3 bg-white/10 rounded-2xl shrink-0 backdrop-blur-sm">
+              <FiBriefcase size={24} className="text-white" />
+            </div>
+            <div className="flex-1">
+              <h3 className="font-bold text-base leading-snug">Gabung Jadi Mitra Nakes</h3>
+              <p className="text-xs text-blue-100 mt-1 leading-relaxed">
+                Melayani pasien homecare dan dapatkan penghasilan tambahan bersama SmartHomeCare.
+              </p>
+            </div>
+          </div>
+          <Link
+            href="/gabung-mitra"
+            className="mt-4 w-full bg-white text-blue-600 font-bold text-sm py-3 px-4 rounded-xl flex items-center justify-center gap-2 hover:bg-blue-50 transition active:scale-[0.98]"
+          >
+            <span>Daftar Sekarang</span>
+            <FiChevronRight size={18} />
+          </Link>
+        </div>
+      );
+    }
+
+    const status = tenagaMedis.status?.toLowerCase();
+
+    // KONDISI 2: Status Pending (Menunggu Verifikasi Admin)
+    if (status === 'pending') {
+      return (
+        <div className="bg-amber-50 border border-amber-200 rounded-3xl p-5 shadow-sm mb-4">
+          <div className="flex items-start gap-3">
+            <div className="p-2.5 bg-amber-500/10 text-amber-600 rounded-2xl shrink-0 mt-0.5">
+              <FiClock size={22} />
+            </div>
+            <div className="flex-1">
+              <span className="inline-block px-2.5 py-0.5 bg-amber-200 text-amber-800 text-[10px] font-bold rounded-full uppercase tracking-wider mb-1">
+                Sedang Diverifikasi
+              </span>
+              <h3 className="font-bold text-sm text-gray-900">Pendaftaran Mitra Nakes</h3>
+              <p className="text-xs text-gray-600 mt-1 leading-relaxed">
+                Berkas Anda sedang dalam proses pemeriksaan oleh tim admin kami.
+              </p>
+            </div>
+          </div>
+          <Link
+            href="/nakes/status"
+            className="mt-4 w-full bg-amber-500 text-white font-semibold text-sm py-2.5 px-4 rounded-xl flex items-center justify-center gap-2 hover:bg-amber-600 transition active:scale-[0.98]"
+          >
+            <span>Cek Detail Status</span>
+            <FiChevronRight size={18} />
+          </Link>
+        </div>
+      );
+    }
+
+    // KONDISI 3: Status Pelatihan (Lolos Berkas, Wajib Pelatihan)
+    if (status === 'pelatihan') {
+      return (
+        <div className="bg-indigo-50 border border-indigo-200 rounded-3xl p-5 shadow-sm mb-4">
+          <div className="flex items-start gap-3">
+            <div className="p-2.5 bg-indigo-500/10 text-indigo-600 rounded-2xl shrink-0 mt-0.5">
+              <FiAward size={22} />
+            </div>
+            <div className="flex-1">
+              <span className="inline-block px-2.5 py-0.5 bg-indigo-200 text-indigo-800 text-[10px] font-bold rounded-full uppercase tracking-wider mb-1">
+                Tahap Pelatihan
+              </span>
+              <h3 className="font-bold text-sm text-gray-900">Selamat! Berkas Anda Lolos</h3>
+              <p className="text-xs text-gray-600 mt-1 leading-relaxed">
+                Silakan ikuti instruksi pelatihan sebelum akun Nakes Anda diaktifkan resmi.
+              </p>
+            </div>
+          </div>
+          <Link
+            href="/nakes/status"
+            className="mt-4 w-full bg-indigo-600 text-white font-semibold text-sm py-2.5 px-4 rounded-xl flex items-center justify-center gap-2 hover:bg-indigo-700 transition active:scale-[0.98]"
+          >
+            <span>Lihat Info Pelatihan</span>
+            <FiChevronRight size={18} />
+          </Link>
+        </div>
+      );
+    }
+
+    // KONDISI 4: Status Rejected (Ditolak)
+    if (status === 'rejected') {
+      return (
+        <div className="bg-rose-50 border border-rose-200 rounded-3xl p-5 shadow-sm mb-4">
+          <div className="flex items-start gap-3">
+            <div className="p-2.5 bg-rose-500/10 text-rose-600 rounded-2xl shrink-0 mt-0.5">
+              <FiAlertCircle size={22} />
+            </div>
+            <div className="flex-1">
+              <span className="inline-block px-2.5 py-0.5 bg-rose-200 text-rose-800 text-[10px] font-bold rounded-full uppercase tracking-wider mb-1">
+                Perlu Perbaikan
+              </span>
+              <h3 className="font-bold text-sm text-gray-900">Pendaftaran Belum Disetujui</h3>
+              <p className="text-xs text-gray-600 mt-1 leading-relaxed">
+                {tenagaMedis.admin_notes || 'Ada dokumen yang perlu Anda perbaiki.'}
+              </p>
+            </div>
+          </div>
+          <Link
+            href="/nakes/status"
+            className="mt-4 w-full bg-rose-600 text-white font-semibold text-sm py-2.5 px-4 rounded-xl flex items-center justify-center gap-2 hover:bg-rose-700 transition active:scale-[0.98]"
+          >
+            <span>Perbaiki Berkas</span>
+            <FiChevronRight size={18} />
+          </Link>
+        </div>
+      );
+    }
+
+    // KONDISI 5: Status Approved (Sudah Aktif / Jadi Nakes)
+    if (status === 'approved') {
+      return (
+        <div className="bg-emerald-50 border border-emerald-200 rounded-3xl p-5 shadow-sm mb-4">
+          <div className="flex items-start gap-3">
+            <div className="p-2.5 bg-emerald-500/10 text-emerald-600 rounded-2xl shrink-0 mt-0.5">
+              <FiCheckCircle size={22} />
+            </div>
+            <div className="flex-1">
+              <span className="inline-block px-2.5 py-0.5 bg-emerald-200 text-emerald-800 text-[10px] font-bold rounded-full uppercase tracking-wider mb-1">
+                Mitra Resmi
+              </span>
+              <h3 className="font-bold text-sm text-gray-900">Akun Tenaga Medis Aktif</h3>
+              <p className="text-xs text-gray-600 mt-1 leading-relaxed">
+                Anda sudah terverifikasi. Klik tombol di bawah untuk masuk ke dashboard Nakes.
+              </p>
+            </div>
+          </div>
+          <button
+            onClick={() => handleSwitchRole('nakes')}
+            className="mt-4 w-full bg-emerald-600 text-white font-bold text-sm py-3 px-4 rounded-xl flex items-center justify-center gap-2 hover:bg-emerald-700 transition active:scale-[0.98]"
+          >
+            <span>Masuk Dashboard Nakes</span>
+            <FiChevronRight size={18} />
+          </button>
+        </div>
+      );
+    }
+
+    return null;
+  };
+
   return (
     <div className="min-h-screen bg-gray-50 font-sans antialiased pb-24">
-      
+
       {/* 🔹 1. BANNER BIRU ATAS */}
       <div className="bg-blue-600 h-36 w-full pt-6 px-5 text-white">
         <div className="max-w-5xl mx-auto flex items-center gap-3">
@@ -129,20 +269,17 @@ export default function ProfilePage() {
 
       {/* 🔹 2. KONTEN UTAMA */}
       <div className="max-w-5xl mx-auto px-4 -mt-10 relative z-10">
-        
+
         {/* KARTU PROFIL + MENU */}
         <div className="bg-white rounded-3xl border border-gray-100 shadow-sm mb-4">
-          
-          {/* SEKTOR AVATAR (KIRI) & INFO USER (KANAN) */}
+
+          {/* AVATAR & USER INFO */}
           <div className="pt-5 pb-5 px-5 flex items-center gap-4">
-            
-            {/* Avatar dengan Icon Edit Pensil */}
             <div className="relative shrink-0">
               <div className="w-16 h-16 rounded-full border-2 border-gray-100 shadow-sm bg-blue-600 text-white font-bold text-xl flex items-center justify-center overflow-hidden">
                 {userInitial}
               </div>
 
-              {/* Icon Edit (Pensil) */}
               <Link 
                 href="/profile/edit"
                 className="absolute -bottom-1 -right-1 p-1 bg-blue-600 hover:bg-blue-700 text-white rounded-full border-2 border-white shadow transition active:scale-95"
@@ -151,7 +288,6 @@ export default function ProfilePage() {
               </Link>
             </div>
 
-            {/* Detail Info: Nama (Atas) -> Role (Bawah) */}
             <div className="flex flex-col flex-1">
               <h1 className="text-base font-bold text-gray-900 leading-tight mt-0.5">
                 {userName}
@@ -160,41 +296,7 @@ export default function ProfilePage() {
                 {roleLabel}
               </p>
             </div>
-
           </div>
-
-          {/* 🔹 SWITCH ROLE BUTTON (hanya muncul jika user punya multiple roles) */}
-          {hasMultipleRoles && (
-            <div className="px-5 pb-4">
-              <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-2xl border border-blue-100 p-4">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Ganti Akun</p>
-                    <p className="text-sm font-medium text-gray-700 mt-1">
-                      {activeRole === 'nakes' ? 'Beralih ke Pasien' : 'Beralih ke Tenaga Medis'}
-                    </p>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    {/* <span className="text-xs font-medium text-gray-500">
-                      {activeRole === 'nakes' ? '👨‍⚕️' : '👤'}
-                    </span> */}
-                    <button
-                      onClick={() => handleSwitchRole(activeRole === 'nakes' ? 'pasien' : 'nakes')}
-                      className="relative inline-flex h-7 w-12 items-center rounded-full transition-colors duration-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
-                      style={{ backgroundColor: activeRole === 'nakes' ? '#3B82F6' : '#10B981' }}
-                      aria-label="Switch role"
-                    >
-                      <span
-                        className={`inline-block h-5 w-5 transform rounded-full bg-white shadow-sm transition-transform duration-300 ${
-                          activeRole === 'nakes' ? 'translate-x-6' : 'translate-x-1'
-                        }`}
-                      />
-                    </button>
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
 
           {/* LIST MENU */}
           <div className="divide-y divide-gray-100 border-t border-gray-100 rounded-b-3xl overflow-hidden">
@@ -219,7 +321,10 @@ export default function ProfilePage() {
 
         </div>
 
-        {/* 🔹 3. TOMBOL LOGOUT */}
+        {/* 🔹 3. CARD PORTAL NAKES DINAMIS (PEMBERITAHUAN & CTA) */}
+        {renderNakesPortalCard()}
+
+        {/* 🔹 4. TOMBOL LOGOUT */}
         <button
           onClick={handleLogout}
           disabled={isLoading}
