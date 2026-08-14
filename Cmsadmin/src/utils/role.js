@@ -37,14 +37,10 @@ export const ALL_CMS_PAGES = [
 export const DEFAULT_TIER_PERMISSIONS = {
   'Super Admin': ['*'],
   'Admin': [
-    '/dashboard', '/layanan', '/promo', '/artikel', '/users',
-    '/master-provinsi', '/master-kabupaten', '/master-barang',
-    '/master-tarif', '/master-kategori', '/master-kategori-pembayaran',
-    '/master-metode-pembayaran', '/nakes', '/nakes/requests',
-    '/booking', '/kelola-admin', '/tier-admin'
+    '/dashboard', '/layanan', '/promo', '/artikel'
   ],
   'Editor': [
-    '/dashboard', '/layanan', '/artikel', '/master-kategori'
+    '/dashboard', '/layanan', '/promo', '/artikel'
   ]
 };
 
@@ -67,8 +63,9 @@ export function getUserTier() {
   const session = getSession();
   if (!session) return 'Admin';
   if (session.tier_admin) return session.tier_admin;
-  if (isSuperAdmin()) return 'Super Admin';
-  return session.tier || 'Admin';
+  if (session.tier) return session.tier;
+  if (hasRole(ROLES.SUPER_ADMIN)) return 'Super Admin';
+  return 'Admin';
 }
 
 export function hasRole(role) {
@@ -83,45 +80,15 @@ export function isAdmin() {
   return hasRole(ROLES.ADMIN);
 }
 
-/**
- * Dynamic check if the current logged in admin can access a path/view.
- */
 export function canAccessPath(path, customPermissions = null) {
   const session = getSession();
   if (!session) return false;
 
-  const tier = getUserTier();
-  if (tier === 'Super Admin' || isSuperAdmin()) return true;
+  if (isSuperAdmin()) return true;
 
-  // Get permissions list
-  let permissions = customPermissions || session.permissions;
-  
-  if (!permissions) {
-    // Check saved tiers in localStorage
-    try {
-      const savedTiers = localStorage.getItem('cms_custom_tiers');
-      if (savedTiers) {
-        const tiersObj = JSON.parse(savedTiers);
-        if (tiersObj[tier]) {
-          permissions = tiersObj[tier];
-        }
-      }
-    } catch {}
-  }
-
-  if (!permissions) {
-    permissions = DEFAULT_TIER_PERMISSIONS[tier] || DEFAULT_TIER_PERMISSIONS['Editor'];
-  }
-
-  if (permissions.includes('*')) return true;
-
-  // Normalize path (remove sub-routes like /layanan/1/edit -> /layanan)
+  // Admin biasa hanya diizinkan mengakses Dashboard, Layanan, Promo, dan Artikel
+  const adminAllowedPaths = ['/dashboard', '/layanan', '/promo', '/artikel'];
   const basePath = '/' + path.replace(/^\//, '').split('/')[0];
   
-  return permissions.some((perm) => {
-    if (perm === path) return true;
-    if (perm === basePath) return true;
-    if (path.startsWith(perm) && perm !== '/') return true;
-    return false;
-  });
+  return adminAllowedPaths.includes(basePath);
 }

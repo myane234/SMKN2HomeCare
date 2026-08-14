@@ -75,7 +75,7 @@ export async function deleteKategoriLayanan(id) {
 // ── Kategori Artikel ──────────────────────────────────────────────────────────
 
 export async function getAllKategoriArtikel() {
-  const res = await fetch(`${URL}/artikel/kategori`, {
+  const res = await fetch(`${URL}/resource/content/artikel/kategori`, {
     method: 'GET',
     headers: { 'Accept': 'application/json' },
   });
@@ -85,7 +85,7 @@ export async function getAllKategoriArtikel() {
 }
 
 export async function getKategoriArtikelById(id) {
-  const res = await fetch(`${URL}/artikel/kategori/${encodeURIComponent(id)}`, {
+  const res = await fetch(`${URL}/resource/content/artikel/kategori/${encodeURIComponent(id)}`, {
     method: 'GET',
     headers: getAuthHeaders({ 'Accept': 'application/json' }),
   });
@@ -94,7 +94,7 @@ export async function getKategoriArtikelById(id) {
 }
 
 export async function createKategoriArtikel(data) {
-  const res = await fetch(`${URL}/artikel/kategori`, {
+  const res = await fetch(`${URL}/resource/content/artikel/kategori`, {
     method: 'POST',
     headers: getAuthHeaders({
       'Content-Type': 'application/json',
@@ -107,7 +107,7 @@ export async function createKategoriArtikel(data) {
 }
 
 export async function updateKategoriArtikel(id, data) {
-  const res = await fetch(`${URL}/artikel/kategori/${encodeURIComponent(id)}`, {
+  const res = await fetch(`${URL}/resource/content/artikel/kategori/${encodeURIComponent(id)}`, {
     method: 'PUT',
     headers: getAuthHeaders({
       'Content-Type': 'application/json',
@@ -120,7 +120,7 @@ export async function updateKategoriArtikel(id, data) {
 }
 
 export async function deleteKategoriArtikel(id) {
-  const res = await fetch(`${URL}/artikel/kategori/${encodeURIComponent(id)}`, {
+  const res = await fetch(`${URL}/resource/content/artikel/kategori/${encodeURIComponent(id)}`, {
     method: 'DELETE',
     headers: getAuthHeaders({ 'Accept': 'application/json' }),
   });

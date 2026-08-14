@@ -1,7 +1,7 @@
 import { NavLink } from 'react-router-dom';
 import { useState, useEffect, useRef, useCallback } from 'react';
 import logo from '../assets/logo.png';
-import { canAccessPath } from '../utils/role';
+import { canAccessPath, isSuperAdmin } from '../utils/role';
 import {
   FaStethoscope,
   FaGift,
@@ -130,7 +130,8 @@ export default function Sidebar({ open, onClose, collapsed }) {
       .filter(Boolean);
   };
 
-  const menus = filterMenuItems([...rawMenuItems, ...rawSuperAdminMenus]);
+  const userIsSuper = isSuperAdmin();
+  const menus = filterMenuItems(userIsSuper ? [...rawMenuItems, ...rawSuperAdminMenus] : rawMenuItems);
 
   const [width, setWidth] = useState(() => {
     if (typeof window === "undefined") return DEFAULT_WIDTH;
