@@ -237,3 +237,80 @@ export async function deleteKotaKabupaten(idKota) {
 
   return await parseJsonResponse(res);
 }
+
+/* ==========================================================
+ *                   MASTER KELURAHAN
+ * ========================================================== */
+
+/**
+ * Ambil semua data Kelurahan
+ */
+export async function getAllKelurahan() {
+  const res = await fetch(`${URL}/kelurahan`, {
+    method: 'GET',
+    headers: getAuthHeaders({
+      'Content-Type': 'application/json',
+      'Accept': 'application/json',
+    }),
+  });
+
+  const json = await parseJsonResponse(res);
+  const data = extractData(json); // Mengambil isi dari json.data
+  return Array.isArray(data) ? data : data ? [data] : [];
+}
+
+/**
+ * Tambah Kelurahan baru
+ * Payload: { id_kelurahan, id_kecamatan, nama_kelurahan }
+ */
+export async function createKelurahan(data) {
+  const res = await fetch(`${URL}/kelurahan`, {
+    method: 'POST',
+    headers: getAuthHeaders({
+      'Content-Type': 'application/json',
+      'Accept': 'application/json',
+    }),
+    body: JSON.stringify(data),
+  });
+
+  const json = await parseJsonResponse(res);
+  return extractData(json);
+}
+
+/**
+ * Update Kelurahan
+ * Payload: { id_kecamatan, nama_kelurahan }
+ */
+export async function updateKelurahan(idKelurahan, data) {
+  const res = await fetch(
+    `${URL}/kelurahan/${encodeURIComponent(idKelurahan)}`,
+    {
+      method: 'PUT',
+      headers: getAuthHeaders({
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+      }),
+      body: JSON.stringify(data),
+    }
+  );
+
+  const json = await parseJsonResponse(res);
+  return extractData(json);
+}
+
+/**
+ * Hapus Kelurahan
+ */
+export async function deleteKelurahan(idKelurahan) {
+  const res = await fetch(
+    `${URL}/kelurahan/${encodeURIComponent(idKelurahan)}`,
+    {
+      method: 'DELETE',
+      headers: getAuthHeaders({
+        'Accept': 'application/json',
+      }),
+    }
+  );
+
+  return await parseJsonResponse(res);
+}

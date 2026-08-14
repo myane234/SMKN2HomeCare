@@ -25,6 +25,7 @@ import DataBarang from './pages/admin/AdminMasterBarang';
 import DataMasterTarif from './pages/admin/AdminMasterTarif';
 import AdminMasterProvinsi from './pages/admin/AdminMasterProvinsi';
 import AdminMasterkotakabupaten from './pages/admin/AdminMasterkotakabupaten';
+import AdminMasterKelurahan from './pages/admin/AdminMasterKelurahan';
 import AdminMasterKategori from './pages/admin/AdminMasterKategori';
 
 import AdminMasterMetodePembayaran from './pages/admin/AdminMasterMetodePembayaran';
@@ -84,6 +85,8 @@ function App() {
         <Route path="/master-tarif" element={<ProtectedRoute requiredPath="/master-tarif"><DataMasterTarif /></ProtectedRoute>} />
         <Route path="/master-provinsi" element={<ProtectedRoute requiredPath="/master-provinsi"><AdminMasterProvinsi /></ProtectedRoute>} />
         <Route path="/master-kabupaten" element={<ProtectedRoute requiredPath="/master-kabupaten"><AdminMasterkotakabupaten /></ProtectedRoute>} />
+        <Route path="/master-kelurahan" element={<ProtectedRoute requiredPath="/master-kelurahan"><AdminMasterKelurahan /></ProtectedRoute>} />
+        
         <Route path="/master-kategori" element={<ProtectedRoute requiredPath="/master-kategori"><AdminMasterKategori /></ProtectedRoute>} />
         <Route path="/master-metode-pembayaran" element={<ProtectedRoute requiredPath="/master-metode-pembayaran"><AdminMasterMetodePembayaran /></ProtectedRoute>} />
         <Route path="/master-kategori-pembayaran" element={<ProtectedRoute requiredPath="/master-kategori-pembayaran"><AdminMasterKategoriPembayaran /></ProtectedRoute>} />

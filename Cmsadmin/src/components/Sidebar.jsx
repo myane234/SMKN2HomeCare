@@ -51,6 +51,11 @@ const rawSuperAdminMenus = [
             label: "Kota / Kabupaten",
             icon: <FaCity />,
           },
+          {
+            to: "/master-kelurahan",
+            label: "Kelurahan",
+            icon: <FaCity />,
+          },
         ],
       },
       { to: '/master-barang', label: 'Stock Barang', icon: <FaChartBar /> },
