@@ -20,7 +20,7 @@ import {
   FiAward
 } from 'react-icons/fi';
 import { logoutUser } from '../../services/Auth.js';
-import { getProfileFromCookies } from '@/services/profileService';
+import { getProfileFromCookies, fetchAndStoreProfile } from '@/services/profileService';
 
 export default function ProfilePage() {
   const router = useRouter();
@@ -31,6 +31,7 @@ export default function ProfilePage() {
   useEffect(() => {
     const profileData = getProfileFromCookies();
     if (profileData) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setProfile(profileData);
 
       // Read active role from cookie or default to first role
@@ -45,6 +46,26 @@ export default function ProfilePage() {
         setActiveRole(profileData.roles[0]);
       }
     }
+
+    // Refresh profile to get the absolute latest status from the database
+    const refreshProfile = async () => {
+      const freshProfile = await fetchAndStoreProfile();
+      if (freshProfile) {
+        setProfile(freshProfile);
+
+        const savedRole = document.cookie
+          .split('; ')
+          .find(row => row.startsWith('active_role='))
+          ?.split('=')[1];
+
+        if (savedRole && freshProfile.roles?.includes(savedRole)) {
+          setActiveRole(savedRole);
+        } else if (freshProfile.roles?.length > 0) {
+          setActiveRole(freshProfile.roles[0]);
+        }
+      }
+    };
+    refreshProfile();
   }, []);
 
   // Check if user has multiple roles
@@ -129,7 +150,7 @@ export default function ProfilePage() {
 
     const status = tenagaMedis.status?.toLowerCase();
 
-    // KONDISI 2: Status Pending (Menunggu Verifikasi Admin)
+    // KONDISI 2: Status Pending (Pasien sudah registrasi & menunggu verifikasi berkas)
     if (status === 'pending') {
       return (
         <div className="bg-amber-50 border border-amber-200 rounded-3xl p-5 shadow-sm mb-4">
@@ -139,26 +160,19 @@ export default function ProfilePage() {
             </div>
             <div className="flex-1">
               <span className="inline-block px-2.5 py-0.5 bg-amber-200 text-amber-800 text-[10px] font-bold rounded-full uppercase tracking-wider mb-1">
-                Sedang Diverifikasi
+                Menunggu Verifikasi
               </span>
-              <h3 className="font-bold text-sm text-gray-900">Pendaftaran Mitra Nakes</h3>
+              <h3 className="font-bold text-sm text-gray-900">Registrasi Selesai & Menunggu Berkas</h3>
               <p className="text-xs text-gray-600 mt-1 leading-relaxed">
-                Berkas Anda sedang dalam proses pemeriksaan oleh tim admin kami.
+                Pendaftaran Anda telah berhasil dikirim. Berkas administrasi Anda sedang dalam proses pemeriksaan oleh tim admin kami.
               </p>
             </div>
           </div>
-          <Link
-            href="/nakes/status"
-            className="mt-4 w-full bg-amber-500 text-white font-semibold text-sm py-2.5 px-4 rounded-xl flex items-center justify-center gap-2 hover:bg-amber-600 transition active:scale-[0.98]"
-          >
-            <span>Cek Detail Status</span>
-            <FiChevronRight size={18} />
-          </Link>
         </div>
       );
     }
 
-    // KONDISI 3: Status Pelatihan (Lolos Berkas, Wajib Pelatihan)
+    // KONDISI 3: Status Pelatihan (Menunggu jadwal pelatihan)
     if (status === 'pelatihan') {
       return (
         <div className="bg-indigo-50 border border-indigo-200 rounded-3xl p-5 shadow-sm mb-4">
@@ -168,26 +182,19 @@ export default function ProfilePage() {
             </div>
             <div className="flex-1">
               <span className="inline-block px-2.5 py-0.5 bg-indigo-200 text-indigo-800 text-[10px] font-bold rounded-full uppercase tracking-wider mb-1">
-                Tahap Pelatihan
+                Jadwal Pelatihan
               </span>
-              <h3 className="font-bold text-sm text-gray-900">Selamat! Berkas Anda Lolos</h3>
+              <h3 className="font-bold text-sm text-gray-900">Menunggu Jadwal Pelatihan</h3>
               <p className="text-xs text-gray-600 mt-1 leading-relaxed">
-                Silakan ikuti instruksi pelatihan sebelum akun Nakes Anda diaktifkan resmi.
+                Selamat, berkas Anda dinyatakan lolos! Saat ini Anda dalam antrean menunggu pembagian jadwal pelatihan dari tim kami sebelum akun diaktifkan resmi.
               </p>
             </div>
           </div>
-          <Link
-            href="/nakes/status"
-            className="mt-4 w-full bg-indigo-600 text-white font-semibold text-sm py-2.5 px-4 rounded-xl flex items-center justify-center gap-2 hover:bg-indigo-700 transition active:scale-[0.98]"
-          >
-            <span>Lihat Info Pelatihan</span>
-            <FiChevronRight size={18} />
-          </Link>
         </div>
       );
     }
 
-    // KONDISI 4: Status Rejected (Ditolak)
+    // KONDISI 4: Status Rejected (Ditolak / Perlu Perbaikan berkas)
     if (status === 'rejected') {
       return (
         <div className="bg-rose-50 border border-rose-200 rounded-3xl p-5 shadow-sm mb-4">
@@ -201,23 +208,53 @@ export default function ProfilePage() {
               </span>
               <h3 className="font-bold text-sm text-gray-900">Pendaftaran Belum Disetujui</h3>
               <p className="text-xs text-gray-600 mt-1 leading-relaxed">
-                {tenagaMedis.admin_notes || 'Ada dokumen yang perlu Anda perbaiki.'}
+                {tenagaMedis.admin_notes || 'Ada berkas yang tidak sesuai dengan ketentuan. Silakan daftar kembali dengan berkas yang benar.'}
               </p>
             </div>
           </div>
           <Link
-            href="/nakes/status"
+            href="/gabung-mitra/nakes"
             className="mt-4 w-full bg-rose-600 text-white font-semibold text-sm py-2.5 px-4 rounded-xl flex items-center justify-center gap-2 hover:bg-rose-700 transition active:scale-[0.98]"
           >
-            <span>Perbaiki Berkas</span>
+            <span>Daftar Ulang & Perbaiki Berkas</span>
             <FiChevronRight size={18} />
           </Link>
         </div>
       );
     }
 
-    // KONDISI 5: Status Approved (Sudah Aktif / Jadi Nakes)
+    // KONDISI 5: Status Approved (Sudah Aktif / Jadi Nakes resmi & di-acc)
     if (status === 'approved') {
+      // Sub-kondisi A: Perlu lengkapi data (pas foto, NPWP, bank, pakta integritas)
+      if (!tenagaMedis.is_data_complete) {
+        return (
+          <div className="bg-blue-50 border border-blue-200 rounded-3xl p-5 shadow-sm mb-4">
+            <div className="flex items-start gap-3">
+              <div className="p-2.5 bg-blue-500/10 text-blue-600 rounded-2xl shrink-0 mt-0.5">
+                <FiCheckCircle size={22} />
+              </div>
+              <div className="flex-1">
+                <span className="inline-block px-2.5 py-0.5 bg-blue-200 text-blue-800 text-[10px] font-bold rounded-full uppercase tracking-wider mb-1">
+                  Disetujui — Satu Langkah Lagi
+                </span>
+                <h3 className="font-bold text-sm text-gray-900">Lengkapi Data untuk Aktivasi Penuh</h3>
+                <p className="text-xs text-gray-600 mt-1 leading-relaxed">
+                  Akun Anda telah disetujui oleh admin. Silakan lengkapi pas foto, data NPWP, rekening bank, dan pakta integritas untuk mengaktifkan akses dashboard.
+                </p>
+              </div>
+            </div>
+            <Link
+              href="/nakes/complete-data"
+              className="mt-4 w-full bg-blue-600 text-white font-bold text-sm py-3 px-4 rounded-xl flex items-center justify-center gap-2 hover:bg-blue-700 transition active:scale-[0.98]"
+            >
+              <span>Lengkapi Data Sekarang</span>
+              <FiChevronRight size={18} />
+            </Link>
+          </div>
+        );
+      }
+
+      // Sub-kondisi B: Data sudah lengkap, akses dashboard
       return (
         <div className="bg-emerald-50 border border-emerald-200 rounded-3xl p-5 shadow-sm mb-4">
           <div className="flex items-start gap-3">
@@ -230,7 +267,7 @@ export default function ProfilePage() {
               </span>
               <h3 className="font-bold text-sm text-gray-900">Akun Tenaga Medis Aktif</h3>
               <p className="text-xs text-gray-600 mt-1 leading-relaxed">
-                Anda sudah terverifikasi. Klik tombol di bawah untuk masuk ke dashboard Nakes.
+                Akun Anda sudah di-approve oleh admin. Silakan masuk ke dashboard untuk mengelola layanan Anda.
               </p>
             </div>
           </div>
