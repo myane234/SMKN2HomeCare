@@ -50,12 +50,29 @@ export default function Hero() {
   }, []);
 
   const slides = defaultSlides.map((slide, index) => {
-    if (index === 0 && homeData) {
+    if (!homeData) return slide;
+    if (index === 0) {
       return {
         ...slide,
         title: homeData.home_text_banner || slide.title,
         description: homeData.home_description || slide.description,
         image: homeData.home_banner || slide.image,
+      };
+    }
+    if (index === 1) {
+      return {
+        ...slide,
+        title: homeData.home_text_banner_2 || slide.title,
+        description: homeData.home_description_2 || slide.description,
+        image: homeData.home_banner_2 || slide.image,
+      };
+    }
+    if (index === 2) {
+      return {
+        ...slide,
+        title: homeData.home_text_banner_3 || slide.title,
+        description: homeData.home_description_3 || slide.description,
+        image: homeData.home_banner_3 || slide.image,
       };
     }
     return slide;

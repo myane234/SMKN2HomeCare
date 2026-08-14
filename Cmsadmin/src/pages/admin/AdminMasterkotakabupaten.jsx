@@ -20,8 +20,8 @@ export default function MasterKotaKabupaten() {
 
   // State Filter, Search, & Pagination
   const [searchTerm, setSearchTerm] = useState('');
-  const [statusFilter, setStatusFilter] = useState('Semua Status'); // 'Semua Status', 'Aktif', 'Tidak Aktif'
-  const [sortBy, setSortBy] = useState('Urutkan: Nama (A - Z)'); // Sesuai pilihan provinsi
+  const [statusFilter, setStatusFilter] = useState('Semua Status'); 
+  const [sortBy, setSortBy] = useState('Urutkan: Nama (A - Z)'); 
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
 
@@ -145,25 +145,25 @@ export default function MasterKotaKabupaten() {
   };
 
   return (
-    <div className="p-8 bg-slate-50 min-h-screen font-sans">
+    <div className="p-4 sm:p-6 lg:p-8 bg-slate-50 min-h-screen font-sans">
       {/* Header Section */}
-      <div className="flex justify-between items-start mb-6">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
         <div>
-          <h1 className="text-2xl font-bold text-slate-800">Master Kota / Kabupaten</h1>
-          <p className="text-sm text-slate-500 mt-1">
+          <h1 className="text-xl sm:text-2xl font-bold text-slate-800">Master Kota / Kabupaten</h1>
+          <p className="text-xs sm:text-sm text-slate-500 mt-1">
             Kelola data wilayah kota / kabupaten dan status aktif/nonaktifnya.
           </p>
         </div>
         <button
           onClick={handleOpenCreateModal}
-          className="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2.5 rounded-lg text-sm font-semibold transition-all shadow-sm"
+          className="w-full sm:w-auto flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2.5 rounded-lg text-sm font-semibold transition-all shadow-sm shrink-0"
         >
           <FaPlus className="text-xs" />
           <span>Tambah Kota / Kabupaten</span>
         </button>
       </div>
 
-      {/* Filter Bar - Disamakan dengan Provinsi */}
+      {/* Filter Bar */}
       <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-xs mb-6 flex flex-col md:flex-row items-center gap-3">
         {/* Search Input */}
         <div className="relative flex-1 w-full">
@@ -181,14 +181,14 @@ export default function MasterKotaKabupaten() {
         </div>
 
         {/* Filters & Sorting */}
-        <div className="flex gap-3 w-full md:w-auto shrink-0">
+        <div className="flex flex-col sm:flex-row gap-3 w-full md:w-auto shrink-0">
           <select
             value={statusFilter}
             onChange={(e) => {
               setStatusFilter(e.target.value);
               setCurrentPage(1);
             }}
-            className="px-3 py-2.5 bg-white border border-slate-200 rounded-lg text-sm text-slate-700 shadow-sm focus:outline-none focus:border-blue-500 cursor-pointer"
+            className="w-full sm:w-auto px-3 py-2.5 bg-white border border-slate-200 rounded-lg text-sm text-slate-700 shadow-sm focus:outline-none focus:border-blue-500 cursor-pointer"
           >
             <option value="Semua Status">Semua Status</option>
             <option value="Aktif">Aktif</option>
@@ -198,7 +198,7 @@ export default function MasterKotaKabupaten() {
           <select
             value={sortBy}
             onChange={(e) => setSortBy(e.target.value)}
-            className="px-3 py-2.5 bg-white border border-slate-200 rounded-lg text-sm text-slate-700 shadow-sm focus:outline-none focus:border-blue-500 cursor-pointer"
+            className="w-full sm:w-auto px-3 py-2.5 bg-white border border-slate-200 rounded-lg text-sm text-slate-700 shadow-sm focus:outline-none focus:border-blue-500 cursor-pointer"
           >
             <option value="Urutkan: Nama (A - Z)">Urutkan: Nama (A - Z)</option>
             <option value="Urutkan: Nama (Z - A)">Urutkan: Nama (Z - A)</option>
@@ -214,15 +214,15 @@ export default function MasterKotaKabupaten() {
           <div className="p-8 text-center text-slate-500 text-sm">Memuat data...</div>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full text-left text-sm border-collapse">
+            <table className="w-full text-left text-sm border-collapse min-w-[700px]">
               <thead>
                 <tr className="border-b border-slate-200/80 bg-slate-50/50 text-slate-500 font-semibold uppercase text-xs tracking-wider">
-                  <th className="py-4 px-6 w-16 text-center">NO</th>
-                  <th className="py-4 px-6">NAMA KOTA / KABUPATEN</th>
-                  <th className="py-4 px-6">PROVINSI</th>
-                  <th className="py-4 px-6">ID / KODE</th>
-                  <th className="py-4 px-6 text-center">STATUS</th>
-                  <th className="py-4 px-6 text-right">AKSI</th>
+                  <th className="py-4 px-4 sm:px-6 w-16 text-center">NO</th>
+                  <th className="py-4 px-4 sm:px-6">NAMA KOTA / KABUPATEN</th>
+                  <th className="py-4 px-4 sm:px-6">PROVINSI</th>
+                  <th className="py-4 px-4 sm:px-6">ID / KODE</th>
+                  <th className="py-4 px-4 sm:px-6 text-center">STATUS</th>
+                  <th className="py-4 px-4 sm:px-6 text-right">AKSI</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 text-slate-700">
@@ -240,15 +240,15 @@ export default function MasterKotaKabupaten() {
 
                     return (
                       <tr key={item.id_kota || item.id || index} className="hover:bg-slate-50/60 transition-colors">
-                        <td className="py-4 px-6 font-medium text-slate-500 text-center">{rowIndex}</td>
-                        <td className="py-4 px-6 font-semibold text-slate-800 uppercase">
+                        <td className="py-4 px-4 sm:px-6 font-medium text-slate-500 text-center">{rowIndex}</td>
+                        <td className="py-4 px-4 sm:px-6 font-semibold text-slate-800 uppercase">
                           {item.nama_kota}
                         </td>
-                        <td className="py-4 px-6 font-medium text-slate-600">
+                        <td className="py-4 px-4 sm:px-6 font-medium text-slate-600">
                           {item.provinsi?.nama_provinsi || '-'}
                         </td>
-                        <td className="py-4 px-6 font-medium text-slate-600">{idKota}</td>
-                        <td className="py-4 px-6 text-center">
+                        <td className="py-4 px-4 sm:px-6 font-medium text-slate-600">{idKota}</td>
+                        <td className="py-4 px-4 sm:px-6 text-center">
                           <span
                             className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold ${
                               isAktif
@@ -259,7 +259,7 @@ export default function MasterKotaKabupaten() {
                             {isAktif ? 'Aktif' : 'Non-Aktif'}
                           </span>
                         </td>
-                        <td className="py-4 px-6 text-right">
+                        <td className="py-4 px-4 sm:px-6 text-right">
                           <div className="flex items-center justify-end gap-2">
                             <button
                               onClick={() => handleOpenEditModal(item)}
@@ -287,13 +287,13 @@ export default function MasterKotaKabupaten() {
         )}
 
         {/* Footer / Pagination Section */}
-        <div className="flex flex-col sm:flex-row items-center justify-between gap-4 p-5 border-t border-slate-100 bg-white text-xs text-slate-500">
-          <div>
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-4 p-4 sm:p-5 border-t border-slate-100 bg-white text-xs text-slate-500">
+          <div className="text-center sm:text-left">
             Halaman <span className="font-semibold text-slate-700">{currentPage}</span> dari{' '}
             <span className="font-semibold text-slate-700">{totalPages}</span>
           </div>
 
-          <div className="flex items-center gap-1">
+          <div className="flex flex-wrap items-center justify-center gap-1">
             <button
               onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
               disabled={currentPage === 1}
@@ -302,7 +302,6 @@ export default function MasterKotaKabupaten() {
               ← Sebelumnya
             </button>
 
-            {/* Logika Ringkas Pagination */}
             {(() => {
               const pages = [];
               const delta = 1;
@@ -364,8 +363,8 @@ export default function MasterKotaKabupaten() {
 
       {/* Modal Form */}
       {isModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 backdrop-blur-[2px] p-4">
-          <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-xl border border-slate-100">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 backdrop-blur-[2px] p-4 overflow-y-auto">
+          <div className="bg-white rounded-2xl max-w-md w-full p-5 sm:p-6 shadow-xl border border-slate-100 my-auto">
             <h2 className="text-lg font-bold text-slate-800 mb-4">
               {editItem ? 'Edit Kota / Kabupaten' : 'Tambah Kota / Kabupaten'}
             </h2>
@@ -404,17 +403,17 @@ export default function MasterKotaKabupaten() {
                 />
               </div>
 
-              <div className="flex justify-end gap-2 pt-4 border-t border-slate-100 mt-6">
+              <div className="flex flex-col-reverse sm:flex-row justify-end gap-2 pt-4 border-t border-slate-100 mt-6">
                 <button
                   type="button"
                   onClick={() => setIsModalOpen(false)}
-                  className="px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-100 rounded-lg transition-colors"
+                  className="w-full sm:w-auto px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-100 rounded-lg transition-colors text-center"
                 >
                   Batal
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-2 text-sm font-medium bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg shadow-sm transition-colors"
+                  className="w-full sm:w-auto px-4 py-2 text-sm font-medium bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg shadow-sm transition-colors text-center"
                 >
                   Simpan
                 </button>

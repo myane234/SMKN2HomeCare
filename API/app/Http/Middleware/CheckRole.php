@@ -26,6 +26,12 @@ class CheckRole
 
 
         $userRoles = $user->roles()->pluck('nama_role')->toArray();
+
+        $admin = \App\Models\Admin::where('id_user', $user->id_user)->first();
+        if ($admin && $admin->tier_admin === 'Super Admin') {
+            $userRoles[] = 'super_admin';
+        }
+
         $hasRole = false;
 
         foreach ($roles as $role) {

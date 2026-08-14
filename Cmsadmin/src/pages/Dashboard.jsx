@@ -11,10 +11,6 @@ import AdminDashboard from './admin/AdminDashboard';
 export default function Dashboard() {
   const isSuper = isSuperAdmin();
 
-  if (isSuper) {
-    return <AdminDashboard />;
-  }
-
   const [layanan, setLayanan] = useState([]);
   const [promo, setPromo] = useState([]);
   const [artikel, setArtikel] = useState([]);
@@ -22,6 +18,8 @@ export default function Dashboard() {
   const session = getSession();
 
   useEffect(() => {
+    if (isSuper) return;
+
     Promise.all([getAllLayanan(), getAllPromo(), getAllArtikel()])
       .then(([layananData, promoData, artikelData]) => {
         setLayanan(layananData || []);
@@ -33,7 +31,11 @@ export default function Dashboard() {
         console.error('Error fetching dashboard data:', err);
         setLoading(false);
       });
-  }, []);
+  }, [isSuper]);
+
+  if (isSuper) {
+    return <AdminDashboard />;
+  }
 
   const summaryCards = [
     { label: 'Total Layanan', value: layanan.length, icon: <FaStethoscope /> },

@@ -33,6 +33,7 @@ import AdminMasterKategoriPembayaran from './pages/admin/AdminMasterKategoriPemb
 
 import AdminMasterKomponenTarif from './pages/admin/AdminMasterKomponenTarif';
 import AdminMasterTarifTransport from './pages/admin/AdminMasterTarifTransport';  
+import AdminMasterKecamatan from './pages/admin/AdminMasterKecamatan';
 
 import { getUserRoles } from './utils/role';
 
@@ -90,6 +91,7 @@ function App() {
         <Route path="/master-kategori" element={<ProtectedRoute requiredPath="/master-kategori"><AdminMasterKategori /></ProtectedRoute>} />
         <Route path="/master-metode-pembayaran" element={<ProtectedRoute requiredPath="/master-metode-pembayaran"><AdminMasterMetodePembayaran /></ProtectedRoute>} />
         <Route path="/master-kategori-pembayaran" element={<ProtectedRoute requiredPath="/master-kategori-pembayaran"><AdminMasterKategoriPembayaran /></ProtectedRoute>} />
+        <Route path="/master-kecamatan" element={<ProtectedRoute requiredPath="/master-kecamatan"><AdminMasterKecamatan /></ProtectedRoute>} />
       </Route>
 
       {/* Default redirects */}

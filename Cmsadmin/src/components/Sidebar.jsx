@@ -1,7 +1,7 @@
 import { NavLink } from 'react-router-dom';
 import { useState, useEffect, useRef, useCallback } from 'react';
 import logo from '../assets/logo.png';
-import { canAccessPath } from '../utils/role';
+import { canAccessPath, isSuperAdmin } from '../utils/role';
 import {
   FaStethoscope,
   FaGift,
@@ -19,7 +19,8 @@ import {
   FaCreditCard,
   FaGlobeAmericas,
   FaWallet,
-  FaCogs
+  FaCogs,
+  FaBuilding
 } from 'react-icons/fa';
 
 const rawMenuItems = [
@@ -55,6 +56,11 @@ const rawSuperAdminMenus = [
             to: "/master-kelurahan",
             label: "Kelurahan",
             icon: <FaCity />,
+          // Menu Kecamatan ditambahkan di sini agar masuk ke sub-wilayah
+          {
+            to: "/master-kecamatan",
+            label: "Kecamatan",
+            icon: <FaBuilding />, // Atau icon lain yang diinginkan
           },
         ],
       },
@@ -63,9 +69,6 @@ const rawSuperAdminMenus = [
       { to: '/master-komponen-tarif', label: 'Komponen Tarif', icon: <FaChartBar /> },
       { to: '/master-tarif-transport', label: 'Tarif Transport', icon: <FaChartBar /> },  
       { to: '/master-kategori', label: 'Kategori', icon: <FaTags /> },
-      { to: "/master-barang", label: "Stock Barang", icon: <FaChartBar /> },
-      { to: "/master-tarif", label: "Tarif", icon: <FaChartBar /> },
-      { to: "/master-kategori", label: "Kategori", icon: <FaTags /> },
       {
         type: "subgroup",
         label: "Pembayaran",
@@ -131,7 +134,8 @@ export default function Sidebar({ open, onClose, collapsed }) {
       .filter(Boolean);
   };
 
-  const menus = filterMenuItems([...rawMenuItems, ...rawSuperAdminMenus]);
+  const userIsSuper = isSuperAdmin();
+  const menus = filterMenuItems(userIsSuper ? [...rawMenuItems, ...rawSuperAdminMenus] : rawMenuItems);
 
   const [width, setWidth] = useState(() => {
     if (typeof window === "undefined") return DEFAULT_WIDTH;

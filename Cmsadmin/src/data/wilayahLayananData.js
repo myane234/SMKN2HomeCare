@@ -30,7 +30,7 @@ function extractData(body) {
 }
 
 /* ==========================================================
- *                   MASTER PROVINSI / WILAYAH LAYANAN
+ *                     MASTER PROVINSI / WILAYAH LAYANAN
  * ========================================================== */
 
 /**
@@ -123,7 +123,7 @@ export async function toggleWilayahLayananStatus(idProvinsi) {
 }
 
 /* ==========================================================
- *                   MASTER KOTA / KABUPATEN
+ *                     MASTER KOTA / KABUPATEN
  * ========================================================== */
 
 /**
