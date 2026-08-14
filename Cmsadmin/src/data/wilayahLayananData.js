@@ -239,18 +239,14 @@ export async function deleteKotaKabupaten(idKota) {
 }
 
 /* ==========================================================
- *                     MASTER KECAMATAN
+ *                   MASTER KELURAHAN
  * ========================================================== */
 
 /**
- * Ambil semua data Kecamatan dengan dukungan Pagination & Search
+ * Ambil semua data Kelurahan
  */
-export async function getAllKecamatan(page = 1, search = '') {
-  const params = new URLSearchParams();
-  if (page) params.append('page', page);
-  if (search) params.append('search', search);
-
-  const res = await fetch(`${URL}/kecamatan?${params.toString()}`, {
+export async function getAllKelurahan() {
+  const res = await fetch(`${URL}/kelurahan`, {
     method: 'GET',
     headers: getAuthHeaders({
       'Content-Type': 'application/json',
@@ -259,34 +255,16 @@ export async function getAllKecamatan(page = 1, search = '') {
   });
 
   const json = await parseJsonResponse(res);
-  return json; // Mengembalikan object lengkap (termasuk .data dan .meta)
+  const data = extractData(json); // Mengambil isi dari json.data
+  return Array.isArray(data) ? data : data ? [data] : [];
 }
 
 /**
- * Ambil data Kecamatan berdasarkan ID Kecamatan
+ * Tambah Kelurahan baru
+ * Payload: { id_kelurahan, id_kecamatan, nama_kelurahan }
  */
-export async function getKecamatanById(idKecamatan) {
-  const res = await fetch(
-    `${URL}/kecamatan/${encodeURIComponent(idKecamatan)}`,
-    {
-      method: 'GET',
-      headers: getAuthHeaders({
-        'Content-Type': 'application/json',
-        'Accept': 'application/json',
-      }),
-    }
-  );
-
-  const json = await parseJsonResponse(res);
-  return extractData(json);
-}
-
-/**
- * Tambah Kecamatan baru
- * Payload: { id_kecamatan: string, regency_id: string, nama_kecamatan: string }
- */
-export async function createKecamatan(data) {
-  const res = await fetch(`${URL}/kecamatan`, {
+export async function createKelurahan(data) {
+  const res = await fetch(`${URL}/kelurahan`, {
     method: 'POST',
     headers: getAuthHeaders({
       'Content-Type': 'application/json',
@@ -300,12 +278,12 @@ export async function createKecamatan(data) {
 }
 
 /**
- * Update Kecamatan berdasarkan ID Kecamatan
- * Payload: { regency_id: string, nama_kecamatan: string }
+ * Update Kelurahan
+ * Payload: { id_kecamatan, nama_kelurahan }
  */
-export async function updateKecamatan(idKecamatan, data) {
+export async function updateKelurahan(idKelurahan, data) {
   const res = await fetch(
-    `${URL}/kecamatan/${encodeURIComponent(idKecamatan)}`,
+    `${URL}/kelurahan/${encodeURIComponent(idKelurahan)}`,
     {
       method: 'PUT',
       headers: getAuthHeaders({
@@ -321,11 +299,11 @@ export async function updateKecamatan(idKecamatan, data) {
 }
 
 /**
- * Hapus Kecamatan berdasarkan ID Kecamatan
+ * Hapus Kelurahan
  */
-export async function deleteKecamatan(idKecamatan) {
+export async function deleteKelurahan(idKelurahan) {
   const res = await fetch(
-    `${URL}/kecamatan/${encodeURIComponent(idKecamatan)}`,
+    `${URL}/kelurahan/${encodeURIComponent(idKelurahan)}`,
     {
       method: 'DELETE',
       headers: getAuthHeaders({
