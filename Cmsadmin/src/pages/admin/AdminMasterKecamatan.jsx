@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { 
   getAllKecamatan, 
   createKecamatan, 
@@ -11,6 +11,7 @@ import {
   FaPlus,
   FaEdit,
   FaTrashAlt,
+  FaChevronDown,
 } from 'react-icons/fa';
 
 export default function AdminMasterKecamatan() {
@@ -18,81 +19,118 @@ export default function AdminMasterKecamatan() {
   const [kotaList, setKotaList] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  // State Filter, Search, & Pagination
-  const [searchTerm, setSearchTerm] = useState('');
-  const [sortBy, setSortBy] = useState('Urutkan: Nama (A - Z)');
+  // State Pagination dari Meta API Laravel
   const [currentPage, setCurrentPage] = useState(1);
-  const itemsPerPage = 10;
+  const [lastPage, setLastPage] = useState(1);
+  const [totalData, setTotalData] = useState(0);
+
+  // State Search & Sort
+  const [searchTerm, setSearchTerm] = useState('');
+  const [sortBy, setSortBy] = useState('nama_asc'); // 'nama_asc', 'nama_desc', 'id_asc', 'id_desc'
 
   // State Modal (Tambah / Edit)
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isEdit, setIsEdit] = useState(false);
   const [currentId, setCurrentId] = useState(null);
   
-  // Form Input State Sesuai API cURL
+  // Form Input State
   const [formData, setFormData] = useState({
     id_kecamatan: '',
     regency_id: '',
     nama_kecamatan: ''
   });
 
+  // State khusus untuk Combobox Kabupaten/Kota Searchable
+  const [kotaSearch, setKotaSearch] = useState('');
+  const [isKotaOpen, setIsKotaOpen] = useState(false);
+  const dropdownRef = useRef(null);
+
+  // Tutup dropdown combobox saat klik di luar area
   useEffect(() => {
-    fetchData();
+    const handleClickOutside = (event) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+        setIsKotaOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  const fetchData = async () => {
+  // Fetch data otomatis saat halaman, kata kunci pencarian, atau sorting berubah
+  useEffect(() => {
+    fetchData(currentPage, searchTerm, sortBy);
+  }, [currentPage, searchTerm, sortBy]);
+
+  // Load master kota/kabupaten untuk pilihan dropdown modal
+  useEffect(() => {
+    const fetchKota = async () => {
+      try {
+        const dataKota = await getAllKotaKabupaten().catch(() => []);
+        setKotaList(Array.isArray(dataKota) ? dataKota : []);
+      } catch (err) {
+        console.error('Gagal memuat data kota:', err);
+      }
+    };
+    fetchKota();
+  }, []);
+
+  const fetchData = async (page = 1, search = '', sort = 'nama_asc') => {
     setLoading(true);
     try {
-      const [dataKecamatan, dataKota] = await Promise.all([
-        getAllKecamatan().catch(() => []),
-        getAllKotaKabupaten().catch(() => []),
-      ]);
+      const response = await getAllKecamatan(page, search);
+      
+      let listData = response?.data || response;
+      
+      // Sorting data (berdasarkan Nama atau ID)
+      if (Array.isArray(listData)) {
+        listData.sort((a, b) => {
+          if (sort === 'nama_asc') {
+            return String(a.nama_kecamatan || '').localeCompare(String(b.nama_kecamatan || ''));
+          }
+          if (sort === 'nama_desc') {
+            return String(b.nama_kecamatan || '').localeCompare(String(a.nama_kecamatan || ''));
+          }
+          if (sort === 'id_asc') {
+            return String(a.id_kecamatan || '').localeCompare(String(b.id_kecamatan || ''));
+          }
+          if (sort === 'id_desc') {
+            return String(b.id_kecamatan || '').localeCompare(String(a.id_kecamatan || ''));
+          }
+          return 0;
+        });
+      }
 
-      setKecamatanList(Array.isArray(dataKecamatan) ? dataKecamatan : []);
-      setKotaList(Array.isArray(dataKota) ? dataKota : []);
+      setKecamatanList(Array.isArray(listData) ? listData : []);
+
+      if (response?.meta) {
+        setCurrentPage(response.meta.current_page);
+        setLastPage(response.meta.last_page);
+        setTotalData(response.meta.total);
+      }
     } catch (err) {
-      console.error('Gagal memuat data:', err);
+      console.error('Gagal memuat data kecamatan:', err);
+      setKecamatanList([]);
     } finally {
       setLoading(false);
     }
   };
 
-  // Filter & Sorting Logic
-  const filteredData = useMemo(() => {
-    return kecamatanList
-      .filter((item) => {
-        const matchesSearch =
-          item.nama_kecamatan?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          String(item.id_kecamatan || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
-          String(item.regency_id || '').toLowerCase().includes(searchTerm.toLowerCase());
+  // Helper untuk menampilkan nama kabupaten / regency
+  const getNamaRegency = (item) => {
+    if (item.nama_regency) return item.nama_regency;
+    if (item.kota_kabupaten?.nama_kota) return item.kota_kabupaten.nama_kota;
+    
+    const foundKota = kotaList.find(
+      (kota) => String(kota.id_kota || kota.id) === String(item.regency_id)
+    );
+    return foundKota ? (foundKota.nama_kota || foundKota.nama) : item.regency_id;
+  };
 
-        return matchesSearch;
-      })
-      .sort((a, b) => {
-        if (sortBy === 'Urutkan: Nama (A - Z)') {
-          return (a.nama_kecamatan || '').localeCompare(b.nama_kecamatan || '');
-        } else if (sortBy === 'Urutkan: Nama (Z - A)') {
-          return (b.nama_kecamatan || '').localeCompare(a.nama_kecamatan || '');
-        } else if (sortBy === 'Urutkan: ID (A - Z)') {
-          return (a.id_kecamatan || '').localeCompare(b.id_kecamatan || '');
-        } else if (sortBy === 'Urutkan: ID (Z - A)') {
-          return (b.id_kecamatan || '').localeCompare(a.id_kecamatan || '');
-        }
-        return 0;
-      });
-  }, [kecamatanList, searchTerm, sortBy]);
-
-  // Pagination Logic
-  const totalPages = Math.ceil(filteredData.length / itemsPerPage) || 1;
-  const paginatedData = useMemo(() => {
-    const start = (currentPage - 1) * itemsPerPage;
-    return filteredData.slice(start, start + itemsPerPage);
-  }, [filteredData, currentPage]);
-
-  // Handler Open Modal
+  // Handler Modal
   const handleOpenAddModal = () => {
     setIsEdit(false);
     setFormData({ id_kecamatan: '', regency_id: '', nama_kecamatan: '' });
+    setKotaSearch('');
     setIsModalOpen(true);
   };
 
@@ -104,10 +142,15 @@ export default function AdminMasterKecamatan() {
       regency_id: item.regency_id || '',
       nama_kecamatan: item.nama_kecamatan || ''
     });
+
+    // Cari nama kota berdasarkan regency_id untuk ditampilkan di input combobox
+    const foundKota = kotaList.find(
+      (kota) => String(kota.id_kota || kota.id) === String(item.regency_id)
+    );
+    setKotaSearch(foundKota ? (foundKota.nama_kota || foundKota.nama) : '');
     setIsModalOpen(true);
   };
 
-  // Submit Handler Sesuai cURL POST & PUT
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
@@ -120,23 +163,28 @@ export default function AdminMasterKecamatan() {
         await createKecamatan(formData);
       }
       setIsModalOpen(false);
-      fetchData();
+      fetchData(currentPage, searchTerm, sortBy);
     } catch (err) {
       alert(`Error: ${err.message || 'Gagal menyimpan data'}`);
     }
   };
 
-  // Delete Handler
   const handleDelete = async (idKecamatan) => {
     if (window.confirm('Apakah kamu yakin ingin menghapus data kecamatan ini?')) {
       try {
         await deleteKecamatan(idKecamatan);
-        fetchData();
+        fetchData(currentPage, searchTerm, sortBy);
       } catch (err) {
         alert(`Error: ${err.message || 'Gagal menghapus data'}`);
       }
     }
   };
+
+  // Filter daftar kota sesuai ketikan pada combobox
+  const filteredKotaList = kotaList.filter((kota) => {
+    const nama = kota.nama_kota || kota.nama || '';
+    return nama.toLowerCase().includes(kotaSearch.toLowerCase());
+  });
 
   return (
     <div className="p-4 sm:p-6 lg:p-8 bg-slate-50 min-h-screen font-sans">
@@ -145,7 +193,7 @@ export default function AdminMasterKecamatan() {
         <div>
           <h1 className="text-xl sm:text-2xl font-bold text-slate-800">Master Kecamatan</h1>
           <p className="text-xs sm:text-sm text-slate-500 mt-1">
-            Kelola data wilayah kecamatan beserta relasi ID kabupatennya.
+            Total seluruh data: <span className="font-semibold text-slate-700">{totalData}</span> Kecamatan
           </p>
         </div>
         <button
@@ -157,14 +205,14 @@ export default function AdminMasterKecamatan() {
         </button>
       </div>
 
-      {/* Filter Bar */}
+      {/* Filter Bar (Search & Sort Sesuai Referensi) */}
       <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-xs mb-6 flex flex-col md:flex-row items-center gap-3">
         {/* Search Input */}
         <div className="relative flex-1 w-full">
           <FaSearch className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 text-sm" />
           <input
             type="text"
-            placeholder="Cari kecamatan..."
+            placeholder="Cari berdasarkan nama kecamatan atau kabupaten..."
             value={searchTerm}
             onChange={(e) => {
               setSearchTerm(e.target.value);
@@ -174,17 +222,17 @@ export default function AdminMasterKecamatan() {
           />
         </div>
 
-        {/* Sorting */}
+        {/* Sort Dropdown dengan Style Persis Gambar */}
         <div className="w-full md:w-auto shrink-0">
           <select
             value={sortBy}
             onChange={(e) => setSortBy(e.target.value)}
-            className="w-full md:w-auto px-3 py-2.5 bg-white border border-slate-200 rounded-lg text-sm text-slate-700 shadow-sm focus:outline-none focus:border-blue-500 cursor-pointer"
+            className="w-full md:w-auto px-4 py-2.5 bg-white border border-slate-200 rounded-lg text-sm text-slate-700 focus:outline-none focus:border-blue-500 shadow-sm cursor-pointer"
           >
-            <option value="Urutkan: Nama (A - Z)">Urutkan: Nama (A - Z)</option>
-            <option value="Urutkan: Nama (Z - A)">Urutkan: Nama (Z - A)</option>
-            <option value="Urutkan: ID (A - Z)">Urutkan: ID (A - Z)</option>
-            <option value="Urutkan: ID (Z - A)">Urutkan: ID (Z - A)</option>
+            <option value="nama_asc">Urutkan: Nama (A - Z)</option>
+            <option value="nama_desc">Urutkan: Nama (Z - A)</option>
+            <option value="id_asc">Urutkan: ID (Kecil - Besar)</option>
+            <option value="id_desc">Urutkan: ID (Besar - Kecil)</option>
           </select>
         </div>
       </div>
@@ -192,7 +240,7 @@ export default function AdminMasterKecamatan() {
       {/* Table Section */}
       <div className="bg-white rounded-xl border border-slate-200/80 shadow-sm overflow-hidden">
         {loading ? (
-          <div className="p-8 text-center text-slate-500 text-sm">Memuat data...</div>
+          <div className="p-8 text-center text-slate-500 text-sm">Memuat data dari server...</div>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-left text-sm border-collapse min-w-[650px]">
@@ -201,20 +249,21 @@ export default function AdminMasterKecamatan() {
                   <th className="py-4 px-4 sm:px-6 w-16 text-center">NO</th>
                   <th className="py-4 px-4 sm:px-6">NAMA KECAMATAN</th>
                   <th className="py-4 px-4 sm:px-6">ID KECAMATAN</th>
-                  <th className="py-4 px-4 sm:px-6">REGENCY ID</th>
+                  <th className="py-4 px-4 sm:px-6">KOTA / KABUPATEN</th>
                   <th className="py-4 px-4 sm:px-6 text-right">AKSI</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 text-slate-700">
-                {paginatedData.length === 0 ? (
+                {kecamatanList.length === 0 ? (
                   <tr>
                     <td colSpan="5" className="text-center py-8 text-slate-400">
                       Tidak ada data kecamatan ditemukan.
                     </td>
                   </tr>
                 ) : (
-                  paginatedData.map((item, index) => {
-                    const rowIndex = (currentPage - 1) * itemsPerPage + index + 1;
+                  kecamatanList.map((item, index) => {
+                    const rowIndex = (currentPage - 1) * 50 + index + 1;
+                    const namaKabupaten = getNamaRegency(item);
 
                     return (
                       <tr key={item.id_kecamatan || index} className="hover:bg-slate-50/60 transition-colors">
@@ -223,7 +272,9 @@ export default function AdminMasterKecamatan() {
                           {item.nama_kecamatan}
                         </td>
                         <td className="py-4 px-4 sm:px-6 font-medium text-slate-600">{item.id_kecamatan}</td>
-                        <td className="py-4 px-4 sm:px-6 font-medium text-slate-600">{item.regency_id}</td>
+                        <td className="py-4 px-4 sm:px-6 font-medium text-slate-600 uppercase">
+                          {namaKabupaten}
+                        </td>
                         <td className="py-4 px-4 sm:px-6 text-right">
                           <div className="flex items-center justify-end gap-2">
                             <button
@@ -255,7 +306,7 @@ export default function AdminMasterKecamatan() {
         <div className="flex flex-col sm:flex-row items-center justify-between gap-4 p-4 sm:p-5 border-t border-slate-100 bg-white text-xs text-slate-500">
           <div className="text-center sm:text-left">
             Halaman <span className="font-semibold text-slate-700">{currentPage}</span> dari{' '}
-            <span className="font-semibold text-slate-700">{totalPages}</span>
+            <span className="font-semibold text-slate-700">{lastPage}</span> (Total {totalData} Data)
           </div>
 
           <div className="flex flex-wrap items-center justify-center gap-1">
@@ -267,57 +318,13 @@ export default function AdminMasterKecamatan() {
               ← Sebelumnya
             </button>
 
-            {(() => {
-              const pages = [];
-              const delta = 1;
-
-              for (let i = 1; i <= totalPages; i++) {
-                if (
-                  i === 1 ||
-                  i === totalPages ||
-                  (i >= currentPage - delta && i <= currentPage + delta)
-                ) {
-                  pages.push(i);
-                } else if (
-                  (i === currentPage - delta - 1 && i > 1) ||
-                  (i === currentPage + delta + 1 && i < totalPages)
-                ) {
-                  pages.push('...');
-                }
-              }
-
-              const filteredPages = pages.filter(
-                (item, index) => pages.indexOf(item) === index
-              );
-
-              return filteredPages.map((page, idx) => {
-                if (page === '...') {
-                  return (
-                    <span key={`dots-${idx}`} className="px-2 py-1 text-slate-400 font-medium select-none">
-                      ...
-                    </span>
-                  );
-                }
-
-                return (
-                  <button
-                    key={page}
-                    onClick={() => setCurrentPage(page)}
-                    className={`w-8 h-8 rounded-md font-medium transition-colors shadow-sm ${
-                      currentPage === page
-                        ? 'bg-emerald-600 text-white border-emerald-600'
-                        : 'bg-white border border-slate-200 hover:bg-slate-50 text-slate-700'
-                    }`}
-                  >
-                    {page}
-                  </button>
-                );
-              });
-            })()}
+            <span className="px-3 py-1.5 font-medium text-slate-700">
+              {currentPage} / {lastPage}
+            </span>
 
             <button
-              onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
-              disabled={currentPage === totalPages}
+              onClick={() => setCurrentPage((p) => Math.min(lastPage, p + 1))}
+              disabled={currentPage === lastPage}
               className="px-3 py-1.5 border border-slate-200 rounded-md bg-white hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed font-medium transition-colors shadow-sm"
             >
               Selanjutnya →
@@ -364,23 +371,67 @@ export default function AdminMasterKecamatan() {
                 />
               </div>
 
-              <div>
+              {/* Custom Combobox Searchable untuk Kabupaten / Kota */}
+              <div className="relative" ref={dropdownRef}>
                 <label className="block text-xs font-semibold text-slate-600 mb-1">
-                  Pilih Kabupaten / Kota (Regency ID)
+                  Pilih Kabupaten / Kota
                 </label>
-                <select
+                
+                <div className="relative w-full">
+                  <input
+                    type="text"
+                    placeholder="Ketik atau pilih kabupaten/kota..."
+                    value={kotaSearch}
+                    onFocus={() => setIsKotaOpen(true)}
+                    onChange={(e) => {
+                      setKotaSearch(e.target.value);
+                      setIsKotaOpen(true);
+                      if (!e.target.value) {
+                        setFormData({ ...formData, regency_id: '' });
+                      }
+                    }}
+                    className="w-full px-3 py-2 pr-8 bg-white border border-slate-200 rounded-lg text-sm text-slate-800 focus:outline-none focus:border-blue-500 shadow-sm"
+                  />
+                  <FaChevronDown className={`absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs transition-transform pointer-events-none ${isKotaOpen ? 'rotate-180' : ''}`} />
+                </div>
+
+                {/* Dropdown List Hasil Filter */}
+                {isKotaOpen && (
+                  <div className="absolute z-50 left-0 right-0 mt-1 max-h-48 overflow-y-auto bg-white border border-slate-200 rounded-lg shadow-xl">
+                    {filteredKotaList.length === 0 ? (
+                      <div className="px-3 py-2.5 text-xs text-slate-400 text-center">
+                        Kabupaten/Kota tidak ditemukan
+                      </div>
+                    ) : (
+                      filteredKotaList.map((kota) => {
+                        const id = kota.id_kota || kota.id;
+                        const nama = kota.nama_kota || kota.nama;
+                        return (
+                          <div
+                            key={id}
+                            onClick={() => {
+                              setFormData({ ...formData, regency_id: id });
+                              setKotaSearch(nama);
+                              setIsKotaOpen(false);
+                            }}
+                            className="px-3 py-2 text-sm text-slate-700 hover:bg-blue-50 hover:text-blue-600 cursor-pointer transition-colors uppercase"
+                          >
+                            {nama}
+                          </div>
+                        );
+                      })
+                    )}
+                  </div>
+                )}
+                
+                {/* Hidden Input untuk Validasi HTML5 'required' */}
+                <input
+                  type="text"
                   required
                   value={formData.regency_id}
-                  onChange={(e) => setFormData({ ...formData, regency_id: e.target.value })}
-                  className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm text-slate-800 focus:outline-none focus:border-blue-500 shadow-sm"
-                >
-                  <option value="">-- Pilih Kabupaten / Kota --</option>
-                  {kotaList.map((kota) => (
-                    <option key={kota.id_kota || kota.id} value={kota.id_kota || kota.id}>
-                      {kota.nama_kota || kota.nama} (ID: {kota.id_kota || kota.id})
-                    </option>
-                  ))}
-                </select>
+                  onChange={() => {}}
+                  className="opacity-0 absolute -bottom-2 h-0 w-0 pointer-events-none"
+                />
               </div>
 
               <div className="flex flex-col-reverse sm:flex-row justify-end gap-2 pt-4 border-t border-slate-100 mt-6">

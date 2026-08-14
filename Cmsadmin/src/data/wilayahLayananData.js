@@ -243,10 +243,14 @@ export async function deleteKotaKabupaten(idKota) {
  * ========================================================== */
 
 /**
- * Ambil semua data Kecamatan
+ * Ambil semua data Kecamatan dengan dukungan Pagination & Search
  */
-export async function getAllKecamatan() {
-  const res = await fetch(`${URL}/kecamatan`, {
+export async function getAllKecamatan(page = 1, search = '') {
+  const params = new URLSearchParams();
+  if (page) params.append('page', page);
+  if (search) params.append('search', search);
+
+  const res = await fetch(`${URL}/kecamatan?${params.toString()}`, {
     method: 'GET',
     headers: getAuthHeaders({
       'Content-Type': 'application/json',
@@ -255,8 +259,7 @@ export async function getAllKecamatan() {
   });
 
   const json = await parseJsonResponse(res);
-  const data = extractData(json);
-  return Array.isArray(data) ? data : data ? [data] : [];
+  return json; // Mengembalikan object lengkap (termasuk .data dan .meta)
 }
 
 /**
