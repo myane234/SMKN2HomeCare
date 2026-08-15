@@ -314,3 +314,79 @@ export async function deleteKelurahan(idKelurahan) {
 
   return await parseJsonResponse(res);
 }
+
+/* ==========================================================
+ *                   MASTER KECAMATAN
+ * ========================================================== */
+
+/**
+ * Ambil semua data Kecamatan
+ */
+export async function getAllKecamatan(page = 1) {
+  const res = await fetch(`${URL}/kecamatan?page=${page}`, {
+    method: 'GET',
+    headers: getAuthHeaders({
+      'Content-Type': 'application/json',
+      'Accept': 'application/json',
+    }),
+  });
+
+  const json = await parseJsonResponse(res);
+  return json;
+}
+
+/**
+ * Tambah Kecamatan baru
+ * Payload: { regency_id, nama_kecamatan }
+ */
+export async function createKecamatan(data) {
+  const res = await fetch(`${URL}/kecamatan`, {
+    method: 'POST',
+    headers: getAuthHeaders({
+      'Content-Type': 'application/json',
+      'Accept': 'application/json',
+    }),
+    body: JSON.stringify(data),
+  });
+
+  const json = await parseJsonResponse(res);
+  return extractData(json);
+}
+
+/**
+ * Update Kecamatan
+ * Payload: { regency_id, nama_kecamatan }
+ */
+export async function updateKecamatan(idKecamatan, data) {
+  const res = await fetch(
+    `${URL}/kecamatan/${encodeURIComponent(idKecamatan)}`,
+    {
+      method: 'PUT',
+      headers: getAuthHeaders({
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+      }),
+      body: JSON.stringify(data),
+    }
+  );
+
+  const json = await parseJsonResponse(res);
+  return extractData(json);
+}
+
+/**
+ * Hapus Kecamatan
+ */
+export async function deleteKecamatan(idKecamatan) {
+  const res = await fetch(
+    `${URL}/kecamatan/${encodeURIComponent(idKecamatan)}`,
+    {
+      method: 'DELETE',
+      headers: getAuthHeaders({
+        'Accept': 'application/json',
+      }),
+    }
+  );
+
+  return await parseJsonResponse(res);
+}

@@ -20,14 +20,26 @@ import {
   FaGlobeAmericas,
   FaWallet,
   FaCogs,
-  FaBuilding
+  FaBuilding,
+  FaDesktop,
+  FaHome,
+  FaInfoCircle
 } from 'react-icons/fa';
 
 const rawMenuItems = [
   { to: '/dashboard', label: 'Dashboard', icon: <FaChartBar />, end: true },
-  { to: '/layanan', label: 'Layanan', icon: <FaStethoscope /> },
-  { to: '/promo', label: 'Promo', icon: <FaGift /> },
-  { to: '/artikel', label: 'Artikel', icon: <FaRegFileAlt /> },
+  {
+    type: 'group',
+    label: 'Kelola Konten',
+    icon: <FaDesktop />,
+    children: [
+      { to: '/kelola-konten/home', label: 'Konten Home & Hero', icon: <FaHome /> },
+      { to: '/kelola-konten/about', label: 'Konten Tentang Kami', icon: <FaInfoCircle /> },
+      { to: '/layanan', label: 'Layanan', icon: <FaStethoscope /> },
+      { to: '/promo', label: 'Promo', icon: <FaGift /> },
+      { to: '/artikel', label: 'Artikel', icon: <FaRegFileAlt /> },
+    ],
+  },
 ];
 
 const rawSuperAdminMenus = [
@@ -56,6 +68,7 @@ const rawSuperAdminMenus = [
             to: "/master-kelurahan",
             label: "Kelurahan",
             icon: <FaCity />,
+          },
           // Menu Kecamatan ditambahkan di sini agar masuk ke sub-wilayah
           {
             to: "/master-kecamatan",
@@ -145,8 +158,11 @@ export default function Sidebar({ open, onClose, collapsed }) {
   const [isResizing, setIsResizing] = useState(false);
 
   // Accordion states
-  const [masterDataOpen, setMasterDataOpen] = useState(true);
-  const [configOpen, setConfigOpen] = useState(true);
+  const [openGroups, setOpenGroups] = useState({
+    'Kelola Konten': true,
+    'Master Data': true,
+    'Config': true,
+  });
   const [wilayahOpen, setWilayahOpen] = useState(true);
   const [pembayaranOpen, setPembayaranOpen] = useState(true);
 
@@ -243,11 +259,10 @@ export default function Sidebar({ open, onClose, collapsed }) {
           <nav className="flex flex-col gap-0.5 p-2 flex-1 overflow-y-auto overflow-x-hidden">
             {menus.map((item) => {
               if (item.type === 'group') {
-                const isConfigGroup = item.label === 'Config';
-                const isGroupOpen = isConfigGroup ? configOpen : masterDataOpen;
-                const toggleGroupOpen = isConfigGroup
-                  ? () => setConfigOpen((prev) => !prev)
-                  : () => setMasterDataOpen((prev) => !prev);
+                const isGroupOpen = openGroups[item.label] ?? true;
+                const toggleGroupOpen = () => {
+                  setOpenGroups((prev) => ({ ...prev, [item.label]: !prev[item.label] }));
+                };
 
                 return (
                   <div key={item.label} className="flex flex-col">
