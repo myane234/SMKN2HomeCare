@@ -13,6 +13,8 @@ import PageArtikel from './pages/PageArtikel';
 import FormTambahArtikel from './pages/FormTambahArtikel';
 import FormEditArtikel from './pages/FormEditArtikel';
 import PageKelolaKonten from './pages/PageKelolaKonten';
+import PageKelolaKontenHome from './pages/PageKelolaKontenHome';
+import PageKelolaKontenAbout from './pages/PageKelolaKontenAbout';
 import PageNakesRequest from './pages/admin/registerNakes/PageNakesRequest';
 import PageNakesRequestDetail from './pages/admin/RegisterNakes/PageNakesRequestDetail';
 import PageBooking, { PageBookingDetail } from "./pages/admin/PageBooking";
@@ -68,6 +70,9 @@ function App() {
         <Route path="/artikel" element={<ProtectedRoute requiredPath="/artikel"><PageArtikel /></ProtectedRoute>} />
         <Route path="/artikel/tambah" element={<ProtectedRoute requiredPath="/artikel"><FormTambahArtikel /></ProtectedRoute>} />
         <Route path="/artikel/:id/edit" element={<ProtectedRoute requiredPath="/artikel"><FormEditArtikel /></ProtectedRoute>} />
+        <Route path="/kelola-konten" element={<ProtectedRoute requiredPath="/kelola-konten"><PageKelolaKonten /></ProtectedRoute>} />
+        <Route path="/kelola-konten/home" element={<ProtectedRoute requiredPath="/kelola-konten"><PageKelolaKontenHome /></ProtectedRoute>} />
+        <Route path="/kelola-konten/about" element={<ProtectedRoute requiredPath="/kelola-konten"><PageKelolaKontenAbout /></ProtectedRoute>} />
 
         {/* Nakes & Bookings */}
         <Route path="/nakes" element={<ProtectedRoute requiredPath="/nakes"><DataNakes /></ProtectedRoute>} />

@@ -52,7 +52,7 @@ export default function KelolaTierAdmin() {
           {
             id: 2,
             nama_tier: 'Admin',
-            description: 'Akses manajemen konten dan master data standar',
+            description: 'Akses khusus pengelolaan Layanan, Promo, Artikel, dan Dashboard',
             permissions: DEFAULT_TIER_PERMISSIONS['Admin'],
             is_default: true,
           },

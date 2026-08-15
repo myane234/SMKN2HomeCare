@@ -4,3 +4,8 @@ node_modules/
 dist/
 build/
 .env
+API/vendor/
+API/storage/logs/*.log
+API/bootstrap/cache/*.php
+API/.env
+API/database/database.sqlite

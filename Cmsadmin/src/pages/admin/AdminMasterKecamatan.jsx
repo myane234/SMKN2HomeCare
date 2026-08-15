@@ -19,23 +19,23 @@ export default function AdminMasterKecamatan() {
   const [kotaList, setKotaList] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  // State Pagination dari Meta API Laravel
+  // State Pagination
   const [currentPage, setCurrentPage] = useState(1);
   const [lastPage, setLastPage] = useState(1);
   const [totalData, setTotalData] = useState(0);
+  const itemsPerPage = 50;
 
   // State Search & Sort
   const [searchTerm, setSearchTerm] = useState('');
-  const [sortBy, setSortBy] = useState('nama_asc'); // 'nama_asc', 'nama_desc', 'id_asc', 'id_desc'
+  const [sortBy, setSortBy] = useState('nama_asc');
 
   // State Modal (Tambah / Edit)
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isEdit, setIsEdit] = useState(false);
   const [currentId, setCurrentId] = useState(null);
   
-  // Form Input State
+  // Form Input State (ID Kecamatan dihilangkan dari input user)
   const [formData, setFormData] = useState({
-    id_kecamatan: '',
     regency_id: '',
     nama_kecamatan: ''
   });
@@ -56,10 +56,10 @@ export default function AdminMasterKecamatan() {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  // Fetch data otomatis saat halaman, kata kunci pencarian, atau sorting berubah
+  // Trigger saat halaman atau sort berubah
   useEffect(() => {
-    fetchData(currentPage, searchTerm, sortBy);
-  }, [currentPage, searchTerm, sortBy]);
+    fetchData(currentPage, sortBy);
+  }, [currentPage, sortBy]);
 
   // Load master kota/kabupaten untuk pilihan dropdown modal
   useEffect(() => {
@@ -74,14 +74,14 @@ export default function AdminMasterKecamatan() {
     fetchKota();
   }, []);
 
-  const fetchData = async (page = 1, search = '', sort = 'nama_asc') => {
+  const fetchData = async (page = 1, sort = 'nama_asc') => {
     setLoading(true);
     try {
-      const response = await getAllKecamatan(page, search);
+      const response = await getAllKecamatan(page);
       
       let listData = response?.data || response;
       
-      // Sorting data (berdasarkan Nama atau ID)
+      // Sorting data
       if (Array.isArray(listData)) {
         listData.sort((a, b) => {
           if (sort === 'nama_asc') {
@@ -102,10 +102,11 @@ export default function AdminMasterKecamatan() {
 
       setKecamatanList(Array.isArray(listData) ? listData : []);
 
-      if (response?.meta) {
-        setCurrentPage(response.meta.current_page);
-        setLastPage(response.meta.last_page);
-        setTotalData(response.meta.total);
+      const meta = response?.meta || response;
+      if (meta) {
+        if (meta.current_page) setCurrentPage(meta.current_page);
+        if (meta.last_page) setLastPage(meta.last_page);
+        if (meta.total !== undefined) setTotalData(meta.total);
       }
     } catch (err) {
       console.error('Gagal memuat data kecamatan:', err);
@@ -126,10 +127,19 @@ export default function AdminMasterKecamatan() {
     return foundKota ? (foundKota.nama_kota || foundKota.nama) : item.regency_id;
   };
 
+  // Filter pencarian secara real-time
+  const filteredKecamatanList = kecamatanList.filter((item) => {
+    const namaKec = (item.nama_kecamatan || '').toLowerCase();
+    const namaKab = getNamaRegency(item).toLowerCase();
+    const keyword = searchTerm.toLowerCase();
+
+    return namaKec.includes(keyword) || namaKab.includes(keyword);
+  });
+
   // Handler Modal
   const handleOpenAddModal = () => {
     setIsEdit(false);
-    setFormData({ id_kecamatan: '', regency_id: '', nama_kecamatan: '' });
+    setFormData({ regency_id: '', nama_kecamatan: '' });
     setKotaSearch('');
     setIsModalOpen(true);
   };
@@ -138,12 +148,10 @@ export default function AdminMasterKecamatan() {
     setIsEdit(true);
     setCurrentId(item.id_kecamatan);
     setFormData({
-      id_kecamatan: item.id_kecamatan || '',
       regency_id: item.regency_id || '',
       nama_kecamatan: item.nama_kecamatan || ''
     });
 
-    // Cari nama kota berdasarkan regency_id untuk ditampilkan di input combobox
     const foundKota = kotaList.find(
       (kota) => String(kota.id_kota || kota.id) === String(item.regency_id)
     );
@@ -163,7 +171,7 @@ export default function AdminMasterKecamatan() {
         await createKecamatan(formData);
       }
       setIsModalOpen(false);
-      fetchData(currentPage, searchTerm, sortBy);
+      fetchData(currentPage, sortBy);
     } catch (err) {
       alert(`Error: ${err.message || 'Gagal menyimpan data'}`);
     }
@@ -173,14 +181,13 @@ export default function AdminMasterKecamatan() {
     if (window.confirm('Apakah kamu yakin ingin menghapus data kecamatan ini?')) {
       try {
         await deleteKecamatan(idKecamatan);
-        fetchData(currentPage, searchTerm, sortBy);
+        fetchData(currentPage, sortBy);
       } catch (err) {
         alert(`Error: ${err.message || 'Gagal menghapus data'}`);
       }
     }
   };
 
-  // Filter daftar kota sesuai ketikan pada combobox
   const filteredKotaList = kotaList.filter((kota) => {
     const nama = kota.nama_kota || kota.nama || '';
     return nama.toLowerCase().includes(kotaSearch.toLowerCase());
@@ -205,9 +212,8 @@ export default function AdminMasterKecamatan() {
         </button>
       </div>
 
-      {/* Filter Bar (Search & Sort Sesuai Referensi) */}
+      {/* Filter Bar (Search & Sort) */}
       <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-xs mb-6 flex flex-col md:flex-row items-center gap-3">
-        {/* Search Input */}
         <div className="relative flex-1 w-full">
           <FaSearch className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 text-sm" />
           <input
@@ -222,7 +228,6 @@ export default function AdminMasterKecamatan() {
           />
         </div>
 
-        {/* Sort Dropdown dengan Style Persis Gambar */}
         <div className="w-full md:w-auto shrink-0">
           <select
             value={sortBy}
@@ -248,21 +253,20 @@ export default function AdminMasterKecamatan() {
                 <tr className="border-b border-slate-200/80 bg-slate-50/50 text-slate-500 font-semibold uppercase text-xs tracking-wider">
                   <th className="py-4 px-4 sm:px-6 w-16 text-center">NO</th>
                   <th className="py-4 px-4 sm:px-6">NAMA KECAMATAN</th>
-                  <th className="py-4 px-4 sm:px-6">ID KECAMATAN</th>
                   <th className="py-4 px-4 sm:px-6">KOTA / KABUPATEN</th>
                   <th className="py-4 px-4 sm:px-6 text-right">AKSI</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 text-slate-700">
-                {kecamatanList.length === 0 ? (
+                {filteredKecamatanList.length === 0 ? (
                   <tr>
-                    <td colSpan="5" className="text-center py-8 text-slate-400">
+                    <td colSpan="4" className="text-center py-8 text-slate-400">
                       Tidak ada data kecamatan ditemukan.
                     </td>
                   </tr>
                 ) : (
-                  kecamatanList.map((item, index) => {
-                    const rowIndex = (currentPage - 1) * 50 + index + 1;
+                  filteredKecamatanList.map((item, index) => {
+                    const rowIndex = (currentPage - 1) * itemsPerPage + index + 1;
                     const namaKabupaten = getNamaRegency(item);
 
                     return (
@@ -271,7 +275,6 @@ export default function AdminMasterKecamatan() {
                         <td className="py-4 px-4 sm:px-6 font-semibold text-slate-800 uppercase">
                           {item.nama_kecamatan}
                         </td>
-                        <td className="py-4 px-4 sm:px-6 font-medium text-slate-600">{item.id_kecamatan}</td>
                         <td className="py-4 px-4 sm:px-6 font-medium text-slate-600 uppercase">
                           {namaKabupaten}
                         </td>
@@ -304,9 +307,9 @@ export default function AdminMasterKecamatan() {
 
         {/* Footer / Pagination Section */}
         <div className="flex flex-col sm:flex-row items-center justify-between gap-4 p-4 sm:p-5 border-t border-slate-100 bg-white text-xs text-slate-500">
-          <div className="text-center sm:text-left">
+          <div>
             Halaman <span className="font-semibold text-slate-700">{currentPage}</span> dari{' '}
-            <span className="font-semibold text-slate-700">{lastPage}</span> (Total {totalData} Data)
+            <span className="font-semibold text-slate-700">{lastPage}</span>
           </div>
 
           <div className="flex flex-wrap items-center justify-center gap-1">
@@ -318,9 +321,34 @@ export default function AdminMasterKecamatan() {
               ← Sebelumnya
             </button>
 
-            <span className="px-3 py-1.5 font-medium text-slate-700">
-              {currentPage} / {lastPage}
-            </span>
+            {[...Array(lastPage)].map((_, i) => {
+              const pageNum = i + 1;
+              if (
+                pageNum === 1 ||
+                pageNum === lastPage ||
+                (pageNum >= currentPage - 1 && pageNum <= currentPage + 1)
+              ) {
+                return (
+                  <button
+                    key={pageNum}
+                    onClick={() => setCurrentPage(pageNum)}
+                    className={`px-3 py-1.5 border rounded-md font-medium transition-colors shadow-sm ${
+                      currentPage === pageNum
+                        ? 'bg-emerald-600 text-white border-emerald-600'
+                        : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
+                    }`}
+                  >
+                    {pageNum}
+                  </button>
+                );
+              } else if (
+                pageNum === currentPage - 2 ||
+                pageNum === currentPage + 2
+              ) {
+                return <span key={pageNum} className="px-1 text-slate-400">...</span>;
+              }
+              return null;
+            })}
 
             <button
               onClick={() => setCurrentPage((p) => Math.min(lastPage, p + 1))}
@@ -342,21 +370,6 @@ export default function AdminMasterKecamatan() {
             </h2>
 
             <form onSubmit={handleSubmit} className="space-y-4">
-              <div>
-                <label className="block text-xs font-semibold text-slate-600 mb-1">
-                  ID Kecamatan
-                </label>
-                <input
-                  type="text"
-                  required
-                  value={formData.id_kecamatan}
-                  onChange={(e) => setFormData({ ...formData, id_kecamatan: e.target.value })}
-                  disabled={isEdit}
-                  placeholder="Contoh: 3201010"
-                  className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm text-slate-800 focus:outline-none focus:border-blue-500 shadow-sm disabled:bg-slate-100 disabled:text-slate-400"
-                />
-              </div>
-
               <div>
                 <label className="block text-xs font-semibold text-slate-600 mb-1">
                   Nama Kecamatan
@@ -395,7 +408,6 @@ export default function AdminMasterKecamatan() {
                   <FaChevronDown className={`absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs transition-transform pointer-events-none ${isKotaOpen ? 'rotate-180' : ''}`} />
                 </div>
 
-                {/* Dropdown List Hasil Filter */}
                 {isKotaOpen && (
                   <div className="absolute z-50 left-0 right-0 mt-1 max-h-48 overflow-y-auto bg-white border border-slate-200 rounded-lg shadow-xl">
                     {filteredKotaList.length === 0 ? (
@@ -423,15 +435,6 @@ export default function AdminMasterKecamatan() {
                     )}
                   </div>
                 )}
-                
-                {/* Hidden Input untuk Validasi HTML5 'required' */}
-                <input
-                  type="text"
-                  required
-                  value={formData.regency_id}
-                  onChange={() => {}}
-                  className="opacity-0 absolute -bottom-2 h-0 w-0 pointer-events-none"
-                />
               </div>
 
               <div className="flex flex-col-reverse sm:flex-row justify-end gap-2 pt-4 border-t border-slate-100 mt-6">

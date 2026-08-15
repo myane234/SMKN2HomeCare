@@ -35,13 +35,13 @@ export default function AdminDashboard() {
   // 🔹 Hitung Statistik Akurat
   const totalActiveNakes = activeNakes.length;
   
-  const pendingCount = requests.filter((item) => {
-    const s = String(item.status || 'pending').toLowerCase();
+  const pendingCount = (Array.isArray(requests) ? requests : []).filter((item) => {
+    const s = String(item?.status || 'pending').toLowerCase();
     return s === 'pending';
   }).length;
 
-  const pelatihanCount = requests.filter((item) => {
-    const s = String(item.status || '').toLowerCase();
+  const pelatihanCount = (Array.isArray(requests) ? requests : []).filter((item) => {
+    const s = String(item?.status || '').toLowerCase();
     return s === 'pelatihan';
   }).length;
 
