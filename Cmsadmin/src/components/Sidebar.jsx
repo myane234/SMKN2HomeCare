@@ -1,3 +1,4 @@
+// src/components/Sidebar.jsx
 import { NavLink } from 'react-router-dom';
 import { useState, useEffect, useRef, useCallback } from 'react';
 import logo from '../assets/logo.png';
@@ -21,9 +22,7 @@ import {
   FaWallet,
   FaCogs,
   FaBuilding,
-  FaDesktop,
-  FaHome,
-  FaInfoCircle
+  FaMap, 
 } from 'react-icons/fa';
 
 const rawMenuItems = [
@@ -74,7 +73,13 @@ const rawSuperAdminMenus = [
           {
             to: "/master-kecamatan",
             label: "Kecamatan",
-            icon: <FaBuilding />, // Atau icon lain yang diinginkan
+            icon: <FaBuilding />,
+          },
+          // TAMBAHKAN MENU KELURAHAN DI SINI
+          {
+            to: "/master-kelurahan",
+            label: "Kelurahan",
+            icon: <FaMap />,
           },
         ],
       },
