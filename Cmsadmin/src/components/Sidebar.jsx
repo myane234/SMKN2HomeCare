@@ -57,6 +57,7 @@ const rawSuperAdminMenus = [
             label: "Kelurahan",
             icon: <FaCity />,
           // Menu Kecamatan ditambahkan di sini agar masuk ke sub-wilayah
+          },
           {
             to: "/master-kecamatan",
             label: "Kecamatan",

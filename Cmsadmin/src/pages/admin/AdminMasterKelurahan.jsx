@@ -4,6 +4,7 @@ import {
   createKelurahan,
   updateKelurahan,
   deleteKelurahan,
+  getAllKecamatan, // 1. Import function to fetch kecamatan
 } from '../../data/wilayahLayananData';
 import {
   FaSearch,
@@ -39,15 +40,23 @@ export default function AdminMasterKelurahan() {
     fetchData();
   }, []);
 
+  // 2. Fetch both Kelurahan and Kecamatan in parallel
   const fetchData = async () => {
     setLoading(true);
     try {
-      const resKelurahan = await getAllKelurahan().catch((err) => {
-        console.error('Gagal mengambil kelurahan:', err);
-        return [];
-      });
+      const [resKelurahan, resKecamatan] = await Promise.all([
+        getAllKelurahan().catch((err) => {
+          console.error('Gagal mengambil kelurahan:', err);
+          return [];
+        }),
+        getAllKecamatan().catch((err) => {
+          console.error('Gagal mengambil kecamatan:', err);
+          return [];
+        }),
+      ]);
 
       setListKelurahan(resKelurahan || []);
+      setListKecamatan(resKecamatan || []);
     } catch (err) {
       console.error('Gagal mengambil data:', err);
     } finally {
@@ -182,7 +191,7 @@ export default function AdminMasterKelurahan() {
         </div>
         <button
           onClick={handleOpenCreateModal}
-          className="flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2.5 rounded-lg text-sm font-semibold transition-all shadow-sm w-full sm:w-auto"
+          className="flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2.5 rounded-lg text-sm font-semibold transition-all shadow-sm w-full sm:w-auto cursor-pointer"
         >
           <FaPlus className="text-xs" />
           <span>Tambah Kelurahan</span>
@@ -229,7 +238,7 @@ export default function AdminMasterKelurahan() {
           </div>
         ) : (
           <>
-            {/* 1. TAMPILAN DESKTOP (Tabel) */}
+            {/* Desktop Table View */}
             <div className="hidden md:block overflow-x-auto">
               <table className="w-full text-left text-sm border-collapse">
                 <thead>
@@ -261,14 +270,14 @@ export default function AdminMasterKelurahan() {
                             <button
                               onClick={() => handleOpenEditModal(item)}
                               title="Edit"
-                              className="p-2 bg-white border border-slate-200 shadow-sm rounded-md text-slate-600 hover:text-emerald-600 hover:bg-emerald-50 transition-colors"
+                              className="p-2 bg-white border border-slate-200 shadow-sm rounded-md text-slate-600 hover:text-emerald-600 hover:bg-emerald-50 transition-colors cursor-pointer"
                             >
                               <FaEdit className="text-sm" />
                             </button>
                             <button
                               onClick={() => handleDelete(idKel)}
                               title="Hapus"
-                              className="p-2 bg-white border border-slate-200 shadow-sm rounded-md text-rose-500 hover:text-white hover:bg-rose-500 transition-colors"
+                              className="p-2 bg-white border border-slate-200 shadow-sm rounded-md text-rose-500 hover:text-white hover:bg-rose-500 transition-colors cursor-pointer"
                             >
                               <FaTrashAlt className="text-sm" />
                             </button>
@@ -281,7 +290,7 @@ export default function AdminMasterKelurahan() {
               </table>
             </div>
 
-            {/* 2. TAMPILAN MOBILE (Kartu / Card List) */}
+            {/* Mobile Card View */}
             <div className="block md:hidden divide-y divide-slate-100">
               {paginatedData.map((item, index) => {
                 const rowIndex = (currentPage - 1) * itemsPerPage + index + 1;
@@ -301,7 +310,6 @@ export default function AdminMasterKelurahan() {
                         </h3>
                       </div>
                       
-                      {/* Action Buttons */}
                       <div className="flex items-center gap-1">
                         <button
                           onClick={() => handleOpenEditModal(item)}
@@ -350,12 +358,11 @@ export default function AdminMasterKelurahan() {
             <button
               onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
               disabled={currentPage === 1}
-              className="px-3 py-1.5 border border-slate-200 rounded-md bg-white hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed font-medium transition-colors shadow-xs"
+              className="px-3 py-1.5 border border-slate-200 rounded-md bg-white hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed font-medium transition-colors shadow-xs cursor-pointer"
             >
               Sebelumnya
             </button>
 
-            {/* Deretan angka disembunyikan di HP biar tidak melebar */}
             <div className="hidden sm:flex items-center gap-1">
               {(() => {
                 const pages = [];
@@ -393,7 +400,7 @@ export default function AdminMasterKelurahan() {
                     <button
                       key={page}
                       onClick={() => setCurrentPage(page)}
-                      className={`w-8 h-8 rounded-md font-medium transition-colors shadow-xs ${
+                      className={`w-8 h-8 rounded-md font-medium transition-colors shadow-xs cursor-pointer ${
                         currentPage === page
                           ? 'bg-emerald-600 text-white border-emerald-600'
                           : 'bg-white border border-slate-200 hover:bg-slate-50 text-slate-700'
@@ -409,7 +416,7 @@ export default function AdminMasterKelurahan() {
             <button
               onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
               disabled={currentPage === totalPages}
-              className="px-3 py-1.5 border border-slate-200 rounded-md bg-white hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed font-medium transition-colors shadow-xs"
+              className="px-3 py-1.5 border border-slate-200 rounded-md bg-white hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed font-medium transition-colors shadow-xs cursor-pointer"
             >
               Selanjutnya
             </button>
@@ -443,19 +450,28 @@ export default function AdminMasterKelurahan() {
                 </div>
               )}
 
-              {/* ID / Kode Kecamatan */}
+              {/* 3. Dropdown Select for Kecamatan */}
               <div>
                 <label className="block text-xs font-semibold text-slate-600 mb-1">
-                  ID Kecamatan
+                  Kecamatan
                 </label>
-                <input
-                  type="text"
+                <select
                   required
                   value={formData.id_kecamatan}
                   onChange={(e) => setFormData({ ...formData, id_kecamatan: e.target.value })}
-                  placeholder="Contoh: 1217090"
-                  className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm text-slate-800 focus:outline-none focus:border-blue-500 shadow-xs"
-                />
+                  className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm text-slate-800 focus:outline-none focus:border-blue-500 shadow-xs cursor-pointer"
+                >
+                  <option value="">-- Pilih Kecamatan --</option>
+                  {listKecamatan.map((kec) => {
+                    const id = kec.id_kecamatan || kec.id;
+                    const nama = kec.nama_kecamatan || kec.nama;
+                    return (
+                      <option key={id} value={id}>
+                        {nama} ({id})
+                      </option>
+                    );
+                  })}
+                </select>
               </div>
 
               {/* Nama Kelurahan */}
@@ -478,13 +494,13 @@ export default function AdminMasterKelurahan() {
                 <button
                   type="button"
                   onClick={() => setIsModalOpen(false)}
-                  className="px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-100 rounded-lg transition-colors"
+                  className="px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-100 rounded-lg transition-colors cursor-pointer"
                 >
                   Batal
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-2 text-sm font-medium bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg shadow-xs transition-colors"
+                  className="px-4 py-2 text-sm font-medium bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg shadow-xs transition-colors cursor-pointer"
                 >
                   Simpan
                 </button>
