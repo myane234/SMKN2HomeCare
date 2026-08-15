@@ -16,6 +16,7 @@ export const ALL_CMS_PAGES = [
   { id: '/layanan', label: 'Layanan', category: 'Konten' },
   { id: '/promo', label: 'Promo', category: 'Konten' },
   { id: '/artikel', label: 'Artikel', category: 'Konten' },
+  { id: '/kelola-konten', label: 'Kelola Konten Web', category: 'Konten' },
   { id: '/master-kategori', label: 'Kategori Artikel/Layanan', category: 'Konten' },
   { id: '/users', label: 'Data Pasien', category: 'Master Data' },
   { id: '/master-provinsi', label: 'Wilayah - Provinsi', category: 'Master Data' },
@@ -37,10 +38,10 @@ export const ALL_CMS_PAGES = [
 export const DEFAULT_TIER_PERMISSIONS = {
   'Super Admin': ['*'],
   'Admin': [
-    '/dashboard', '/layanan', '/promo', '/artikel'
+    '/dashboard', '/layanan', '/promo', '/artikel', '/kelola-konten'
   ],
   'Editor': [
-    '/dashboard', '/layanan', '/promo', '/artikel'
+    '/dashboard', '/layanan', '/promo', '/artikel', '/kelola-konten'
   ]
 };
 
@@ -86,8 +87,8 @@ export function canAccessPath(path, customPermissions = null) {
 
   if (isSuperAdmin()) return true;
 
-  // Admin biasa hanya diizinkan mengakses Dashboard, Layanan, Promo, dan Artikel
-  const adminAllowedPaths = ['/dashboard', '/layanan', '/promo', '/artikel'];
+  // Admin biasa hanya diizinkan mengakses Dashboard, Layanan, Promo, Artikel, dan Kelola Konten
+  const adminAllowedPaths = ['/dashboard', '/layanan', '/promo', '/artikel', '/kelola-konten'];
   const basePath = '/' + path.replace(/^\//, '').split('/')[0];
   
   return adminAllowedPaths.includes(basePath);
