@@ -194,8 +194,8 @@ export default function PageKelolaKonten() {
   if (loading) {
     return (
       <div className="flex h-64 items-center justify-center">
-        <FaSpinner className="animate-spin text-3xl text-blue-600" />
-        <span className="ml-3 text-gray-600 font-medium">Memuat konten...</span>
+        <FaSpinner className="animate-spin text-3xl text-primary" />
+        <span className="ml-3 text-slate-600 font-medium">Memuat konten...</span>
       </div>
     );
   }
@@ -204,18 +204,18 @@ export default function PageKelolaKonten() {
     <div className="p-6 max-w-5xl mx-auto">
       <div className="mb-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-gray-800">Manajemen Konten Web</h1>
-          <p className="text-sm text-gray-500">Kelola gambar banner & teks utama Halaman Home dan Tentang Kami</p>
+          <h1 className="page-title">Manajemen Konten Web</h1>
+          <p className="page-subtitle">Kelola gambar banner & teks utama Halaman Home dan Tentang Kami</p>
         </div>
 
         {/* Tab Selector */}
-        <div className="flex bg-gray-100 p-1 rounded-xl shadow-inner border border-gray-200">
+        <div className="flex bg-slate-100 p-1 rounded-xl shadow-inner border border-slate-200">
           <button
             onClick={() => { setActiveTab('home'); setMessage({ type: '', text: '' }); }}
             className={`flex items-center px-4 py-2 text-sm font-semibold rounded-lg transition-all ${
               activeTab === 'home'
-                ? 'bg-blue-600 text-white shadow-md'
-                : 'text-gray-600 hover:text-gray-900'
+                ? 'bg-primary text-white shadow-sm'
+                : 'text-slate-600 hover:text-slate-900'
             }`}
           >
             <FaHome className="mr-2" /> Home Page
@@ -224,8 +224,8 @@ export default function PageKelolaKonten() {
             onClick={() => { setActiveTab('about'); setMessage({ type: '', text: '' }); }}
             className={`flex items-center px-4 py-2 text-sm font-semibold rounded-lg transition-all ${
               activeTab === 'about'
-                ? 'bg-blue-600 text-white shadow-md'
-                : 'text-gray-600 hover:text-gray-900'
+                ? 'bg-primary text-white shadow-sm'
+                : 'text-slate-600 hover:text-slate-900'
             }`}
           >
             <FaInfoCircle className="mr-2" /> Tentang Kami
@@ -238,8 +238,8 @@ export default function PageKelolaKonten() {
         <div
           className={`mb-6 p-4 rounded-xl text-sm font-medium border ${
             message.type === 'success'
-              ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
-              : 'bg-red-50 text-red-800 border-red-200'
+              ? 'bg-primary-light text-primary-dark border-primary/20'
+              : 'bg-danger-bg text-danger border-danger/20'
           }`}
         >
           {message.text}
@@ -248,27 +248,27 @@ export default function PageKelolaKonten() {
 
       {/* TAB KONTEN HOME */}
       {activeTab === 'home' && (
-        <form onSubmit={handleHomeSubmit} className="bg-white p-6 rounded-2xl shadow-sm border border-gray-200 space-y-8">
-          <h2 className="text-lg font-semibold text-gray-800 border-b border-gray-100 pb-3 flex items-center">
-            <FaHome className="mr-2 text-blue-600" /> Konten Slider Banner Halaman Home
+        <form onSubmit={handleHomeSubmit} className="card p-6 space-y-8">
+          <h2 className="text-base font-semibold text-slate-900 border-b border-slate-200 pb-3 flex items-center gap-2">
+            <FaHome className="text-primary" /> Konten Slider Banner Halaman Home
           </h2>
 
           {/* SLIDE 1 */}
-          <div className="p-5 rounded-xl border border-blue-100 bg-blue-50/30 space-y-4">
-            <div className="flex items-center justify-between border-b border-blue-100 pb-2">
-              <span className="font-bold text-blue-900 text-sm">Banner Slide 1 (Utama)</span>
-              <span className="text-xs bg-blue-100 text-blue-700 font-semibold px-2.5 py-0.5 rounded-full">Slide #1</span>
+          <div className="p-5 rounded-xl border border-slate-200 bg-slate-50/60 space-y-4">
+            <div className="flex items-center justify-between border-b border-slate-200 pb-2.5">
+              <span className="font-semibold text-slate-800 text-sm">Banner Slide 1 (Utama)</span>
+              <span className="text-xs bg-primary-light text-primary-dark font-semibold px-2.5 py-0.5 rounded-full">Slide #1</span>
             </div>
 
             <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-2">Gambar Banner 1</label>
+              <label className="form-label">Gambar Banner 1</label>
               <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
                 {homeBannerPreview ? (
-                  <div className="relative w-48 h-28 rounded-xl overflow-hidden border border-gray-200 bg-gray-50 shadow-sm">
+                  <div className="relative w-48 h-28 rounded-xl overflow-hidden border border-slate-200 bg-white shadow-sm">
                     <img src={homeBannerPreview} alt="Home Banner 1" className="w-full h-full object-cover" />
                   </div>
                 ) : (
-                  <div className="w-48 h-28 rounded-xl border-2 border-dashed border-gray-300 bg-gray-50 flex flex-col items-center justify-center text-gray-400">
+                  <div className="w-48 h-28 rounded-xl border-2 border-dashed border-slate-200 bg-white flex flex-col items-center justify-center text-slate-400">
                     <FaImage size={28} />
                     <span className="text-xs mt-1">Belum ada banner</span>
                   </div>
@@ -282,50 +282,50 @@ export default function PageKelolaKonten() {
                       setHomeBannerPreview(URL.createObjectURL(e.target.files[0]));
                     }
                   }}
-                  className="text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 cursor-pointer"
+                  className="text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-primary-light file:text-primary-dark hover:file:bg-primary-light/80 cursor-pointer"
                 />
               </div>
             </div>
 
             <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-1">Headline Text Slide 1</label>
+              <label className="form-label">Headline Text Slide 1</label>
               <input
                 type="text"
                 value={homeTextBanner}
                 onChange={(e) => setHomeTextBanner(e.target.value)}
                 placeholder="Contoh: Layanan Kesehatan Langsung ke Rumah"
-                className="w-full px-4 py-2.5 rounded-xl border border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-sm transition-all bg-white"
+                className="form-input bg-white"
               />
             </div>
 
             <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-1">Deskripsi Slide 1</label>
+              <label className="form-label">Deskripsi Slide 1</label>
               <textarea
                 rows={3}
                 value={homeDescription}
                 onChange={(e) => setHomeDescription(e.target.value)}
                 placeholder="Tulis deskripsi singkat untuk Slide 1..."
-                className="w-full px-4 py-2.5 rounded-xl border border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-sm transition-all resize-none bg-white"
+                className="form-input resize-none bg-white"
               />
             </div>
           </div>
 
           {/* SLIDE 2 */}
-          <div className="p-5 rounded-xl border border-purple-100 bg-purple-50/30 space-y-4">
-            <div className="flex items-center justify-between border-b border-purple-100 pb-2">
-              <span className="font-bold text-purple-900 text-sm">Banner Slide 2</span>
-              <span className="text-xs bg-purple-100 text-purple-700 font-semibold px-2.5 py-0.5 rounded-full">Slide #2</span>
+          <div className="p-5 rounded-xl border border-slate-200 bg-slate-50/60 space-y-4">
+            <div className="flex items-center justify-between border-b border-slate-200 pb-2.5">
+              <span className="font-semibold text-slate-800 text-sm">Banner Slide 2</span>
+              <span className="text-xs bg-primary-light text-primary-dark font-semibold px-2.5 py-0.5 rounded-full">Slide #2</span>
             </div>
 
             <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-2">Gambar Banner 2</label>
+              <label className="form-label">Gambar Banner 2</label>
               <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
                 {homeBanner2Preview ? (
-                  <div className="relative w-48 h-28 rounded-xl overflow-hidden border border-gray-200 bg-gray-50 shadow-sm">
+                  <div className="relative w-48 h-28 rounded-xl overflow-hidden border border-slate-200 bg-white shadow-sm">
                     <img src={homeBanner2Preview} alt="Home Banner 2" className="w-full h-full object-cover" />
                   </div>
                 ) : (
-                  <div className="w-48 h-28 rounded-xl border-2 border-dashed border-gray-300 bg-gray-50 flex flex-col items-center justify-center text-gray-400">
+                  <div className="w-48 h-28 rounded-xl border-2 border-dashed border-slate-200 bg-white flex flex-col items-center justify-center text-slate-400">
                     <FaImage size={28} />
                     <span className="text-xs mt-1">Belum ada banner</span>
                   </div>
@@ -339,50 +339,50 @@ export default function PageKelolaKonten() {
                       setHomeBanner2Preview(URL.createObjectURL(e.target.files[0]));
                     }
                   }}
-                  className="text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-purple-50 file:text-purple-700 hover:file:bg-purple-100 cursor-pointer"
+                  className="text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-primary-light file:text-primary-dark hover:file:bg-primary-light/80 cursor-pointer"
                 />
               </div>
             </div>
 
             <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-1">Headline Text Slide 2</label>
+              <label className="form-label">Headline Text Slide 2</label>
               <input
                 type="text"
                 value={homeTextBanner2}
                 onChange={(e) => setHomeTextBanner2(e.target.value)}
                 placeholder="Contoh: Tenaga Kesehatan Profesional"
-                className="w-full px-4 py-2.5 rounded-xl border border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-sm transition-all bg-white"
+                className="form-input bg-white"
               />
             </div>
 
             <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-1">Deskripsi Slide 2</label>
+              <label className="form-label">Deskripsi Slide 2</label>
               <textarea
                 rows={3}
                 value={homeDescription2}
                 onChange={(e) => setHomeDescription2(e.target.value)}
                 placeholder="Tulis deskripsi singkat untuk Slide 2..."
-                className="w-full px-4 py-2.5 rounded-xl border border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-sm transition-all resize-none bg-white"
+                className="form-input resize-none bg-white"
               />
             </div>
           </div>
 
           {/* SLIDE 3 */}
-          <div className="p-5 rounded-xl border border-emerald-100 bg-emerald-50/30 space-y-4">
-            <div className="flex items-center justify-between border-b border-emerald-100 pb-2">
-              <span className="font-bold text-emerald-900 text-sm">Banner Slide 3</span>
-              <span className="text-xs bg-emerald-100 text-emerald-700 font-semibold px-2.5 py-0.5 rounded-full">Slide #3</span>
+          <div className="p-5 rounded-xl border border-slate-200 bg-slate-50/60 space-y-4">
+            <div className="flex items-center justify-between border-b border-slate-200 pb-2.5">
+              <span className="font-semibold text-slate-800 text-sm">Banner Slide 3</span>
+              <span className="text-xs bg-primary-light text-primary-dark font-semibold px-2.5 py-0.5 rounded-full">Slide #3</span>
             </div>
 
             <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-2">Gambar Banner 3</label>
+              <label className="form-label">Gambar Banner 3</label>
               <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
                 {homeBanner3Preview ? (
-                  <div className="relative w-48 h-28 rounded-xl overflow-hidden border border-gray-200 bg-gray-50 shadow-sm">
+                  <div className="relative w-48 h-28 rounded-xl overflow-hidden border border-slate-200 bg-white shadow-sm">
                     <img src={homeBanner3Preview} alt="Home Banner 3" className="w-full h-full object-cover" />
                   </div>
                 ) : (
-                  <div className="w-48 h-28 rounded-xl border-2 border-dashed border-gray-300 bg-gray-50 flex flex-col items-center justify-center text-gray-400">
+                  <div className="w-48 h-28 rounded-xl border-2 border-dashed border-slate-200 bg-white flex flex-col items-center justify-center text-slate-400">
                     <FaImage size={28} />
                     <span className="text-xs mt-1">Belum ada banner</span>
                   </div>
@@ -396,144 +396,146 @@ export default function PageKelolaKonten() {
                       setHomeBanner3Preview(URL.createObjectURL(e.target.files[0]));
                     }
                   }}
-                  className="text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-emerald-50 file:text-emerald-700 hover:file:bg-emerald-100 cursor-pointer"
+                  className="text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-primary-light file:text-primary-dark hover:file:bg-primary-light/80 cursor-pointer"
                 />
               </div>
             </div>
 
             <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-1">Headline Text Slide 3</label>
+              <label className="form-label">Headline Text Slide 3</label>
               <input
                 type="text"
                 value={homeTextBanner3}
                 onChange={(e) => setHomeTextBanner3(e.target.value)}
                 placeholder="Contoh: Booking Mudah Kapan Saja"
-                className="w-full px-4 py-2.5 rounded-xl border border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-sm transition-all bg-white"
+                className="form-input bg-white"
               />
             </div>
 
             <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-1">Deskripsi Slide 3</label>
+              <label className="form-label">Deskripsi Slide 3</label>
               <textarea
                 rows={3}
                 value={homeDescription3}
                 onChange={(e) => setHomeDescription3(e.target.value)}
                 placeholder="Tulis deskripsi singkat untuk Slide 3..."
-                className="w-full px-4 py-2.5 rounded-xl border border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-sm transition-all resize-none bg-white"
+                className="form-input resize-none bg-white"
               />
             </div>
           </div>
 
           {/* PROMO SECTION */}
-          <div className="p-5 rounded-xl border border-amber-100 bg-amber-50/30 space-y-4">
-            <div className="border-b border-amber-100 pb-2">
-              <span className="font-bold text-amber-900 text-sm">Pengaturan Konten Promo</span>
+          <div className="p-5 rounded-xl border border-slate-200 bg-slate-50/60 space-y-4">
+            <div className="border-b border-slate-200 pb-2.5">
+              <span className="font-semibold text-slate-800 text-sm">Pengaturan Konten Promo</span>
             </div>
             <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-1">Heading Promo</label>
+              <label className="form-label">Heading Promo</label>
               <input
                 type="text"
                 value={promoHeading}
                 onChange={(e) => setPromoHeading(e.target.value)}
                 placeholder="Contoh: Promo Spesial Kemerdekaan"
-                className="w-full px-4 py-2.5 rounded-xl border border-gray-300 focus:ring-2 focus:ring-amber-500 focus:border-amber-500 outline-none text-sm transition-all bg-white"
+                className="form-input bg-white"
               />
             </div>
             <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-1">Deskripsi / Teks Promo</label>
+              <label className="form-label">Deskripsi / Teks Promo</label>
               <textarea
                 rows={2}
                 value={promoText}
                 onChange={(e) => setPromoText(e.target.value)}
                 placeholder="Diskon spesial hingga 50% untuk layanan tertentu..."
-                className="w-full px-4 py-2.5 rounded-xl border border-gray-300 focus:ring-2 focus:ring-amber-500 focus:border-amber-500 outline-none text-sm transition-all resize-none bg-white"
+                className="form-input resize-none bg-white"
               />
             </div>
           </div>
 
           {/* ARTIKEL SECTION */}
-          <div className="p-5 rounded-xl border border-emerald-100 bg-emerald-50/30 space-y-4">
-            <div className="border-b border-emerald-100 pb-2">
-              <span className="font-bold text-emerald-900 text-sm">Pengaturan Konten Artikel</span>
+          <div className="p-5 rounded-xl border border-slate-200 bg-slate-50/60 space-y-4">
+            <div className="border-b border-slate-200 pb-2.5">
+              <span className="font-semibold text-slate-800 text-sm">Pengaturan Konten Artikel</span>
             </div>
             <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-1">Heading Artikel</label>
+              <label className="form-label">Heading Artikel</label>
               <input
                 type="text"
                 value={artikelHeading}
                 onChange={(e) => setArtikelHeading(e.target.value)}
                 placeholder="Contoh: Artikel & Info Medis"
-                className="w-full px-4 py-2.5 rounded-xl border border-gray-300 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none text-sm transition-all bg-white"
+                className="form-input bg-white"
               />
             </div>
             <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-1">Deskripsi / Teks Artikel</label>
+              <label className="form-label">Deskripsi / Teks Artikel</label>
               <textarea
                 rows={2}
                 value={artikelText}
                 onChange={(e) => setArtikelText(e.target.value)}
                 placeholder="Temukan edukasi kesehatan harian yang disusun oleh dokter..."
-                className="w-full px-4 py-2.5 rounded-xl border border-gray-300 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none text-sm transition-all resize-none bg-white"
+                className="form-input resize-none bg-white"
               />
             </div>
           </div>
 
           {/* LAYANAN SECTION */}
-          <div className="p-5 rounded-xl border border-blue-100 bg-blue-50/30 space-y-4">
-            <div className="border-b border-blue-100 pb-2">
-              <span className="font-bold text-blue-900 text-sm">Pengaturan Konten Layanan</span>
+          <div className="p-5 rounded-xl border border-slate-200 bg-slate-50/60 space-y-4">
+            <div className="border-b border-slate-200 pb-2.5">
+              <span className="font-semibold text-slate-800 text-sm">Pengaturan Konten Layanan</span>
             </div>
             <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-1">Heading Layanan</label>
+              <label className="form-label">Heading Layanan</label>
               <input
                 type="text"
                 value={layananHeading}
                 onChange={(e) => setLayananHeading(e.target.value)}
                 placeholder="Contoh: Layanan Home Care Kami"
-                className="w-full px-4 py-2.5 rounded-xl border border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-sm transition-all bg-white"
+                className="form-input bg-white"
               />
             </div>
             <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-1">Deskripsi / Teks Layanan</label>
+              <label className="form-label">Deskripsi / Teks Layanan</label>
               <textarea
                 rows={2}
                 value={layananText}
                 onChange={(e) => setLayananText(e.target.value)}
                 placeholder="Berbagai opsi layanan fisioterapi, okupasi terapi, dan perawatan medis..."
-                className="w-full px-4 py-2.5 rounded-xl border border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-sm transition-all resize-none bg-white"
+                className="form-input resize-none bg-white"
               />
             </div>
           </div>
 
-          <button
-            type="submit"
-            disabled={saving}
-            className="flex items-center justify-center px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-xl shadow-md transition-all disabled:opacity-50"
-          >
-            {saving ? <FaSpinner className="animate-spin mr-2" /> : <FaSave className="mr-2" />}
-            Simpan Konten Home
-          </button>
+          <div className="pt-2">
+            <button
+              type="submit"
+              disabled={saving}
+              className="btn-primary flex items-center justify-center gap-2 px-6 py-2.5"
+            >
+              {saving ? <FaSpinner className="animate-spin" /> : <FaSave />}
+              Simpan Konten Home
+            </button>
+          </div>
         </form>
       )}
 
       {/* TAB KONTEN TENTANG KAMI */}
       {activeTab === 'about' && (
-        <form onSubmit={handleAboutSubmit} className="bg-white p-6 rounded-2xl shadow-sm border border-gray-200 space-y-6">
-          <h2 className="text-lg font-semibold text-gray-800 border-b border-gray-100 pb-3 flex items-center">
-            <FaInfoCircle className="mr-2 text-blue-600" /> Konten Halaman Tentang Kami
+        <form onSubmit={handleAboutSubmit} className="card p-6 space-y-6">
+          <h2 className="text-base font-semibold text-slate-900 border-b border-slate-200 pb-3 flex items-center gap-2">
+            <FaInfoCircle className="text-primary" /> Konten Halaman Tentang Kami
           </h2>
 
           {/* About Banner Upload */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-2">Banner Header Tentang Kami</label>
+              <label className="form-label">Banner Header Tentang Kami</label>
               <div className="flex flex-col items-start gap-3">
                 {aboutBannerPreview ? (
-                  <div className="w-full h-32 rounded-xl overflow-hidden border border-gray-200 bg-gray-50 shadow-sm">
+                  <div className="w-full h-32 rounded-xl overflow-hidden border border-slate-200 bg-white shadow-sm">
                     <img src={aboutBannerPreview} alt="About Banner" className="w-full h-full object-cover" />
                   </div>
                 ) : (
-                  <div className="w-full h-32 rounded-xl border-2 border-dashed border-gray-300 bg-gray-50 flex flex-col items-center justify-center text-gray-400">
+                  <div className="w-full h-32 rounded-xl border-2 border-dashed border-slate-200 bg-slate-50 flex flex-col items-center justify-center text-slate-400">
                     <FaImage size={28} />
                     <span className="text-xs mt-1">Belum ada gambar</span>
                   </div>
@@ -547,20 +549,20 @@ export default function PageKelolaKonten() {
                       setAboutBannerPreview(URL.createObjectURL(e.target.files[0]));
                     }
                   }}
-                  className="text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 cursor-pointer"
+                  className="text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-primary-light file:text-primary-dark hover:file:bg-primary-light/80 cursor-pointer"
                 />
               </div>
             </div>
 
             <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-2">Foto Deskripsi About Us</label>
+              <label className="form-label">Foto Deskripsi About Us</label>
               <div className="flex flex-col items-start gap-3">
                 {aboutDescImagePreview ? (
-                  <div className="w-full h-32 rounded-xl overflow-hidden border border-gray-200 bg-gray-50 shadow-sm">
+                  <div className="w-full h-32 rounded-xl overflow-hidden border border-slate-200 bg-white shadow-sm">
                     <img src={aboutDescImagePreview} alt="About Description" className="w-full h-full object-cover" />
                   </div>
                 ) : (
-                  <div className="w-full h-32 rounded-xl border-2 border-dashed border-gray-300 bg-gray-50 flex flex-col items-center justify-center text-gray-400">
+                  <div className="w-full h-32 rounded-xl border-2 border-dashed border-slate-200 bg-slate-50 flex flex-col items-center justify-center text-slate-400">
                     <FaImage size={28} />
                     <span className="text-xs mt-1">Belum ada foto deskripsi</span>
                   </div>
@@ -574,7 +576,7 @@ export default function PageKelolaKonten() {
                       setAboutDescImagePreview(URL.createObjectURL(e.target.files[0]));
                     }
                   }}
-                  className="text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 cursor-pointer"
+                  className="text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-primary-light file:text-primary-dark hover:file:bg-primary-light/80 cursor-pointer"
                 />
               </div>
             </div>
@@ -583,82 +585,85 @@ export default function PageKelolaKonten() {
           {/* Text Fields Grid */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-2">Text Banner Header</label>
+              <label className="form-label">Text Banner Header</label>
               <input
                 type="text"
                 value={aboutTextBanner}
                 onChange={(e) => setAboutTextBanner(e.target.value)}
                 placeholder="Contoh: Kenali Kami Lebih Dekat"
-                className="w-full px-4 py-2.5 rounded-xl border border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-sm transition-all"
+                className="form-input"
               />
             </div>
 
             <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-2">Deskripsi Utama SmartHomeCare</label>
+              <label className="form-label">Deskripsi Utama SmartHomeCare</label>
               <textarea
                 rows={3}
                 value={aboutDescriptionText}
                 onChange={(e) => setAboutDescriptionText(e.target.value)}
                 placeholder="Tulis deskripsi sejarah/pendirian SmartHomeCare..."
-                className="w-full px-4 py-2.5 rounded-xl border border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-sm transition-all resize-none"
+                className="form-input resize-none"
               />
             </div>
 
             <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-2">Visi & Misi</label>
+              <label className="form-label">Visi & Misi</label>
               <textarea
                 rows={3}
                 value={visiMisi}
                 onChange={(e) => setVisiMisi(e.target.value)}
                 placeholder="Tulis visi dan misi perusahaan..."
-                className="w-full px-4 py-2.5 rounded-xl border border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-sm transition-all resize-none"
+                className="form-input resize-none"
               />
             </div>
 
             <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-2">Cara Kerja</label>
+              <label className="form-label">Cara Kerja</label>
               <textarea
                 rows={3}
                 value={caraKerja}
                 onChange={(e) => setCaraKerja(e.target.value)}
                 placeholder="Contoh: 1. Pesan via Web, 2. Nakes Datang..."
-                className="w-full px-4 py-2.5 rounded-xl border border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-sm transition-all resize-none"
+                className="form-input resize-none"
               />
             </div>
 
             <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-2">Wilayah Layanan</label>
+              <label className="form-label">Wilayah Layanan</label>
               <textarea
                 rows={3}
                 value={wilayahLayanan}
                 onChange={(e) => setWilayahLayanan(e.target.value)}
                 placeholder="Contoh: Jakarta, Bogor, Depok, Tangerang, Bekasi..."
-                className="w-full px-4 py-2.5 rounded-xl border border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-sm transition-all resize-none"
+                className="form-input resize-none"
               />
             </div>
 
             <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-2">Komitmen</label>
+              <label className="form-label">Komitmen</label>
               <textarea
                 rows={3}
                 value={komitmen}
                 onChange={(e) => setKomitmen(e.target.value)}
                 placeholder="Tulis komitmen pelayanan kepada pasien..."
-                className="w-full px-4 py-2.5 rounded-xl border border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-sm transition-all resize-none"
+                className="form-input resize-none"
               />
             </div>
           </div>
 
-          <button
-            type="submit"
-            disabled={saving}
-            className="flex items-center justify-center px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-xl shadow-md transition-all disabled:opacity-50"
-          >
-            {saving ? <FaSpinner className="animate-spin mr-2" /> : <FaSave className="mr-2" />}
-            Simpan Konten Tentang Kami
-          </button>
+          <div className="pt-2">
+            <button
+              type="submit"
+              disabled={saving}
+              className="btn-primary flex items-center justify-center gap-2 px-6 py-2.5"
+            >
+              {saving ? <FaSpinner className="animate-spin" /> : <FaSave />}
+              Simpan Konten Tentang Kami
+            </button>
+          </div>
         </form>
       )}
     </div>
   );
 }
+
