@@ -706,33 +706,14 @@ export default function KelolaAdmin() {
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-slate-600 mb-1">Password Baru (Opsional)</label>
-                <div className="relative">
-                  <input
-                    type={showPasswordEdit ? 'text' : 'password'}
-                    placeholder="Kosongkan jika tidak ingin mengubah"
-                    value={formData.password}
-                    onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                    className={`w-full px-3.5 py-2.5 pr-10 text-sm bg-slate-50 border rounded-xl focus:bg-white focus:outline-none focus:ring-2 transition-all ${
-                      editPasswordTooShort
-                        ? 'border-red-300 focus:ring-red-100 focus:border-red-400'
-                        : 'border-slate-200 focus:ring-primary/20 focus:border-primary'
-                    }`}
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowPasswordEdit((v) => !v)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors"
-                    tabIndex={-1}
-                  >
-                    {showPasswordEdit ? <FaEyeSlash /> : <FaEye />}
-                  </button>
-                </div>
-                {editPasswordTooShort && (
-                  <p className="text-[11px] mt-1 text-red-500 font-medium">
-                    Password minimal {MIN_PASSWORD_LENGTH} karakter (saat ini {formData.password.length})
-                  </p>
-                )}
+                <label className="block text-xs font-semibold text-slate-600 mb-1">Password</label>
+                <input
+                  type="password"
+                  placeholder="Kosongkan jika tidak ingin mengubah"
+                  value={formData.password}
+                  onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                  className="w-full px-3.5 py-2.5 text-sm bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
+                />
               </div>
 
               <div>
