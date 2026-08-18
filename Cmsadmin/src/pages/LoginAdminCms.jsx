@@ -89,13 +89,13 @@ export default function LoginAdminCms() {
           </button>
         </form>
 
-        <p className="mt-5 text-center text-[11px] text-slate-500">
+        {/* <p className="mt-5 text-center text-[11px] text-slate-500">
           Super Admin: admin@gmail.com / faruqganteng<br/>
           Admin: faruq@homecare.com / faruqganteng
-        </p>
+        </p> */}
 
         <div className="mt-6 border-t border-slate-200 pt-5 text-center">
-          {window.location.pathname.includes('super-admin') ? (
+          {/* {window.location.pathname.includes('super-admin') ? (
             <a href="/login" className="text-sm font-medium text-primary hover:underline">
               ← Kembali ke Login Admin Biasa
             </a>
@@ -103,7 +103,11 @@ export default function LoginAdminCms() {
             <a href="/super-admin/login" className="text-sm font-medium text-primary hover:underline">
               Masuk sebagai Super Admin →
             </a>
-          )}
+          )} */}
+
+          {/* <a href="/login" className="text-sm font-medium text-primary hover:underline">
+              ← Login Admin
+            </a> */}
         </div>
       </div>
     </div>

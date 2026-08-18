@@ -46,7 +46,7 @@ function App() {
     <Routes>
       {/* Public routes */}
       <Route path="/login" element={<LoginAdminCms />} />
-      <Route path="/super-admin/login" element={<LoginSuperAdmin />} />
+      {/* <Route path="/super-admin/login" element={<LoginSuperAdmin />} /> */}
       <Route path="/admindashboard" element={<Navigate to="/dashboard" replace />} />
 
       {/* Main Admin/Super Admin App Layout */}

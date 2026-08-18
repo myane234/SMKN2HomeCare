@@ -576,7 +576,7 @@ export default function KelolaAdmin() {
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-slate-600 mb-1">Password Baru (Opsional)</label>
+                <label className="block text-xs font-semibold text-slate-600 mb-1">Password</label>
                 <input
                   type="password"
                   placeholder="Kosongkan jika tidak ingin mengubah"
