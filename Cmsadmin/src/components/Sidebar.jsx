@@ -1,6 +1,6 @@
 // src/components/Sidebar.jsx
 import { NavLink } from 'react-router-dom';
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import logo from '../assets/logo.png';
 import { canAccessPath, isSuperAdmin } from '../utils/role';
 import {
@@ -22,7 +22,9 @@ import {
   FaWallet,
   FaCogs,
   FaBuilding,
-  FaMap, 
+  FaDesktop,
+  FaHome,
+  FaInfoCircle,
 } from 'react-icons/fa';
 
 const rawMenuItems = [
@@ -64,29 +66,21 @@ const rawSuperAdminMenus = [
             icon: <FaCity />,
           },
           {
-            to: "/master-kelurahan",
-            label: "Kelurahan",
-            icon: <FaCity />,
-          },
-          // Menu Kecamatan ditambahkan di sini agar masuk ke sub-wilayah
-          },
-          {
             to: "/master-kecamatan",
             label: "Kecamatan",
             icon: <FaBuilding />,
           },
-          // TAMBAHKAN MENU KELURAHAN DI SINI
           {
             to: "/master-kelurahan",
             label: "Kelurahan",
-            icon: <FaMap />,
+            icon: <FaCity />,
           },
         ],
       },
       { to: '/master-barang', label: 'Stock Barang', icon: <FaChartBar /> },
       { to: '/master-tarif', label: 'Tarif', icon: <FaChartBar /> },
       { to: '/master-komponen-tarif', label: 'Komponen Tarif', icon: <FaChartBar /> },
-      { to: '/master-tarif-transport', label: 'Tarif Transport', icon: <FaChartBar /> },  
+      { to: '/master-tarif-transport', label: 'Tarif Transport', icon: <FaChartBar /> }, 
       { to: '/master-kategori', label: 'Kategori', icon: <FaTags /> },
       {
         type: "subgroup",
@@ -135,12 +129,7 @@ export default function Sidebar({ open, onClose, collapsed }) {
   const filterMenuItems = (items) => {
     return items
       .map((item) => {
-        if (item.type === 'group') {
-          const filteredChildren = filterMenuItems(item.children);
-          if (filteredChildren.length === 0) return null;
-          return { ...item, children: filteredChildren };
-        }
-        if (item.type === 'subgroup') {
+        if (item.type === 'group' || item.type === 'subgroup') {
           const filteredChildren = filterMenuItems(item.children);
           if (filteredChildren.length === 0) return null;
           return { ...item, children: filteredChildren };
@@ -243,7 +232,7 @@ export default function Sidebar({ open, onClose, collapsed }) {
           <div
             className="flex h-16 shrink-0 items-center border-b border-slate-200/80 bg-white/70"
             style={{
-              padding: collapsed ? "0 0 0 0" : "0 16px",
+              padding: collapsed ? "0" : "0 16px",
               justifyContent: collapsed ? "center" : "flex-start",
               transition: "padding 220ms cubic-bezier(0.4,0,0.2,1)",
             }}

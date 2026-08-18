@@ -92,6 +92,9 @@ function App() {
         <Route path="/master-provinsi" element={<ProtectedRoute requiredPath="/master-provinsi"><AdminMasterProvinsi /></ProtectedRoute>} />
         <Route path="/master-kabupaten" element={<ProtectedRoute requiredPath="/master-kabupaten"><AdminMasterkotakabupaten /></ProtectedRoute>} />
         <Route path="/master-kelurahan" element={<ProtectedRoute requiredPath="/master-kelurahan"><AdminMasterKelurahan /></ProtectedRoute>} />
+
+        <Route path="/master-komponen-tarif" element={<ProtectedRoute requiredPath="/master-komponen-tarif"><AdminMasterKomponenTarif /></ProtectedRoute>} />
+<Route path="/master-tarif-transport" element={<ProtectedRoute requiredPath="/master-tarif-transport"><AdminMasterTarifTransport /></ProtectedRoute>} />
         
         <Route path="/master-kategori" element={<ProtectedRoute requiredPath="/master-kategori"><AdminMasterKategori /></ProtectedRoute>} />
         <Route path="/master-metode-pembayaran" element={<ProtectedRoute requiredPath="/master-metode-pembayaran"><AdminMasterMetodePembayaran /></ProtectedRoute>} />
