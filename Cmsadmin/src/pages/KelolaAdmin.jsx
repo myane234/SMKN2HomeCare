@@ -1,7 +1,21 @@
 import { useState, useEffect } from 'react';
 import { URL } from '../utils/getUrl';
 import { getAuthHeaders, getSession } from '../utils/auth';
-import { FaUserPlus, FaSearch, FaEdit, FaTrash, FaUserShield, FaShieldAlt, FaSync } from 'react-icons/fa';
+import Pagination from '../components/pagination';
+import {
+  FaUserPlus,
+  FaSearch,
+  FaEdit,
+  FaTrash,
+  FaUserShield,
+  FaShieldAlt,
+  FaSync,
+  FaEye,
+  FaEyeSlash,
+  FaCheckCircle,
+  FaExclamationTriangle,
+  FaTimes,
+} from 'react-icons/fa';
 
 const DEFAULT_MOCK_ADMINS = [
   {
@@ -30,6 +44,9 @@ const DEFAULT_MOCK_ADMINS = [
   },
 ];
 
+const MIN_PASSWORD_LENGTH = 8;
+const ITEMS_PER_PAGE = 10;
+
 export default function KelolaAdmin() {
   const [admins, setAdmins] = useState([]);
   const [tiers, setTiers] = useState(['Super Admin', 'Admin', 'Editor']);
@@ -37,12 +54,20 @@ export default function KelolaAdmin() {
   const [error, setError] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
   const [filterTier, setFilterTier] = useState('');
+  const [currentPage, setCurrentPage] = useState(1);
 
   // Modal states
   const [showAddModal, setShowAddModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [selectedAdmin, setSelectedAdmin] = useState(null);
   const [submitting, setSubmitting] = useState(false);
+
+  // Password visibility toggles (separate for each modal)
+  const [showPasswordAdd, setShowPasswordAdd] = useState(false);
+  const [showPasswordEdit, setShowPasswordEdit] = useState(false);
+
+  // Interactive toast/alert (replaces window.alert)
+  const [toast, setToast] = useState(null); // { type: 'error' | 'success', message: string }
 
   // Form states
   const [formData, setFormData] = useState({
@@ -56,6 +81,26 @@ export default function KelolaAdmin() {
     fetchAdmins();
     fetchTiers();
   }, []);
+
+  // Auto-dismiss toast after a few seconds
+  useEffect(() => {
+    if (!toast) return;
+    const timer = setTimeout(() => setToast(null), 3500);
+    return () => clearTimeout(timer);
+  }, [toast]);
+
+  // Reset ke halaman 1 setiap kali pencarian atau filter tier berubah
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchQuery, filterTier]);
+
+  function showToast(type, message) {
+    setToast({ type, message });
+  }
+
+  function isPasswordTooShort(password) {
+    return password.length > 0 && password.length < MIN_PASSWORD_LENGTH;
+  }
 
   async function fetchTiers() {
     try {
@@ -169,6 +214,7 @@ export default function KelolaAdmin() {
       password: '',
       tier_admin: tiers[1] || 'Admin',
     });
+    setShowPasswordAdd(false);
     setShowAddModal(true);
   }
 
@@ -180,13 +226,19 @@ export default function KelolaAdmin() {
       password: '',
       tier_admin: admin.tier_admin || 'Admin',
     });
+    setShowPasswordEdit(false);
     setShowEditModal(true);
   }
 
   async function handleAddAdmin(e) {
     e.preventDefault();
     if (!formData.nama_lengkap || !formData.email || !formData.password) {
-      alert('Mohon isi nama lengkap, email, dan password');
+      showToast('error', 'Mohon isi nama lengkap, email, dan password');
+      return;
+    }
+
+    if (formData.password.length < MIN_PASSWORD_LENGTH) {
+      showToast('error', `Password harus terdiri dari minimal ${MIN_PASSWORD_LENGTH} karakter`);
       return;
     }
 
@@ -215,7 +267,7 @@ export default function KelolaAdmin() {
     setAdmins(updated);
     localStorage.setItem('cms_managed_admins', JSON.stringify(updated));
 
-    alert('Admin berhasil ditambahkan');
+    showToast('success', 'Admin berhasil ditambahkan');
     setShowAddModal(false);
     setSubmitting(false);
   }
@@ -223,6 +275,11 @@ export default function KelolaAdmin() {
   async function handleUpdateAdmin(e) {
     e.preventDefault();
     if (!selectedAdmin) return;
+
+    if (formData.password && formData.password.length < MIN_PASSWORD_LENGTH) {
+      showToast('error', `Password harus terdiri dari minimal ${MIN_PASSWORD_LENGTH} karakter`);
+      return;
+    }
 
     setSubmitting(true);
     const id = selectedAdmin.id ?? selectedAdmin.id_admin;
@@ -259,7 +316,7 @@ export default function KelolaAdmin() {
     setAdmins(updated);
     localStorage.setItem('cms_managed_admins', JSON.stringify(updated));
 
-    alert('Admin berhasil diperbarui');
+    showToast('success', 'Admin berhasil diperbarui');
     setShowEditModal(false);
     setSelectedAdmin(null);
     setSubmitting(false);
@@ -278,6 +335,7 @@ export default function KelolaAdmin() {
     const updated = admins.filter((a) => (a.id ?? a.id_admin) !== id);
     setAdmins(updated);
     localStorage.setItem('cms_managed_admins', JSON.stringify(updated));
+    showToast('success', 'Admin berhasil dihapus');
   }
 
   // Filter admins
@@ -292,8 +350,48 @@ export default function KelolaAdmin() {
     return matchesSearch && matchesTier;
   });
 
+  // Pagination
+  const totalPages = Math.ceil(filteredAdmins.length / ITEMS_PER_PAGE);
+  const paginatedAdmins = filteredAdmins.slice(
+    (currentPage - 1) * ITEMS_PER_PAGE,
+    currentPage * ITEMS_PER_PAGE
+  );
+
+  const addPasswordTooShort = isPasswordTooShort(formData.password);
+  const editPasswordTooShort = isPasswordTooShort(formData.password);
+
   return (
     <div className="space-y-6">
+      {/* Interactive Toast/Alert */}
+      {toast && (
+        <div className="fixed top-6 right-6 z-[100] animate-in fade-in slide-in-from-top-4 duration-300">
+          <div
+            className={`flex items-start gap-3 min-w-[300px] max-w-sm px-4 py-3.5 rounded-2xl shadow-lg border ${
+              toast.type === 'error'
+                ? 'bg-red-50 border-red-200 text-red-800'
+                : 'bg-emerald-50 border-emerald-200 text-emerald-800'
+            }`}
+          >
+            <div className="mt-0.5">
+              {toast.type === 'error' ? (
+                <FaExclamationTriangle className="text-red-500" />
+              ) : (
+                <FaCheckCircle className="text-emerald-500" />
+              )}
+            </div>
+            <p className="text-sm font-medium flex-1">{toast.message}</p>
+            <button
+              onClick={() => setToast(null)}
+              className={`p-1 rounded-lg transition-colors ${
+                toast.type === 'error' ? 'hover:bg-red-100' : 'hover:bg-emerald-100'
+              }`}
+            >
+              <FaTimes className="text-xs" />
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
@@ -375,6 +473,7 @@ export default function KelolaAdmin() {
             <table className="w-full text-left border-collapse">
               <thead>
                 <tr className="bg-slate-50/80 border-b border-slate-200/80 text-xs font-semibold text-slate-500 uppercase tracking-wider">
+                  <th className="px-6 py-3.5 w-14">No</th>
                   <th className="px-6 py-3.5">Nama Admin</th>
                   <th className="px-6 py-3.5">Email</th>
                   <th className="px-6 py-3.5">Tier Admin</th>
@@ -382,13 +481,15 @@ export default function KelolaAdmin() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 text-sm">
-                {filteredAdmins.map((admin) => {
+                {paginatedAdmins.map((admin, index) => {
                   const adminId = admin.id ?? admin.id_admin;
                   const nama = admin.nama_lengkap || admin.nama || admin.name || '-';
                   const tier = admin.tier_admin || (admin.roles?.includes('super_admin') ? 'Super Admin' : 'Admin');
+                  const rowNumber = (currentPage - 1) * ITEMS_PER_PAGE + index + 1;
 
                   return (
                     <tr key={adminId} className="hover:bg-slate-50/50 transition-colors">
+                      <td className="px-6 py-4 text-slate-500 font-medium">{rowNumber}</td>
                       <td className="px-6 py-4 font-semibold text-slate-800">
                         <div className="flex items-center gap-3">
                           <div className="w-9 h-9 rounded-xl bg-primary/10 text-primary flex items-center justify-center font-bold text-sm">
@@ -440,6 +541,16 @@ export default function KelolaAdmin() {
             </table>
           </div>
         )}
+
+        {!loading && filteredAdmins.length > 0 && (
+          <div className="px-6 pb-6">
+            <Pagination
+              currentPage={currentPage}
+              totalPages={totalPages}
+              onPageChange={setCurrentPage}
+            />
+          </div>
+        )}
       </div>
 
       {/* Modal Tambah Admin */}
@@ -485,14 +596,33 @@ export default function KelolaAdmin() {
 
               <div>
                 <label className="block text-xs font-semibold text-slate-600 mb-1">Password</label>
-                <input
-                  type="password"
-                  required
-                  placeholder="••••••••"
-                  value={formData.password}
-                  onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                  className="w-full px-3.5 py-2.5 text-sm bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
-                />
+                <div className="relative">
+                  <input
+                    type={showPasswordAdd ? 'text' : 'password'}
+                    required
+                    placeholder="••••••••"
+                    value={formData.password}
+                    onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                    className={`w-full px-3.5 py-2.5 pr-10 text-sm bg-slate-50 border rounded-xl focus:bg-white focus:outline-none focus:ring-2 transition-all ${
+                      addPasswordTooShort
+                        ? 'border-red-300 focus:ring-red-100 focus:border-red-400'
+                        : 'border-slate-200 focus:ring-primary/20 focus:border-primary'
+                    }`}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPasswordAdd((v) => !v)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors"
+                    tabIndex={-1}
+                  >
+                    {showPasswordAdd ? <FaEyeSlash /> : <FaEye />}
+                  </button>
+                </div>
+                <p className={`text-[11px] mt-1 ${addPasswordTooShort ? 'text-red-500 font-medium' : 'text-slate-400'}`}>
+                  {addPasswordTooShort
+                    ? `Password minimal ${MIN_PASSWORD_LENGTH} karakter (saat ini ${formData.password.length})`
+                    : `Minimal ${MIN_PASSWORD_LENGTH} karakter`}
+                </p>
               </div>
 
               <div>
@@ -577,13 +707,32 @@ export default function KelolaAdmin() {
 
               <div>
                 <label className="block text-xs font-semibold text-slate-600 mb-1">Password Baru (Opsional)</label>
-                <input
-                  type="password"
-                  placeholder="Kosongkan jika tidak ingin mengubah"
-                  value={formData.password}
-                  onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                  className="w-full px-3.5 py-2.5 text-sm bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
-                />
+                <div className="relative">
+                  <input
+                    type={showPasswordEdit ? 'text' : 'password'}
+                    placeholder="Kosongkan jika tidak ingin mengubah"
+                    value={formData.password}
+                    onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                    className={`w-full px-3.5 py-2.5 pr-10 text-sm bg-slate-50 border rounded-xl focus:bg-white focus:outline-none focus:ring-2 transition-all ${
+                      editPasswordTooShort
+                        ? 'border-red-300 focus:ring-red-100 focus:border-red-400'
+                        : 'border-slate-200 focus:ring-primary/20 focus:border-primary'
+                    }`}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPasswordEdit((v) => !v)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors"
+                    tabIndex={-1}
+                  >
+                    {showPasswordEdit ? <FaEyeSlash /> : <FaEye />}
+                  </button>
+                </div>
+                {editPasswordTooShort && (
+                  <p className="text-[11px] mt-1 text-red-500 font-medium">
+                    Password minimal {MIN_PASSWORD_LENGTH} karakter (saat ini {formData.password.length})
+                  </p>
+                )}
               </div>
 
               <div>

@@ -142,8 +142,7 @@ export default function Sidebar({ open, onClose, collapsed }) {
       .filter(Boolean);
   };
 
-  const userIsSuper = isSuperAdmin();
-  const menus = filterMenuItems(userIsSuper ? [...rawMenuItems, ...rawSuperAdminMenus] : rawMenuItems);
+  const menus = filterMenuItems([...rawMenuItems, ...rawSuperAdminMenus]);
 
   const [width, setWidth] = useState(() => {
     if (typeof window === "undefined") return DEFAULT_WIDTH;

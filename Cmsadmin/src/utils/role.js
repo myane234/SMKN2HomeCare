@@ -9,44 +9,60 @@ export const ROLES = {
 };
 
 /**
- * Available pages/views configuration list for permission management
+ * Centrally defined list of all CMS views with unique slugs.
  */
-export const ALL_CMS_PAGES = [
-  { id: '/dashboard', label: 'Dashboard', category: 'Umum' },
-  { id: '/layanan', label: 'Layanan', category: 'Konten' },
-  { id: '/promo', label: 'Promo', category: 'Konten' },
-  { id: '/artikel', label: 'Artikel', category: 'Konten' },
-  { id: '/kelola-konten', label: 'Kelola Konten Web', category: 'Konten' },
-  { id: '/master-kategori', label: 'Kategori Artikel/Layanan', category: 'Konten' },
-  { id: '/users', label: 'Data Pasien', category: 'Master Data' },
-  { id: '/master-provinsi', label: 'Wilayah - Provinsi', category: 'Master Data' },
-  { id: '/master-kabupaten', label: 'Wilayah - Kota / Kabupaten', category: 'Master Data' },
-  { id: '/master-barang', label: 'Stock Barang (BHP)', category: 'Master Data' },
-  { id: '/master-tarif', label: 'Tarif Layanan', category: 'Master Data' },
-  { id: '/master-kategori-pembayaran', label: 'Kategori Pembayaran', category: 'Master Data' },
-  { id: '/master-metode-pembayaran', label: 'Metode Pembayaran', category: 'Master Data' },
-  { id: '/nakes', label: 'Data Nakes', category: 'Tenaga Medis' },
-  { id: '/nakes/requests', label: 'Registrasi Nakes', category: 'Tenaga Medis' },
-  { id: '/booking', label: 'Data Booking', category: 'Transaksi' },
-  { id: '/kelola-admin', label: 'Kelola Admin', category: 'Config' },
-  { id: '/tier-admin', label: 'Tier Admin', category: 'Config' },
+export const ALL_CMS_VIEWS = [
+  { slug: 'dashboard', label: 'Dashboard', path: '/dashboard', category: 'Umum' },
+  { slug: 'kelola-konten', label: 'Kelola Konten Web', path: '/kelola-konten', category: 'Konten' },
+  { slug: 'kelola-konten-home', label: 'Konten Home & Hero', path: '/kelola-konten/home', category: 'Konten' },
+  { slug: 'kelola-konten-about', label: 'Konten Tentang Kami', path: '/kelola-konten/about', category: 'Konten' },
+  { slug: 'layanan', label: 'Layanan', path: '/layanan', category: 'Konten' },
+  { slug: 'promo', label: 'Promo', path: '/promo', category: 'Konten' },
+  { slug: 'artikel', label: 'Artikel', path: '/artikel', category: 'Konten' },
+  { slug: 'master-pasien', label: 'Data Pasien', path: '/users', category: 'Master Data' },
+  { slug: 'master-provinsi', label: 'Wilayah - Provinsi', path: '/master-provinsi', category: 'Master Data' },
+  { slug: 'master-kabupaten', label: 'Wilayah - Kota / Kabupaten', path: '/master-kabupaten', category: 'Master Data' },
+  { slug: 'master-kecamatan', label: 'Wilayah - Kecamatan', path: '/master-kecamatan', category: 'Master Data' },
+  { slug: 'master-kelurahan', label: 'Wilayah - Kelurahan', path: '/master-kelurahan', category: 'Master Data' },
+  { slug: 'master-barang', label: 'Stock Barang (BHP)', path: '/master-barang', category: 'Master Data' },
+  { slug: 'master-tarif', label: 'Tarif Layanan', path: '/master-tarif', category: 'Master Data' },
+  { slug: 'master-komponen-tarif', label: 'Komponen Tarif', path: '/master-komponen-tarif', category: 'Master Data' },
+  { slug: 'master-tarif-transport', label: 'Tarif Transport', path: '/master-tarif-transport', category: 'Master Data' },
+  { slug: 'master-kategori', label: 'Kategori Artikel/Layanan', path: '/master-kategori', category: 'Master Data' },
+  { slug: 'master-kategori-pembayaran', label: 'Kategori Pembayaran', path: '/master-kategori-pembayaran', category: 'Master Data' },
+  { slug: 'master-metode-pembayaran', label: 'Metode Pembayaran', path: '/master-metode-pembayaran', category: 'Master Data' },
+  { slug: 'nakes', label: 'Data Nakes', path: '/nakes', category: 'Tenaga Medis' },
+  { slug: 'nakes-requests', label: 'Registrasi Nakes', path: '/nakes/requests', category: 'Tenaga Medis' },
+  { slug: 'booking', label: 'Data Booking', path: '/booking', category: 'Transaksi' },
+  { slug: 'kelola-admin', label: 'Kelola Admin', path: '/kelola-admin', category: 'Config' },
+  { slug: 'tier-admin', label: 'Tier Admin', path: '/tier-admin', category: 'Config' },
 ];
 
+// Alias for backwards compatibility if needed
+export const ALL_CMS_PAGES = ALL_CMS_VIEWS.map(v => ({ id: v.slug, slug: v.slug, label: v.label, category: v.category, path: v.path }));
+
 /**
- * Default permissions map for preset roles/tiers
+ * Default permissions map (using view slugs) for default tiers
  */
 export const DEFAULT_TIER_PERMISSIONS = {
   'Super Admin': ['*'],
+  'super-admin': ['*'],
   'Admin': [
-    '/dashboard', '/layanan', '/promo', '/artikel', '/kelola-konten'
+    'dashboard', 'kelola-konten', 'kelola-konten-home', 'kelola-konten-about', 'layanan', 'promo', 'artikel'
+  ],
+  'admin': [
+    'dashboard', 'kelola-konten', 'kelola-konten-home', 'kelola-konten-about', 'layanan', 'promo', 'artikel'
   ],
   'Editor': [
-    '/dashboard', '/layanan', '/promo', '/artikel', '/kelola-konten'
+    'dashboard', 'layanan', 'promo', 'artikel', 'master-kategori'
+  ],
+  'editor': [
+    'dashboard', 'layanan', 'promo', 'artikel', 'master-kategori'
   ]
 };
 
 /**
- * Mengambil daftar roles dari session.
+ * Get user roles list from session
  */
 export function getUserRoles() {
   const session = getSession();
@@ -58,11 +74,12 @@ export function getUserRoles() {
 }
 
 /**
- * Mengambil Tier Admin user saat ini.
+ * Get active user's tier name or slug
  */
 export function getUserTier() {
   const session = getSession();
   if (!session) return 'Admin';
+  if (session.tier_slug) return session.tier_slug;
   if (session.tier_admin) return session.tier_admin;
   if (session.tier) return session.tier;
   if (hasRole(ROLES.SUPER_ADMIN)) return 'Super Admin';
@@ -74,22 +91,78 @@ export function hasRole(role) {
 }
 
 export function isSuperAdmin() {
-  return hasRole(ROLES.SUPER_ADMIN) || getUserTier() === 'Super Admin';
+  const tier = getUserTier().toLowerCase();
+  return hasRole(ROLES.SUPER_ADMIN) || tier === 'super admin' || tier === 'super-admin';
 }
 
 export function isAdmin() {
   return hasRole(ROLES.ADMIN);
 }
 
-export function canAccessPath(path, customPermissions = null) {
+/**
+ * Get user tier view permission slugs array
+ */
+export function getUserTierPermissions() {
+  const session = getSession();
+  if (!session) return [];
+  if (session.permissions && Array.isArray(session.permissions) && session.permissions.length > 0) {
+    return session.permissions;
+  }
+  
+  // Try fetching custom tiers saved in localStorage
+  try {
+    const raw = localStorage.getItem('cms_custom_tiers');
+    if (raw) {
+      const tiersObj = JSON.parse(raw);
+      const userTier = getUserTier();
+      if (tiersObj[userTier]) return tiersObj[userTier];
+    }
+  } catch {}
+
+  const userTier = getUserTier();
+  return DEFAULT_TIER_PERMISSIONS[userTier] || DEFAULT_TIER_PERMISSIONS['Admin'];
+}
+
+/**
+ * Maps a URL path to its view slug
+ */
+export function getSlugByPath(path) {
+  if (!path) return null;
+  const cleanPath = '/' + path.replace(/^\//, '').trim();
+
+  // Direct match
+  const exact = ALL_CMS_VIEWS.find(v => v.path === cleanPath);
+  if (exact) return exact.slug;
+
+  // Subpath prefix match (e.g. /layanan/tambah -> layanan)
+  const sorted = [...ALL_CMS_VIEWS].sort((a, b) => b.path.length - a.path.length);
+  const match = sorted.find(v => cleanPath.startsWith(v.path));
+  return match ? match.slug : null;
+}
+
+/**
+ * Check if active user has permission for a specific view slug
+ */
+export function canAccessSlug(slug, customPermissions = null) {
   const session = getSession();
   if (!session) return false;
-
   if (isSuperAdmin()) return true;
 
-  // Admin biasa hanya diizinkan mengakses Dashboard, Layanan, Promo, Artikel, dan Kelola Konten
-  const adminAllowedPaths = ['/dashboard', '/layanan', '/promo', '/artikel', '/kelola-konten'];
-  const basePath = '/' + path.replace(/^\//, '').split('/')[0];
-  
-  return adminAllowedPaths.includes(basePath);
+  const userPermissions = customPermissions || getUserTierPermissions();
+  if (userPermissions.includes('*')) return true;
+
+  return userPermissions.includes(slug);
+}
+
+/**
+ * Check if active user can access a specific route path
+ */
+export function canAccessPath(path, customPermissions = null) {
+  if (path === '/dashboard' || path === '/') return true;
+  if (isSuperAdmin()) return true;
+
+  const slug = getSlugByPath(path);
+  if (!slug) return false;
+
+  return canAccessSlug(slug, customPermissions);
 }

@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react';
 import { URL } from '../utils/getUrl';
 import { getAuthHeaders } from '../utils/auth';
-import { ALL_CMS_PAGES, DEFAULT_TIER_PERMISSIONS } from '../utils/role';
-import { FaShieldAlt, FaPlus, FaEdit, FaTrash, FaCheckSquare, FaSquare, FaSync, FaLock } from 'react-icons/fa';
+import { ALL_CMS_VIEWS, DEFAULT_TIER_PERMISSIONS } from '../utils/role';
+import { FaShieldAlt, FaPlus, FaEdit, FaTrash, FaCheckSquare, FaSquare, FaSync, FaLock, FaTag } from 'react-icons/fa';
 
 export default function KelolaTierAdmin() {
   const [tiers, setTiers] = useState([]);
@@ -18,6 +18,7 @@ export default function KelolaTierAdmin() {
   // Form State
   const [formData, setFormData] = useState({
     nama_tier: '',
+    slug: '',
     description: '',
     permissions: [],
   });
@@ -40,28 +41,31 @@ export default function KelolaTierAdmin() {
       if (res.ok && json.data && Array.isArray(json.data) && json.data.length > 0) {
         tierData = json.data;
       } else {
-        // Fallback default tiers
+        // Fallback default tiers if backend has no data yet
         tierData = [
           {
-            id: 1,
+            id_admin_tier: 1,
             nama_tier: 'Super Admin',
-            description: 'Akses penuh ke seluruh halaman dan fitur CMS',
+            slug: 'super-admin',
+            deskripsi: 'Akses penuh ke seluruh halaman dan fitur CMS',
             permissions: ['*'],
-            is_default: true,
+            is_protected: true,
           },
           {
-            id: 2,
+            id_admin_tier: 2,
             nama_tier: 'Admin',
-            description: 'Akses khusus pengelolaan Layanan, Promo, Artikel, dan Dashboard',
+            slug: 'admin',
+            deskripsi: 'Akses pengelolaan Layanan, Promo, Artikel, dan Konten Web',
             permissions: DEFAULT_TIER_PERMISSIONS['Admin'],
-            is_default: true,
+            is_protected: true,
           },
           {
-            id: 3,
+            id_admin_tier: 3,
             nama_tier: 'Editor',
-            description: 'Akses khusus manajemen Layanan, Artikel, dan Kategori Artikel',
+            slug: 'editor',
+            deskripsi: 'Akses manajemen Layanan, Artikel, dan Kategori',
             permissions: DEFAULT_TIER_PERMISSIONS['Editor'],
-            is_default: true,
+            is_protected: false,
           },
         ];
       }
@@ -72,33 +76,37 @@ export default function KelolaTierAdmin() {
       try {
         const tiersObj = {};
         tierData.forEach((t) => {
+          tiersObj[t.slug || t.nama_tier] = t.permissions;
           tiersObj[t.nama_tier] = t.permissions;
         });
         localStorage.setItem('cms_custom_tiers', JSON.stringify(tiersObj));
       } catch {}
-    } catch {
-      // Graceful fallback to default tiers
+    } catch (err) {
+      setError('Gagal memuat data tier dari server. Menggunakan data cadangan.');
       setTiers([
         {
-          id: 1,
+          id_admin_tier: 1,
           nama_tier: 'Super Admin',
-          description: 'Akses penuh ke seluruh halaman dan fitur CMS',
+          slug: 'super-admin',
+          deskripsi: 'Akses penuh ke seluruh halaman dan fitur CMS',
           permissions: ['*'],
-          is_default: true,
+          is_protected: true,
         },
         {
-          id: 2,
+          id_admin_tier: 2,
           nama_tier: 'Admin',
-          description: 'Akses manajemen konten dan master data standar',
+          slug: 'admin',
+          deskripsi: 'Akses manajemen konten dan master data standar',
           permissions: DEFAULT_TIER_PERMISSIONS['Admin'],
-          is_default: true,
+          is_protected: true,
         },
         {
-          id: 3,
+          id_admin_tier: 3,
           nama_tier: 'Editor',
-          description: 'Akses khusus manajemen Layanan, Artikel, dan Kategori Artikel',
+          slug: 'editor',
+          deskripsi: 'Akses khusus manajemen Layanan, Artikel, dan Kategori',
           permissions: DEFAULT_TIER_PERMISSIONS['Editor'],
-          is_default: true,
+          is_protected: false,
         },
       ]);
     } finally {
@@ -109,8 +117,9 @@ export default function KelolaTierAdmin() {
   function handleOpenAddModal() {
     setFormData({
       nama_tier: '',
+      slug: '',
       description: '',
-      permissions: ['/dashboard', '/layanan', '/artikel'],
+      permissions: ['dashboard', 'layanan', 'artikel'],
     });
     setShowAddModal(true);
   }
@@ -119,22 +128,23 @@ export default function KelolaTierAdmin() {
     setSelectedTier(tier);
     setFormData({
       nama_tier: tier.nama_tier || '',
-      description: tier.description || '',
+      slug: tier.slug || '',
+      description: tier.deskripsi || tier.description || '',
       permissions: Array.isArray(tier.permissions) ? tier.permissions : [],
     });
     setShowEditModal(true);
   }
 
-  function togglePermission(pageId) {
+  function togglePermission(viewSlug) {
     setFormData((prev) => {
       const current = prev.permissions.includes('*')
-        ? ALL_CMS_PAGES.map((p) => p.id)
+        ? ALL_CMS_VIEWS.map((v) => v.slug)
         : [...prev.permissions];
 
-      if (current.includes(pageId)) {
-        return { ...prev, permissions: current.filter((id) => id !== pageId) };
+      if (current.includes(viewSlug)) {
+        return { ...prev, permissions: current.filter((s) => s !== viewSlug) };
       } else {
-        return { ...prev, permissions: [...current, pageId] };
+        return { ...prev, permissions: [...current, viewSlug] };
       }
     });
   }
@@ -142,7 +152,7 @@ export default function KelolaTierAdmin() {
   function selectAllPermissions() {
     setFormData((prev) => ({
       ...prev,
-      permissions: ALL_CMS_PAGES.map((p) => p.id),
+      permissions: ALL_CMS_VIEWS.map((v) => v.slug),
     }));
   }
 
@@ -162,10 +172,17 @@ export default function KelolaTierAdmin() {
 
     setSubmitting(true);
     try {
+      const payload = {
+        nama_tier: formData.nama_tier,
+        slug: formData.slug || undefined,
+        deskripsi: formData.description,
+        permissions: formData.permissions,
+      };
+
       const res = await fetch(`${URL}/manage-admin/tiers`, {
         method: 'POST',
         headers: getAuthHeaders({ 'Content-Type': 'application/json', Accept: 'application/json' }),
-        body: JSON.stringify(formData),
+        body: JSON.stringify(payload),
       });
 
       const json = await res.json();
@@ -188,13 +205,20 @@ export default function KelolaTierAdmin() {
     if (!selectedTier) return;
 
     setSubmitting(true);
-    const id = selectedTier.id || selectedTier.nama_tier;
+    const id = selectedTier.id_admin_tier || selectedTier.id || selectedTier.slug || selectedTier.nama_tier;
 
     try {
+      const payload = {
+        nama_tier: formData.nama_tier,
+        slug: formData.slug || undefined,
+        deskripsi: formData.description,
+        permissions: formData.permissions,
+      };
+
       const res = await fetch(`${URL}/manage-admin/tiers/${id}`, {
         method: 'PUT',
         headers: getAuthHeaders({ 'Content-Type': 'application/json', Accept: 'application/json' }),
-        body: JSON.stringify(formData),
+        body: JSON.stringify(payload),
       });
 
       const json = await res.json();
@@ -214,14 +238,14 @@ export default function KelolaTierAdmin() {
   }
 
   async function handleDeleteTier(tier) {
-    if (tier.is_default || ['Super Admin', 'Admin', 'Editor'].includes(tier.nama_tier)) {
+    if (tier.is_protected || ['super-admin', 'admin'].includes((tier.slug || '').toLowerCase())) {
       alert('Tier bawaan sistem tidak dapat dihapus.');
       return;
     }
 
     if (!window.confirm(`Yakin ingin menghapus tier "${tier.nama_tier}"?`)) return;
 
-    const id = tier.id || tier.nama_tier;
+    const id = tier.id_admin_tier || tier.id || tier.slug || tier.nama_tier;
     try {
       const res = await fetch(`${URL}/manage-admin/tiers/${id}`, {
         method: 'DELETE',
@@ -239,10 +263,10 @@ export default function KelolaTierAdmin() {
     }
   }
 
-  // Group pages by category for clean UI in modal
-  const pageCategories = ALL_CMS_PAGES.reduce((acc, page) => {
-    acc[page.category] = acc[page.category] || [];
-    acc[page.category].push(page);
+  // Group views by category for clean UI in modal
+  const viewCategories = ALL_CMS_VIEWS.reduce((acc, view) => {
+    acc[view.category] = acc[view.category] || [];
+    acc[view.category].push(view);
     return acc;
   }, {});
 
@@ -252,10 +276,10 @@ export default function KelolaTierAdmin() {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-slate-800 flex items-center gap-2">
-            <FaShieldAlt className="text-primary" /> Kelola Tier Admin
+            <FaShieldAlt className="text-primary" /> Kelola Tier Admin & Permission Slug
           </h1>
           <p className="text-sm text-slate-500 mt-1">
-            Konfigurasi tingkatan akses admin dan atur hak akses tampilan (view permissions)
+            Atur tingkatan akses admin dan konfigurasi hak akses tampilan (View Permission Slugs)
           </p>
         </div>
 
@@ -264,7 +288,7 @@ export default function KelolaTierAdmin() {
             onClick={fetchTiers}
             className="flex items-center gap-2 px-3 py-2 bg-white border border-slate-200 text-slate-600 rounded-xl hover:bg-slate-50 transition-colors text-sm font-medium shadow-sm"
           >
-            <FaSync className={loading ? 'animate-spin' : ''} /> Refres
+            <FaSync className={loading ? 'animate-spin' : ''} /> Refresh
           </button>
           <button
             onClick={handleOpenAddModal}
@@ -290,13 +314,13 @@ export default function KelolaTierAdmin() {
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {tiers.map((tier) => {
-            const isSuper = tier.nama_tier === 'Super Admin';
+            const isSuper = tier.nama_tier === 'Super Admin' || tier.slug === 'super-admin';
             const isAll = tier.permissions?.includes('*') || isSuper;
-            const allowedCount = isAll ? ALL_CMS_PAGES.length : (tier.permissions?.length || 0);
+            const allowedCount = isAll ? ALL_CMS_VIEWS.length : (tier.permissions?.length || 0);
 
             return (
               <div
-                key={tier.id || tier.nama_tier}
+                key={tier.id_admin_tier || tier.slug || tier.nama_tier}
                 className="bg-white rounded-2xl shadow-sm border border-slate-200/80 p-5 flex flex-col justify-between hover:shadow-md transition-shadow relative overflow-hidden"
               >
                 {isSuper && (
@@ -311,7 +335,7 @@ export default function KelolaTierAdmin() {
                       className={`w-10 h-10 rounded-xl flex items-center justify-center font-bold text-lg ${
                         isSuper
                           ? 'bg-amber-100 text-amber-700'
-                          : tier.nama_tier === 'Editor'
+                          : tier.slug === 'editor'
                           ? 'bg-purple-100 text-purple-700'
                           : 'bg-emerald-100 text-emerald-700'
                       }`}
@@ -319,33 +343,42 @@ export default function KelolaTierAdmin() {
                       <FaShieldAlt />
                     </div>
                     <div>
-                      <h3 className="font-bold text-slate-800 text-base">{tier.nama_tier}</h3>
-                      <span className="text-xs font-semibold text-slate-400">
-                        {allowedCount} / {ALL_CMS_PAGES.length} Halaman Diizinkan
-                      </span>
+                      <h3 className="font-bold text-slate-800 text-base flex items-center gap-2">
+                        {tier.nama_tier}
+                      </h3>
+                      <div className="flex items-center gap-2 mt-0.5">
+                        <span className="inline-flex items-center gap-1 text-[11px] font-mono bg-slate-100 text-slate-600 px-2 py-0.5 rounded-md">
+                          <FaTag className="text-[9px] text-slate-400" /> {tier.slug || 'no-slug'}
+                        </span>
+                        <span className="text-xs font-semibold text-slate-400">
+                          {allowedCount}/{ALL_CMS_VIEWS.length} Views
+                        </span>
+                      </div>
                     </div>
                   </div>
 
                   <p className="text-xs text-slate-500 mb-4 min-h-[36px] line-clamp-2">
-                    {tier.description || 'Tidak ada deskripsi tier.'}
+                    {tier.deskripsi || tier.description || 'Tidak ada deskripsi tier.'}
                   </p>
 
                   <div className="border-t border-slate-100 pt-3">
                     <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-2">
-                      Ringkasan Tampilan Halaman:
+                      View Slugs Permitted:
                     </p>
                     {isAll ? (
                       <span className="inline-block px-2.5 py-1 bg-emerald-50 text-emerald-700 border border-emerald-200 text-xs font-semibold rounded-lg">
-                        Semua Halaman (Super Admin)
+                        Semua View Slugs (*)
                       </span>
                     ) : (
-                      <div className="flex flex-wrap gap-1.5 max-h-24 overflow-y-auto">
-                        {ALL_CMS_PAGES.filter((p) => tier.permissions?.includes(p.id)).map((p) => (
+                      <div className="flex flex-wrap gap-1.5 max-h-28 overflow-y-auto">
+                        {ALL_CMS_VIEWS.filter((v) => tier.permissions?.includes(v.slug)).map((v) => (
                           <span
-                            key={p.id}
-                            className="px-2 py-0.5 bg-slate-100 text-slate-700 text-[11px] font-medium rounded-md"
+                            key={v.slug}
+                            className="px-2 py-0.5 bg-slate-100 text-slate-700 text-[11px] font-medium rounded-md flex items-center gap-1"
+                            title={`Path: ${v.path}`}
                           >
-                            {p.label}
+                            <span className="font-mono text-primary text-[10px]">{v.slug}</span>
+                            <span className="text-slate-400">({v.label})</span>
                           </span>
                         ))}
                       </div>
@@ -354,9 +387,9 @@ export default function KelolaTierAdmin() {
                 </div>
 
                 <div className="mt-5 pt-3 border-t border-slate-100 flex items-center justify-between">
-                  {tier.is_default ? (
+                  {tier.is_protected ? (
                     <span className="text-[11px] font-semibold text-slate-400 flex items-center gap-1">
-                      <FaLock className="text-[10px]" /> Tier Bawaan
+                      <FaLock className="text-[10px]" /> Tier Protected
                     </span>
                   ) : (
                     <span className="text-[11px] font-semibold text-primary">Custom Tier</span>
@@ -369,7 +402,7 @@ export default function KelolaTierAdmin() {
                     >
                       <FaEdit /> Atur Views
                     </button>
-                    {!tier.is_default && !['Super Admin', 'Admin', 'Editor'].includes(tier.nama_tier) && (
+                    {!tier.is_protected && !['super-admin', 'admin'].includes((tier.slug || '').toLowerCase()) && (
                       <button
                         onClick={() => handleDeleteTier(tier)}
                         className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
@@ -403,16 +436,28 @@ export default function KelolaTierAdmin() {
             </div>
 
             <form onSubmit={handleAddTier} className="p-6 overflow-y-auto space-y-5 flex-1">
-              <div>
-                <label className="block text-xs font-semibold text-slate-600 mb-1">Nama Tier Admin</label>
-                <input
-                  type="text"
-                  required
-                  placeholder="Contoh: Manager, Content Creator"
-                  value={formData.nama_tier}
-                  onChange={(e) => setFormData({ ...formData, nama_tier: e.target.value })}
-                  className="w-full px-3.5 py-2.5 text-sm bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
-                />
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-600 mb-1">Nama Tier Admin</label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="Contoh: Finance Manager"
+                    value={formData.nama_tier}
+                    onChange={(e) => setFormData({ ...formData, nama_tier: e.target.value })}
+                    className="w-full px-3.5 py-2.5 text-sm bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-slate-600 mb-1">Tier Slug (Opsional)</label>
+                  <input
+                    type="text"
+                    placeholder="Contoh: finance-manager"
+                    value={formData.slug}
+                    onChange={(e) => setFormData({ ...formData, slug: e.target.value })}
+                    className="w-full px-3.5 py-2.5 text-sm bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all font-mono"
+                  />
+                </div>
               </div>
 
               <div>
@@ -429,7 +474,7 @@ export default function KelolaTierAdmin() {
               <div>
                 <div className="flex items-center justify-between mb-3">
                   <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider">
-                    Atur Hak Akses Halaman (Permissions):
+                    Atur Hak Akses View Slugs (Permissions):
                   </label>
                   <div className="flex items-center gap-2 text-xs">
                     <button
@@ -451,16 +496,16 @@ export default function KelolaTierAdmin() {
                 </div>
 
                 <div className="space-y-4 bg-slate-50 p-4 rounded-xl border border-slate-200/80">
-                  {Object.entries(pageCategories).map(([category, pages]) => (
+                  {Object.entries(viewCategories).map(([category, views]) => (
                     <div key={category} className="space-y-2">
                       <h4 className="text-xs font-bold text-slate-500 uppercase tracking-wider">{category}</h4>
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                        {pages.map((page) => {
-                          const isChecked = formData.permissions.includes('*') || formData.permissions.includes(page.id);
+                        {views.map((view) => {
+                          const isChecked = formData.permissions.includes('*') || formData.permissions.includes(view.slug);
                           return (
                             <div
-                              key={page.id}
-                              onClick={() => togglePermission(page.id)}
+                              key={view.slug}
+                              onClick={() => togglePermission(view.slug)}
                               className={`flex items-center gap-2.5 p-2.5 rounded-xl cursor-pointer transition-all border ${
                                 isChecked
                                   ? 'bg-white border-primary/40 shadow-sm text-slate-800'
@@ -472,7 +517,10 @@ export default function KelolaTierAdmin() {
                               ) : (
                                 <FaSquare className="text-slate-300 text-base shrink-0" />
                               )}
-                              <span className="text-xs font-medium">{page.label}</span>
+                              <div>
+                                <p className="text-xs font-semibold">{view.label}</p>
+                                <p className="text-[10px] font-mono text-slate-400">slug: {view.slug}</p>
+                              </div>
                             </div>
                           );
                         })}
@@ -520,16 +568,28 @@ export default function KelolaTierAdmin() {
             </div>
 
             <form onSubmit={handleUpdateTier} className="p-6 overflow-y-auto space-y-5 flex-1">
-              <div>
-                <label className="block text-xs font-semibold text-slate-600 mb-1">Nama Tier Admin</label>
-                <input
-                  type="text"
-                  required
-                  disabled={selectedTier?.is_default}
-                  value={formData.nama_tier}
-                  onChange={(e) => setFormData({ ...formData, nama_tier: e.target.value })}
-                  className="w-full px-3.5 py-2.5 text-sm bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all disabled:bg-slate-100 disabled:text-slate-500"
-                />
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-600 mb-1">Nama Tier Admin</label>
+                  <input
+                    type="text"
+                    required
+                    disabled={selectedTier?.is_protected}
+                    value={formData.nama_tier}
+                    onChange={(e) => setFormData({ ...formData, nama_tier: e.target.value })}
+                    className="w-full px-3.5 py-2.5 text-sm bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all disabled:bg-slate-100 disabled:text-slate-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-slate-600 mb-1">Tier Slug</label>
+                  <input
+                    type="text"
+                    disabled={selectedTier?.is_protected}
+                    value={formData.slug}
+                    onChange={(e) => setFormData({ ...formData, slug: e.target.value })}
+                    className="w-full px-3.5 py-2.5 text-sm bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all font-mono disabled:bg-slate-100 disabled:text-slate-500"
+                  />
+                </div>
               </div>
 
               <div>
@@ -545,7 +605,7 @@ export default function KelolaTierAdmin() {
               <div>
                 <div className="flex items-center justify-between mb-3">
                   <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider">
-                    Atur Halaman Yang Diizinkan (Views):
+                    Atur View Slugs Yang Diizinkan:
                   </label>
                   <div className="flex items-center gap-2 text-xs">
                     <button
@@ -567,16 +627,16 @@ export default function KelolaTierAdmin() {
                 </div>
 
                 <div className="space-y-4 bg-slate-50 p-4 rounded-xl border border-slate-200/80">
-                  {Object.entries(pageCategories).map(([category, pages]) => (
+                  {Object.entries(viewCategories).map(([category, views]) => (
                     <div key={category} className="space-y-2">
                       <h4 className="text-xs font-bold text-slate-500 uppercase tracking-wider">{category}</h4>
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                        {pages.map((page) => {
-                          const isChecked = formData.permissions.includes('*') || formData.permissions.includes(page.id);
+                        {views.map((view) => {
+                          const isChecked = formData.permissions.includes('*') || formData.permissions.includes(view.slug);
                           return (
                             <div
-                              key={page.id}
-                              onClick={() => togglePermission(page.id)}
+                              key={view.slug}
+                              onClick={() => togglePermission(view.slug)}
                               className={`flex items-center gap-2.5 p-2.5 rounded-xl cursor-pointer transition-all border ${
                                 isChecked
                                   ? 'bg-white border-primary/40 shadow-sm text-slate-800'
@@ -588,7 +648,10 @@ export default function KelolaTierAdmin() {
                               ) : (
                                 <FaSquare className="text-slate-300 text-base shrink-0" />
                               )}
-                              <span className="text-xs font-medium">{page.label}</span>
+                              <div>
+                                <p className="text-xs font-semibold">{view.label}</p>
+                                <p className="text-[10px] font-mono text-slate-400">slug: {view.slug}</p>
+                              </div>
                             </div>
                           );
                         })}
