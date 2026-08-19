@@ -157,13 +157,13 @@ export default function PageNakesRequestDetail() {
     '-';
 
   return (
-    <div className="max-w-5xl mx-auto pb-12 font-sans">
+    <div className="w-full px-4 sm:px-6 lg:px-8 py-6 font-sans">
       {/* Top Header & Actions */}
       <div className="mb-6 flex flex-wrap items-center justify-between gap-4 border-b border-slate-200 pb-4">
         <div className="flex items-center gap-3">
           <button
             onClick={() => navigate(-1)}
-            className="btn-outline btn-sm flex items-center gap-1.5"
+            className="btn-outline btn-sm flex items-center gap-1.5 px-3 py-1.5 border border-slate-300 rounded-lg text-xs font-medium text-slate-700 hover:bg-slate-50"
           >
             ← Kembali
           </button>
@@ -211,9 +211,9 @@ export default function PageNakesRequestDetail() {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
         {/* Left Sidebar */}
-        <div className="space-y-6">
+        <div className="space-y-6 xl:col-span-1">
           <div className="card p-5 text-center bg-white rounded-xl shadow-xs border border-slate-200">
             {profileImg ? (
               <img
@@ -238,7 +238,7 @@ export default function PageNakesRequestDetail() {
             <div className="mt-6 border-t border-slate-100 pt-4 text-left space-y-3 text-xs">
               <div>
                 <span className="text-slate-400 block">Email Terdaftar</span>
-                <span className="font-semibold text-slate-800">{data.email ?? data.user?.email ?? '-'}</span>
+                <span className="font-semibold text-slate-800 break-all">{data.email ?? data.user?.email ?? '-'}</span>
               </div>
               <div>
                 <span className="text-slate-400 block">No. Hp</span>
@@ -290,7 +290,7 @@ export default function PageNakesRequestDetail() {
         </div>
 
         {/* Right Content */}
-        <div className="lg:col-span-2 space-y-6">
+        <div className="space-y-6 xl:col-span-2">
           {/* Data Pribadi & Identitas */}
           <div className="card p-5 bg-white rounded-xl shadow-xs border border-slate-200">
             <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-4 border-b border-slate-100 pb-2">
@@ -358,7 +358,7 @@ export default function PageNakesRequestDetail() {
             <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-4 border-b border-slate-100 pb-2">
               Berkas & Dokumen Persyaratan
             </h3>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
               {[
                 { title: 'Foto STR', url: strUrl },
                 { title: 'Foto SIP', url: sipUrl },

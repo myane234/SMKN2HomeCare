@@ -73,99 +73,108 @@ export default function MetodePembayaranForm({ initialData, onSubmit, submitting
   }
 
   return (
-    <form className="max-w-xl rounded-xl border border-slate-200 bg-white p-5 shadow-sm sm:p-7" onSubmit={handleSubmit}>
-      <h2 className="mb-5 text-lg font-bold text-slate-800">
-        {mode === 'edit' ? 'Edit Metode Pembayaran' : 'Tambah Metode Pembayaran'}
-      </h2>
-
-      <div className="flex flex-col gap-4">
-        {/* Kategori Pembayaran */}
+    <div className="w-full space-y-6 pb-10">
+      <form className="w-full rounded-2xl border border-slate-200 bg-white p-6 sm:p-8 shadow-sm space-y-6" onSubmit={handleSubmit}>
         <div>
-          <label className="mb-1 block text-sm font-medium text-slate-700">
-            Kategori Pembayaran
-          </label>
-          <select
-            name="id_kategori_pembayaran"
-            value={form.id_kategori_pembayaran}
-            onChange={handleChange}
-            className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-emerald-500 focus:outline-none"
-            disabled={loadingKategori}
-          >
-            <option value="">
-              {loadingKategori ? 'Memuat kategori...' : '-- Pilih Kategori Pembayaran --'}
-            </option>
-            {kategoriOptions.map((kat) => (
-              <option key={kat.id} value={kat.id}>
-                {kat.nama}
+          <h2 className="text-base sm:text-lg font-bold text-slate-900">
+            {mode === 'edit' ? 'Edit Metode Pembayaran' : 'Tambah Metode Pembayaran'}
+          </h2>
+          <p className="text-sm text-slate-500 mt-0.5">
+            Silakan lengkapi formulir di bawah ini untuk mengelola metode pembayaran.
+          </p>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 pt-2">
+          {/* Kategori Pembayaran */}
+          <div>
+            <label className="block text-xs font-semibold uppercase tracking-wider text-slate-600 mb-2">
+              Kategori Pembayaran
+            </label>
+            <select
+              name="id_kategori_pembayaran"
+              value={form.id_kategori_pembayaran}
+              onChange={handleChange}
+              className="w-full rounded-xl border border-slate-200 px-4 py-2.5 text-sm text-slate-800 focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 transition-all"
+              disabled={loadingKategori}
+            >
+              <option value="">
+                {loadingKategori ? 'Memuat kategori...' : '-- Pilih Kategori Pembayaran --'}
               </option>
-            ))}
-          </select>
-          {errors.id_kategori_pembayaran && (
-            <span className="mt-1 block text-xs text-rose-500">{errors.id_kategori_pembayaran}</span>
-          )}
+              {kategoriOptions.map((kat) => (
+                <option key={kat.id} value={kat.id}>
+                  {kat.nama}
+                </option>
+              ))}
+            </select>
+            {errors.id_kategori_pembayaran && (
+              <span className="mt-1.5 block text-xs font-medium text-rose-500">{errors.id_kategori_pembayaran}</span>
+            )}
+          </div>
+
+          {/* Nama Metode Pembayaran */}
+          <div>
+            <label className="block text-xs font-semibold uppercase tracking-wider text-slate-600 mb-2">
+              Nama Metode Pembayaran
+            </label>
+            <input
+              type="text"
+              name="nama_metode"
+              value={form.nama_metode}
+              onChange={handleChange}
+              className="w-full rounded-xl border border-slate-200 px-4 py-2.5 text-sm text-slate-800 focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 transition-all"
+              placeholder="Contoh: BCA Transfer, QRIS"
+            />
+            {errors.nama_metode && <span className="mt-1.5 block text-xs font-medium text-rose-500">{errors.nama_metode}</span>}
+          </div>
         </div>
 
-        {/* Nama Metode Pembayaran */}
-        <div>
-          <label className="mb-1 block text-sm font-medium text-slate-700">
-            Nama Metode Pembayaran
-          </label>
-          <input
-            type="text"
-            name="nama_metode"
-            value={form.nama_metode}
-            onChange={handleChange}
-            className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-emerald-500 focus:outline-none"
-            placeholder="Contoh: BCA Transfer, QRIS"
-          />
-          {errors.nama_metode && <span className="mt-1 block text-xs text-rose-500">{errors.nama_metode}</span>}
-        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+          {/* Tipe Potongan */}
+          <div>
+            <label className="block text-xs font-semibold uppercase tracking-wider text-slate-600 mb-2">
+              Tipe Potongan
+            </label>
+            <select
+              name="tipe_potongan"
+              value={form.tipe_potongan}
+              onChange={handleChange}
+              className="w-full rounded-xl border border-slate-200 px-4 py-2.5 text-sm text-slate-800 focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 transition-all"
+            >
+              <option value="nominal">Nominal (Rp)</option>
+              <option value="persen">Persen (%)</option>
+            </select>
+          </div>
 
-        {/* Tipe Potongan */}
-        <div>
-          <label className="mb-1 block text-sm font-medium text-slate-700">
-            Tipe Potongan
-          </label>
-          <select
-            name="tipe_potongan"
-            value={form.tipe_potongan}
-            onChange={handleChange}
-            className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-emerald-500 focus:outline-none"
-          >
-            <option value="nominal">Nominal (Rp)</option>
-            <option value="persen">Persen (%)</option>
-          </select>
-        </div>
-
-        {/* Nilai Potongan */}
-        <div>
-          <label className="mb-1 block text-sm font-medium text-slate-700">
-            Nilai Potongan
-          </label>
-          <input
-            type="number"
-            name="nilai_potongan"
-            value={form.nilai_potongan}
-            onChange={handleChange}
-            className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-emerald-500 focus:outline-none"
-            min="0"
-            placeholder="0"
-          />
+          {/* Nilai Potongan */}
+          <div>
+            <label className="block text-xs font-semibold uppercase tracking-wider text-slate-600 mb-2">
+              Nilai Potongan
+            </label>
+            <input
+              type="number"
+              name="nilai_potongan"
+              value={form.nilai_potongan}
+              onChange={handleChange}
+              className="w-full rounded-xl border border-slate-200 px-4 py-2.5 text-sm text-slate-800 focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 transition-all"
+              min="0"
+              placeholder="0"
+            />
+          </div>
         </div>
 
         {/* Status Aktif */}
         <div>
-          <label className="mb-1 block text-sm font-medium text-slate-700">
+          <label className="block text-xs font-semibold uppercase tracking-wider text-slate-600 mb-2">
             Status Aktif
           </label>
-          <div className="mt-1 flex gap-2.5">
+          <div className="flex gap-3 max-w-sm">
             <button
               type="button"
               className={
-                'flex-1 rounded-lg border px-3 py-2.5 text-[13px] font-semibold transition-all ' +
+                'flex-1 rounded-xl border px-4 py-2.5 text-sm font-semibold transition-all cursor-pointer ' +
                 (form.is_active === true
-                  ? 'border-emerald-500 bg-emerald-50 text-emerald-700'
-                  : 'border-slate-200 bg-white text-slate-500')
+                  ? 'border-emerald-500 bg-emerald-50 text-emerald-700 shadow-sm'
+                  : 'border-slate-200 bg-white text-slate-500 hover:bg-slate-50')
               }
               onClick={() => setForm((prev) => ({ ...prev, is_active: true }))}
             >
@@ -174,10 +183,10 @@ export default function MetodePembayaranForm({ initialData, onSubmit, submitting
             <button
               type="button"
               className={
-                'flex-1 rounded-lg border px-3 py-2.5 text-[13px] font-semibold transition-all ' +
+                'flex-1 rounded-xl border px-4 py-2.5 text-sm font-semibold transition-all cursor-pointer ' +
                 (form.is_active === false
-                  ? 'border-rose-300 bg-rose-50 text-rose-600'
-                  : 'border-slate-200 bg-white text-slate-500')
+                  ? 'border-rose-300 bg-rose-50 text-rose-600 shadow-sm'
+                  : 'border-slate-200 bg-white text-slate-500 hover:bg-slate-50')
               }
               onClick={() => setForm((prev) => ({ ...prev, is_active: false }))}
             >
@@ -185,28 +194,29 @@ export default function MetodePembayaranForm({ initialData, onSubmit, submitting
             </button>
           </div>
         </div>
-      </div>
 
-      <div className="mt-7 flex justify-end gap-2.5 border-t border-slate-200 pt-5">
-        <button
-          type="button"
-          onClick={onCancel}
-          className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-50"
-        >
-          Batal
-        </button>
-        <button
-          type="submit"
-          className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-700 disabled:opacity-50"
-          disabled={submitting}
-        >
-          {submitting
-            ? 'Menyimpan...'
-            : mode === 'edit'
-            ? 'Simpan Perubahan'
-            : 'Tambah Metode'}
-        </button>
-      </div>
-    </form>
+        {/* Tombol Aksi */}
+        <div className="flex items-center justify-end gap-3 pt-6 border-t border-slate-100">
+          <button
+            type="button"
+            onClick={onCancel}
+            className="px-5 py-2.5 rounded-xl border border-slate-200 bg-white text-slate-700 text-sm font-semibold hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-slate-200 transition-all cursor-pointer"
+          >
+            Batal
+          </button>
+          <button
+            type="submit"
+            disabled={submitting}
+            className="px-6 py-2.5 rounded-xl bg-emerald-600 text-white text-sm font-semibold hover:bg-emerald-700 focus:outline-none focus:ring-2 focus:ring-emerald-600/20 transition-all disabled:opacity-50 cursor-pointer shadow-sm"
+          >
+            {submitting
+              ? 'Menyimpan...'
+              : mode === 'edit'
+              ? 'Simpan Perubahan'
+              : 'Tambah Metode'}
+          </button>
+        </div>
+      </form>
+    </div>
   );
 }

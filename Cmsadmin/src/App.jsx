@@ -3,6 +3,7 @@ import LoginAdminCms from './pages/LoginAdminCms';
 import LoginSuperAdmin from './pages/LoginAdminCms';
 import Dashboard from './pages/Dashboard';
 import DataNakes from './pages/admin/DataNakes';
+import AdminProfile from './pages/AdminProfile';
 import PageLayanan from './pages/PageLayanan';
 import PagePromo from './pages/PagePromo';
 import FormTambah from './pages/FormTambah';
@@ -49,9 +50,20 @@ function App() {
       {/* <Route path="/super-admin/login" element={<LoginSuperAdmin />} /> */}
       <Route path="/admindashboard" element={<Navigate to="/dashboard" replace />} />
 
+
+      {/* Pindahkan rute profile ke sini (di luar AdminLayout) */}
+      <Route 
+        path="/profile" 
+        element={
+          <ProtectedRoute requiredPath="/profile">
+            <AdminProfile />
+          </ProtectedRoute>
+        } 
+      />
       {/* Main Admin/Super Admin App Layout */}
       <Route
         element={
+          
           <ProtectedRoute>
             <AdminLayout />
           </ProtectedRoute>
@@ -73,6 +85,7 @@ function App() {
         <Route path="/kelola-konten" element={<ProtectedRoute requiredPath="/kelola-konten"><PageKelolaKonten /></ProtectedRoute>} />
         <Route path="/kelola-konten/home" element={<ProtectedRoute requiredPath="/kelola-konten"><PageKelolaKontenHome /></ProtectedRoute>} />
         <Route path="/kelola-konten/about" element={<ProtectedRoute requiredPath="/kelola-konten"><PageKelolaKontenAbout /></ProtectedRoute>} />
+        <Route path="/profile" element={<ProtectedRoute requiredPath="/profile"><AdminProfile /></ProtectedRoute>} />
 
         {/* Nakes & Bookings */}
         <Route path="/nakes" element={<ProtectedRoute requiredPath="/nakes"><DataNakes /></ProtectedRoute>} />

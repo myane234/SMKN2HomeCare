@@ -110,7 +110,7 @@ const rawSuperAdminMenus = [
   { to: '/booking', label: 'Booking', icon: <FaCalendarCheck /> },
   {
     type: 'group',
-    label: 'Config',
+    label: 'Konfigurasi',
     icon: <FaCogs />,
     children: [
       { to: '/kelola-admin', label: 'Kelola Admin', icon: <FaUserShield /> },
