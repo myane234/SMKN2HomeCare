@@ -220,6 +220,14 @@ function LayananPageContent() {
           <p className="mt-3 mx-auto max-w-3xl text-base leading-7 text-slate-600" style={{ fontFamily: '"Poppins", "Inter", "Segoe UI", sans-serif' }}>
             Temukan layanan kesehatan yang sesuai dengan kebutuhan Anda, dengan pendekatan yang lebih personal dan profesional.
           </p>
+          <div className="mt-6 flex justify-center gap-3">
+            <Link
+              href="/pesan-laynan"
+              className="inline-flex items-center justify-center rounded-full bg-sky-600 px-6 py-3 text-sm font-semibold text-white shadow-md hover:bg-sky-700 transition"
+            >
+              Pesan Layanan Langsung →
+            </Link>
+          </div>
         </div>
 
         {/* Filter Kategori */}

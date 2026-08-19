@@ -125,15 +125,18 @@ export default async function DetailLayanan({ params, searchParams }) {
               {service.durasi_menit} Menit
             </p>
 
-            <Link href={isLoggedIn ? "/booking" : "?showLoginModal=true"}>
-
-              <button className="mt-10 w-full rounded-xl bg-sky-600 py-4 text-lg font-semibold text-white hover:bg-sky-700 cursor-pointer">
-
-                Pesan Sekarang
-
-              </button>
-
-            </Link>
+            <div className="mt-8 flex flex-col sm:flex-row gap-3">
+              <Link href={isLoggedIn ? "/booking" : "?showLoginModal=true"} className="flex-1">
+                <button className="w-full rounded-xl bg-sky-600 py-4 text-lg font-semibold text-white hover:bg-sky-700 cursor-pointer transition">
+                  Pesan Sekarang
+                </button>
+              </Link>
+              <Link href="/pesan-laynan" className="flex-1">
+                <button className="w-full rounded-xl border border-sky-600 py-4 text-lg font-semibold text-sky-600 hover:bg-sky-50 cursor-pointer transition">
+                  Katalog Pesan Layanan
+                </button>
+              </Link>
+            </div>
 
           </div>
 

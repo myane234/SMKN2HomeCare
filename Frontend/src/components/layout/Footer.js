@@ -80,6 +80,12 @@ export default function Footer() {
             </li>
 
             <li>
+              <Link href="/pesan-laynan">
+                Pesan Layanan
+              </Link>
+            </li>
+
+            <li>
               <Link href="/artikel">
                 Artikel
               </Link>
@@ -98,15 +104,25 @@ export default function Footer() {
 
           <ul className="space-y-3 text-gray-600">
 
-            <li>Ibu & Anak</li>
+            <li>
+              <Link href="/pesan-laynan?kategori=Home%20Care">Ibu & Anak</Link>
+            </li>
 
-            <li>Perawatan Luka</li>
+            <li>
+              <Link href="/pesan-laynan?kategori=Perawatan%20Luka">Perawatan Luka</Link>
+            </li>
 
-            <li>Medical Checkup</li>
+            <li>
+              <Link href="/pesan-laynan?kategori=Kesehatan">Medical Checkup</Link>
+            </li>
 
-            <li>Fisioterapi</li>
+            <li>
+              <Link href="/pesan-laynan?kategori=Fisioterapi">Fisioterapi</Link>
+            </li>
 
-            <li>Pemasangan Alat Medis</li>
+            <li>
+              <Link href="/pesan-laynan">Semua Layanan</Link>
+            </li>
 
           </ul>
 
