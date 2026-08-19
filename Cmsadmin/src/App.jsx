@@ -16,6 +16,8 @@ import FormEditArtikel from './pages/FormEditArtikel';
 import PageKelolaKonten from './pages/PageKelolaKonten';
 import PageKelolaKontenHome from './pages/PageKelolaKontenHome';
 import PageKelolaKontenAbout from './pages/PageKelolaKontenAbout';
+import PageKelolaKontenMitra from './pages/PageKelolaKontenMitra';
+import PageKelolaKontenFooter from './pages/PageKelolaKontenFooter';
 import PageNakesRequest from './pages/admin/registerNakes/PageNakesRequest';
 import PageNakesRequestDetail from './pages/admin/RegisterNakes/PageNakesRequestDetail';
 import PageBooking, { PageBookingDetail } from "./pages/admin/PageBooking";
@@ -37,6 +39,15 @@ import AdminMasterKategoriPembayaran from './pages/admin/AdminMasterKategoriPemb
 import AdminMasterKomponenTarif from './pages/admin/AdminMasterKomponenTarif';
 import AdminMasterTarifTransport from './pages/admin/AdminMasterTarifTransport';  
 import AdminMasterKecamatan from './pages/admin/AdminMasterKecamatan';
+
+import PageNotificationTemplates from './pages/PageNotificationTemplates';
+import PageWebSetting from './pages/PageWebSetting';
+import PageAktivitasLog from './pages/PageAktivitasLog';
+import PageSyaratKetentuanPasien from './pages/PageSyaratKetentuanPasien';
+import PageSyaratKetentuanNakes from './pages/PageSyaratKetentuanNakes';
+import PageStatistikArtikel from './pages/PageStatistikArtikel';
+import PageLaporan from './pages/PageLaporan';
+import PageProfileAdmin from './pages/PageProfileAdmin';
 
 import { getUserRoles } from './utils/role';
 
@@ -82,9 +93,11 @@ function App() {
         <Route path="/artikel" element={<ProtectedRoute requiredPath="/artikel"><PageArtikel /></ProtectedRoute>} />
         <Route path="/artikel/tambah" element={<ProtectedRoute requiredPath="/artikel"><FormTambahArtikel /></ProtectedRoute>} />
         <Route path="/artikel/:id/edit" element={<ProtectedRoute requiredPath="/artikel"><FormEditArtikel /></ProtectedRoute>} />
-        <Route path="/kelola-konten" element={<ProtectedRoute requiredPath="/kelola-konten"><PageKelolaKonten /></ProtectedRoute>} />
+        <Route path="/kelola-konten" element={<Navigate to="/kelola-konten/home" replace />} />
         <Route path="/kelola-konten/home" element={<ProtectedRoute requiredPath="/kelola-konten"><PageKelolaKontenHome /></ProtectedRoute>} />
         <Route path="/kelola-konten/about" element={<ProtectedRoute requiredPath="/kelola-konten"><PageKelolaKontenAbout /></ProtectedRoute>} />
+        <Route path="/kelola-konten/mitra" element={<ProtectedRoute requiredPath="/kelola-konten"><PageKelolaKontenMitra /></ProtectedRoute>} />
+        <Route path="/kelola-konten/footer" element={<ProtectedRoute requiredPath="/kelola-konten"><PageKelolaKontenFooter /></ProtectedRoute>} />
         <Route path="/profile" element={<ProtectedRoute requiredPath="/profile"><AdminProfile /></ProtectedRoute>} />
 
         {/* Nakes & Bookings */}
@@ -95,9 +108,17 @@ function App() {
         <Route path="/bookings/:id" element={<ProtectedRoute requiredPath="/booking"><PageBookingDetail /></ProtectedRoute>} />
         <Route path="/users" element={<ProtectedRoute requiredPath="/users"><DataUser /></ProtectedRoute>} />
 
-        {/* Config / Admin & Tier Management */}
+        {/* Config / Admin & Tier Management & Placeholder Pages */}
         <Route path="/kelola-admin" element={<ProtectedRoute requiredPath="/kelola-admin"><KelolaAdmin /></ProtectedRoute>} />
         <Route path="/tier-admin" element={<ProtectedRoute requiredPath="/tier-admin"><KelolaTierAdmin /></ProtectedRoute>} />
+        <Route path="/notification-templates" element={<ProtectedRoute requiredPath="/notification-templates"><PageNotificationTemplates /></ProtectedRoute>} />
+        <Route path="/web-setting" element={<ProtectedRoute requiredPath="/web-setting"><PageWebSetting /></ProtectedRoute>} />
+        <Route path="/aktivitas-log" element={<ProtectedRoute requiredPath="/aktivitas-log"><PageAktivitasLog /></ProtectedRoute>} />
+        <Route path="/syarat-ketentuan-pasien" element={<ProtectedRoute requiredPath="/syarat-ketentuan-pasien"><PageSyaratKetentuanPasien /></ProtectedRoute>} />
+        <Route path="/syarat-ketentuan-nakes" element={<ProtectedRoute requiredPath="/syarat-ketentuan-nakes"><PageSyaratKetentuanNakes /></ProtectedRoute>} />
+        <Route path="/statistik-artikel" element={<ProtectedRoute requiredPath="/statistik-artikel"><PageStatistikArtikel /></ProtectedRoute>} />
+        <Route path="/laporan" element={<ProtectedRoute requiredPath="/laporan"><PageLaporan /></ProtectedRoute>} />
+        <Route path="/profile-admin" element={<ProtectedRoute requiredPath="/profile-admin"><PageProfileAdmin /></ProtectedRoute>} />
         
         {/* Master Data */}
         <Route path="/master-barang" element={<ProtectedRoute requiredPath="/master-barang"><DataBarang /></ProtectedRoute>} />
