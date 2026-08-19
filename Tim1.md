@@ -53,16 +53,16 @@
 ---
 
 ## Gabung Mitra
-- [ ] Banner & Text
-- [ ] Description
+- [x] Banner & Text
+- [x] Description
 
 ## Footeer
-- [ ] Description
-- [ ] Contact
+- [x] Description
+- [x] Contact
 ---
 
 # Notifikasi
-- [ ] Template Notif
+- [x] Template Notif
 
 
 
