@@ -179,173 +179,191 @@ export default function DataMasterTarif() {
 
   if (viewMode === 'add' || viewMode === 'edit') {
     return (
-      <div className="max-w-4xl mx-auto pb-10">
-        <div className="mb-6 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+      <div className="w-full space-y-6 pb-10">
+        <div>
+          <button
+            type="button"
+            onClick={handleBackToList}
+            className="inline-flex items-center gap-2 text-sm font-medium text-slate-500 hover:text-slate-800 transition-colors mb-2 cursor-pointer"
+          >
+            <FaArrowLeft />
+            <span>Kembali ke Master Tarif</span>
+          </button>
+        </div>
+
+        <form onSubmit={handleFormSubmit} className="w-full rounded-2xl border border-slate-200 bg-white p-6 sm:p-8 shadow-sm space-y-6">
           <div>
-            <button
-              type="button"
-              onClick={handleBackToList}
-              className="inline-flex items-center gap-2 text-sm font-medium text-slate-500 hover:text-slate-800 transition-colors mb-2"
-            >
-              <FaArrowLeft />
-              <span>Kembali ke Master Tarif</span>
-            </button>
-            <h1 className="text-2xl font-bold text-slate-900">
+            <h2 className="text-base sm:text-lg font-bold text-slate-900">
               {viewMode === 'add' ? 'Tambah Template Master Tarif' : 'Edit Template Master Tarif'}
-            </h1>
-            <p className="text-sm text-slate-500 mt-1">
+            </h2>
+            <p className="text-sm text-slate-500 mt-0.5">
               Atur skema perhitungan tarif baru untuk tindakan medis atau layanan.
             </p>
           </div>
-        </div>
 
-        <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
-          <form onSubmit={handleFormSubmit} className="space-y-6">
-            <div className="grid grid-cols-1 gap-6">
+          <div className="space-y-6 pt-2">
+            <div>
+              <label className="block text-xs font-semibold uppercase tracking-wider text-slate-600 mb-2">
+                Nama Template Tarif <span className="text-red-500">*</span>
+              </label>
+              <input
+                type="text"
+                required
+                placeholder="Contoh: Tarif Tindakan Medis Standar"
+                className="w-full rounded-xl border border-slate-200 px-4 py-2.5 text-sm text-slate-800 focus:border-green-500 focus:outline-none focus:ring-2 focus:ring-green-500/20 transition-all"
+                value={formNama}
+                onChange={(e) => setFormNama(e.target.value)}
+              />
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1.5">
-                  Nama Template Tarif <span className="text-red-500">*</span>
+                <label className="block text-xs font-semibold uppercase tracking-wider text-slate-600 mb-2">
+                  Layanan <span className="text-red-500">*</span>
                 </label>
-                <input
-                  type="text"
+                <select
+                  className="w-full rounded-xl border border-slate-200 px-4 py-2.5 text-sm text-slate-800 focus:border-green-500 focus:outline-none focus:ring-2 focus:ring-green-500/20 transition-all bg-white"
+                  value={formLayanan}
+                  onChange={(e) => setFormLayanan(e.target.value)}
                   required
-                  placeholder="Contoh: Tarif Tindakan Medis Standar"
-                  className="w-full rounded-lg border border-slate-200 px-4 py-2.5 text-sm focus:border-green-500 focus:ring-2 focus:ring-green-500/20 outline-none transition-all"
-                  value={formNama}
-                  onChange={(e) => setFormNama(e.target.value)}
-                />
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1.5">
-                    Layanan <span className="text-red-500">*</span>
-                  </label>
-                  <select
-                    className="w-full rounded-lg border border-slate-200 px-4 py-2.5 text-sm focus:border-green-500 focus:ring-2 focus:ring-green-500/20 outline-none transition-all bg-white"
-                    value={formLayanan}
-                    onChange={(e) => setFormLayanan(e.target.value)}
-                    required
-                  >
-                    <option value="">Pilih Layanan</option>
-                    {layananList.length > 0 ? (
-                      layananList.map((lay) => (
-                        <option key={lay.id} value={lay.id}>
-                          {lay.nama}
-                        </option>
-                      ))
-                    ) : (
-                      <option disabled>Layanan Kosong</option>
-                    )}
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1.5">
-                    Kota/Kabupaten <span className="text-slate-400">(Opsional / Default Nasional)</span>
-                  </label>
-                  <select
-                    className="w-full rounded-lg border border-slate-200 px-4 py-2.5 text-sm focus:border-green-500 focus:ring-2 focus:ring-green-500/20 outline-none transition-all bg-white"
-                    value={formKota}
-                    onChange={(e) => setFormKota(e.target.value)}
-                  >
-                    <option value="">Nasional / Default</option>
-                    {kotaList.map((kota) => (
-                      <option key={kota.id_kota} value={kota.id_kota}>
-                        {kota.nama_kota}
+                >
+                  <option value="">Pilih Layanan</option>
+                  {layananList.length > 0 ? (
+                    layananList.map((lay) => (
+                      <option key={lay.id} value={lay.id}>
+                        {lay.nama}
                       </option>
-                    ))}
-                  </select>
-                </div>
+                    ))
+                  ) : (
+                    <option disabled>Layanan Kosong</option>
+                  )}
+                </select>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1.5">
-                    Tarif Pasien (Rp) <span className="text-red-500">*</span>
-                  </label>
-                  <div className="relative">
-                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm">Rp</span>
-                    <input
-                      type="text"
-                      required
-                      className="w-full rounded-lg border border-slate-200 pl-10 pr-4 py-2.5 text-sm focus:border-green-500 focus:ring-2 focus:ring-green-500/20 outline-none transition-all bg-slate-50/50"
-                      value={formatDisplayNumber(formTarifPasien)}
-                      onChange={(e) => setFormTarifPasien(e.target.value.replace(/[^0-9]/g, ''))}
-                      placeholder="0"
-                    />
-                  </div>
-                </div>
+              <div>
+                <label className="block text-xs font-semibold uppercase tracking-wider text-slate-600 mb-2">
+                  Kota/Kabupaten <span className="text-slate-400 font-normal lowercase">(opsional / default nasional)</span>
+                </label>
+                <select
+                  className="w-full rounded-xl border border-slate-200 px-4 py-2.5 text-sm text-slate-800 focus:border-green-500 focus:outline-none focus:ring-2 focus:ring-green-500/20 transition-all bg-white"
+                  value={formKota}
+                  onChange={(e) => setFormKota(e.target.value)}
+                >
+                  <option value="">Nasional / Default</option>
+                  {kotaList.map((kota) => (
+                    <option key={kota.id_kota} value={kota.id_kota}>
+                      {kota.nama_kota}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
 
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1.5">
-                    Potongan Hak Nakes (%) <span className="text-red-500">*</span>
-                  </label>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+              <div>
+                <label className="block text-xs font-semibold uppercase tracking-wider text-slate-600 mb-2">
+                  Tarif Pasien (Rp) <span className="text-red-500">*</span>
+                </label>
+                <div className="relative">
+                  <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 text-sm font-medium">Rp</span>
                   <input
-                    type="number"
+                    type="text"
                     required
-                    min="0"
-                    max="100"
-                    className="w-full rounded-lg border border-slate-200 px-4 py-2.5 text-sm focus:border-green-500 focus:ring-2 focus:ring-green-500/20 outline-none transition-all bg-slate-50/50"
-                    value={formPotonganPersenNakes}
-                    onChange={(e) => setFormPotonganPersenNakes(e.target.value)}
-                    placeholder="Contoh: 80"
+                    className="w-full rounded-xl border border-slate-200 pl-11 pr-4 py-2.5 text-sm text-slate-800 focus:border-green-500 focus:outline-none focus:ring-2 focus:ring-green-500/20 transition-all bg-slate-50/50"
+                    value={formatDisplayNumber(formTarifPasien)}
+                    onChange={(e) => setFormTarifPasien(e.target.value.replace(/[^0-9]/g, ''))}
+                    placeholder="0"
                   />
                 </div>
               </div>
 
-              <div className="flex items-center gap-3 bg-slate-50 p-3.5 rounded-lg border border-slate-200">
-                <input
-                  type="checkbox"
-                  id="tarif-status-checkbox"
-                  className="h-4 w-4 rounded border-slate-300 text-green-600 focus:ring-green-500 cursor-pointer"
-                  checked={formActive}
-                  onChange={(e) => setFormActive(e.target.checked)}
-                />
-                <label htmlFor="tarif-status-checkbox" className="text-sm font-semibold text-slate-800 cursor-pointer">
-                  Template Aktif (Bisa digunakan untuk Layanan)
+              <div>
+                <label className="block text-xs font-semibold uppercase tracking-wider text-slate-600 mb-2">
+                  Potongan Hak Nakes (%) <span className="text-red-500">*</span>
                 </label>
+                <input
+                  type="number"
+                  required
+                  min="0"
+                  max="100"
+                  className="w-full rounded-xl border border-slate-200 px-4 py-2.5 text-sm text-slate-800 focus:border-green-500 focus:outline-none focus:ring-2 focus:ring-green-500/20 transition-all bg-slate-50/50"
+                  value={formPotonganPersenNakes}
+                  onChange={(e) => setFormPotonganPersenNakes(e.target.value)}
+                  placeholder="Contoh: 80"
+                />
               </div>
             </div>
 
-            <div className="flex items-center justify-end gap-3 border-t border-slate-100 pt-5">
-              <button 
-                type="button" 
-                onClick={handleBackToList} 
-                className="px-5 py-2.5 text-sm font-medium text-slate-600 border border-slate-200 rounded-lg hover:bg-slate-50 transition-colors"
-              >
-                Batal
-              </button>
-              <button 
-                type="submit" 
-                disabled={isSubmitting} 
-                className="px-5 py-2.5 text-sm font-medium text-white bg-green-600 rounded-lg hover:bg-green-700 shadow-sm shadow-green-600/20 flex items-center gap-2 transition-all disabled:opacity-60"
-              >
-                <FaSave />
-                <span>{isSubmitting ? 'Menyimpan...' : 'Simpan Template Tarif'}</span>
-              </button>
+            <div>
+              <label className="block text-xs font-semibold uppercase tracking-wider text-slate-600 mb-2">
+                Status Aktif
+              </label>
+              <div className="flex gap-3 max-w-sm">
+                <button
+                  type="button"
+                  className={
+                    'flex-1 rounded-xl border px-4 py-2.5 text-sm font-semibold transition-all cursor-pointer ' +
+                    (formActive === true
+                      ? 'border-green-500 bg-green-50 text-green-700 shadow-sm'
+                      : 'border-slate-200 bg-white text-slate-500 hover:bg-slate-50')
+                  }
+                  onClick={() => setFormActive(true)}
+                >
+                  Aktif
+                </button>
+                <button
+                  type="button"
+                  className={
+                    'flex-1 rounded-xl border px-4 py-2.5 text-sm font-semibold transition-all cursor-pointer ' +
+                    (formActive === false
+                      ? 'border-rose-300 bg-rose-50 text-rose-600 shadow-sm'
+                      : 'border-slate-200 bg-white text-slate-500 hover:bg-slate-50')
+                  }
+                  onClick={() => setFormActive(false)}
+                >
+                  Nonaktif
+                </button>
+              </div>
             </div>
-          </form>
-        </div>
+          </div>
+
+          <div className="flex items-center justify-end gap-3 border-t border-slate-100 pt-6">
+            <button 
+              type="button" 
+              onClick={handleBackToList} 
+              className="px-5 py-2.5 rounded-xl border border-slate-200 bg-white text-slate-700 text-sm font-semibold hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-slate-200 transition-all cursor-pointer"
+            >
+              Batal
+            </button>
+            <button 
+              type="submit" 
+              disabled={isSubmitting} 
+              className="px-6 py-2.5 rounded-xl bg-green-600 text-white text-sm font-semibold hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-600/20 transition-all disabled:opacity-50 cursor-pointer shadow-sm flex items-center gap-2"
+            >
+              <FaSave />
+              <span>{isSubmitting ? 'Menyimpan...' : 'Simpan Template Tarif'}</span>
+            </button>
+          </div>
+        </form>
       </div>
     );
   }
 
   return (
-    <div>
-      <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+    <div className="w-full space-y-6 pb-10">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-2xl font-bold text-slate-900 tracking-tight">Master Tarif Blueprint</h1>
           <p className="text-sm text-slate-500 mt-0.5">Kelola skema template perhitungan tarif dan bagi hasil hak nakes.</p>
         </div>
-        <button onClick={handleOpenAddForm} className="inline-flex items-center justify-center gap-2 bg-green-600 hover:bg-green-700 text-white px-4 py-2.5 rounded-lg text-sm font-medium shadow-sm shadow-green-600/20 transition-all">
+        <button onClick={handleOpenAddForm} className="inline-flex items-center justify-center gap-2 bg-green-600 hover:bg-green-700 text-white px-4 py-2.5 rounded-xl text-sm font-medium shadow-sm shadow-green-600/20 transition-all cursor-pointer">
           <FaPlus />
           <span>Tambah Template Tarif</span>
         </button>
       </div>
 
-      <div className="mb-5 flex flex-col gap-4 rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-        <div className="flex items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm text-slate-500 flex-grow">
+      <div className="flex flex-col gap-4 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+        <div className="flex items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm text-slate-500 flex-grow focus-within:border-green-500 focus-within:bg-white focus-within:ring-2 focus-within:ring-green-500/20 transition-all">
           <FaSearch className="text-slate-400" />
           <input
             type="text"
@@ -355,18 +373,18 @@ export default function DataMasterTarif() {
               setCurrentPage(1);
             }}
             placeholder="Cari nama template tarif..."
-            className="w-full bg-transparent outline-none"
+            className="w-full bg-transparent outline-none text-slate-800"
           />
         </div>
       </div>
 
       {errorMsg && (
-        <div className="mb-4 rounded-lg bg-red-50 px-4 py-3 text-sm text-red-600 border border-red-100">
+        <div className="rounded-xl bg-red-50 px-4 py-3 text-sm text-red-600 border border-red-100">
           {errorMsg}
         </div>
       )}
 
-      <div className="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden">
+      <div className="rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden">
         <div className="overflow-x-auto">
           {loading ? (
             <p className="p-10 text-center text-sm text-slate-500">Memuat data master tarif...</p>
@@ -374,20 +392,20 @@ export default function DataMasterTarif() {
             <table className="w-full text-left text-sm border-collapse">
               <thead>
                 <tr className="bg-slate-50 border-b border-slate-200 text-xs font-semibold uppercase tracking-wide text-slate-500">
-                  <th className="px-4 py-3.5">Nama Template / Layanan / Wilayah</th>
-                  <th className="px-4 py-3.5 text-right">Tarif Pasien</th>
-                  <th className="px-4 py-3.5 text-center">Bagi Hasil Nakes</th>
-                  <th className="px-4 py-3.5 text-right">Biaya Admin</th>
-                  <th className="px-4 py-3.5 text-center">PPN</th>
-                  <th className="px-4 py-3.5 text-right">Subtotal</th>
-                  <th className="px-4 py-3.5 text-center">Status</th>
-                  <th className="px-4 py-3.5 text-center w-24">Aksi</th>
+                  <th className="px-5 py-4">Nama Template / Layanan / Wilayah</th>
+                  <th className="px-5 py-4 text-right">Tarif Pasien</th>
+                  <th className="px-5 py-4 text-center">Bagi Hasil Nakes</th>
+                  <th className="px-5 py-4 text-right">Biaya Admin</th>
+                  <th className="px-5 py-4 text-center">PPN</th>
+                  <th className="px-5 py-4 text-right">Subtotal</th>
+                  <th className="px-5 py-4 text-center">Status</th>
+                  <th className="px-5 py-4 text-center w-24">Aksi</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
                 {paginatedData.length === 0 ? (
                   <tr>
-                    <td colSpan="8" className="px-4 py-8 text-center text-sm text-slate-400">
+                    <td colSpan="8" className="px-5 py-8 text-center text-sm text-slate-400">
                       Tidak ada template tarif yang ditemukan.
                     </td>
                   </tr>
@@ -398,10 +416,10 @@ export default function DataMasterTarif() {
                     const idMaster = item.id_master_tarif || item.id;
 
                     return (
-                      <tr key={idMaster} className="hover:bg-slate-50">
-                        <td className="px-4 py-3.5">
+                      <tr key={idMaster} className="hover:bg-slate-50 transition-colors">
+                        <td className="px-5 py-4">
                           <div className="flex items-start gap-3">
-                            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-amber-50 text-amber-600 border border-amber-200 mt-0.5">
+                            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-amber-50 text-amber-600 border border-amber-200 mt-0.5">
                               <FaFileInvoiceDollar className="text-base" />
                             </div>
                             <div>
@@ -416,10 +434,10 @@ export default function DataMasterTarif() {
                             </div>
                           </div>
                         </td>
-                        <td className="px-4 py-3.5 text-right font-medium text-slate-800">
+                        <td className="px-5 py-4 text-right font-medium text-slate-800">
                           {formatRupiah(item.tarif_pasien)}
                         </td>
-                        <td className="px-4 py-3.5 text-center">
+                        <td className="px-5 py-4 text-center">
                           <div className="text-slate-800 font-medium">
                             {item.potongan_persen_nakes}%
                           </div>
@@ -427,33 +445,33 @@ export default function DataMasterTarif() {
                             {item.fee_nakes_nominal ? formatRupiah(item.fee_nakes_nominal) : '-'}
                           </div>
                         </td>
-                        <td className="px-4 py-3.5 text-right font-medium text-slate-800">
+                        <td className="px-5 py-4 text-right font-medium text-slate-800">
                           {formatRupiah(item.total_biaya_admin)}
                         </td>
-                        <td className="px-4 py-3.5 text-center">
+                        <td className="px-5 py-4 text-center">
                           <div className="font-semibold text-slate-700">{item.persen_ppn}%</div>
                           <div className="text-xs text-slate-500">({formatRupiah(item.total_ppn)})</div>
                         </td>
-                        <td className="px-4 py-3.5 text-right font-semibold text-slate-900">
+                        <td className="px-5 py-4 text-right font-semibold text-slate-900">
                           {formatRupiah(item.total_tarif_final || item.subtotal)}
                         </td>
-                        <td className="px-4 py-3.5 text-center">
-                          <span className={`inline-flex rounded-full px-2.5 py-1 text-[11px] font-medium ${item.is_active ? 'bg-green-100 text-green-700' : 'bg-slate-100 text-slate-500'}`}>
+                        <td className="px-5 py-4 text-center">
+                          <span className={`inline-flex rounded-full px-3 py-1 text-xs font-semibold ${item.is_active ? 'bg-green-100 text-green-700' : 'bg-slate-100 text-slate-500'}`}>
                             {item.is_active ? 'Aktif' : 'Nonaktif'}
                           </span>
                         </td>
-                        <td className="px-4 py-3.5 text-center">
+                        <td className="px-5 py-4 text-center">
                           <div className="flex items-center justify-center gap-1.5">
                             <button
                               onClick={() => handleOpenEditForm(item)}
-                              className="p-1.5 text-slate-600 bg-slate-50 border border-slate-200 rounded hover:bg-slate-100 transition-colors"
+                              className="p-2 text-slate-600 bg-slate-50 border border-slate-200 rounded-lg hover:bg-slate-100 transition-colors cursor-pointer"
                               title="Edit Template"
                             >
                               <FaEdit />
                             </button>
                             <button
                               onClick={() => handleDeleteClick(item)}
-                              className="p-1.5 text-red-600 bg-red-50 border border-red-200 rounded hover:bg-red-100 transition-colors"
+                              className="p-2 text-red-600 bg-red-50 border border-red-200 rounded-lg hover:bg-red-100 transition-colors cursor-pointer"
                               title="Hapus Template"
                             >
                               <FaTrash />
@@ -470,7 +488,7 @@ export default function DataMasterTarif() {
         </div>
 
         {!loading && filteredTarif.length > 0 && (
-          <div className="border-t border-slate-200 bg-white px-4 py-3.5 sm:px-6">
+          <div className="border-t border-slate-200 bg-white px-5 py-4">
             <Pagination currentPage={currentPage} totalPages={totalPages} onPageChange={setCurrentPage} />
           </div>
         )}
