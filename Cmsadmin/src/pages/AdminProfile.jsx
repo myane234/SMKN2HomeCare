@@ -2,9 +2,9 @@
 
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { FaArrowLeft } from 'react-icons/fa';
-
-const API_BASE_URL = 'https://citra.faaruq.com'; 
+import { FaArrowLeft, FaKey, FaTimes } from 'react-icons/fa';
+import { getSession } from '../utils/auth';
+import { URL as API_BASE_URL } from '../utils/getUrl';
 
 export default function AdminProfile() {
   const navigate = useNavigate();
@@ -14,6 +14,9 @@ export default function AdminProfile() {
     email: '',
     deskripsi: '',
     role: '',
+  });
+
+  const [passwordData, setPasswordData] = useState({
     currentPassword: '',
     newPassword: '',
     confirmPassword: '',
@@ -22,23 +25,17 @@ export default function AdminProfile() {
   const [selectedFile, setSelectedFile] = useState(null);
   const [loading, setLoading] = useState(false);
   const [fetching, setFetching] = useState(true);
+  
+  // State untuk mengontrol buka/tutup pop-up (modal) ubah password
+  const [isPasswordModalOpen, setIsPasswordModalOpen] = useState(false);
+  const [passwordLoading, setPasswordLoading] = useState(false);
+
   const [successMessage, setSuccessMessage] = useState('');
   const [errorMessage, setErrorMessage] = useState('');
 
-  // Helper ambil dan decode cookie auth_token
   const getToken = () => {
-    try {
-      const value = `; ${document.cookie}`;
-      const parts = value.split(`; auth_token=`);
-      if (parts.length === 2) {
-        const rawToken = parts.pop().split(';').shift();
-        // Decode URL-encoded string (%7C menjadi |)
-        return decodeURIComponent(rawToken);
-      }
-    } catch (e) {
-      return '';
-    }
-    return '';
+    const session = getSession();
+    return session?.token || '';
   };
 
   // 1. GET /api/admin/me
@@ -47,7 +44,7 @@ export default function AdminProfile() {
       try {
         const token = getToken();
 
-        const response = await fetch(`${API_BASE_URL}/api/admin/me`, {
+        const response = await fetch(`${API_BASE_URL}/admin/me`, {
           method: 'GET',
           headers: {
             'Content-Type': 'application/json',
@@ -86,6 +83,11 @@ export default function AdminProfile() {
     setFormData((prev) => ({ ...prev, [name]: value }));
   }
 
+  function handlePasswordChange(e) {
+    const { name, value } = e.target;
+    setPasswordData((prev) => ({ ...prev, [name]: value }));
+  }
+
   function handleFileChange(e) {
     if (e.target.files && e.target.files[0]) {
       setSelectedFile(e.target.files[0]);
@@ -96,7 +98,7 @@ export default function AdminProfile() {
     navigate('/dashboard');
   }
 
-  // 2. Submit Update Profile & Password
+  // 2. Submit Update Profil Utama
   async function handleSubmit(e) {
     e.preventDefault();
     setSuccessMessage('');
@@ -106,7 +108,6 @@ export default function AdminProfile() {
     try {
       const token = getToken();
 
-      // A. POST /api/admin/profile (Tanpa csrf-cookie, murni pakai Bearer Token)
       const profileData = new FormData();
       profileData.append('nama_lengkap', formData.name);
       profileData.append('email', formData.email);
@@ -117,7 +118,7 @@ export default function AdminProfile() {
         profileData.append('foto_profile', selectedFile);
       }
 
-      const profileResponse = await fetch(`${API_BASE_URL}/api/admin/profile`, {
+      const profileResponse = await fetch(`${API_BASE_URL}/admin/profile`, {
         method: 'POST',
         headers: {
           'Accept': 'application/json',
@@ -132,45 +133,7 @@ export default function AdminProfile() {
         throw new Error(profileResult.message || 'Gagal memperbarui informasi profil.');
       }
 
-      // B. PUT /api/admin/profile/admin/profile/ubah-password (Jika password diisi)
-      if (formData.newPassword) {
-        if (formData.newPassword !== formData.confirmPassword) {
-          setErrorMessage('Konfirmasi password baru tidak cocok.');
-          setLoading(false);
-          return;
-        }
-
-        const passwordPayload = {
-          password_lama: formData.currentPassword,
-          password_baru: formData.newPassword,
-          password_baru_confirmation: formData.confirmPassword
-        };
-
-        const passwordResponse = await fetch(`${API_BASE_URL}/api/admin/profile/admin/profile/ubah-password`, {
-          method: 'PUT',
-          headers: {
-            'Content-Type': 'application/json',
-            'Accept': 'application/json',
-            ...(token && { 'Authorization': `Bearer ${token}` }),
-          },
-          body: JSON.stringify(passwordPayload)
-        });
-
-        const passwordResult = await passwordResponse.json();
-
-        if (!passwordResponse.ok) {
-          throw new Error(passwordResult.message || 'Gagal mengubah password.');
-        }
-      }
-
       setSuccessMessage('Profil berhasil diperbarui!');
-      
-      setFormData(prev => ({
-        ...prev,
-        currentPassword: '',
-        newPassword: '',
-        confirmPassword: '',
-      }));
       setSelectedFile(null);
 
       setTimeout(() => {
@@ -182,6 +145,59 @@ export default function AdminProfile() {
       setErrorMessage(error.message || 'Terjadi kesalahan saat menyimpan perubahan.');
     } finally {
       setLoading(false);
+    }
+  }
+
+  // 3. Submit Khusus Ubah Password dari Pop-up (Modal)
+  async function handlePasswordSubmit(e) {
+    e.preventDefault();
+    setErrorMessage('');
+
+    if (passwordData.newPassword !== passwordData.confirmPassword) {
+      setErrorMessage('Konfirmasi password baru tidak cocok.');
+      return;
+    }
+
+    setPasswordLoading(true);
+
+    try {
+      const token = getToken();
+
+      const passwordPayload = {
+        password_lama: passwordData.currentPassword,
+        password_baru: passwordData.newPassword,
+        password_baru_confirmation: passwordData.confirmPassword
+      };
+
+      const passwordResponse = await fetch(`${API_BASE_URL}/admin/profile/ubah-password`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+          ...(token && { 'Authorization': `Bearer ${token}` }),
+        },
+        body: JSON.stringify(passwordPayload)
+      });
+
+      const passwordResult = await passwordResponse.json();
+
+      if (!passwordResponse.ok) {
+        throw new Error(passwordResult.message || 'Gagal mengubah password.');
+      }
+
+      setSuccessMessage('Password berhasil diubah!');
+      setIsPasswordModalOpen(false);
+      setPasswordData({
+        currentPassword: '',
+        newPassword: '',
+        confirmPassword: '',
+      });
+
+    } catch (error) {
+      console.error("Error updating password:", error);
+      setErrorMessage(error.message || 'Terjadi kesalahan saat mengubah password.');
+    } finally {
+      setPasswordLoading(false);
     }
   }
 
@@ -305,60 +321,20 @@ export default function AdminProfile() {
               </div>
             </div>
 
-            <div className="pt-6">
-              <h3 className="text-sm font-bold text-slate-900 mb-1">Ubah Password</h3>
-              <p className="text-xs text-slate-500 mb-4">
-                Kosongkan bagian ini jika Anda tidak ingin mengubah password akun Anda.
-              </p>
-
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-xs font-semibold uppercase tracking-wider text-slate-600 mb-2">
-                    Password Saat Ini
-                  </label>
-                  <input
-                    type="password"
-                    name="currentPassword"
-                    autoComplete="current-password"
-                    value={formData.currentPassword}
-                    onChange={handleChange}
-                    className="w-full rounded-xl bg-slate-50 px-4 py-2.5 text-sm text-slate-800 focus:bg-white focus:outline-none focus:ring-2 focus:ring-slate-900/10 transition-all"
-                    placeholder="••••••••"
-                  />
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-xs font-semibold uppercase tracking-wider text-slate-600 mb-2">
-                      Password Baru
-                    </label>
-                    <input
-                      type="password"
-                      name="newPassword"
-                      autoComplete="new-password"
-                      value={formData.newPassword}
-                      onChange={handleChange}
-                      className="w-full rounded-xl bg-slate-50 px-4 py-2.5 text-sm text-slate-800 focus:bg-white focus:outline-none focus:ring-2 focus:ring-slate-900/10 transition-all"
-                      placeholder="••••••••"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-xs font-semibold uppercase tracking-wider text-slate-600 mb-2">
-                      Konfirmasi Password Baru
-                    </label>
-                    <input
-                      type="password"
-                      name="confirmPassword"
-                      autoComplete="new-password"
-                      value={formData.confirmPassword}
-                      onChange={handleChange}
-                      className="w-full rounded-xl bg-slate-50 px-4 py-2.5 text-sm text-slate-800 focus:bg-white focus:outline-none focus:ring-2 focus:ring-slate-900/10 transition-all"
-                      placeholder="••••••••"
-                    />
-                  </div>
-                </div>
+            {/* TOMBOL UNTUK MEMBUKA POP-UP UBAH PASSWORD */}
+            <div className="pt-4 border-t border-slate-100 flex items-center justify-between">
+              <div>
+                <h3 className="text-sm font-bold text-slate-900">Keamanan Akun</h3>
+                <p className="text-xs text-slate-500">Perbarui password akun Anda secara berkala.</p>
               </div>
+              <button
+                type="button"
+                onClick={() => setIsPasswordModalOpen(true)}
+                className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-sm font-semibold transition-all cursor-pointer"
+              >
+                <FaKey className="text-slate-500" />
+                <span>Ubah Password</span>
+              </button>
             </div>
 
             <div className="flex items-center justify-end gap-3 pt-4">
@@ -380,6 +356,94 @@ export default function AdminProfile() {
           </form>
         </div>
       </div>
+
+      {/* POP-UP (MODAL) UBAH PASSWORD */}
+      {isPasswordModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-xs p-4">
+          <div className="bg-white rounded-2xl shadow-xl max-w-md w-full overflow-hidden animate-in fade-in zoom-in duration-200">
+            <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100">
+              <div className="flex items-center gap-2">
+                <FaKey className="text-slate-700" />
+                <h3 className="font-bold text-slate-900">Ubah Password</h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsPasswordModalOpen(false)}
+                className="text-slate-400 hover:text-slate-600 p-1 cursor-pointer bg-transparent border-0"
+              >
+                <FaTimes />
+              </button>
+            </div>
+
+            <form onSubmit={handlePasswordSubmit} className="p-6 space-y-4">
+              <div>
+                <label className="block text-xs font-semibold uppercase tracking-wider text-slate-600 mb-2">
+                  Password Saat Ini
+                </label>
+                <input
+                  type="password"
+                  name="currentPassword"
+                  autoComplete="current-password"
+                  value={passwordData.currentPassword}
+                  onChange={handlePasswordChange}
+                  required
+                  className="w-full rounded-xl bg-slate-50 px-4 py-2.5 text-sm text-slate-800 focus:bg-white focus:outline-none focus:ring-2 focus:ring-slate-900/10 transition-all"
+                  placeholder="••••••••"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold uppercase tracking-wider text-slate-600 mb-2">
+                  Password Baru
+                </label>
+                <input
+                  type="password"
+                  name="newPassword"
+                  autoComplete="new-password"
+                  value={passwordData.newPassword}
+                  onChange={handlePasswordChange}
+                  required
+                  className="w-full rounded-xl bg-slate-50 px-4 py-2.5 text-sm text-slate-800 focus:bg-white focus:outline-none focus:ring-2 focus:ring-slate-900/10 transition-all"
+                  placeholder="••••••••"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold uppercase tracking-wider text-slate-600 mb-2">
+                  Konfirmasi Password Baru
+                </label>
+                <input
+                  type="password"
+                  name="confirmPassword"
+                  autoComplete="new-password"
+                  value={passwordData.confirmPassword}
+                  onChange={handlePasswordChange}
+                  required
+                  className="w-full rounded-xl bg-slate-50 px-4 py-2.5 text-sm text-slate-800 focus:bg-white focus:outline-none focus:ring-2 focus:ring-slate-900/10 transition-all"
+                  placeholder="••••••••"
+                />
+              </div>
+
+              <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={() => setIsPasswordModalOpen(false)}
+                  className="px-4 py-2 rounded-xl bg-slate-100 text-slate-700 text-sm font-semibold hover:bg-slate-200 transition-all cursor-pointer"
+                >
+                  Batal
+                </button>
+                <button
+                  type="submit"
+                  disabled={passwordLoading}
+                  className="px-5 py-2 rounded-xl bg-slate-900 text-white text-sm font-semibold hover:bg-slate-800 transition-all disabled:opacity-50 cursor-pointer"
+                >
+                  {passwordLoading ? 'Menyimpan...' : 'Update Password'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
