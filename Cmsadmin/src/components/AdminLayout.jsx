@@ -1,4 +1,4 @@
-import { Outlet, useLocation, useNavigate } from 'react-router-dom';
+import { Outlet, useLocation, useNavigate, Link } from 'react-router-dom';
 import { useState, useRef, useEffect } from 'react';
 import Sidebar from './Sidebar';
 import { getSession, logout } from '../utils/auth';
@@ -18,7 +18,7 @@ export default function AdminLayout() {
   const [sidebarOpen, setSidebarOpen] = useState(false); // Mobile sidebar drawer
   const [collapsed, setCollapsed] = useState(false); // Desktop collapse state
 
-  // State untuk Resize Sidebar (sebelumnya terlewat)
+  // State untuk Resize Sidebar
   const [sidebarWidth, setSidebarWidth] = useState(() => {
     const saved = localStorage.getItem(SIDEBAR_STORAGE_KEY);
     return saved ? parseInt(saved, 10) : SIDEBAR_DEFAULT_WIDTH;
@@ -104,7 +104,7 @@ export default function AdminLayout() {
     onClose: () => setSidebarOpen(false),
     collapsed,
     onCollapse: toggleCollapse,
-    width: sidebarWidth, // Mengirim properti width ke komponen Sidebar jika dibutuhkan
+    width: sidebarWidth,
   };
 
   return (
@@ -112,7 +112,7 @@ export default function AdminLayout() {
       {/* Sidebar Kiri */}
       <Sidebar {...sidebarProps} />
 
-      {/* Resize Handle (Garis batas pemisah yang bisa digeser) */}
+      {/* Resize Handle */}
       <div
         className="hidden md:block cursor-col-resize bg-slate-100 hover:bg-slate-200 transition-colors"
         style={{ width: '6px' }}
@@ -125,7 +125,7 @@ export default function AdminLayout() {
       {/* Area Kanan (Header + Konten Utama) */}
       <div className="flex flex-1 flex-col overflow-y-auto min-w-0">
         {/* Header */}
-        <header className="sticky top-0 z-20 flex h-16 shrink-0 items-center justify-between border-b border-slate-200/80 bg-white/90 backdrop-blur-md px-4 sm:px-6">
+        <header className="sticky top-0 z-30 flex h-16 shrink-0 items-center justify-between border-b border-slate-200/80 bg-white/90 backdrop-blur-md px-4 sm:px-6">
           {/* Mobile hamburger */}
           <button
             className="flex h-9 w-9 items-center justify-center rounded-lg text-slate-500 hover:bg-slate-100 hover:text-slate-900 transition-colors md:hidden"
@@ -143,7 +143,7 @@ export default function AdminLayout() {
           {/* User dropdown */}
           <div className="relative" ref={menuRef}>
             <button
-              className="flex items-center gap-2.5 rounded-xl px-2.5 py-1.5 hover:bg-slate-100 transition-colors"
+              className="flex items-center gap-2.5 rounded-xl px-2.5 py-1.5 hover:bg-slate-100 transition-colors cursor-pointer"
               onClick={() => setOpen((o) => !o)}
             >
               <span className="hidden text-[13px] font-semibold text-slate-700 sm:inline">
@@ -155,28 +155,36 @@ export default function AdminLayout() {
             </button>
 
             {open && (
-              <div className="absolute right-0 top-[calc(100%+8px)] w-64 rounded-2xl border border-slate-200 bg-white p-4 shadow-xl shadow-slate-200/60 z-50">
-                <div className="flex items-center gap-3">
-                  <div className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-primary-light to-green-100 border border-primary/20 text-lg font-bold text-primary-dark">
+              <div className="absolute right-0 top-[calc(100%+8px)] w-72 rounded-2xl border border-slate-200 bg-white p-4 shadow-xl shadow-slate-200/60 z-50">
+                
+                {/* Link ke halaman profil utama sesuai App.jsx */}
+                <Link
+                  to="/profile"
+                  onClick={() => setOpen(false)}
+                  className="flex items-center gap-3 p-2 -m-2 rounded-xl hover:bg-slate-50 transition-colors group"
+                >
+                  <div className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-primary-light to-green-100 border border-primary/20 text-lg font-bold text-primary-dark group-hover:scale-105 transition-transform">
                     {(session?.name?.[0] || 'A').toUpperCase()}
                   </div>
-                  <div className="min-w-0">
-                    <div className="truncate text-sm font-bold text-slate-900">
+                  <div className="min-w-0 flex-1">
+                    <div className="truncate text-sm font-bold text-slate-900 group-hover:text-primary transition-colors">
                       {session?.name || 'Admin'}
                     </div>
                     <div className="flex items-center gap-1.5 mt-0.5">
                       <span className="truncate text-xs text-slate-500">{session?.email}</span>
                       {isSuperAdmin() && (
                         <span className="inline-flex items-center rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-semibold text-amber-700">
-                          Super Admin
+                          Super Admin 
                         </span>
                       )}
                     </div>
                   </div>
-                </div>
+                </Link>
+
                 <div className="my-3.5 h-px bg-slate-100" />
+
                 <button
-                  className="flex w-full items-center gap-2.5 rounded-xl bg-slate-50 px-3.5 py-2.5 text-left text-[13px] font-semibold text-slate-700 hover:bg-rose-50 hover:text-rose-600 transition-colors"
+                  className="flex w-full items-center gap-2.5 rounded-xl bg-slate-50 px-3.5 py-2.5 text-left text-[13px] font-semibold text-slate-700 hover:bg-rose-50 hover:text-rose-600 transition-colors cursor-pointer"
                   onClick={handleLogout}
                 >
                   <svg className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">

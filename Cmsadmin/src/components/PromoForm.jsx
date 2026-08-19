@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { getAllLayanan } from '../data/layananData';
+import { FaArrowLeft } from 'react-icons/fa';
 
 const emptyForm = {
   nama_paket: '',
@@ -155,235 +156,248 @@ export default function PromoForm({ initialData, onSubmit, submitting, mode }) {
   );
 
   return (
-    <form
-      className="card max-w-3xl p-5 sm:p-7"
-      onSubmit={(e) => {
-        e.preventDefault();
-        if (validate()) {
-          onSubmit({
-            ...form,
-            diskon_persen: Number(form.diskon_persen),
-            layanan_ids: form.layanan_ids,
-            gambar_promo: image,
-          });
-        }
-      }}
-    >
-      <div className="grid gap-6">
-        <div>
-          <label className="form-label">Nama Paket</label>
-          <input
-            type="text"
-            name="nama_paket"
-            value={form.nama_paket}
-            onChange={handleChange}
-            className="form-input"
-            placeholder="Contoh: Paket HomeCare Premium"
-          />
-          {errors.nama_paket && <span className="field-error">{errors.nama_paket}</span>}
-        </div>
+    <div className="w-full space-y-6 pb-10">
+      {/* Tombol Kembali dengan Ikon Panah */}
+      <div>
+        <a
+          href="/promo"
+          className="inline-flex items-center gap-2 text-sm font-medium text-slate-500 hover:text-slate-800 transition-colors cursor-pointer"
+        >
+          <FaArrowLeft />
+          <span>Kembali ke Promo</span>
+        </a>
+      </div>
 
-        {/* Grid Diskon, Tanggal Mulai, dan Tanggal Berakhir */}
-        <div className="grid gap-4 sm:grid-cols-3">
+      <form
+        className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden w-full p-8"
+        onSubmit={(e) => {
+          e.preventDefault();
+          if (validate()) {
+            onSubmit({
+              ...form,
+              diskon_persen: Number(form.diskon_persen),
+              layanan_ids: form.layanan_ids,
+              gambar_promo: image,
+            });
+          }
+        }}
+      >
+        <div className="grid gap-6">
           <div>
-            <label className="form-label">Diskon (%)</label>
+            <label className="form-label">Nama Paket</label>
             <input
-              type="number"
-              name="diskon_persen"
-              value={form.diskon_persen}
+              type="text"
+              name="nama_paket"
+              value={form.nama_paket}
               onChange={handleChange}
               className="form-input"
-              min="0"
-              max="100"
-              placeholder="10"
+              placeholder="Contoh: Paket HomeCare Premium"
             />
-            {errors.diskon_persen && <span className="field-error">{errors.diskon_persen}</span>}
+            {errors.nama_paket && <span className="field-error">{errors.nama_paket}</span>}
           </div>
+
+          {/* Grid Diskon, Tanggal Mulai, dan Tanggal Berakhir */}
+          <div className="grid gap-4 sm:grid-cols-3">
+            <div>
+              <label className="form-label">Diskon (%)</label>
+              <input
+                type="number"
+                name="diskon_persen"
+                value={form.diskon_persen}
+                onChange={handleChange}
+                className="form-input"
+                min="0"
+                max="100"
+                placeholder="10"
+              />
+              {errors.diskon_persen && <span className="field-error">{errors.diskon_persen}</span>}
+            </div>
+            <div>
+              <label className="form-label">Tanggal Mulai</label>
+              <input
+                type="date"
+                name="tanggal_mulai"
+                value={form.tanggal_mulai}
+                onChange={handleChange}
+                className="form-input"
+              />
+              {errors.tanggal_mulai && <span className="field-error">{errors.tanggal_mulai}</span>}
+            </div>
+            <div>
+              <label className="form-label">Tanggal Berakhir</label>
+              <input
+                type="date"
+                name="tanggal_berakhir"
+                value={form.tanggal_berakhir}
+                onChange={handleChange}
+                className="form-input"
+              />
+              {errors.tanggal_berakhir && <span className="field-error">{errors.tanggal_berakhir}</span>}
+            </div>
+          </div>
+
           <div>
-            <label className="form-label">Tanggal Mulai</label>
-            <input
-              type="date"
-              name="tanggal_mulai"
-              value={form.tanggal_mulai}
+            <label className="form-label">Deskripsi</label>
+            <textarea
+              name="deskripsi"
+              value={form.deskripsi}
               onChange={handleChange}
+              className="form-input resize-y"
+              rows={4}
+              placeholder="Jelaskan isi paket promo..."
+            />
+            {errors.deskripsi && <span className="field-error">{errors.deskripsi}</span>}
+          </div>
+
+          <div>
+            <label className="form-label">Gambar Promo</label>
+            <input
+              type="file"
+              accept="image/*"
+              onChange={handleFileChange}
               className="form-input"
             />
-            {errors.tanggal_mulai && <span className="field-error">{errors.tanggal_mulai}</span>}
+            {mode === 'edit' && initialData?.gambar_promo && !image && (
+              <p className="mt-2 text-sm text-slate-500">
+                Gambar saat ini:{' '}
+                <a href={initialData.gambar_promo} target="_blank" rel="noreferrer" className="text-blue-500 underline">
+                  Lihat Gambar
+                </a>
+              </p>
+            )}
           </div>
+
           <div>
-            <label className="form-label">Tanggal Berakhir</label>
-            <input
-              type="date"
-              name="tanggal_berakhir"
-              value={form.tanggal_berakhir}
-              onChange={handleChange}
-              className="form-input"
-            />
-            {errors.tanggal_berakhir && <span className="field-error">{errors.tanggal_berakhir}</span>}
-          </div>
-        </div>
+            <label className="form-label">Pilih Layanan</label>
+            <div className="rounded-card border border-slate-200 bg-slate-50 p-4">
+              <button
+                type="button"
+                onClick={() => setServiceOpen((prev) => !prev)}
+                className="flex w-full items-center justify-between rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-left text-sm font-medium text-slate-700"
+              >
+                <span>
+                  {selectedServices.length > 0
+                    ? `${selectedServices.length} layanan dipilih`
+                    : 'Pilih layanan yang masuk paket'}
+                </span>
+                <span className="text-xs text-slate-500">{serviceOpen ? 'Tutup' : 'Buka'}</span>
+              </button>
 
-        <div>
-          <label className="form-label">Deskripsi</label>
-          <textarea
-            name="deskripsi"
-            value={form.deskripsi}
-            onChange={handleChange}
-            className="form-input resize-y"
-            rows={4}
-            placeholder="Jelaskan isi paket promo..."
-          />
-          {errors.deskripsi && <span className="field-error">{errors.deskripsi}</span>}
-        </div>
+              {serviceOpen && (
+                <div className="mt-3 rounded-lg border border-slate-200 bg-white p-3">
+                  <input
+                    type="text"
+                    value={serviceSearch}
+                    onChange={(e) => setServiceSearch(e.target.value)}
+                    placeholder="Cari layanan..."
+                    className="form-input"
+                  />
 
-        <div>
-          <label className="form-label">Gambar Promo</label>
-          <input
-            type="file"
-            accept="image/*"
-            onChange={handleFileChange}
-            className="form-input"
-          />
-          {mode === 'edit' && initialData?.gambar_promo && !image && (
-            <p className="mt-2 text-sm text-slate-500">
-              Gambar saat ini:{' '}
-              <a href={initialData.gambar_promo} target="_blank" rel="noreferrer" className="text-blue-500 underline">
-                Lihat Gambar
-              </a>
-            </p>
-          )}
-        </div>
-
-        <div>
-          <label className="form-label">Pilih Layanan</label>
-          <div className="rounded-card border border-slate-200 bg-slate-50 p-4">
-            <button
-              type="button"
-              onClick={() => setServiceOpen((prev) => !prev)}
-              className="flex w-full items-center justify-between rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-left text-sm font-medium text-slate-700"
-            >
-              <span>
-                {selectedServices.length > 0
-                  ? `${selectedServices.length} layanan dipilih`
-                  : 'Pilih layanan yang masuk paket'}
-              </span>
-              <span className="text-xs text-slate-500">{serviceOpen ? 'Tutup' : 'Buka'}</span>
-            </button>
-
-            {serviceOpen && (
-              <div className="mt-3 rounded-lg border border-slate-200 bg-white p-3">
-                <input
-                  type="text"
-                  value={serviceSearch}
-                  onChange={(e) => setServiceSearch(e.target.value)}
-                  placeholder="Cari layanan..."
-                  className="form-input"
-                />
-
-                <div className="mt-3 max-h-48 space-y-2 overflow-auto pr-1">
-                  {loadingLayanan ? (
-                    <p className="text-sm text-slate-500">Memuat layanan...</p>
-                  ) : filteredLayanan.length === 0 ? (
-                    <p className="text-sm text-slate-500">Tidak ada layanan yang cocok.</p>
-                  ) : (
-                    filteredLayanan.map((item) => {
-                      const value = String(item.id ?? item.id_layanan ?? '');
-                      const checked = form.layanan_ids.includes(value);
-                      return (
-                        <label
-                          key={value}
-                          className={`flex cursor-pointer items-center gap-2 rounded-lg border px-3 py-2 text-sm transition ${
-                            checked
-                              ? 'border-primary bg-primary-light text-primary-dark'
-                              : 'border-slate-200 bg-white text-slate-700'
-                          }`}
-                        >
-                          <input
-                            type="checkbox"
-                            checked={checked}
-                            onChange={() => toggleService(value)}
-                            className="h-4 w-4 rounded border-slate-300 text-primary focus:ring-primary"
-                          />
-                          <span>{item.nama}</span>
-                        </label>
-                      );
-                    })
-                  )}
+                  <div className="mt-3 max-h-48 space-y-2 overflow-auto pr-1">
+                    {loadingLayanan ? (
+                      <p className="text-sm text-slate-500">Memuat layanan...</p>
+                    ) : filteredLayanan.length === 0 ? (
+                      <p className="text-sm text-slate-500">Tidak ada layanan yang cocok.</p>
+                    ) : (
+                      filteredLayanan.map((item) => {
+                        const value = String(item.id ?? item.id_layanan ?? '');
+                        const checked = form.layanan_ids.includes(value);
+                        return (
+                          <label
+                            key={value}
+                            className={`flex cursor-pointer items-center gap-2 rounded-lg border px-3 py-2 text-sm transition ${
+                              checked
+                                ? 'border-primary bg-primary-light text-primary-dark'
+                                : 'border-slate-200 bg-white text-slate-700'
+                            }`}
+                          >
+                            <input
+                              type="checkbox"
+                              checked={checked}
+                              onChange={() => toggleService(value)}
+                              className="h-4 w-4 rounded border-slate-300 text-primary focus:ring-primary"
+                            />
+                            <span>{item.nama}</span>
+                          </label>
+                        );
+                      })
+                    )}
+                  </div>
                 </div>
-              </div>
-            )}
+              )}
 
-            {selectedServices.length > 0 && (
-              <div className="mt-3 flex flex-wrap gap-2">
-                {selectedServices.map((item) => (
-                  <span
-                    key={item.id ?? item.id_layanan}
-                    className="rounded-full bg-primary-light px-3 py-1 text-xs font-medium text-primary-dark"
-                  >
-                    {item.nama}
-                  </span>
-                ))}
-              </div>
+              {selectedServices.length > 0 && (
+                <div className="mt-3 flex flex-wrap gap-2">
+                  {selectedServices.map((item) => (
+                    <span
+                      key={item.id ?? item.id_layanan}
+                      className="rounded-full bg-primary-light px-3 py-1 text-xs font-medium text-primary-dark"
+                    >
+                      {item.nama}
+                    </span>
+                  ))}
+                </div>
+              )}
+            </div>
+            {errors.layanan_ids && <span className="field-error">{errors.layanan_ids}</span>}
+          </div>
+
+          <div>
+            <label className="form-label">Status</label>
+            <div className="mt-1 flex gap-2.5">
+              <button
+                type="button"
+                onClick={() => setForm((prev) => ({ ...prev, status_promo: 'Aktif' }))}
+                className={
+                  'flex-1 rounded-lg border px-3 py-2.5 text-[13px] font-semibold ' +
+                  (form.status_promo === 'Aktif'
+                    ? 'border-primary bg-primary-light text-primary-dark'
+                    : 'border-slate-200 bg-white text-slate-500')
+                }
+              >
+                Aktif
+              </button>
+              <button
+                type="button"
+                onClick={() => setForm((prev) => ({ ...prev, status_promo: 'Tidak Aktif' }))}
+                className={
+                  'flex-1 rounded-lg border px-3 py-2.5 text-[13px] font-semibold ' +
+                  (form.status_promo === 'Tidak Aktif'
+                    ? 'border-danger bg-danger-bg text-danger'
+                    : 'border-slate-200 bg-white text-slate-500')
+                }
+              >
+                Tidak Aktif
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div className="mt-7 flex flex-col-reverse justify-between gap-4 border-t border-slate-200 pt-5 sm:flex-row sm:items-center">
+          <div>
+            {mode === 'edit' && initialData?.updated_at && (
+              <span className="text-xs text-slate-400">
+                Terakhir diperbarui:{' '}
+                {new Date(initialData.updated_at).toLocaleString('id-ID', {
+                  day: '2-digit',
+                  month: 'short',
+                  year: 'numeric',
+                  hour: '2-digit',
+                  minute: '2-digit',
+                }).replace(/\./g, ':')}
+              </span>
             )}
           </div>
-          {errors.layanan_ids && <span className="field-error">{errors.layanan_ids}</span>}
-        </div>
-
-        <div>
-          <label className="form-label">Status</label>
-          <div className="mt-1 flex gap-2.5">
-            <button
-              type="button"
-              onClick={() => setForm((prev) => ({ ...prev, status_promo: 'Aktif' }))}
-              className={
-                'flex-1 rounded-lg border px-3 py-2.5 text-[13px] font-semibold ' +
-                (form.status_promo === 'Aktif'
-                  ? 'border-primary bg-primary-light text-primary-dark'
-                  : 'border-slate-200 bg-white text-slate-500')
-              }
-            >
-              Aktif
-            </button>
-            <button
-              type="button"
-              onClick={() => setForm((prev) => ({ ...prev, status_promo: 'Tidak Aktif' }))}
-              className={
-                'flex-1 rounded-lg border px-3 py-2.5 text-[13px] font-semibold ' +
-                (form.status_promo === 'Tidak Aktif'
-                  ? 'border-danger bg-danger-bg text-danger'
-                  : 'border-slate-200 bg-white text-slate-500')
-              }
-            >
-              Tidak Aktif
+          <div className="flex flex-col-reverse gap-2.5 sm:flex-row">
+            <a href="/promo" className="btn-outline text-center">
+              Batal
+            </a>
+            <button type="submit" className="btn-primary" disabled={submitting}>
+              {submitting ? 'Menyimpan...' : mode === 'edit' ? 'Simpan Perubahan' : 'Tambah Promo'}
             </button>
           </div>
         </div>
-      </div>
-
-      <div className="mt-7 flex flex-col-reverse justify-between gap-4 border-t border-slate-200 pt-5 sm:flex-row sm:items-center">
-        <div>
-          {mode === 'edit' && initialData?.updated_at && (
-            <span className="text-xs text-slate-400">
-              Terakhir diperbarui:{' '}
-              {new Date(initialData.updated_at).toLocaleString('id-ID', {
-                day: '2-digit',
-                month: 'short',
-                year: 'numeric',
-                hour: '2-digit',
-                minute: '2-digit',
-              }).replace(/\./g, ':')}
-            </span>
-          )}
-        </div>
-        <div className="flex flex-col-reverse gap-2.5 sm:flex-row">
-          <a href="/promo" className="btn-outline text-center">
-            Batal
-          </a>
-          <button type="submit" className="btn-primary" disabled={submitting}>
-            {submitting ? 'Menyimpan...' : mode === 'edit' ? 'Simpan Perubahan' : 'Tambah Promo'}
-          </button>
-        </div>
-      </div>
-    </form>
+      </form>
+    </div>
   );
 }
