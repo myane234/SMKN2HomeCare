@@ -82,6 +82,7 @@ const rawSuperAdminMenus = [
       { to: '/master-komponen-tarif', label: 'Komponen Tarif', icon: <FaChartBar /> },
       { to: '/master-tarif-transport', label: 'Tarif Transport', icon: <FaChartBar /> }, 
       { to: '/master-kategori', label: 'Kategori', icon: <FaTags /> },
+      { to: '/master-bank', label: 'Bank', icon: <FaCreditCard /> },
       {
         type: "subgroup",
         label: "Pembayaran",

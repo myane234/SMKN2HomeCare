@@ -33,6 +33,7 @@ import AdminMasterKategori from './pages/admin/AdminMasterKategori';
 
 import AdminMasterMetodePembayaran from './pages/admin/AdminMasterMetodePembayaran';
 import AdminMasterKategoriPembayaran from './pages/admin/AdminMasterKategoriPembayaran';
+import AdminMasterBank from './pages/admin/AdminMasterBank';
 
 import AdminMasterKomponenTarif from './pages/admin/AdminMasterKomponenTarif';
 import AdminMasterTarifTransport from './pages/admin/AdminMasterTarifTransport';  
@@ -112,6 +113,7 @@ function App() {
         <Route path="/master-kategori" element={<ProtectedRoute requiredPath="/master-kategori"><AdminMasterKategori /></ProtectedRoute>} />
         <Route path="/master-metode-pembayaran" element={<ProtectedRoute requiredPath="/master-metode-pembayaran"><AdminMasterMetodePembayaran /></ProtectedRoute>} />
         <Route path="/master-kategori-pembayaran" element={<ProtectedRoute requiredPath="/master-kategori-pembayaran"><AdminMasterKategoriPembayaran /></ProtectedRoute>} />
+        <Route path="/master-bank" element={<ProtectedRoute requiredPath="/master-bank"><AdminMasterBank /></ProtectedRoute>} />
         <Route path="/master-kecamatan" element={<ProtectedRoute requiredPath="/master-kecamatan"><AdminMasterKecamatan /></ProtectedRoute>} />
       </Route>
 
