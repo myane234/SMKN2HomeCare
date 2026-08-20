@@ -223,6 +223,59 @@ export default function AdminProfile() {
     }
   }
 
+  // 3. Submit Khusus Ubah Password dari Pop-up (Modal)
+  async function handlePasswordSubmit(e) {
+    e.preventDefault();
+    setErrorMessage('');
+
+    if (passwordData.newPassword !== passwordData.confirmPassword) {
+      setErrorMessage('Konfirmasi password baru tidak cocok.');
+      return;
+    }
+
+    setPasswordLoading(true);
+
+    try {
+      const token = getToken();
+
+      const passwordPayload = {
+        password_lama: passwordData.currentPassword,
+        password_baru: passwordData.newPassword,
+        password_baru_confirmation: passwordData.confirmPassword
+      };
+
+      const passwordResponse = await fetch(`${API_BASE_URL}/admin/profile/ubah-password`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+          ...(token && { 'Authorization': `Bearer ${token}` }),
+        },
+        body: JSON.stringify(passwordPayload)
+      });
+
+      const passwordResult = await passwordResponse.json();
+
+      if (!passwordResponse.ok) {
+        throw new Error(passwordResult.message || 'Gagal mengubah password.');
+      }
+
+      setSuccessMessage('Password berhasil diubah!');
+      setIsPasswordModalOpen(false);
+      setPasswordData({
+        currentPassword: '',
+        newPassword: '',
+        confirmPassword: '',
+      });
+
+    } catch (error) {
+      console.error("Error updating password:", error);
+      setErrorMessage(error.message || 'Terjadi kesalahan saat mengubah password.');
+    } finally {
+      setPasswordLoading(false);
+    }
+  }
+
   if (fetching) {
     return (
       <div className="flex justify-center items-center h-screen text-sm text-slate-500 bg-slate-50">
