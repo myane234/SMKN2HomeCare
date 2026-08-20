@@ -25,7 +25,18 @@ import {
   FaDesktop,
   FaHome,
   FaInfoCircle,
+  FaHandshake,
+  FaGlobe,
+  FaBell,
+  FaHistory,
+  FaFileAlt,
+  FaChartLine,
+  FaFileExcel,
+  FaUserCircle,
+  FaPrayingHands,
+  FaGraduationCap
 } from 'react-icons/fa';
+
 
 const rawMenuItems = [
   { to: '/dashboard', label: 'Dashboard', icon: <FaChartBar />, end: true },
@@ -34,14 +45,18 @@ const rawMenuItems = [
     label: 'Kelola Konten',
     icon: <FaDesktop />,
     children: [
-      { to: '/kelola-konten/home', label: 'Konten Home & Hero', icon: <FaHome /> },
+      { to: '/kelola-konten/home', label: 'Beranda', icon: <FaHome /> },
       { to: '/kelola-konten/about', label: 'Konten Tentang Kami', icon: <FaInfoCircle /> },
+      { to: '/kelola-konten/mitra', label: 'Gabung Mitra', icon: <FaHandshake /> },
+      { to: '/kelola-konten/footer', label: 'Footer', icon: <FaGlobe /> },
       { to: '/layanan', label: 'Layanan', icon: <FaStethoscope /> },
       { to: '/promo', label: 'Promo', icon: <FaGift /> },
       { to: '/artikel', label: 'Artikel', icon: <FaRegFileAlt /> },
     ],
   },
 ];
+
+
 
 const rawSuperAdminMenus = [
   {
@@ -77,10 +92,32 @@ const rawSuperAdminMenus = [
           },
         ],
       },
+      {
+        type: "subgroup",
+        label: "Tarif",
+        icon: <FaChartBar />,
+        children: [
+          {
+            to: "/master-tarif",
+            label: "Tarif",
+            icon: <FaChartBar />,
+          },
+          {
+            to: "/master-komponen-tarif",
+            label: "Komponen Tarif",
+            icon: <FaChartBar />,
+          },
+          {
+            to: "/master-tarif-transport",
+            label: "Kecamatan",
+            icon: <FaChartBar />,
+          },
+        ],
+      },
       { to: '/master-barang', label: 'Stock Barang', icon: <FaChartBar /> },
-      { to: '/master-tarif', label: 'Tarif', icon: <FaChartBar /> },
-      { to: '/master-komponen-tarif', label: 'Komponen Tarif', icon: <FaChartBar /> },
-      { to: '/master-tarif-transport', label: 'Tarif Transport', icon: <FaChartBar /> }, 
+      { to: '/master-pendidikan', label: 'Pendidikan', icon: <FaChartBar /> },
+      { to: '/master-universitas', label: 'Universitas', icon: <FaGraduationCap /> },
+      { to: '/master-agama', label: 'Agama', icon: <FaPrayingHands /> },
       { to: '/master-kategori', label: 'Kategori', icon: <FaTags /> },
       { to: '/master-bank', label: 'Bank', icon: <FaCreditCard /> },
       {
@@ -116,8 +153,32 @@ const rawSuperAdminMenus = [
     children: [
       { to: '/kelola-admin', label: 'Kelola Admin', icon: <FaUserShield /> },
       { to: '/tier-admin', label: 'Tier Admin', icon: <FaShieldAlt /> },
+      { to: '/notification-templates', label: 'Template Notifikasi', icon: <FaBell /> },
+      { to: '/web-setting', label: 'Web Setting (Logo & Icon)', icon: <FaCogs /> },
+      { to: '/profile-admin', label: 'Profil Admin', icon: <FaUserCircle /> },
     ],
   },
+  {
+    type: 'group',
+    label: 'Legalitas & Dokumen',
+    icon: <FaFileAlt />,
+    children: [
+      { to: '/syarat-ketentuan-pasien', label: 'Syarat & Ketentuan Pasien', icon: <FaFileAlt /> },
+      { to: '/syarat-ketentuan-nakes', label: 'Syarat & Ketentuan Nakes', icon: <FaUserMd /> },
+    ],
+  },
+  {
+    type: 'group',
+    label: 'Statistik, Laporan & Log',
+    icon: <FaChartLine />,
+    children: [
+      { to: '/statistik-artikel', label: 'Statistik View Artikel', icon: <FaChartLine /> },
+      { to: '/laporan', label: 'Laporan & Export Data', icon: <FaFileExcel /> },
+      { to: '/aktivitas-log', label: 'Log Aktivitas', icon: <FaHistory /> },
+    ],
+  },
+
+
 ];
 
 const MIN_WIDTH = 200;
