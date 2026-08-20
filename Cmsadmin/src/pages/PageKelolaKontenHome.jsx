@@ -137,20 +137,20 @@ export default function PageKelolaKontenHome() {
   }
 
   return (
-    <div className="p-6 max-w-5xl mx-auto">
-      <div className="mb-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+    <div className="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-slate-200/80 pb-4">
         <div>
-          <h1 className="page-title flex items-center gap-2.5">
-            <FaHome className="text-primary" /> Kelola Konten Home & Banner
+          <h1 className="text-xl sm:text-2xl font-bold text-slate-900 flex items-center gap-2.5">
+            <FaHome className="text-primary" /> Beranda
           </h1>
-          <p className="page-subtitle">Pengaturan banner hero slider dan teks deskripsi section Halaman Utama</p>
+          <p className="text-xs sm:text-sm text-slate-500 mt-1">Pengaturan banner hero slider dan teks deskripsi section Halaman Beranda Utama</p>
         </div>
       </div>
 
       {/* Alert Notification */}
       {message.text && (
         <div
-          className={`mb-6 p-4 rounded-xl text-sm font-medium border ${
+          className={`p-4 rounded-xl text-sm font-medium border ${
             message.type === 'success'
               ? 'bg-primary-light text-primary-dark border-primary/20'
               : 'bg-danger-bg text-danger border-danger/20'
@@ -160,10 +160,11 @@ export default function PageKelolaKontenHome() {
         </div>
       )}
 
-      <form onSubmit={handleHomeSubmit} className="card p-6 space-y-8">
+      <form onSubmit={handleHomeSubmit} className="bg-white rounded-2xl border border-slate-200/80 p-4 sm:p-6 lg:p-8 shadow-xs space-y-6 sm:space-y-8">
         <h2 className="text-base font-semibold text-slate-900 border-b border-slate-200 pb-3 flex items-center gap-2">
-          <FaHome className="text-primary" /> Konten Slider Banner Halaman Home
+          <FaHome className="text-primary" /> Konten Slider Banner Halaman Beranda
         </h2>
+
 
         {/* SLIDE 1 */}
         <div className="p-5 rounded-xl border border-slate-200 bg-slate-50/60 space-y-4">

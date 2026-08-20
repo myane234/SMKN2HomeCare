@@ -54,3 +54,58 @@ export async function updateAboutContent(formData) {
   }
   return data;
 }
+
+export async function getMitraContent() {
+  const res = await fetch(`${URL}/resource/content/mitra`, {
+    headers: { Accept: 'application/json' },
+  });
+  if (!res.ok) throw new Error('Gagal mengambil konten Gabung Mitra');
+  return res.json();
+}
+
+export async function updateMitraContent(formData) {
+  const res = await fetch(`${URL}/resource/content/mitra`, {
+    method: 'POST',
+    headers: getAuthHeaders(),
+    body: formData,
+  });
+
+  if (res.status === 401) {
+    handleUnauthorized();
+    throw new Error('Sesi anda telah berakhir');
+  }
+
+  const data = await res.json();
+  if (!res.ok) {
+    throw new Error(data.message || 'Gagal memperbarui konten Gabung Mitra');
+  }
+  return data;
+}
+
+export async function getFooterContent() {
+  const res = await fetch(`${URL}/resource/content/footer`, {
+    headers: { Accept: 'application/json' },
+  });
+  if (!res.ok) throw new Error('Gagal mengambil konten Footer');
+  return res.json();
+}
+
+export async function updateFooterContent(payload) {
+  const res = await fetch(`${URL}/resource/content/footer`, {
+    method: 'POST',
+    headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
+    body: JSON.stringify(payload),
+  });
+
+  if (res.status === 401) {
+    handleUnauthorized();
+    throw new Error('Sesi anda telah berakhir');
+  }
+
+  const data = await res.json();
+  if (!res.ok) {
+    throw new Error(data.message || 'Gagal memperbarui konten Footer');
+  }
+  return data;
+}
+
