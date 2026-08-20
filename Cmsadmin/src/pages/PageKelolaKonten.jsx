@@ -17,11 +17,10 @@ export default function PageKelolaKonten() {
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState({ type: '', text: '' });
 
-  // Home Form States (Slide 1)
-  const [homeTextBanner, setHomeTextBanner] = useState('');
-  const [homeDescription, setHomeDescription] = useState('');
-  const [homeBannerFile, setHomeBannerFile] = useState(null);
-  const [homeBannerPreview, setHomeBannerPreview] = useState('');
+  // Home Form Dynamic Slides State (Max 10)
+  const [homeSlides, setHomeSlides] = useState([
+    { id: 1, file: null, preview: '', text: '', description: '' }
+  ]);
 
   // Promo Section States
   const [promoHeading, setPromoHeading] = useState('');
@@ -34,18 +33,6 @@ export default function PageKelolaKonten() {
   // Layanan Section States
   const [layananHeading, setLayananHeading] = useState('');
   const [layananText, setLayananText] = useState('');
-
-  // Home Form States (Slide 2)
-  const [homeTextBanner2, setHomeTextBanner2] = useState('');
-  const [homeDescription2, setHomeDescription2] = useState('');
-  const [homeBanner2File, setHomeBanner2File] = useState(null);
-  const [homeBanner2Preview, setHomeBanner2Preview] = useState('');
-
-  // Home Form States (Slide 3)
-  const [homeTextBanner3, setHomeTextBanner3] = useState('');
-  const [homeDescription3, setHomeDescription3] = useState('');
-  const [homeBanner3File, setHomeBanner3File] = useState(null);
-  const [homeBanner3Preview, setHomeBanner3Preview] = useState('');
 
   // About Form States
   const [aboutTextBanner, setAboutTextBanner] = useState('');
@@ -87,10 +74,7 @@ export default function PageKelolaKonten() {
       ]);
 
       if (homeRes.status === 'fulfilled' && homeRes.value) {
-        const h = homeRes.value;
-        setHomeTextBanner(h.home_text_banner || '');
-        setHomeDescription(h.home_description || '');
-        setHomeBannerPreview(h.home_banner || '');
+        const h = homeRes.value?.data || homeRes.value;
 
         setPromoHeading(h.promo_heading || '');
         setPromoText(h.promo_text || '');
@@ -101,13 +85,27 @@ export default function PageKelolaKonten() {
         setLayananHeading(h.layanan_heading || '');
         setLayananText(h.layanan_text || '');
 
-        setHomeTextBanner2(h.home_text_banner_2 || '');
-        setHomeDescription2(h.home_description_2 || '');
-        setHomeBanner2Preview(h.home_banner_2 || '');
+        const loadedSlides = [];
+        for (let i = 1; i <= 10; i++) {
+          const bannerKey = i === 1 ? 'home_banner' : `home_banner_${i}`;
+          const textKey = i === 1 ? 'home_text_banner' : `home_text_banner_${i}`;
+          const descKey = i === 1 ? 'home_description' : `home_description_${i}`;
 
-        setHomeTextBanner3(h.home_text_banner_3 || '');
-        setHomeDescription3(h.home_description_3 || '');
-        setHomeBanner3Preview(h.home_banner_3 || '');
+          const preview = h[bannerKey] || '';
+          const text = h[textKey] || '';
+          const description = h[descKey] || '';
+
+          if (preview || text || description || i === 1) {
+            loadedSlides.push({
+              id: i,
+              file: null,
+              preview: preview,
+              text: text,
+              description: description,
+            });
+          }
+        }
+        setHomeSlides(loadedSlides.length > 0 ? loadedSlides : [{ id: 1, file: null, preview: '', text: '', description: '' }]);
       }
 
       if (aboutRes.status === 'fulfilled' && aboutRes.value) {
@@ -145,6 +143,32 @@ export default function PageKelolaKonten() {
     }
   }
 
+  const handleAddHomeSlide = () => {
+    if (homeSlides.length >= 10) {
+      setMessage({ type: 'error', text: 'Maksimal 10 slide banner yang dapat ditambahkan.' });
+      return;
+    }
+    setHomeSlides([
+      ...homeSlides,
+      { id: Date.now(), file: null, preview: '', text: '', description: '' },
+    ]);
+  };
+
+  const handleRemoveHomeSlide = (index) => {
+    if (homeSlides.length <= 1) {
+      setMessage({ type: 'error', text: 'Minimal harus ada 1 slide banner.' });
+      return;
+    }
+    const newSlides = homeSlides.filter((_, i) => i !== index);
+    setHomeSlides(newSlides);
+  };
+
+  const handleHomeSlideChange = (index, field, value) => {
+    setHomeSlides((prev) =>
+      prev.map((item, i) => (i === index ? { ...item, [field]: value } : item))
+    );
+  };
+
   const handleHomeSubmit = async (e) => {
     e.preventDefault();
     setSaving(true);
@@ -152,9 +176,24 @@ export default function PageKelolaKonten() {
 
     try {
       const formData = new FormData();
-      if (homeBannerFile) formData.append('home_banner', homeBannerFile);
-      formData.append('home_text_banner', homeTextBanner);
-      formData.append('home_description', homeDescription);
+
+      for (let i = 1; i <= 10; i++) {
+        const bannerKey = i === 1 ? 'home_banner' : `home_banner_${i}`;
+        const textKey = i === 1 ? 'home_text_banner' : `home_text_banner_${i}`;
+        const descKey = i === 1 ? 'home_description' : `home_description_${i}`;
+
+        const slide = homeSlides[i - 1];
+        if (slide) {
+          if (slide.file) {
+            formData.append(bannerKey, slide.file);
+          }
+          formData.append(textKey, slide.text || '');
+          formData.append(descKey, slide.description || '');
+        } else {
+          formData.append(textKey, '');
+          formData.append(descKey, '');
+        }
+      }
 
       formData.append('promo_heading', promoHeading);
       formData.append('promo_text', promoText);
@@ -165,24 +204,12 @@ export default function PageKelolaKonten() {
       formData.append('layanan_heading', layananHeading);
       formData.append('layanan_text', layananText);
 
-      if (homeBanner2File) formData.append('home_banner_2', homeBanner2File);
-      formData.append('home_text_banner_2', homeTextBanner2);
-      formData.append('home_description_2', homeDescription2);
-
-      if (homeBanner3File) formData.append('home_banner_3', homeBanner3File);
-      formData.append('home_text_banner_3', homeTextBanner3);
-      formData.append('home_description_3', homeDescription3);
-
       const res = await updateHomeContent(formData);
+      
+      // Re-fetch data from server to guarantee sync with backend database
+      await fetchData();
+
       setMessage({ type: 'success', text: res.message || 'Konten Home berhasil disimpan!' });
-      if (res.data) {
-        if (res.data.home_banner) setHomeBannerPreview(res.data.home_banner);
-        if (res.data.home_banner_2) setHomeBanner2Preview(res.data.home_banner_2);
-        if (res.data.home_banner_3) setHomeBanner3Preview(res.data.home_banner_3);
-        setHomeBannerFile(null);
-        setHomeBanner2File(null);
-        setHomeBanner3File(null);
-      }
     } catch (err) {
       setMessage({ type: 'error', text: err.message || 'Gagal menyimpan konten Home' });
     } finally {
@@ -363,180 +390,104 @@ export default function PageKelolaKonten() {
       {/* TAB KONTEN HOME */}
       {activeTab === 'home' && (
         <form onSubmit={handleHomeSubmit} className="card p-6 space-y-8">
-          <h2 className="text-base font-semibold text-slate-900 border-b border-slate-200 pb-3 flex items-center gap-2">
-            <FaHome className="text-primary" /> Konten Slider Banner Halaman Home
-          </h2>
+          <div className="flex items-center justify-between border-b border-slate-200 pb-3">
+            <h2 className="text-base font-semibold text-slate-900 flex items-center gap-2">
+              <FaHome className="text-primary" /> Konten Slider Banner Halaman Home
+            </h2>
+            <span className="text-xs font-semibold px-3 py-1 rounded-full bg-blue-50 text-blue-600 border border-blue-200">
+              {homeSlides.length} / 10 Banner
+            </span>
+          </div>
 
-          {/* SLIDE 1 */}
-          <div className="p-5 rounded-xl border border-slate-200 bg-slate-50/60 space-y-4">
-            <div className="flex items-center justify-between border-b border-slate-200 pb-2.5">
-              <span className="font-semibold text-slate-800 text-sm">Banner Slide 1 (Utama)</span>
-              <span className="text-xs bg-primary-light text-primary-dark font-semibold px-2.5 py-0.5 rounded-full">Slide #1</span>
-            </div>
+          {/* DYNAMIC SLIDES LIST */}
+          {homeSlides.map((slide, index) => (
+            <div key={slide.id || index} className="p-5 rounded-xl border border-slate-200 bg-slate-50/60 space-y-4">
+              <div className="flex items-center justify-between border-b border-slate-200 pb-2.5">
+                <span className="font-semibold text-slate-800 text-sm">
+                  Banner Slide {index + 1} {index === 0 ? '(Utama)' : ''}
+                </span>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs bg-primary-light text-primary-dark font-semibold px-2.5 py-0.5 rounded-full">
+                    Slide #{index + 1}
+                  </span>
+                  {homeSlides.length > 1 && (
+                    <button
+                      type="button"
+                      onClick={() => handleRemoveHomeSlide(index)}
+                      className="text-xs text-red-600 hover:text-red-800 p-1.5 rounded-lg hover:bg-red-50 transition-colors flex items-center gap-1 font-medium cursor-pointer"
+                      title="Hapus Slide"
+                    >
+                      <FaTrash size={12} /> Hapus
+                    </button>
+                  )}
+                </div>
+              </div>
 
-            <div>
-              <label className="form-label">Gambar Banner 1</label>
-              <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
-                {homeBannerPreview ? (
-                  <div className="relative w-48 h-28 rounded-xl overflow-hidden border border-slate-200 bg-white shadow-sm">
-                    <img src={homeBannerPreview} alt="Home Banner 1" className="w-full h-full object-cover" />
-                  </div>
-                ) : (
-                  <div className="w-48 h-28 rounded-xl border-2 border-dashed border-slate-200 bg-white flex flex-col items-center justify-center text-slate-400">
-                    <FaImage size={28} />
-                    <span className="text-xs mt-1">Belum ada banner</span>
-                  </div>
-                )}
+              <div>
+                <label className="form-label">Gambar Banner {index + 1}</label>
+                <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
+                  {slide.preview ? (
+                    <div className="relative w-48 h-28 rounded-xl overflow-hidden border border-slate-200 bg-white shadow-sm">
+                      <img src={slide.preview} alt={`Home Banner ${index + 1}`} className="w-full h-full object-cover" />
+                    </div>
+                  ) : (
+                    <div className="w-48 h-28 rounded-xl border-2 border-dashed border-slate-200 bg-white flex flex-col items-center justify-center text-slate-400">
+                      <FaImage size={28} />
+                      <span className="text-xs mt-1">Belum ada banner</span>
+                    </div>
+                  )}
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={(e) => {
+                      if (e.target.files[0]) {
+                        const file = e.target.files[0];
+                        const preview = URL.createObjectURL(file);
+                        setHomeSlides((prev) =>
+                          prev.map((item, i) =>
+                            i === index ? { ...item, file, preview } : item
+                          )
+                        );
+                      }
+                    }}
+                    className="text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-primary-light file:text-primary-dark hover:file:bg-primary-light/80 cursor-pointer"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="form-label">Headline Text Slide {index + 1}</label>
                 <input
-                  type="file"
-                  accept="image/*"
-                  onChange={(e) => {
-                    if (e.target.files[0]) {
-                      setHomeBannerFile(e.target.files[0]);
-                      setHomeBannerPreview(URL.createObjectURL(e.target.files[0]));
-                    }
-                  }}
-                  className="text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-primary-light file:text-primary-dark hover:file:bg-primary-light/80 cursor-pointer"
+                  type="text"
+                  value={slide.text}
+                  onChange={(e) => handleHomeSlideChange(index, 'text', e.target.value)}
+                  placeholder={`Contoh: Headline untuk Slide ${index + 1}`}
+                  className="form-input bg-white"
+                />
+              </div>
+
+              <div>
+                <label className="form-label">Deskripsi Slide {index + 1}</label>
+                <textarea
+                  rows={3}
+                  value={slide.description}
+                  onChange={(e) => handleHomeSlideChange(index, 'description', e.target.value)}
+                  placeholder={`Tulis deskripsi singkat untuk Slide ${index + 1}...`}
+                  className="form-input resize-none bg-white"
                 />
               </div>
             </div>
+          ))}
 
-            <div>
-              <label className="form-label">Headline Text Slide 1</label>
-              <input
-                type="text"
-                value={homeTextBanner}
-                onChange={(e) => setHomeTextBanner(e.target.value)}
-                placeholder="Contoh: Layanan Kesehatan Langsung ke Rumah"
-                className="form-input bg-white"
-              />
-            </div>
-
-            <div>
-              <label className="form-label">Deskripsi Slide 1</label>
-              <textarea
-                rows={3}
-                value={homeDescription}
-                onChange={(e) => setHomeDescription(e.target.value)}
-                placeholder="Tulis deskripsi singkat untuk Slide 1..."
-                className="form-input resize-none bg-white"
-              />
-            </div>
-          </div>
-
-          {/* SLIDE 2 */}
-          <div className="p-5 rounded-xl border border-slate-200 bg-slate-50/60 space-y-4">
-            <div className="flex items-center justify-between border-b border-slate-200 pb-2.5">
-              <span className="font-semibold text-slate-800 text-sm">Banner Slide 2</span>
-              <span className="text-xs bg-primary-light text-primary-dark font-semibold px-2.5 py-0.5 rounded-full">Slide #2</span>
-            </div>
-
-            <div>
-              <label className="form-label">Gambar Banner 2</label>
-              <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
-                {homeBanner2Preview ? (
-                  <div className="relative w-48 h-28 rounded-xl overflow-hidden border border-slate-200 bg-white shadow-sm">
-                    <img src={homeBanner2Preview} alt="Home Banner 2" className="w-full h-full object-cover" />
-                  </div>
-                ) : (
-                  <div className="w-48 h-28 rounded-xl border-2 border-dashed border-slate-200 bg-white flex flex-col items-center justify-center text-slate-400">
-                    <FaImage size={28} />
-                    <span className="text-xs mt-1">Belum ada banner</span>
-                  </div>
-                )}
-                <input
-                  type="file"
-                  accept="image/*"
-                  onChange={(e) => {
-                    if (e.target.files[0]) {
-                      setHomeBanner2File(e.target.files[0]);
-                      setHomeBanner2Preview(URL.createObjectURL(e.target.files[0]));
-                    }
-                  }}
-                  className="text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-primary-light file:text-primary-dark hover:file:bg-primary-light/80 cursor-pointer"
-                />
-              </div>
-            </div>
-
-            <div>
-              <label className="form-label">Headline Text Slide 2</label>
-              <input
-                type="text"
-                value={homeTextBanner2}
-                onChange={(e) => setHomeTextBanner2(e.target.value)}
-                placeholder="Contoh: Tenaga Kesehatan Profesional"
-                className="form-input bg-white"
-              />
-            </div>
-
-            <div>
-              <label className="form-label">Deskripsi Slide 2</label>
-              <textarea
-                rows={3}
-                value={homeDescription2}
-                onChange={(e) => setHomeDescription2(e.target.value)}
-                placeholder="Tulis deskripsi singkat untuk Slide 2..."
-                className="form-input resize-none bg-white"
-              />
-            </div>
-          </div>
-
-          {/* SLIDE 3 */}
-          <div className="p-5 rounded-xl border border-slate-200 bg-slate-50/60 space-y-4">
-            <div className="flex items-center justify-between border-b border-slate-200 pb-2.5">
-              <span className="font-semibold text-slate-800 text-sm">Banner Slide 3</span>
-              <span className="text-xs bg-primary-light text-primary-dark font-semibold px-2.5 py-0.5 rounded-full">Slide #3</span>
-            </div>
-
-            <div>
-              <label className="form-label">Gambar Banner 3</label>
-              <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
-                {homeBanner3Preview ? (
-                  <div className="relative w-48 h-28 rounded-xl overflow-hidden border border-slate-200 bg-white shadow-sm">
-                    <img src={homeBanner3Preview} alt="Home Banner 3" className="w-full h-full object-cover" />
-                  </div>
-                ) : (
-                  <div className="w-48 h-28 rounded-xl border-2 border-dashed border-slate-200 bg-white flex flex-col items-center justify-center text-slate-400">
-                    <FaImage size={28} />
-                    <span className="text-xs mt-1">Belum ada banner</span>
-                  </div>
-                )}
-                <input
-                  type="file"
-                  accept="image/*"
-                  onChange={(e) => {
-                    if (e.target.files[0]) {
-                      setHomeBanner3File(e.target.files[0]);
-                      setHomeBanner3Preview(URL.createObjectURL(e.target.files[0]));
-                    }
-                  }}
-                  className="text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-primary-light file:text-primary-dark hover:file:bg-primary-light/80 cursor-pointer"
-                />
-              </div>
-            </div>
-
-            <div>
-              <label className="form-label">Headline Text Slide 3</label>
-              <input
-                type="text"
-                value={homeTextBanner3}
-                onChange={(e) => setHomeTextBanner3(e.target.value)}
-                placeholder="Contoh: Booking Mudah Kapan Saja"
-                className="form-input bg-white"
-              />
-            </div>
-
-            <div>
-              <label className="form-label">Deskripsi Slide 3</label>
-              <textarea
-                rows={3}
-                value={homeDescription3}
-                onChange={(e) => setHomeDescription3(e.target.value)}
-                placeholder="Tulis deskripsi singkat untuk Slide 3..."
-                className="form-input resize-none bg-white"
-              />
-            </div>
-          </div>
+          {homeSlides.length < 10 && (
+            <button
+              type="button"
+              onClick={handleAddHomeSlide}
+              className="w-full py-3 border-2 border-dashed border-primary/40 text-primary hover:bg-primary-light/40 font-semibold rounded-xl flex items-center justify-center gap-2 transition-colors cursor-pointer"
+            >
+              <FaPlus size={14} /> Tambah Slide Banner (Maks. 10)
+            </button>
+          )}
 
           {/* PROMO SECTION */}
           <div className="p-5 rounded-xl border border-slate-200 bg-slate-50/60 space-y-4">
