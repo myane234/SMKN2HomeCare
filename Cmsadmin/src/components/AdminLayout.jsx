@@ -1,8 +1,9 @@
 import { Outlet, useLocation, useNavigate, Link } from "react-router-dom";
 import { useState, useRef, useEffect } from "react";
 import Sidebar from "./Sidebar";
-import { getSession, logout } from "../utils/auth";
+import { getSession, logout, getAuthHeaders, handleUnauthorized } from "../utils/auth";
 import { isSuperAdmin } from "../utils/role";
+import { URL } from "../utils/getUrl";
 
 const SIDEBAR_STORAGE_KEY = "sidebar-width";
 const SIDEBAR_MIN_WIDTH = 220;
@@ -12,8 +13,9 @@ const SIDEBAR_DEFAULT_WIDTH = 280;
 export default function AdminLayout() {
   const navigate = useNavigate();
   const location = useLocation();
-  const session = getSession();
+  const initialSession = getSession();
 
+  const [session, setSession] = useState(initialSession);
   const [open, setOpen] = useState(false); // User dropdown
   const [sidebarOpen, setSidebarOpen] = useState(false); // Mobile sidebar drawer
   const [collapsed, setCollapsed] = useState(false); // Desktop collapse state
@@ -28,6 +30,39 @@ export default function AdminLayout() {
   const menuRef = useRef(null);
   const startXRef = useRef(0);
   const startWidthRef = useRef(sidebarWidth);
+
+  // Ambil data admin terbaru (termasuk foto profil) dari API /admin/me
+  useEffect(() => {
+    const fetchLatestAdminData = async () => {
+      try {
+        const response = await fetch(`${URL}/admin/me`, {
+          method: "GET",
+          headers: getAuthHeaders({ "Content-Type": "application/json" }),
+        });
+
+        if (response.status === 401) {
+          handleUnauthorized();
+          return;
+        }
+
+        const result = await response.json();
+        if (response.ok) {
+          const adminData = result.data || result;
+          // Gabungkan data session lama dengan data terbaru dari server
+          setSession((prev) => ({
+            ...prev,
+            name: adminData.nama_lengkap || adminData.name || prev?.name,
+            email: adminData.email || prev?.email,
+            foto_profile: adminData.foto_profile || prev?.foto_profile,
+          }));
+        }
+      } catch (error) {
+        console.error("Gagal memperbarui data session navbar:", error);
+      }
+    };
+
+    fetchLatestAdminData();
+  }, [location.pathname]); // Akan nge-fetch ulang tiap pindah halaman / update
 
   // Restore collapsed preference dari localStorage
   useEffect(() => {
@@ -99,6 +134,16 @@ export default function AdminLayout() {
     navigate("/login", { replace: true });
   }
 
+  // Helper URL Foto Profil
+  const getImageUrl = (path) => {
+    if (!path) return null;
+    if (path.startsWith("http://") || path.startsWith("https://")) return path;
+    const cleanPath = path.startsWith("/") ? path : `/${path}`;
+    return `${URL.replace(/\/api\/?$/, "")}/storage${cleanPath}`;
+  };
+
+  const avatarSrc = getImageUrl(session?.foto_profile);
+
   const sidebarProps = {
     open: sidebarOpen,
     onClose: () => setSidebarOpen(false),
@@ -159,24 +204,40 @@ export default function AdminLayout() {
               <span className="hidden text-[13px] font-semibold text-slate-700 sm:inline">
                 Hi, {session?.name?.split(" ")[0] || "Admin"}
               </span>
-              <div className="flex h-8 w-8 items-center justify-center rounded-full bg-gradient-to-br from-primary-light to-green-100 border border-primary/20 text-base font-bold text-primary-dark">
-                {(session?.name?.[0] || "A").toUpperCase()}
-              </div>
+              
+              {avatarSrc ? (
+                <img
+                  src={avatarSrc}
+                  alt="Profile"
+                  className="h-8 w-8 rounded-full object-cover border border-emerald-500/20"
+                />
+              ) : (
+                <div className="flex h-8 w-8 items-center justify-center rounded-full bg-gradient-to-br from-emerald-100 to-green-100 border border-emerald-500/20 text-base font-bold text-emerald-800">
+                  {(session?.name?.[0] || "A").toUpperCase()}
+                </div>
+              )}
             </button>
 
             {open && (
               <div className="absolute right-0 top-[calc(100%+8px)] w-72 rounded-2xl border border-slate-200 bg-white p-4 shadow-xl shadow-slate-200/60 z-50">
-                {/* Link ke halaman profil utama sesuai App.jsx */}
                 <Link
                   to="/profile"
                   onClick={() => setOpen(false)}
                   className="flex items-center gap-3 p-2 -m-2 rounded-xl hover:bg-slate-50 transition-colors group"
                 >
-                  <div className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-primary-light to-green-100 border border-primary/20 text-lg font-bold text-primary-dark group-hover:scale-105 transition-transform">
-                    {(session?.name?.[0] || "A").toUpperCase()}
-                  </div>
+                  {avatarSrc ? (
+                    <img
+                      src={avatarSrc}
+                      alt="Profile"
+                      className="h-11 w-11 flex-shrink-0 rounded-full object-cover border border-emerald-500/20 group-hover:scale-105 transition-transform"
+                    />
+                  ) : (
+                    <div className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-emerald-100 to-green-100 border border-emerald-500/20 text-lg font-bold text-emerald-800 group-hover:scale-105 transition-transform">
+                      {(session?.name?.[0] || "A").toUpperCase()}
+                    </div>
+                  )}
                   <div className="min-w-0 flex-1">
-                    <div className="truncate text-sm font-bold text-slate-900 group-hover:text-primary transition-colors">
+                    <div className="truncate text-sm font-bold text-slate-900 group-hover:text-emerald-700 transition-colors">
                       {session?.name || "Admin"}
                     </div>
                     <div className="flex items-center gap-1.5 mt-0.5">
