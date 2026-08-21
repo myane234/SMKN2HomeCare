@@ -1,7 +1,14 @@
 import React, { useState, useEffect } from 'react';
-import { FaEdit, FaTrash, FaPlus, FaSearch, FaChevronLeft, FaChevronRight, FaGlobe } from 'react-icons/fa';
+import { FaEdit, FaTrash, FaPlus, FaSearch } from 'react-icons/fa';
+import { 
+  getAllUniversitas, 
+  createUniversitas, 
+  updateUniversitas, 
+  deleteUniversitas 
+} from '../../data/masterUniversitasData.js';
 
 export default function AdminMasterUniversitas() {
+  console.log("Komponen AdminMasterUniversitas BERHASIL DIMUAT!");
   const [universitasList, setUniversitasList] = useState([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [isOpenModal, setIsOpenModal] = useState(false);
@@ -12,42 +19,38 @@ export default function AdminMasterUniversitas() {
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
 
-  // Form State (Tanpa singkatan)
+  // Form State
   const [formData, setFormData] = useState({
     nama_universitas: '',
     is_active: true,
   });
 
-  // Ambil data langsung dari API Hipolabs
+  // Ambil data dari API backend saat komponen dimuat
   useEffect(() => {
-    loadDataFromApi();
+    loadData();
   }, []);
 
-  const loadDataFromApi = async () => {
+  const loadData = async () => {
+    console.log("loadData dipanggil!");
     try {
-      const response = await fetch('http://universities.hipolabs.com/search?country=Indonesia');
-      const result = await response.json();
-      
-      const formattedData = result.map((item, index) => ({
-        id: index + 1,
-        nama_universitas: item.name,
-        is_active: true,
-      }));
-
-      setUniversitasList(formattedData);
+      const data = await getAllUniversitas();
+      console.log("DEBUG API RESPON:", data); // <-- Cek hasil ini di tab Console browser!
+      setUniversitasList(Array.isArray(data) ? data : []);
     } catch (error) {
-      console.error('Gagal mengambil data dari API universitas:', error);
+      console.error('Gagal mengambil data universitas:', error);
     }
   };
 
   const handleOpenAdd = () => {
     setIsEditMode(false);
+    setFormData({ nama_universitas: '', is_active: true });
     setIsOpenModal(true);
   };
 
   const handleOpenEdit = (item) => {
     setIsEditMode(true);
-    setSelectedId(item.id);
+    const id = item.universita_id_universitas || item.id;
+    setSelectedId(id);
     setFormData({ 
       nama_universitas: item.nama_universitas, 
       is_active: item.is_active 
@@ -55,37 +58,51 @@ export default function AdminMasterUniversitas() {
     setIsOpenModal(true);
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    if (isEditMode) {
-      setUniversitasList(universitasList.map(item => 
-        item.id === selectedId ? { ...item, ...formData } : item
-      ));
-    } else {
-      const newItem = {
-        id: Date.now(),
-        ...formData,
-      };
-      setUniversitasList([newItem, ...universitasList]);
+    try {
+      if (isEditMode) {
+        await updateUniversitas(selectedId, formData);
+      } else {
+        await createUniversitas(formData);
+      }
+      setIsOpenModal(false);
+      loadData();
+    } catch (error) {
+      console.error('Gagal menyimpan data universitas:', error);
+      alert(error.message);
     }
-    setIsOpenModal(false);
   };
 
-  const handleToggle = (id) => {
-    setUniversitasList(universitasList.map(item => 
-      item.id === id ? { ...item, is_active: !item.is_active } : item
-    ));
+  const handleToggle = async (item) => {
+    try {
+      const id = item.universita_id_universitas || item.id;
+      const updatedStatus = !item.is_active;
+      
+      await updateUniversitas(id, {
+        nama_universitas: item.nama_universitas,
+        is_active: updatedStatus
+      });
+      loadData();
+    } catch (error) {
+      console.error('Gagal mengubah status:', error);
+    }
   };
 
-  const handleDelete = (id) => {
+  const handleDelete = async (idItem) => {
     if (window.confirm('Yakin ingin menghapus data universitas ini?')) {
-      setUniversitasList(universitasList.filter(item => item.id !== id));
+      try {
+        await deleteUniversitas(idItem);
+        loadData();
+      } catch (error) {
+        console.error('Gagal menghapus data:', error);
+      }
     }
   };
 
   // 1. Filter data berdasarkan pencarian
   const filteredData = universitasList.filter((item) =>
-    item.nama_universitas.toLowerCase().includes(searchQuery.toLowerCase())
+    item.nama_universitas?.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
   // 2. Hitung data untuk pagination
@@ -105,7 +122,9 @@ export default function AdminMasterUniversitas() {
       <div className="flex justify-between items-center mb-6">
         <div>
           <h1 className="text-2xl font-bold text-slate-800">Master Universitas</h1>
-          <p className="text-sm text-slate-500">Kelola data perguruan tinggi yang bersumber dari API publik.</p>
+          <p className="text-sm text-slate-500">
+            Total seluruh data: <span className="font-semibold text-slate-700">{universitasList.length}</span> Universitas
+          </p>
         </div>
         <button
           onClick={handleOpenAdd}
@@ -120,7 +139,7 @@ export default function AdminMasterUniversitas() {
         <FaSearch className="text-slate-400" />
         <input
           type="text"
-          placeholder="Cari nama universitas..."
+          placeholder="Cari berdasarkan nama universitas..."
           value={searchQuery}
           onChange={handleSearchChange}
           className="w-full outline-none text-sm text-slate-700"
@@ -141,64 +160,68 @@ export default function AdminMasterUniversitas() {
           <tbody className="divide-y divide-slate-100 text-sm">
             {currentItems.length === 0 ? (
               <tr>
-                <td colSpan="5" className="p-8 text-center text-slate-400">Tidak ada data universitas.</td>
+                <td colSpan="4" className="p-8 text-center text-slate-400">Tidak ada data universitas ditemukan.</td>
               </tr>
             ) : (
-              currentItems.map((item, index) => (
-                <tr key={item.id} className="hover:bg-slate-50/50">
-                  <td className="p-4 text-center font-medium text-slate-500">
-                    {indexOfFirstItem + index + 1}
-                  </td>
-                  <td className="p-4 font-semibold text-slate-800">{item.nama_universitas}</td>
-                  <td className="p-4">
-                    <span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${
-                      item.is_active ? 'bg-emerald-50 text-emerald-600 border border-emerald-100' : 'bg-rose-50 text-rose-600 border border-rose-200'
-                    }`}>
-                      {item.is_active ? 'Aktif' : 'Nonaktif'}
-                    </span>
-                  </td>
-                  <td className="p-4 text-right">
-                    <div className="flex justify-end items-center gap-1.5">
-                      <button
-                        onClick={() => handleToggle(item.id)}
-                        type="button"
-                        className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
-                          item.is_active ? 'bg-emerald-600' : 'bg-slate-300'
-                        }`}
-                        title="Ubah Status"
-                      >
-                        <span
-                          className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
-                            item.is_active ? 'translate-x-5' : 'translate-x-0'
+              currentItems.map((item, index) => {
+                const uniqueId = item.universita_id_universitas || item.id;
+                return (
+                  <tr key={uniqueId} className="hover:bg-slate-50/50">
+                    <td className="p-4 text-center font-medium text-slate-500">
+                      {indexOfFirstItem + index + 1}
+                    </td>
+                    <td className="p-4 font-semibold text-slate-800">{item.nama_universitas}</td>
+                    <td className="p-4">
+                      <span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${
+                        item.is_active ? 'bg-emerald-50 text-emerald-600 border border-emerald-100' : 'bg-rose-50 text-rose-600 border border-rose-200'
+                      }`}>
+                        {item.is_active ? 'Aktif' : 'Nonaktif'}
+                      </span>
+                    </td>
+                    <td className="p-4 text-right">
+                      <div className="flex justify-end items-center gap-1.5">
+                        <button
+                          onClick={() => handleToggle(item)}
+                          type="button"
+                          className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
+                            item.is_active ? 'bg-emerald-600' : 'bg-slate-300'
                           }`}
-                        />
-                      </button>
+                          title="Ubah Status"
+                        >
+                          <span
+                            className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
+                              item.is_active ? 'translate-x-5' : 'translate-x-0'
+                            }`}
+                          />
+                        </button>
 
-                      <button
-                        onClick={() => handleOpenEdit(item)}
-                        className="rounded-lg border border-slate-200 bg-white p-1.5 text-slate-600 hover:bg-slate-50 hover:text-emerald-600 transition"
-                        title="Edit"
-                      >
-                        <FaEdit className="text-sm" />
-                      </button>
+                        <button
+                          onClick={() => handleOpenEdit(item)}
+                          className="rounded-lg border border-slate-200 bg-white p-1.5 text-slate-600 hover:bg-slate-50 hover:text-emerald-600 transition"
+                          title="Edit"
+                        >
+                          <FaEdit className="text-sm" />
+                        </button>
 
-                      <button
-                        onClick={() => handleDelete(item.id)}
-                        className="rounded-lg border border-rose-200 bg-rose-50 p-1.5 text-rose-600 hover:bg-rose-100 transition"
-                        title="Hapus"
-                      >
-                        <FaTrash className="text-sm" />
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))
+                        <button
+                          onClick={() => handleDelete(uniqueId)}
+                          className="rounded-lg border border-rose-200 bg-rose-50 p-1.5 text-rose-600 hover:bg-rose-100 transition"
+                          title="Hapus"
+                        >
+                          <FaTrash className="text-sm" />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })
             )}
           </tbody>
         </table>
       </div>
 
-      <div className="flex items-center justify-between px-6 py-4 border-t border-gray-200 bg-white">
+      {/* Footer / Pagination Section */}
+      <div className="flex items-center justify-between px-6 py-4 border-t border-gray-200 bg-white rounded-xl shadow-sm border border-slate-200">
         <div className="text-sm text-gray-500">
           Halaman <span className="font-semibold text-gray-700">{currentPage}</span> dari <span className="font-semibold text-gray-700">{totalPages || 1}</span>
         </div>
@@ -245,6 +268,7 @@ export default function AdminMasterUniversitas() {
                 <label className="block text-xs font-semibold uppercase text-slate-500 mb-1">Nama Universitas</label>
                 <input
                   type="text"
+                  maxLength={255}
                   required
                   placeholder="Contoh: Universitas Indonesia"
                   value={formData.nama_universitas}
