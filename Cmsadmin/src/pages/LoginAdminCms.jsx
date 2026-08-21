@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { login } from '../utils/auth';
 import logo from '../assets/logo.png';
+import { FaShieldAlt } from 'react-icons/fa';
 
 export default function LoginAdminCms() {
   const navigate = useNavigate();
@@ -35,79 +36,123 @@ export default function LoginAdminCms() {
     }
   }
 
-  return (
-    <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-accent to-slate-100 p-5">
-      <div className="w-full max-w-[380px] rounded-card bg-white p-7 shadow-card sm:p-9">
-        <div className="mb-1 flex items-center justify-center">
-          <img src={logo} alt="Smartcare" className="h-14 w-auto object-contain" />
-        </div>
-        <p className="mb-7 text-center text-[13px] text-slate-500">
-          Masuk ke panel admin CMS HomeCare
-        </p>
+  const renderLoginForm = () => (
+    <div className="w-full bg-white rounded-3xl p-6 sm:p-8 shadow-2xl border border-slate-100">
+      <div className="mb-4 flex items-center justify-start">
+        <img src={logo} alt="Smartcare" className="h-8 sm:h-10 w-auto object-contain" />
+      </div>
 
-        <form onSubmit={handleSubmit} className="flex flex-col">
-          <label className="form-label">Email</label>
+      <h2 className="text-2xl font-black text-slate-800 mb-1">Selamat Datang</h2>
+      <p className="mb-5 text-xs sm:text-sm text-slate-500 font-medium">
+        Masuk ke panel admin CMS HomeCare
+      </p>
+
+      <form onSubmit={handleSubmit} className="flex flex-col">
+        <label className="text-xs font-bold text-slate-600 mb-1.5">Email</label>
+        <input
+          type="email"
+          name="email"
+          placeholder="admin@smarthomecare.com"
+          value={form.email}
+          onChange={handleChange}
+          className="w-full px-4 py-3 rounded-xl border border-slate-200 mb-3.5 text-sm focus:border-sky-500 outline-none transition bg-slate-50/50"
+          autoComplete="username"
+        />
+
+        <label className="text-xs font-bold text-slate-600 mb-1.5">Password</label>
+        <div className="relative">
           <input
-            type="email"
-            name="email"
-            placeholder="admin@smarthomecare.com"
-            value={form.email}
+            type={showPassword ? 'text' : 'password'}
+            name="password"
+            placeholder="••••••••"
+            value={form.password}
             onChange={handleChange}
-            className="form-input"
-            autoComplete="username"
+            className="w-full px-4 py-3 rounded-xl border border-slate-200 mb-3.5 text-sm focus:border-sky-500 outline-none pr-16 transition bg-slate-50/50"
+            autoComplete="current-password"
           />
+          <button
+            type="button"
+            className="absolute right-4 top-3.5 text-xs font-bold text-sky-600 cursor-pointer hover:opacity-80"
+            onClick={() => setShowPassword((s) => !s)}
+            tabIndex={-1}
+          >
+            {showPassword ? 'Sembunyikan' : 'Lihat'}
+          </button>
+        </div>
 
-          <label className="form-label">Password</label>
-          <div className="relative">
-            <input
-              type={showPassword ? 'text' : 'password'}
-              name="password"
-              placeholder="••••••••"
-              value={form.password}
-              onChange={handleChange}
-              className="form-input pr-20"
-              autoComplete="current-password"
-            />
-            <button
-              type="button"
-              className="absolute right-2.5 top-1/2 -translate-y-1/2 text-xs font-semibold text-primary"
-              onClick={() => setShowPassword((s) => !s)}
-              tabIndex={-1}
-            >
-              {showPassword ? 'Sembunyikan' : 'Lihat'}
-            </button>
+        {error && (
+          <div className="mt-1 mb-3 rounded-xl bg-red-50 text-red-600 px-3 py-2.5 text-xs">
+            {error}
+          </div>
+        )}
+
+        <button 
+          type="submit" 
+          className="w-full py-3.5 bg-[#004fa4] text-white rounded-xl font-bold text-sm hover:bg-sky-700 transition shadow-md cursor-pointer mt-1" 
+          disabled={loading}
+        >
+          {loading ? 'Memproses...' : 'Masuk'}
+        </button>
+      </form>
+
+      <div className="mt-5 border-t border-slate-100 pt-4">
+        <p className="text-[11px] text-slate-400">
+          Butuh bantuan akses? Hubungi tim IT Support.
+        </p>
+      </div>
+    </div>
+  );
+
+  return (
+    <div className="flex min-h-screen w-full bg-slate-50 overflow-x-hidden items-center justify-center">
+      
+      {/* TAMPILAN MOBILE & TABLET */}
+      <div className="flex lg:hidden w-full min-h-screen flex-col relative bg-white">
+        <div className="w-full bg-gradient-to-br from-[#0284c7] via-[#004fa4] to-[#2dd4bf] px-6 pt-10 pb-20 flex flex-col items-start justify-start rounded-b-[40px] shadow-lg text-left">
+          <img src={logo} alt="Smartcare Logo" className="h-6 w-auto object-contain brightness-0 invert drop-shadow-[0_2px_6px_rgba(0,0,0,0.2)] mb-2" />
+          
+          <div className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-white/25 backdrop-blur-md text-[10px] font-bold uppercase tracking-wider text-white shadow-sm mb-3">
+            <FaShieldAlt size={9} className="text-white" /> PORTAL RESMI
           </div>
 
-          {error && (
-            <div className="mt-3.5 rounded-lg bg-danger-bg px-3 py-2.5 text-[13px] text-danger">
-              {error}
+          <h1 className="text-xl sm:text-2xl font-black tracking-tight leading-snug text-white drop-shadow-md mb-2">
+            Sistem Informasi <span className="text-yellow-200">HomeCare Terpadu</span>
+          </h1>
+          <p className="text-white/90 text-xs leading-relaxed font-medium max-w-sm">
+            Solusi digital profesional untuk manajemen layanan kesehatan.
+          </p>
+        </div>
+
+        <div className="w-full px-6 -mt-12 pb-12 z-10 flex justify-center">
+          <div className="w-full max-w-md">{renderLoginForm()}</div>
+        </div>
+      </div>
+
+      {/* TAMPILAN DESKTOP */}
+      <div className="hidden lg:flex w-full min-h-screen bg-slate-50 flex-row">
+        {/* Sisi Kiri: Branding / Informasi (Diubah menjadi justify-start dengan padding atas besar agar teks naik ke atas) */}
+        <div className="w-1/2 bg-gradient-to-br from-[#0284c7] via-[#004fa4] to-[#2dd4bf] text-white px-16 py-16 xl:px-20 xl:py-20 flex flex-col justify-start rounded-r-[140px] shadow-lg relative">
+          <div className="max-w-xl">
+            <div className="mb-8">
+              <img src={logo} alt="Smartcare Logo" className="h-12 w-auto object-contain brightness-0 invert drop-shadow-[0_2px_8px_rgba(0,0,0,0.2)] mb-6" />
+              <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white/20 backdrop-blur-md text-xs font-bold uppercase tracking-wider border border-white/30 text-white shadow-sm">
+                <FaShieldAlt size={12} className="text-white" /> PORTAL RESMI
+              </div>
             </div>
-          )}
 
-          <button type="submit" className="btn-primary mt-6 w-full py-3 text-[15px]" disabled={loading}>
-            {loading ? 'Memproses...' : 'Masuk'}
-          </button>
-        </form>
+            <h1 className="text-4xl xl:text-5xl font-black tracking-tight leading-tight mb-5 text-white drop-shadow-md">
+              Sistem Informasi <br />
+              <span className="text-yellow-200 drop-shadow-lg">HomeCare Terpadu</span>
+            </h1>
+            <p className="text-white/95 text-base xl:text-lg leading-relaxed font-medium drop-shadow-sm">
+              Solusi digital profesional untuk manajemen layanan kesehatan, penjadwalan tenaga medis, rekam medis pasien, serta kontrol operasional harian secara efisien dan aman.
+            </p>
+          </div>
+        </div>
 
-        {/* <p className="mt-5 text-center text-[11px] text-slate-500">
-          Super Admin: admin@gmail.com / faruqganteng<br/>
-          Admin: faruq@homecare.com / faruqganteng
-        </p> */}
-
-        <div className="mt-6 border-t border-slate-200 pt-5 text-center">
-          {/* {window.location.pathname.includes('super-admin') ? (
-            <a href="/login" className="text-sm font-medium text-primary hover:underline">
-              ← Kembali ke Login Admin Biasa
-            </a>
-          ) : (
-            <a href="/super-admin/login" className="text-sm font-medium text-primary hover:underline">
-              Masuk sebagai Super Admin →
-            </a>
-          )} */}
-
-          {/* <a href="/login" className="text-sm font-medium text-primary hover:underline">
-              ← Login Admin
-            </a> */}
+        {/* Sisi Kanan: Form Login */}
+        <div className="w-1/2 flex items-center justify-center p-12 xl:p-20">
+          <div className="w-full max-w-[460px]">{renderLoginForm()}</div>
         </div>
       </div>
     </div>
