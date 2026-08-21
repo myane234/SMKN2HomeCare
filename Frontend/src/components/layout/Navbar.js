@@ -16,7 +16,8 @@ import {
     FiBook,
     FiUsers,
     FiUserCheck,
-    FiLogIn
+    FiLogIn,
+    FiCalendar
 } from "react-icons/fi";
 import { getLayanan } from "@/services/layananService";
 
@@ -166,13 +167,28 @@ export default function Navbar() {
                     <Link 
                         href="/layanan" 
                         className={`relative px-4 py-2 rounded-lg text-sm transition-all duration-300 ease-in-out hover:bg-gray-50 ${
-                            pathname.startsWith("/layanan") 
+                            pathname === "/layanan" 
                                 ? "text-green-600 font-semibold" 
                                 : "text-gray-600 hover:text-green-600"
                         }`}
                     >
                         Layanan
-                        {pathname.startsWith("/layanan") && (
+                        {pathname === "/layanan" && (
+                            <span className="absolute bottom-0 left-1/2 -translate-x-1/2 w-5 h-0.5 bg-green-500 rounded-full" />
+                        )}
+                    </Link>
+                </li>
+                <li>
+                    <Link 
+                        href="/pesan-laynan" 
+                        className={`relative px-4 py-2 rounded-lg text-sm transition-all duration-300 ease-in-out hover:bg-gray-50 ${
+                            pathname.startsWith("/pesan-laynan") 
+                                ? "text-green-600 font-semibold" 
+                                : "text-gray-600 hover:text-green-600"
+                        }`}
+                    >
+                        Pesan Layanan
+                        {pathname.startsWith("/pesan-laynan") && (
                             <span className="absolute bottom-0 left-1/2 -translate-x-1/2 w-5 h-0.5 bg-green-500 rounded-full" />
                         )}
                     </Link>
@@ -329,13 +345,27 @@ export default function Navbar() {
                                     href="/layanan" 
                                     onClick={() => setIsMobileMenuOpen(false)}
                                     className={`flex items-center gap-3 px-3 py-3 rounded-lg transition-all duration-300 ease-in-out ${
-                                        pathname.startsWith("/layanan") 
+                                        pathname === "/layanan" 
                                             ? "bg-green-50 text-green-600" 
                                             : "text-gray-700 hover:bg-gray-50 hover:text-green-600"
                                     }`}
                                 >
                                     <FiActivity size={20} />
                                     <span>Layanan</span>
+                                </Link>
+                            </li>
+                            <li>
+                                <Link 
+                                    href="/pesan-laynan" 
+                                    onClick={() => setIsMobileMenuOpen(false)}
+                                    className={`flex items-center gap-3 px-3 py-3 rounded-lg transition-all duration-300 ease-in-out ${
+                                        pathname.startsWith("/pesan-laynan") 
+                                            ? "bg-green-50 text-green-600" 
+                                            : "text-gray-700 hover:bg-gray-50 hover:text-green-600"
+                                    }`}
+                                >
+                                    <FiCalendar size={20} />
+                                    <span>Pesan Layanan</span>
                                 </Link>
                             </li>
                             <li>
@@ -422,21 +452,41 @@ export default function Navbar() {
                 <Link 
                     href="/layanan" 
                     className={`flex flex-col items-center gap-1 text-[11px] sm:text-xs transition-all duration-300 ease-in-out group ${
-                        pathname.startsWith("/layanan") 
+                        pathname === "/layanan" 
                             ? "text-green-600 font-bold" 
                             : "hover:text-green-600"
                     }`}
                 >
                     <div className={`p-1.5 rounded-lg transition-all duration-300 ease-in-out ${
-                        pathname.startsWith("/layanan") 
+                        pathname === "/layanan" 
                             ? "bg-green-50" 
                             : "group-hover:bg-green-50/50"
                     }`}>
                         <FiGrid className={`w-5 h-5 sm:w-5.5 sm:h-5.5 transition-all duration-300 ${
-                            pathname.startsWith("/layanan") ? "stroke-[2.5]" : "stroke-2"
+                            pathname === "/layanan" ? "stroke-[2.5]" : "stroke-2"
                         }`} />
                     </div>
                     <span className="transition-colors duration-300">Layanan</span>
+                </Link>
+
+                <Link 
+                    href="/pesan-laynan" 
+                    className={`flex flex-col items-center gap-1 text-[11px] sm:text-xs transition-all duration-300 ease-in-out group ${
+                        pathname.startsWith("/pesan-laynan") 
+                            ? "text-green-600 font-bold" 
+                            : "hover:text-green-600"
+                    }`}
+                >
+                    <div className={`p-1.5 rounded-lg transition-all duration-300 ease-in-out ${
+                        pathname.startsWith("/pesan-laynan") 
+                            ? "bg-green-50" 
+                            : "group-hover:bg-green-50/50"
+                    }`}>
+                        <FiCalendar className={`w-5 h-5 sm:w-5.5 sm:h-5.5 transition-all duration-300 ${
+                            pathname.startsWith("/pesan-laynan") ? "stroke-[2.5]" : "stroke-2"
+                        }`} />
+                    </div>
+                    <span className="transition-colors duration-300">Pesan</span>
                 </Link>
 
                 <Link
