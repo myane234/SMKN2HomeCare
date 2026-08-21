@@ -9,6 +9,7 @@ import {
   getFooterContent,
   updateFooterContent
 } from '../data/contentData';
+import { resolveImageUrl } from '../utils/resolveImage';
 import { FaHome, FaInfoCircle, FaHandshake, FaGlobe, FaSave, FaImage, FaSpinner, FaPlus, FaTrash } from 'react-icons/fa';
 
 export default function PageKelolaKonten() {
@@ -91,7 +92,7 @@ export default function PageKelolaKonten() {
           const textKey = i === 1 ? 'home_text_banner' : `home_text_banner_${i}`;
           const descKey = i === 1 ? 'home_description' : `home_description_${i}`;
 
-          const preview = h[bannerKey] || '';
+          const preview = h[bannerKey] ? resolveImageUrl(h[bannerKey]) : '';
           const text = h[textKey] || '';
           const description = h[descKey] || '';
 
@@ -112,8 +113,8 @@ export default function PageKelolaKonten() {
         const a = aboutRes.value;
         setAboutTextBanner(a.about_text_banner || '');
         setAboutDescriptionText(a.about_description_text || '');
-        setAboutBannerPreview(a.about_banner || '');
-        setAboutDescImagePreview(a.about_description_image || '');
+        setAboutBannerPreview(a.about_banner ? resolveImageUrl(a.about_banner) : '');
+        setAboutDescImagePreview(a.about_description_image ? resolveImageUrl(a.about_description_image) : '');
         setVisiMisi(a.visi_misi || '');
         setCaraKerja(a.cara_kerja || '');
         setWilayahLayanan(a.wilayah_layanan || '');
@@ -124,7 +125,7 @@ export default function PageKelolaKonten() {
         const m = mitraRes.value.data || mitraRes.value;
         setMitraTextBanner(m.mitra_text_banner || '');
         setMitraDescription(m.mitra_description || '');
-        setMitraBannerPreview(m.mitra_banner || '');
+        setMitraBannerPreview(m.mitra_banner ? resolveImageUrl(m.mitra_banner) : '');
       }
 
       if (footerRes.status === 'fulfilled' && footerRes.value) {
@@ -236,11 +237,11 @@ export default function PageKelolaKonten() {
       const res = await updateAboutContent(formData);
       setMessage({ type: 'success', text: res.message || 'Konten Tentang Kami berhasil disimpan!' });
       if (res.data?.about_banner) {
-        setAboutBannerPreview(res.data.about_banner);
+        setAboutBannerPreview(resolveImageUrl(res.data.about_banner));
         setAboutBannerFile(null);
       }
       if (res.data?.about_description_image) {
-        setAboutDescImagePreview(res.data.about_description_image);
+        setAboutDescImagePreview(resolveImageUrl(res.data.about_description_image));
         setAboutDescImageFile(null);
       }
     } catch (err) {
@@ -264,7 +265,7 @@ export default function PageKelolaKonten() {
       const res = await updateMitraContent(formData);
       setMessage({ type: 'success', text: res.message || 'Konten Gabung Mitra berhasil diperbarui' });
       if (res.data?.mitra_banner) {
-        setMitraBannerPreview(res.data.mitra_banner);
+        setMitraBannerPreview(resolveImageUrl(res.data.mitra_banner));
         setMitraBannerFile(null);
       }
     } catch (err) {

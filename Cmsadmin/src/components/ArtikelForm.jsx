@@ -70,7 +70,7 @@ export default function ArtikelForm({ initialData, onSubmit, submitting, mode, s
   }
 
   return (
-    <div className="w-full space-y-6 pb-10">
+    <div className="w-full max-w-screen-2xl mx-auto space-y-6 pb-10">
       {/* Tombol Kembali dengan Ikon Panah */}
       <div>
         <a
@@ -82,7 +82,7 @@ export default function ArtikelForm({ initialData, onSubmit, submitting, mode, s
         </a>
       </div>
 
-      <form className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden w-full p-8" onSubmit={handleSubmit}>
+      <form className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden w-full p-6 sm:p-8 lg:p-10" onSubmit={handleSubmit}>
         {serverError && (
           <div className="mb-5 rounded-lg bg-danger-bg px-3.5 py-3 text-sm text-danger">
             {serverError}
@@ -91,7 +91,7 @@ export default function ArtikelForm({ initialData, onSubmit, submitting, mode, s
 
         <div className="flex flex-col gap-8">
           {/* Row: Judul + Kategori + Gambar */}
-          <div className="grid grid-cols-1 gap-8 lg:grid-cols-[1.4fr_1fr]">
+          <div className="grid grid-cols-1 gap-8 lg:grid-cols-[1.8fr_1fr]">
             <div className="flex flex-col">
               <label className="form-label">Judul Artikel</label>
               <input

@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { getHomeContent, updateHomeContent } from '../data/contentData';
+import { resolveImageUrl } from '../utils/resolveImage';
 import { FaHome, FaSave, FaImage, FaSpinner, FaPlus, FaTrash } from 'react-icons/fa';
 
 export default function PageKelolaKontenHome() {
@@ -51,7 +52,7 @@ export default function PageKelolaKontenHome() {
           const textKey = i === 1 ? 'home_text_banner' : `home_text_banner_${i}`;
           const descKey = i === 1 ? 'home_description' : `home_description_${i}`;
 
-          const preview = h[bannerKey] || '';
+          const preview = h[bannerKey] ? resolveImageUrl(h[bannerKey]) : '';
           const text = h[textKey] || '';
           const description = h[descKey] || '';
 
@@ -161,7 +162,7 @@ export default function PageKelolaKontenHome() {
   }
 
   return (
-    <div className="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
+    <div className="w-full max-w-screen-2xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-slate-200/80 pb-4">
         <div>
           <h1 className="text-xl sm:text-2xl font-bold text-slate-900 flex items-center gap-2.5">
@@ -186,11 +187,14 @@ export default function PageKelolaKontenHome() {
 
       <form onSubmit={handleHomeSubmit} className="bg-white rounded-2xl border border-slate-200/80 p-4 sm:p-6 lg:p-8 shadow-xs space-y-6 sm:space-y-8">
         <div className="flex items-center justify-between border-b border-slate-200 pb-3">
-          <h2 className="text-base font-semibold text-slate-900 flex items-center gap-2">
-            <FaHome className="text-primary" /> Konten Slider Banner Halaman Beranda
-          </h2>
+          <div>
+            <h2 className="text-base font-semibold text-slate-900 flex items-center gap-2">
+              <FaHome className="text-primary" /> Konten Banner Halaman Beranda
+            </h2>
+            <p className="text-xs text-slate-500 mt-0.5">Banner hero utama yang ditampilkan pada halaman depan aplikasi pasien</p>
+          </div>
           <span className="text-xs font-semibold px-3 py-1 rounded-full bg-blue-50 text-blue-600 border border-blue-200">
-            {slides.length} / 10 Banner
+            1 Banner Utama API
           </span>
         </div>
 

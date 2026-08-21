@@ -3,6 +3,7 @@
 import Image from "next/image";
 import { useEffect, useRef, useState } from "react";
 import api from "@/services/api";
+import { resolveImageUrl } from "@/services/resolveImage";
 
 // Koordinat titik referensi (lat, lng) tiap provinsi — key = nama_provinsi uppercase.
 const PROVINCE_COORDS = {
@@ -61,10 +62,10 @@ export default function TentangKami() {
     fetchAbout();
   }, []);
 
-  const heroImage = content?.about_banner || "/images/tentang-kami/HeroTentangKami.jpeg";
+  const heroImage = content?.about_banner ? resolveImageUrl(content.about_banner) : "/images/tentang-kami/HeroTentangKami.jpeg";
   const heroTextBanner = content?.about_text_banner || "SmartHomeCare";
   const descText = content?.about_description_text || "SmartHomeCare menghadirkan layanan kesehatan profesional langsung ke rumah dengan proses pemesanan yang mudah, aman, dan terpercaya sehingga pasien dapat memperoleh pelayanan terbaik tanpa harus meninggalkan kenyamanan rumah.";
-  const descImage = content?.about_description_image || "/images/tentang-kami/kenapaSmartHomeCare.jpeg";
+  const descImage = content?.about_description_image ? resolveImageUrl(content.about_description_image) : "/images/tentang-kami/kenapaSmartHomeCare.jpeg";
 
   return (
     <>
