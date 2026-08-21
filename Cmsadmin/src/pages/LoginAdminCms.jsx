@@ -96,9 +96,7 @@ export default function LoginAdminCms() {
       </form>
 
       <div className="mt-5 border-t border-slate-100 pt-4">
-        <p className="text-[11px] text-slate-400">
-          Butuh bantuan akses? Hubungi tim IT Support.
-        </p>
+      
       </div>
     </div>
   );
