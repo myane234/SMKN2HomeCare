@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { getMitraContent, updateMitraContent } from '../data/contentData';
+import { resolveImageUrl } from '../utils/resolveImage';
 import { FaHandshake, FaSave, FaImage, FaSpinner } from 'react-icons/fa';
 
 export default function PageKelolaKontenMitra() {
@@ -20,12 +21,12 @@ export default function PageKelolaKontenMitra() {
   async function fetchData() {
     setLoading(true);
     try {
-      const res = await getMitraContent();
-      const m = res.data || res;
+      const mitraRes = await getMitraContent();
+      const m = mitraRes?.data || mitraRes;
       if (m) {
         setMitraTextBanner(m.mitra_text_banner || '');
         setMitraDescription(m.mitra_description || '');
-        setMitraBannerPreview(m.mitra_banner || '');
+        setMitraBannerPreview(m.mitra_banner ? resolveImageUrl(m.mitra_banner) : '');
       }
     } catch (err) {
       console.error(err);
@@ -49,7 +50,7 @@ export default function PageKelolaKontenMitra() {
       const res = await updateMitraContent(formData);
       setMessage({ type: 'success', text: res.message || 'Konten Gabung Mitra berhasil diperbarui' });
       if (res.data?.mitra_banner) {
-        setMitraBannerPreview(res.data.mitra_banner);
+        setMitraBannerPreview(resolveImageUrl(res.data.mitra_banner));
         setMitraBannerFile(null);
       }
     } catch (err) {
@@ -69,11 +70,11 @@ export default function PageKelolaKontenMitra() {
   }
 
   return (
-    <div className="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
+    <div className="w-full max-w-screen-2xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-slate-200/80 pb-4">
         <div>
           <h1 className="text-xl sm:text-2xl font-bold text-slate-900 flex items-center gap-2.5">
-            <FaHandshake className="text-primary" /> Kelola Konten Gabung Mitra
+            <FaHandshake className="text-primary" /> Gabung Mitra
           </h1>
           <p className="text-xs sm:text-sm text-slate-500 mt-1">Pengaturan banner hero, judul headline, dan deskripsi pendaftaran mitra nakes</p>
         </div>

@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Image from "next/image";
 import { FiChevronLeft, FiChevronRight } from "react-icons/fi";
 import api from "@/services/api";
+import { resolveImageUrl } from "@/services/resolveImage";
 
 const defaultSlides = [
   {
@@ -67,7 +68,7 @@ export default function Hero() {
       if (image && typeof image === 'string' && image.trim() !== '') {
         dynamicSlides.push({
           id: i,
-          image: image,
+          image: resolveImageUrl(image),
           title: dataObj[titleKey] || defaultSlides[0].title,
           description: dataObj[descKey] || defaultSlides[0].description,
         });

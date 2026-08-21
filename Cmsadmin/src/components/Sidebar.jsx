@@ -37,6 +37,7 @@ import {
   FaChevronLeft,
   FaChevronRight,
   FaChevronDown,
+  FaPlus,
 } from "react-icons/fa";
 
 const rawMenuItems = [
@@ -49,18 +50,54 @@ const rawMenuItems = [
       { to: "/kelola-konten/home", label: "Beranda", icon: <FaHome /> },
       {
         to: "/kelola-konten/about",
-        label: "Konten Tentang Kami",
+        label: "Tentang Kami",
         icon: <FaInfoCircle />,
       },
       {
-        to: "/kelola-konten/mitra",
-        label: "Gabung Mitra",
-        icon: <FaHandshake />,
+        type: "subgroup",
+        label: "Promo",
+        icon: <FaGift />,
+        children: [
+          { to: "/promo", label: "Daftar Promo", icon: <FaGift /> },
+          { to: "/promo/tambah", label: "Tambah Promo", icon: <FaPlus /> },
+        ],
       },
-      { to: "/kelola-konten/footer", label: "Footer", icon: <FaGlobe /> },
-      { to: "/layanan", label: "Layanan", icon: <FaStethoscope /> },
-      { to: "/promo", label: "Promo", icon: <FaGift /> },
-      { to: "/artikel", label: "Artikel", icon: <FaRegFileAlt /> },
+      {
+        type: "subgroup",
+        label: "Layanan",
+        icon: <FaStethoscope />,
+        children: [
+          { to: "/layanan", label: "Daftar Layanan", icon: <FaStethoscope /> },
+          { to: "/layanan/tambah", label: "Tambah Layanan", icon: <FaPlus /> },
+        ],
+      },
+      {
+        type: "subgroup",
+        label: "Artikel",
+        icon: <FaRegFileAlt />,
+        children: [
+          { to: "/artikel", label: "Daftar Artikel", icon: <FaRegFileAlt /> },
+          { to: "/artikel/tambah", label: "Tambah Artikel", icon: <FaPlus /> },
+          {
+            to: "/statistik-artikel",
+            label: "Statistik Artikel",
+            icon: <FaChartLine />,
+          },
+        ],
+      },
+      {
+        type: "subgroup",
+        label: "Konten Tambahan",
+        icon: <FaHandshake />,
+        children: [
+          {
+            to: "/kelola-konten/mitra",
+            label: "Gabung Mitra",
+            icon: <FaHandshake />,
+          },
+          { to: "/kelola-konten/footer", label: "Footer", icon: <FaGlobe /> },
+        ],
+      },
     ],
   },
 ];
@@ -255,8 +292,12 @@ export default function Sidebar({
     Konfigurasi: true,
   });
   const [openSubgroups, setOpenSubgroups] = useState({
+    Promo: true,
+    Layanan: true,
+    Artikel: true,
     Wilayah: true,
     Pembayaran: true,
+    "Konten Tambahan": false,
     Pengaturan: false,
   });
 
