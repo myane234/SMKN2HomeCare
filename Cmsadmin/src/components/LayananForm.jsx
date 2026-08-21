@@ -95,7 +95,7 @@ export default function LayananForm({ initialData, onSubmit, submitting, mode })
   }
 
   return (
-    <div className="w-full space-y-6 pb-10">
+    <div className="w-full max-w-screen-2xl mx-auto space-y-6 pb-10">
       {/* Tombol Kembali dengan Ikon Panah */}
       <div>
         <a
@@ -107,8 +107,8 @@ export default function LayananForm({ initialData, onSubmit, submitting, mode })
         </a>
       </div>
 
-      <form className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden w-full p-8" onSubmit={handleSubmit}>
-        <div className="grid grid-cols-1 gap-8 lg:grid-cols-[1.4fr_1fr]">
+      <form className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden w-full p-6 sm:p-8 lg:p-10" onSubmit={handleSubmit}>
+        <div className="grid grid-cols-1 gap-8 lg:grid-cols-[1.8fr_1fr]">
           <div className="flex flex-col">
             <label className="form-label">Nama Layanan</label>
             <input
@@ -223,19 +223,19 @@ export default function LayananForm({ initialData, onSubmit, submitting, mode })
 
           <div className="flex flex-col">
             <label className="form-label">Gambar Layanan</label>
-            <div className="flex flex-col items-center gap-3.5 rounded-card border border-dashed border-slate-200 bg-slate-50 p-5">
+            <div className="flex flex-col items-center gap-3.5 rounded-card border border-dashed border-slate-200 bg-slate-50 p-5 sm:p-6">
               {preview ? (
                 <img
                   src={preview}
                   alt="Preview"
-                  className="aspect-square w-full max-w-[220px] rounded-lg object-cover"
+                  className="aspect-square w-full max-w-[280px] rounded-xl object-cover shadow-xs"
                 />
               ) : (
-                <div className="flex aspect-square w-full max-w-[220px] items-center justify-center rounded-lg border border-slate-200 bg-white p-2.5 text-center text-[13px] text-slate-500">
+                <div className="flex aspect-square w-full max-w-[280px] items-center justify-center rounded-xl border border-slate-200 bg-white p-4 text-center text-[13px] text-slate-500">
                   Belum ada gambar
                 </div>
               )}
-              <label className="btn-outline block w-full max-w-[220px] cursor-pointer text-center">
+              <label className="btn-outline block w-full max-w-[280px] cursor-pointer text-center">
                 Pilih Gambar
                 <input type="file" accept="image/*" onChange={handleImageChange} hidden />
               </label>

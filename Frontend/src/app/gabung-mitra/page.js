@@ -16,6 +16,8 @@ import {
   FiArrowRight
 } from 'react-icons/fi';
 import { getSession } from '@/services/session';
+import api from '@/services/api';
+import { resolveImageUrl } from '@/services/resolveImage';
 
 export default function GabungMitraPage() {
   const router = useRouter();
@@ -24,6 +26,11 @@ export default function GabungMitraPage() {
   
   // 🔹 1. DEKLARASIKAN STATE isNakes DI SINI
   const [isNakes, setIsNakes] = React.useState(false);
+  const [mitraContent, setMitraContent] = React.useState({
+    mitra_banner: null,
+    mitra_text_banner: null,
+    mitra_description: null,
+  });
 
   React.useEffect(() => {
     setIsLoggedIn(document.cookie.includes("is_logged_in=true"));
@@ -32,6 +39,18 @@ export default function GabungMitraPage() {
     // Sesuaikan logika penentuan Nakes dengan yang ada di aplikasi kamu
     const isUserNakes = document.cookie.includes("role=nakes"); 
     setIsNakes(isUserNakes);
+
+    // 🔹 Fetch Konten Gabung Mitra (Public)
+    api.get('/api/resource/content/mitra')
+      .then((res) => {
+        const data = res.data?.data || res.data;
+        if (data) {
+          setMitraContent(data);
+        }
+      })
+      .catch((err) => {
+        console.error('Gagal memuat konten mitra:', err);
+      });
   }, []);
   
   // 🔹 Data Benefit Mitra
@@ -77,13 +96,18 @@ export default function GabungMitraPage() {
     }
   ];
 
+  const defaultBanner = "https://media.istockphoto.com/id/2157133393/id/foto/wanita-senior-di-kursi-roda-dan-pekerja-perawatan-kesehatan-wanita.jpg?s=612x612&w=0&k=20&c=yNf-oa7ruic5BBzVeW14LJ46SaQFkfWBUDYJ0SdOt_8=";
+  const bannerSrc = mitraContent.mitra_banner ? resolveImageUrl(mitraContent.mitra_banner) : defaultBanner;
+  const textBanner = mitraContent.mitra_text_banner || "Bergabung Menjadi Mitra";
+  const descriptionText = mitraContent.mitra_description || "Perluas jangkauan layanan kesehatan Anda dan berikan perawatan medis berkualitas langsung di rumah pasien.";
+
   return (
     <div className="min-h-screen bg-white font-sans text-gray-800 pb-32">
       
       {/* 🔹 1. HERO BANNER */}
       <div className="w-full h-80 sm:h-[380px] relative bg-gray-600 overflow-hidden">
         <img 
-          src="https://media.istockphoto.com/id/2157133393/id/foto/wanita-senior-di-kursi-roda-dan-pekerja-perawatan-kesehatan-wanita.jpg?s=612x612&w=0&k=20&c=yNf-oa7ruic5BBzVeW14LJ46SaQFkfWBUDYJ0SdOt_8="
+          src={bannerSrc}
           alt="Gabung Mitra SmartCare" 
           className="w-full h-full object-cover opacity-40 scale-105" 
         />
@@ -92,13 +116,14 @@ export default function GabungMitraPage() {
         {/* Teks Hero */}
         <div className="absolute inset-0 max-w-2xl mx-auto px-6 flex flex-col justify-end pb-8 items-start text-left z-10">
           <h1 className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight leading-snug">
-            Bergabung Menjadi Mitra
+            {textBanner}
           </h1>
           <p className="text-xs sm:text-sm text-gray-300 mt-2 font-light leading-relaxed">
-            Perluas jangkauan layanan kesehatan Anda dan berikan perawatan medis berkualitas langsung di rumah pasien.
+            {descriptionText}
           </p>
         </div>
       </div>
+
 
       <div className="max-w-xl mx-auto px-6 pt-10 space-y-16">
 
