@@ -6,11 +6,14 @@ import { GoogleOAuthProvider, useGoogleLogin } from "@react-oauth/google";
 import { useRouter } from "next/navigation";
 import { loginForm, loginWithGoogleAPI } from "@/services/Auth.js";
 import { createSession } from "@/services/session.js";
+import { FaShieldAlt } from "react-icons/fa";
 
-// ─── Google Button (inner component karena useGoogleLogin harus dalam Provider) ─
+// Path logo langsung merujuk ke folder public
+const logo = "/images/logo/logo.png";
+
+// ─── Google Button ────────────────────────────────────────────────────────────
 function GoogleLoginButton({ onSuccess, onError, loading }) {
   const login = useGoogleLogin({
-    // 'implicit' flow → tokenResponse.access_token (yg dibutuhkan Socialite backend)
     flow: "implicit",
     onSuccess: (tokenResponse) => onSuccess(tokenResponse.access_token),
     onError: () => onError(),
@@ -21,9 +24,8 @@ function GoogleLoginButton({ onSuccess, onError, loading }) {
       type="button"
       onClick={() => login()}
       disabled={loading}
-      className="w-full flex items-center justify-center gap-3 rounded-full border border-gray-300 bg-white py-3 font-medium text-gray-700 shadow-sm transition hover:bg-gray-50 hover:shadow disabled:opacity-60 disabled:cursor-not-allowed"
+      className="w-full flex items-center justify-center gap-3 rounded-xl border border-slate-200 bg-white py-3.5 font-medium text-slate-700 shadow-sm transition hover:bg-slate-50 hover:shadow disabled:opacity-60 disabled:cursor-not-allowed text-sm cursor-pointer"
     >
-      {/* Google SVG icon */}
       <svg className="h-5 w-5" viewBox="0 0 24 24" aria-hidden="true">
         <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
         <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
@@ -46,10 +48,7 @@ export default function MasukPage() {
 
   const clientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID || "";
 
-  // ── Redirect helper ────────────────────────────────────────────────────────
   function redirectAfterLogin(data) {
-    // Login manual: is_profile_complete ada di data.data
-    // Login Google: is_profile_complete ada di data (flat)
     const profileComplete =
       data?.data?.is_profile_complete ?? data?.is_profile_complete;
 
@@ -60,7 +59,6 @@ export default function MasukPage() {
     }
   }
 
-  // ── Login manual ───────────────────────────────────────────────────────────
   const handleManualLogin = async (e) => {
     e.preventDefault();
     setLoading(true);
@@ -76,7 +74,6 @@ export default function MasukPage() {
     }
   };
 
-  // ── Login Google ───────────────────────────────────────────────────────────
   const handleGoogleSuccess = async (accessToken) => {
     setLoading(true);
     setErrorMsg("");
@@ -96,98 +93,148 @@ export default function MasukPage() {
     setErrorMsg("Login Google dibatalkan atau gagal");
   };
 
-  return (
-    <main className="min-h-screen bg-gray-100">
-      {/* Hero Background */}
-      <section className="h-64 bg-indigo-500" />
+  const renderLoginForm = () => (
+    <div className="w-full bg-white rounded-3xl p-6 sm:p-8 shadow-2xl border border-slate-100">
+      {/* Logo ditambahkan di dalam card putih untuk semua tampilan (mobile, tablet, desktop) */}
+      <div className="mb-5 flex items-center justify-start">
+        <img src={logo} alt="Smartcare Logo" className="h-9 w-auto object-contain" />
+      </div>
 
-      {/* Login Card */}
-      <div className="-mt-32 flex justify-center px-6 pb-16">
-        <div className="w-full max-w-md rounded-2xl bg-white p-8 shadow-xl">
-          <h1 className="mb-8 text-center text-4xl font-bold text-gray-900">Masuk</h1>
+      <h2 className="text-2xl font-black text-slate-800 mb-1">Masuk</h2>
+      <p className="mb-5 text-xs sm:text-sm text-slate-500 font-medium">
+        Silakan masuk ke akun portal pasien Anda
+      </p>
 
-          {/* Pesan Error */}
-          {errorMsg && (
-            <div className="mb-5 rounded-lg bg-red-50 p-4 border border-red-200">
-              <p className="text-sm font-medium text-red-600">{errorMsg}</p>
-            </div>
-          )}
+      {errorMsg && (
+        <div className="mb-4 rounded-xl bg-red-50 p-3 border border-red-200">
+          <p className="text-xs font-medium text-red-600">{errorMsg}</p>
+        </div>
+      )}
 
-          <form className="space-y-5" onSubmit={handleManualLogin}>
-            {/* Email */}
-            <div>
-              <label className="mb-2 block text-sm font-medium text-gray-700">Email</label>
-              <input
-                type="email"
-                id="login-email"
-                placeholder="contoh@gmail.com"
-                value={email}
-                onChange={(e) => { setEmail(e.target.value); if (errorMsg) setErrorMsg(""); }}
-                required
-                className="w-full rounded border border-gray-300 px-4 py-3 outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 text-slate-900"
-              />
-            </div>
+      <form onSubmit={handleManualLogin} className="flex flex-col space-y-3.5">
+        <div>
+          <label className="text-xs font-bold text-slate-600 mb-1.5 block">Email</label>
+          <input
+            type="email"
+            id="login-email"
+            placeholder="contoh@gmail.com"
+            value={email}
+            onChange={(e) => { setEmail(e.target.value); if (errorMsg) setErrorMsg(""); }}
+            required
+            className="w-full px-4 py-3 rounded-xl border border-slate-200 text-sm focus:border-sky-500 outline-none transition bg-slate-50/50 text-slate-900"
+          />
+        </div>
 
-            {/* Password */}
-            <div>
-              <label className="mb-2 block text-sm font-medium text-gray-700">Password</label>
-              <div className="relative">
-                <input
-                  type={showPassword ? "text" : "password"}
-                  id="login-password"
-                  placeholder="••••••••"
-                  value={password}
-                  onChange={(e) => { setPassword(e.target.value); if (errorMsg) setErrorMsg(""); }}
-                  required
-                  className="w-full rounded border border-gray-300 px-4 py-3 pr-12 text-slate-900 outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200"
-                />
-                <button
-                  type="button"
-                  aria-label={showPassword ? "Sembunyikan password" : "Tampilkan password"}
-                  onClick={() => setShowPassword((s) => !s)}
-                  className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-500"
-                >
-                  {showPassword ? <FiEyeOff size={20} /> : <FiEye size={20} />}
-                </button>
-              </div>
-            </div>
-
-            {/* Login Button */}
+        <div>
+          <label className="text-xs font-bold text-slate-600 mb-1.5 block">Password</label>
+          <div className="relative">
+            <input
+              type={showPassword ? "text" : "password"}
+              id="login-password"
+              placeholder="••••••••"
+              value={password}
+              onChange={(e) => { setPassword(e.target.value); if (errorMsg) setErrorMsg(""); }}
+              required
+              className="w-full px-4 py-3 rounded-xl border border-slate-200 pr-12 text-sm focus:border-sky-500 outline-none transition bg-slate-50/50 text-slate-900"
+            />
             <button
-              type="submit"
-              id="btn-login"
-              disabled={loading}
-              className="w-full rounded-full bg-indigo-500 py-3 font-semibold text-white transition hover:bg-indigo-600 disabled:opacity-70 disabled:cursor-not-allowed"
+              type="button"
+              aria-label={showPassword ? "Sembunyikan password" : "Tampilkan password"}
+              onClick={() => setShowPassword((s) => !s)}
+              className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-500 cursor-pointer"
             >
-              {loading ? "Memproses..." : "Masuk"}
+              {showPassword ? <FiEyeOff size={18} /> : <FiEye size={18} />}
             </button>
+          </div>
+        </div>
 
-            {/* Divider */}
-            <div className="flex items-center">
-              <div className="h-px flex-1 bg-gray-200" />
-              <span className="mx-3 text-sm text-gray-400">atau</span>
-              <div className="h-px flex-1 bg-gray-200" />
-            </div>
+        <button
+          type="submit"
+          id="btn-login"
+          disabled={loading}
+          className="w-full py-3.5 bg-[#004fa4] text-white rounded-xl font-bold text-sm hover:bg-sky-700 transition shadow-md cursor-pointer mt-1 disabled:opacity-70 disabled:cursor-not-allowed"
+        >
+          {loading ? "Memproses..." : "Masuk"}
+        </button>
+      </form>
 
-            {/* Google Login — pakai useGoogleLogin agar dapat access_token */}
-            <GoogleOAuthProvider clientId={clientId}>
-              <GoogleLoginButton
-                onSuccess={handleGoogleSuccess}
-                onError={handleGoogleError}
-                loading={loading}
-              />
-            </GoogleOAuthProvider>
+      <div className="flex items-center my-4">
+        <div className="h-px flex-1 bg-slate-200" />
+        <span className="mx-3 text-xs text-slate-400 font-medium">atau</span>
+        <div className="h-px flex-1 bg-slate-200" />
+      </div>
 
-            {/* Register Link */}
-            <p className="pt-2 text-center text-sm text-gray-600">
-              Belum punya akun?{" "}
-              <Link href="/daftar" className="font-medium text-indigo-600 hover:underline">
-                Daftar
-              </Link>
-            </p>
-          </form>
+      <GoogleOAuthProvider clientId={clientId}>
+        <GoogleLoginButton
+          onSuccess={handleGoogleSuccess}
+          onError={handleGoogleError}
+          loading={loading}
+        />
+      </GoogleOAuthProvider>
+
+      <div className="mt-5 border-t border-slate-100 pt-4 text-center">
+        <p className="text-xs text-slate-600">
+          Belum punya akun?{" "}
+          <Link href="/daftar" className="font-bold text-[#004fa4] hover:underline">
+            Daftar
+          </Link>
+        </p>
+      </div>
+    </div>
+  );
+
+  return (
+    <div className="flex min-h-screen w-full bg-slate-50 overflow-x-hidden items-center justify-center">
+      
+      {/* TAMPILAN MOBILE & TABLET */}
+      <div className="flex lg:hidden w-full min-h-screen flex-col relative bg-white">
+        <div className="w-full bg-gradient-to-br from-[#0284c7] via-[#004fa4] to-[#2dd4bf] px-6 pt-10 pb-20 flex flex-col items-start justify-start rounded-b-[40px] shadow-lg text-left">
+          <img src={logo} alt="Smartcare Logo" className="h-6 w-auto object-contain brightness-0 invert drop-shadow-[0_2px_6px_rgba(0,0,0,0.2)] mb-2" />
+          
+          {/* <div className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-white/25 backdrop-blur-md text-[10px] font-bold uppercase tracking-wider text-white shadow-sm mb-3">
+            <FaShieldAlt size={9} className="text-white" /> PORTAL PASIEN
+          </div> */}
+
+          <h1 className="text-xl sm:text-2xl font-black tracking-tight leading-snug text-white drop-shadow-md mb-2">
+            Layanan Kesehatan <span className="text-yellow-200">Terpadu di Rumah</span>
+          </h1>
+          <p className="text-white/90 text-xs leading-relaxed font-medium max-w-sm">
+            Akses kemudahan pemesanan tenaga medis dan layanan kesehatan profesional.
+          </p>
+        </div>
+
+        <div className="w-full px-6 -mt-12 pb-12 z-10 flex justify-center">
+          <div className="w-full max-w-md">{renderLoginForm()}</div>
         </div>
       </div>
-    </main>
+
+      {/* TAMPILAN DESKTOP */}
+      <div className="hidden lg:flex w-full min-h-screen bg-slate-50 flex-row">
+        {/* Sisi Kiri: Branding / Informasi */}
+        <div className="w-1/2 bg-gradient-to-br from-[#0284c7] via-[#004fa4] to-[#2dd4bf] text-white px-16 py-16 xl:px-20 xl:py-20 flex flex-col justify-start rounded-r-[140px] shadow-lg relative">
+          <div className="max-w-xl">
+            <div className="mb-8">
+              <img src={logo} alt="Smartcare Logo" className="h-12 w-auto object-contain brightness-0 invert drop-shadow-[0_2px_8px_rgba(0,0,0,0.2)] mb-6" />
+              {/* <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white/20 backdrop-blur-md text-xs font-bold uppercase tracking-wider border border-white/30 text-white shadow-sm">
+                <FaShieldAlt size={12} className="text-white" /> PORTAL PASIEN
+              </div> */}
+            </div>
+
+            <h1 className="text-4xl xl:text-5xl font-black tracking-tight leading-tight mb-5 text-white drop-shadow-md">
+              Layanan Kesehatan <br />
+              <span className="text-yellow-200 drop-shadow-lg">Terpadu di Rumah</span>
+            </h1>
+            <p className="text-white/95 text-base xl:text-lg leading-relaxed font-medium drop-shadow-sm">
+              Nikmati kenyamanan perawatan medis profesional langsung ke rumah Anda dengan sistem pemesanan yang cepat, aman, dan terpercaya.
+            </p>
+          </div>
+        </div>
+
+        {/* Sisi Kanan: Form Login */}
+        <div className="w-1/2 flex items-center justify-center p-12 xl:p-20">
+          <div className="w-full max-w-[460px]">{renderLoginForm()}</div>
+        </div>
+      </div>
+    </div>
   );
 }

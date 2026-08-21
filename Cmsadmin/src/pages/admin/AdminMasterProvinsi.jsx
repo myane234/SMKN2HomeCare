@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { FaSearch, FaToggleOn, FaToggleOff, FaPlus, FaEdit, FaTrash, FaArrowLeft } from 'react-icons/fa';
+import { FaSearch, FaToggleOn, FaToggleOff, FaPlus, FaEdit, FaTrash, FaTimes } from 'react-icons/fa';
 import Swal from 'sweetalert2';
 import Pagination from '../../components/pagination';
 import {
@@ -7,7 +7,7 @@ import {
   createWilayahLayanan,
   updateWilayahLayanan,
   deleteWilayahLayanan,
- 
+  toggleWilayahLayananStatus,
 } from '../../data/wilayahLayananData';
 
 export default function AdminMasterProvinsi() {
@@ -16,10 +16,14 @@ export default function AdminMasterProvinsi() {
   const [errorMsg, setErrorMsg] = useState('');
   const [search, setSearch] = useState('');
   const [filterStatus, setFilterStatus] = useState('');
-  const [sortBy, setSortBy] = useState('nama_asc'); // 👈 State untuk sorting
+  const [sortBy, setSortBy] = useState('nama_asc');
   const [currentPage, setCurrentPage] = useState(1);
-  const [viewMode, setViewMode] = useState('list'); // 'list' | 'add' | 'edit'
+  
+  // 💡 State untuk Modal (Pop-up) menggantikan viewMode terpisah
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [modalMode, setModalMode] = useState('add'); // 'add' | 'edit'
   const [selectedItem, setSelectedItem] = useState(null);
+
   const [formNama, setFormNama] = useState('');
   const [formKode, setFormKode] = useState('');
   const [formActive, setFormActive] = useState(true);
@@ -46,7 +50,6 @@ export default function AdminMasterProvinsi() {
     fetchData();
   }, []);
 
-  // 💡 Filter & Sorting Logic
   const filteredData = useMemo(() => {
     let list = provinsiList.filter((item) => {
       const nama = item.nama_provinsi || item.nama_wilayah || item.nama || '';
@@ -60,7 +63,6 @@ export default function AdminMasterProvinsi() {
       return matchesSearch && matchesStatus;
     });
 
-    // 🔄 Sorting Berdasarkan Pilihan
     return list.sort((a, b) => {
       const namaA = (a.nama_provinsi || a.nama_wilayah || a.nama || '').toLowerCase();
       const namaB = (b.nama_provinsi || b.nama_wilayah || b.nama || '').toLowerCase();
@@ -88,7 +90,8 @@ export default function AdminMasterProvinsi() {
   const handleOpenAdd = () => {
     setSelectedItem(null);
     resetForm();
-    setViewMode('add');
+    setModalMode('add');
+    setIsModalOpen(true);
   };
 
   const handleOpenEdit = (item) => {
@@ -96,11 +99,12 @@ export default function AdminMasterProvinsi() {
     setFormNama(item.nama_provinsi || item.nama_wilayah || item.nama || '');
     setFormKode(item.kode_provinsi || item.kode_wilayah || item.kode || '');
     setFormActive(item.is_active === 1 || item.is_active === true);
-    setViewMode('edit');
+    setModalMode('edit');
+    setIsModalOpen(true);
   };
 
-  const handleBackToList = () => {
-    setViewMode('list');
+  const handleCloseModal = () => {
+    setIsModalOpen(false);
     setSelectedItem(null);
     resetForm();
   };
@@ -119,14 +123,14 @@ export default function AdminMasterProvinsi() {
     try {
       const idTarget = selectedItem?.id_provinsi || selectedItem?.id_wilayah_layanan || selectedItem?.id;
 
-      if (viewMode === 'edit' && selectedItem) {
+      if (modalMode === 'edit' && selectedItem) {
         await updateWilayahLayanan(idTarget, payload);
         Swal.fire({ icon: 'success', title: 'Berhasil', text: 'Data provinsi berhasil diperbarui.' });
       } else {
         await createWilayahLayanan(payload);
         Swal.fire({ icon: 'success', title: 'Berhasil', text: 'Data provinsi berhasil ditambahkan.' });
       }
-      handleBackToList();
+      handleCloseModal();
       fetchData();
     } catch (err) {
       Swal.fire({ icon: 'error', title: 'Gagal', text: err.message || 'Terjadi kesalahan saat menyimpan data.' });
@@ -189,42 +193,6 @@ export default function AdminMasterProvinsi() {
     });
   };
 
-  if (viewMode === 'add' || viewMode === 'edit') {
-    return (
-      <div className="mx-auto max-w-3xl pb-10">
-        <button type="button" onClick={handleBackToList} className="mb-3 inline-flex items-center gap-2 text-sm font-medium text-slate-500 hover:text-slate-800">
-          <FaArrowLeft /> Kembali ke Master Provinsi
-        </button>
-        <h1 className="page-title">{viewMode === 'add' ? 'Tambah Provinsi' : 'Edit Provinsi'}</h1>
-        <p className="page-subtitle">Kelola nama provinsi, kode, dan status aktif/nonaktif.</p>
-
-        <form onSubmit={handleSubmit} className="mt-6 space-y-5 rounded-xl border border-slate-200 bg-white p-6 shadow-card">
-          <div>
-            <label className="form-label">Nama Provinsi</label>
-            <input required value={formNama} onChange={(e) => setFormNama(e.target.value)} className="form-input" placeholder="Contoh: Jawa Barat" />
-          </div>
-          <div>
-            <label className="form-label">Kode / ID Provinsi</label>
-            <input value={formKode} onChange={(e) => setFormKode(e.target.value)} className="form-input" placeholder="Contoh: JB atau Kode ID (Opsional)" />
-          </div>
-          <div className="flex items-center gap-2">
-            <input id="provinsi-active" type="checkbox" checked={formActive} onChange={(e) => setFormActive(e.target.checked)} />
-            <label htmlFor="provinsi-active" className="text-sm text-slate-700">Aktif</label>
-          </div>
-
-          <div className="flex gap-3">
-            <button type="submit" disabled={isSubmitting} className="rounded-lg bg-primary px-4 py-2.5 text-sm font-semibold text-white hover:bg-primary-dark disabled:opacity-60">
-              {isSubmitting ? 'Menyimpan...' : 'Simpan'}
-            </button>
-            <button type="button" onClick={handleBackToList} className="rounded-lg border border-slate-300 px-4 py-2.5 text-sm font-semibold text-slate-600 hover:bg-slate-50">
-              Batal
-            </button>
-          </div>
-        </form>
-      </div>
-    );
-  }
-
   return (
     <div>
       <div className="mb-6 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
@@ -232,7 +200,7 @@ export default function AdminMasterProvinsi() {
           <h1 className="page-title">Master Provinsi</h1>
           <p className="page-subtitle">Kelola data wilayah provinsi dan status aktif/nonaktifnya.</p>
         </div>
-        <button onClick={handleOpenAdd} className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-semibold text-white hover:bg-primary-dark">
+        <button onClick={handleOpenAdd} className="inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-emerald-700 transition-colors">
           <FaPlus /> Tambah Provinsi
         </button>
       </div>
@@ -251,7 +219,7 @@ export default function AdminMasterProvinsi() {
           <option value="0">Nonaktif</option>
         </select>
 
-        {/* 💡 Filter Sorting */}
+        {/* Filter Sorting */}
         <select value={sortBy} onChange={(e) => setSortBy(e.target.value)} className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm outline-none">
           <option value="nama_asc">Urutkan: Nama (A - Z)</option>
           <option value="nama_desc">Urutkan: Nama (Z - A)</option>
@@ -269,7 +237,6 @@ export default function AdminMasterProvinsi() {
           <table className="min-w-full border-collapse">
             <thead>
               <tr className="bg-slate-50">
-                {/* 💡 Header No */}
                 <th className="w-12 px-4 py-3 text-center text-xs font-semibold uppercase tracking-wide text-slate-500">No</th>
                 <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">Nama Provinsi</th>
                 <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">ID / Kode</th>
@@ -288,13 +255,10 @@ export default function AdminMasterProvinsi() {
                   const keyId = item.id_provinsi || item.id_wilayah_layanan || item.id;
                   const namaProv = item.nama_provinsi || item.nama_wilayah || item.nama || '-';
                   const kodeProv = item.kode_provinsi || item.kode_wilayah || item.kode || item.id_provinsi || '-';
-                  
-                  // 💡 Hitung nomor urut
                   const nomorUrut = startIndex + index + 1;
 
                   return (
                     <tr key={keyId} className="border-t border-slate-200 hover:bg-slate-50">
-                      {/* 💡 Kolom Nomor */}
                       <td className="px-4 py-3 text-center text-sm font-medium text-slate-500">{nomorUrut}</td>
                       <td className="px-4 py-3 text-sm font-medium text-slate-800">{namaProv}</td>
                       <td className="px-4 py-3 text-sm text-slate-600">{kodeProv}</td>
@@ -328,6 +292,81 @@ export default function AdminMasterProvinsi() {
       <div className="mt-5">
         <Pagination currentPage={currentPage} totalPages={totalPages} onPageChange={setCurrentPage} />
       </div>
+
+      {/* 💡 POP-UP MODAL TAMBAH / EDIT PROVINSI */}
+      {isModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-xs p-4">
+          <div className="bg-white rounded-2xl shadow-xl max-w-lg w-full overflow-hidden animate-in fade-in zoom-in duration-200">
+            <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100">
+              <h3 className="font-bold text-slate-900 text-lg">
+                {modalMode === 'add' ? 'Tambah Provinsi' : 'Edit Provinsi'}
+              </h3>
+              <button
+                type="button"
+                onClick={handleCloseModal}
+                className="text-slate-400 hover:text-slate-600 p-1 cursor-pointer bg-transparent border-0"
+              >
+                <FaTimes />
+              </button>
+            </div>
+
+            <form onSubmit={handleSubmit} className="p-6 space-y-4">
+              <div>
+                <label className="block text-xs font-semibold uppercase tracking-wider text-slate-600 mb-2">
+                  Nama Provinsi
+                </label>
+                <input
+                  required
+                  value={formNama}
+                  onChange={(e) => setFormNama(e.target.value)}
+                  className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm text-slate-800 focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500/20 transition-all"
+                  placeholder="Contoh: Jawa Barat"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold uppercase tracking-wider text-slate-600 mb-2">
+                  Kode / ID Provinsi
+                </label>
+                <input
+                  value={formKode}
+                  onChange={(e) => setFormKode(e.target.value)}
+                  className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm text-slate-800 focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500/20 transition-all"
+                  placeholder="Contoh: JB atau Kode ID (Opsional)"
+                />
+              </div>
+
+              <div className="flex items-center gap-2 pt-2">
+                <input
+                  id="provinsi-active"
+                  type="checkbox"
+                  checked={formActive}
+                  onChange={(e) => setFormActive(e.target.checked)}
+                  className="w-4 h-4 text-emerald-600 border-slate-300 rounded focus:ring-emerald-500"
+                />
+                <label htmlFor="provinsi-active" className="text-sm font-medium text-slate-700">Aktif</label>
+              </div>
+
+              <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={handleCloseModal}
+                  className="px-4 py-2 rounded-xl bg-slate-100 text-slate-700 text-sm font-semibold hover:bg-slate-200 transition-all cursor-pointer"
+                >
+                  Batal
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSubmitting}
+                  className="px-5 py-2 rounded-xl bg-emerald-600 text-white text-sm font-semibold hover:bg-emerald-700 transition-all disabled:opacity-50 cursor-pointer"
+                >
+                  {isSubmitting ? 'Menyimpan...' : 'Simpan'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

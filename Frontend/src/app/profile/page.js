@@ -16,7 +16,6 @@ import {
   FiClock,
   FiCheckCircle,
   FiAlertCircle,
-  FiBriefcase,
   FiAward
 } from 'react-icons/fi';
 import { logoutUser } from '../../services/Auth.js';
@@ -118,42 +117,21 @@ export default function ProfilePage() {
     { label: 'Pengaturan', icon: <FiSettings size={20} />, href: '/settings' },
   ];
 
-  // 🔹 LOGIKA DYNAMIC CARD NAKES BASED ON TENAGA_MEDIS STATUS
+  // 🔹 LOGIKA DYNAMIC CARD NAKES (Hanya muncul jika sudah pernah daftar / tenaga_medis ada)
   const renderNakesPortalCard = () => {
     const tenagaMedis = profile?.tenaga_medis;
 
-    // KONDISI 1: Belum Pernah Daftar (tenaga_medis === null)
+    // KONDISI: Jika belum pernah daftar (null), kembalikan null (tidak ditampilkan sama sekali)
     if (!tenagaMedis) {
-      return (
-        <div className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-3xl p-5 shadow-sm mb-4">
-          <div className="flex items-start justify-between gap-3">
-            <div className="p-3 bg-white/10 rounded-2xl shrink-0 backdrop-blur-sm">
-              <FiBriefcase size={24} className="text-white" />
-            </div>
-            <div className="flex-1">
-              <h3 className="font-bold text-base leading-snug">Gabung Jadi Mitra Nakes</h3>
-              <p className="text-xs text-blue-100 mt-1 leading-relaxed">
-                Melayani pasien homecare dan dapatkan penghasilan tambahan bersama SmartHomeCare.
-              </p>
-            </div>
-          </div>
-          <Link
-            href="/gabung-mitra"
-            className="mt-4 w-full bg-white text-blue-600 font-bold text-sm py-3 px-4 rounded-xl flex items-center justify-center gap-2 hover:bg-blue-50 transition active:scale-[0.98]"
-          >
-            <span>Daftar Sekarang</span>
-            <FiChevronRight size={18} />
-          </Link>
-        </div>
-      );
+      return null;
     }
 
     const status = tenagaMedis.status?.toLowerCase();
 
-    // KONDISI 2: Status Pending (Pasien sudah registrasi & menunggu verifikasi berkas)
+    // KONDISI 1: Status Pending (Pasien sudah registrasi & menunggu verifikasi berkas)
     if (status === 'pending') {
       return (
-        <div className="bg-amber-50 border border-amber-200 rounded-3xl p-5 shadow-sm mb-4">
+        <div className="bg-amber-50 border border-amber-200 rounded-3xl p-5 shadow-sm mt-12 mb-4">
           <div className="flex items-start gap-3">
             <div className="p-2.5 bg-amber-500/10 text-amber-600 rounded-2xl shrink-0 mt-0.5">
               <FiClock size={22} />
@@ -172,10 +150,10 @@ export default function ProfilePage() {
       );
     }
 
-    // KONDISI 3: Status Pelatihan (Menunggu jadwal pelatihan)
+    // KONDISI 2: Status Pelatihan (Menunggu jadwal pelatihan)
     if (status === 'pelatihan') {
       return (
-        <div className="bg-indigo-50 border border-indigo-200 rounded-3xl p-5 shadow-sm mb-4">
+        <div className="bg-indigo-50 border border-indigo-200 rounded-3xl p-5 shadow-sm mt-12 mb-4">
           <div className="flex items-start gap-3">
             <div className="p-2.5 bg-indigo-500/10 text-indigo-600 rounded-2xl shrink-0 mt-0.5">
               <FiAward size={22} />
@@ -194,10 +172,10 @@ export default function ProfilePage() {
       );
     }
 
-    // KONDISI 4: Status Rejected (Ditolak / Perlu Perbaikan berkas)
+    // KONDISI 3: Status Rejected (Ditolak / Perlu Perbaikan berkas)
     if (status === 'rejected') {
       return (
-        <div className="bg-rose-50 border border-rose-200 rounded-3xl p-5 shadow-sm mb-4">
+        <div className="bg-rose-50 border border-rose-200 rounded-3xl p-5 shadow-sm mt-12 mb-4">
           <div className="flex items-start gap-3">
             <div className="p-2.5 bg-rose-500/10 text-rose-600 rounded-2xl shrink-0 mt-0.5">
               <FiAlertCircle size={22} />
@@ -223,12 +201,11 @@ export default function ProfilePage() {
       );
     }
 
-    // KONDISI 5: Status Approved (Sudah Aktif / Jadi Nakes resmi & di-acc)
+    // KONDISI 4: Status Approved (Sudah Aktif / Jadi Nakes resmi & di-acc)
     if (status === 'approved') {
-      // Sub-kondisi A: Perlu lengkapi data (pas foto, NPWP, bank, pakta integritas)
       if (!tenagaMedis.is_data_complete) {
         return (
-          <div className="bg-blue-50 border border-blue-200 rounded-3xl p-5 shadow-sm mb-4">
+          <div className="bg-blue-50 border border-blue-200 rounded-3xl p-5 shadow-sm mt-12 mb-4">
             <div className="flex items-start gap-3">
               <div className="p-2.5 bg-blue-500/10 text-blue-600 rounded-2xl shrink-0 mt-0.5">
                 <FiCheckCircle size={22} />
@@ -254,9 +231,8 @@ export default function ProfilePage() {
         );
       }
 
-      // Sub-kondisi B: Data sudah lengkap, akses dashboard
       return (
-        <div className="bg-emerald-50 border border-emerald-200 rounded-3xl p-5 shadow-sm mb-4">
+        <div className="bg-emerald-50 border border-emerald-200 rounded-3xl p-5 shadow-sm mt-12 mb-4">
           <div className="flex items-start gap-3">
             <div className="p-2.5 bg-emerald-500/10 text-emerald-600 rounded-2xl shrink-0 mt-0.5">
               <FiCheckCircle size={22} />
@@ -307,8 +283,11 @@ export default function ProfilePage() {
       {/* 🔹 2. KONTEN UTAMA */}
       <div className="max-w-5xl mx-auto px-4 -mt-10 relative z-10">
 
-        {/* KARTU PROFIL + MENU */}
-        <div className="bg-white rounded-3xl border border-gray-100 shadow-sm mb-4">
+        {/* 🔹 3. CARD PORTAL NAKES (Hanya muncul jika sudah mendaftar) */}
+        {renderNakesPortalCard()}
+
+        {/* KARTU PROFIL UTAMA */}
+        <div className={`bg-white rounded-3xl border border-gray-100 shadow-sm mb-4 ${!profile?.tenaga_medis ? 'mt-12' : ''}`}>
 
           {/* AVATAR & USER INFO */}
           <div className="pt-5 pb-5 px-5 flex items-center gap-4">
@@ -357,9 +336,6 @@ export default function ProfilePage() {
           </div>
 
         </div>
-
-        {/* 🔹 3. CARD PORTAL NAKES DINAMIS (PEMBERITAHUAN & CTA) */}
-        {renderNakesPortalCard()}
 
         {/* 🔹 4. TOMBOL LOGOUT */}
         <button
