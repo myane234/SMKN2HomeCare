@@ -20,6 +20,33 @@ import {
 const MIN_PASSWORD_LENGTH = 8;
 const ITEMS_PER_PAGE = 10;
 
+// Helper untuk format URL Foto agar sama persis dengan AdminProfile.jsx
+const getImageUrl = (path) => {
+  if (!path) return null;
+  if (path.startsWith("http://") || path.startsWith("https://")) return path;
+  const cleanPath = path.startsWith("/") ? path : `/${path}`;
+  return `${URL.replace(/\/api\/?$/, "")}/storage${cleanPath}`;
+};
+
+const DEFAULT_MOCK_ADMINS = [
+  {
+    id: 1,
+    id_admin: 1,
+    nama_lengkap: "Super Administrator",
+    email: "superadmin@homecare.com",
+    tier_admin: "Super Admin",
+    roles: ["super_admin", "admin"],
+  },
+  {
+    id: 2,
+    id_admin: 2,
+    nama_lengkap: "Admin Operasional",
+    email: "admin@homecare.com",
+    tier_admin: "Admin",
+    roles: ["admin"],
+  },
+];
+
 export default function KelolaAdmin() {
   const [admins, setAdmins] = useState([]);
   const [tiers, setTiers] = useState(["Super Admin", "Admin", "Editor"]);
@@ -35,12 +62,12 @@ export default function KelolaAdmin() {
   const [selectedAdmin, setSelectedAdmin] = useState(null);
   const [submitting, setSubmitting] = useState(false);
 
-  // Password visibility toggles (separate for each modal)
+  // Password visibility toggles
   const [showPasswordAdd, setShowPasswordAdd] = useState(false);
   const [showPasswordEdit, setShowPasswordEdit] = useState(false);
 
-  // Interactive toast/alert (replaces window.alert)
-  const [toast, setToast] = useState(null); // { type: 'error' | 'success', message: string }
+  // Interactive toast/alert
+  const [toast, setToast] = useState(null);
 
   // Form states
   const [formData, setFormData] = useState({
@@ -55,14 +82,12 @@ export default function KelolaAdmin() {
     fetchTiers();
   }, []);
 
-  // Auto-dismiss toast after a few seconds
   useEffect(() => {
     if (!toast) return;
     const timer = setTimeout(() => setToast(null), 3500);
     return () => clearTimeout(timer);
   }, [toast]);
 
-  // Reset ke halaman 1 setiap kali pencarian atau filter tier berubah
   useEffect(() => {
     setCurrentPage(1);
   }, [searchQuery, filterTier]);
@@ -94,7 +119,6 @@ export default function KelolaAdmin() {
       }
     } catch {}
 
-    // Check custom tiers in localStorage or fallback
     try {
       const savedCustom = localStorage.getItem("cms_custom_tiers");
       if (savedCustom) {
@@ -116,7 +140,7 @@ export default function KelolaAdmin() {
     setLoading(true);
     setError("");
 
-    // Load from local storage backup if available
+    const session = getSession();
     let storedAdmins = null;
     try {
       const raw = localStorage.getItem("cms_managed_admins");
@@ -124,7 +148,6 @@ export default function KelolaAdmin() {
     } catch {}
 
     try {
-      // 1. Try fetching from /manage-admin
       let res = await fetch(`${URL}/manage-admin`, {
         method: "GET",
         headers: getAuthHeaders({
@@ -134,7 +157,6 @@ export default function KelolaAdmin() {
       });
       let json = await res.json();
 
-      // 2. Fallback to /admin if /manage-admin 404s
       if (!res.ok || !json.data) {
         res = await fetch(`${URL}/admin`, {
           method: "GET",
@@ -147,37 +169,68 @@ export default function KelolaAdmin() {
       }
 
       if (res.ok && Array.isArray(json.data) && json.data.length > 0) {
-        const mapped = json.data.map((a) => ({
-          id: a.id ?? a.id_admin,
-          id_admin: a.id ?? a.id_admin,
-          nama_lengkap: a.nama_lengkap || a.nama || a.name || "Admin",
-          email: a.email || "admin@homecare.com",
-          tier_admin:
-            a.tier_admin ||
-            (a.roles?.includes("super_admin") ? "Super Admin" : "Admin"),
-          roles: a.roles || [
-            a.tier_admin === "Super Admin" ? "super_admin" : "admin",
-          ],
-        }));
+        const mapped = json.data.map((a) => {
+          const isCurrentSessionUser =
+            session &&
+            (a.email === session.email ||
+              (a.id ?? a.id_admin) === (session.id ?? session.id_admin));
+
+          // Mencakup foto_profile sesuai dengan AdminProfile.jsx
+          const rawFoto =
+            a.foto_profile ||
+            a.foto ||
+            a.avatar ||
+            a.photo ||
+            a.image ||
+            a.profile_picture ||
+            a.img ||
+            null;
+
+          const sessionFoto =
+            session?.foto_profile ||
+            session?.foto ||
+            session?.avatar ||
+            session?.photo ||
+            null;
+
+          const finalFoto = getImageUrl(rawFoto || (isCurrentSessionUser ? sessionFoto : null));
+
+          return {
+            id: a.id ?? a.id_admin,
+            id_admin: a.id ?? a.id_admin,
+            nama_lengkap: a.nama_lengkap || a.nama || a.name || "Admin",
+            email: a.email || "admin@homecare.com",
+            foto: finalFoto,
+            tier_admin:
+              a.tier_admin ||
+              a.role ||
+              (a.roles?.includes("super_admin") ? "Super Admin" : "Admin"),
+            roles: a.roles || [
+              a.tier_admin === "Super Admin" ? "super_admin" : "admin",
+            ],
+          };
+        });
+
         setAdmins(mapped);
         localStorage.setItem("cms_managed_admins", JSON.stringify(mapped));
       } else if (storedAdmins && storedAdmins.length > 0) {
         setAdmins(storedAdmins);
       } else {
-        // Fallback to session admin + default list
-        const session = getSession();
         const currentAdmin = session
           ? [
               {
-                id: 99,
-                id_admin: 99,
-                nama_lengkap: session.name || "Current Admin",
+                id: session.id ?? session.id_admin ?? 99,
+                id_admin: session.id ?? session.id_admin ?? 99,
+                nama_lengkap:
+                  session.name || session.nama_lengkap || "Current Admin",
                 email: session.email || "admin@homecare.com",
-                tier_admin:
-                  session.tier_admin ||
-                  (session.roles?.includes("super_admin")
-                    ? "Super Admin"
-                    : "Admin"),
+                foto: getImageUrl(
+                  session.foto_profile ||
+                    session.foto ||
+                    session.avatar ||
+                    session.photo
+                ),
+                tier_admin: session.tier_admin || session.role || "Admin",
                 roles: session.roles || ["admin"],
               },
             ]
@@ -190,7 +243,6 @@ export default function KelolaAdmin() {
         localStorage.setItem("cms_managed_admins", JSON.stringify(unique));
       }
     } catch {
-      // Graceful offline fallback
       if (storedAdmins && storedAdmins.length > 0) {
         setAdmins(storedAdmins);
       } else {
@@ -241,21 +293,8 @@ export default function KelolaAdmin() {
 
     setSubmitting(true);
 
-    const newAdmin = {
-      id: Date.now(),
-      id_admin: Date.now(),
-      nama_lengkap: formData.nama_lengkap,
-      email: formData.email,
-      tier_admin: formData.tier_admin,
-      roles:
-        formData.tier_admin === "Super Admin"
-          ? ["super_admin", "admin"]
-          : ["admin"],
-    };
-
-    // Try API request
     try {
-      await fetch(`${URL}/manage-admin`, {
+      const res = await fetch(`${URL}/manage-admin`, {
         method: "POST",
         headers: getAuthHeaders({
           "Content-Type": "application/json",
@@ -263,9 +302,28 @@ export default function KelolaAdmin() {
         }),
         body: JSON.stringify(formData),
       });
-    } catch {}
 
-    // Always update UI state
+      const json = await res.json();
+      if (!res.ok) {
+        throw new Error(json.message || "Gagal menambahkan admin ke server");
+      }
+    } catch (err) {
+      console.warn("API Add warning (fallback to local):", err.message);
+    }
+
+    const newAdmin = {
+      id: Date.now(),
+      id_admin: Date.now(),
+      nama_lengkap: formData.nama_lengkap,
+      email: formData.email,
+      foto: null,
+      tier_admin: formData.tier_admin,
+      roles:
+        formData.tier_admin === "Super Admin"
+          ? ["super_admin", "admin"]
+          : ["admin"],
+    };
+
     const updated = [newAdmin, ...admins];
     setAdmins(updated);
     localStorage.setItem("cms_managed_admins", JSON.stringify(updated));
@@ -297,9 +355,8 @@ export default function KelolaAdmin() {
     };
     if (formData.password) payload.password = formData.password;
 
-    // Try API request
     try {
-      await fetch(`${URL}/manage-admin/${id}`, {
+      const res = await fetch(`${URL}/manage-admin/${id}`, {
         method: "PUT",
         headers: getAuthHeaders({
           "Content-Type": "application/json",
@@ -307,9 +364,15 @@ export default function KelolaAdmin() {
         }),
         body: JSON.stringify(payload),
       });
-    } catch {}
 
-    // Always update UI state
+      const json = await res.json();
+      if (!res.ok) {
+        throw new Error(json.message || "Gagal memperbarui admin di server");
+      }
+    } catch (err) {
+      console.warn("API Update warning (fallback to local):", err.message);
+    }
+
     const updated = admins.map((item) => {
       if ((item.id ?? item.id_admin) === id) {
         return {
@@ -350,7 +413,6 @@ export default function KelolaAdmin() {
     showToast("success", "Admin berhasil dihapus");
   }
 
-  // Filter admins
   const filteredAdmins = admins.filter((admin) => {
     const nama = (
       admin.nama_lengkap ||
@@ -361,6 +423,7 @@ export default function KelolaAdmin() {
     const email = (admin.email || "").toLowerCase();
     const tier = (
       admin.tier_admin ||
+      admin.role ||
       (admin.roles?.includes("super_admin") ? "Super Admin" : "Admin")
     ).toLowerCase();
 
@@ -372,7 +435,6 @@ export default function KelolaAdmin() {
     return matchesSearch && matchesTier;
   });
 
-  // Pagination
   const totalPages = Math.ceil(filteredAdmins.length / ITEMS_PER_PAGE);
   const paginatedAdmins = filteredAdmins.slice(
     (currentPage - 1) * ITEMS_PER_PAGE,
@@ -430,14 +492,14 @@ export default function KelolaAdmin() {
         <div className="flex items-center gap-2">
           <button
             onClick={fetchAdmins}
-            className="flex items-center gap-2 px-3 py-2 bg-white border border-slate-200 text-slate-600 rounded-xl hover:bg-slate-50 transition-colors text-sm font-medium shadow-sm"
+            className="flex items-center gap-2 px-3 py-2 bg-white border border-slate-200 text-slate-600 rounded-xl hover:bg-slate-50 transition-colors text-sm font-medium shadow-sm cursor-pointer"
             title="Muat ulang data"
           >
-            <FaSync className={loading ? "animate-spin" : ""} /> Refres
+            <FaSync className={loading ? "animate-spin" : ""} /> Refresh
           </button>
           <button
             onClick={handleOpenAddModal}
-            className="flex items-center gap-2 px-4 py-2 bg-primary hover:bg-primary-dark text-white rounded-xl transition-all text-sm font-semibold shadow-md shadow-primary/20"
+            className="flex items-center gap-2 px-4 py-2 bg-primary hover:bg-primary-dark text-white rounded-xl transition-all text-sm font-semibold shadow-md shadow-primary/20 cursor-pointer"
           >
             <FaUserPlus /> Tambah Admin
           </button>
@@ -470,7 +532,7 @@ export default function KelolaAdmin() {
           <select
             value={filterTier}
             onChange={(e) => setFilterTier(e.target.value)}
-            className="w-full md:w-48 px-3 py-2 text-sm bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
+            className="w-full md:w-48 px-3 py-2 text-sm bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all cursor-pointer"
           >
             <option value="">Semua Tier</option>
             {tiers.map((t) => (
@@ -515,8 +577,10 @@ export default function KelolaAdmin() {
                   const adminId = admin.id ?? admin.id_admin;
                   const nama =
                     admin.nama_lengkap || admin.nama || admin.name || "-";
+                  const adminFoto = admin.foto; // Sudah diproses lewat getImageUrl()
                   const tier =
                     admin.tier_admin ||
+                    admin.role ||
                     (admin.roles?.includes("super_admin")
                       ? "Super Admin"
                       : "Admin");
@@ -533,8 +597,19 @@ export default function KelolaAdmin() {
                       </td>
                       <td className="px-6 py-4 font-semibold text-slate-800">
                         <div className="flex items-center gap-3">
-                          <div className="w-9 h-9 rounded-xl bg-primary/10 text-primary flex items-center justify-center font-bold text-sm">
-                            {nama.charAt(0).toUpperCase()}
+                          <div className="w-9 h-9 rounded-xl bg-primary/10 text-primary flex items-center justify-center font-bold text-sm overflow-hidden shrink-0">
+                            {adminFoto ? (
+                              <img
+                                src={adminFoto}
+                                alt={nama}
+                                className="w-full h-full object-cover"
+                                onError={(e) => {
+                                  e.target.style.display = "none";
+                                }}
+                              />
+                            ) : (
+                              nama.charAt(0).toUpperCase()
+                            )}
                           </div>
                           <div>
                             <p className="font-semibold text-slate-800">
@@ -567,14 +642,14 @@ export default function KelolaAdmin() {
                         <div className="flex items-center justify-end gap-2">
                           <button
                             onClick={() => handleOpenEditModal(admin)}
-                            className="p-2 text-slate-600 hover:text-primary hover:bg-primary/10 rounded-lg transition-colors"
+                            className="p-2 text-slate-600 hover:text-primary hover:bg-primary/10 rounded-lg transition-colors cursor-pointer"
                             title="Edit Admin"
                           >
                             <FaEdit />
                           </button>
                           <button
                             onClick={() => handleDeleteAdmin(adminId)}
-                            className="p-2 text-slate-600 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                            className="p-2 text-slate-600 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors cursor-pointer"
                             title="Hapus Admin"
                           >
                             <FaTrash />
@@ -610,7 +685,7 @@ export default function KelolaAdmin() {
               </h3>
               <button
                 onClick={() => setShowAddModal(false)}
-                className="text-slate-400 hover:text-slate-600 text-lg font-bold"
+                className="text-slate-400 hover:text-slate-600 text-lg font-bold cursor-pointer"
               >
                 &times;
               </button>
@@ -671,7 +746,7 @@ export default function KelolaAdmin() {
                   <button
                     type="button"
                     onClick={() => setShowPasswordAdd((v) => !v)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors"
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors cursor-pointer"
                     tabIndex={-1}
                   >
                     {showPasswordAdd ? <FaEyeSlash /> : <FaEye />}
@@ -695,7 +770,7 @@ export default function KelolaAdmin() {
                   onChange={(e) =>
                     setFormData({ ...formData, tier_admin: e.target.value })
                   }
-                  className="w-full px-3.5 py-2.5 text-sm bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
+                  className="w-full px-3.5 py-2.5 text-sm bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all cursor-pointer"
                 >
                   {tiers.map((t) => (
                     <option key={t} value={t}>
@@ -703,24 +778,20 @@ export default function KelolaAdmin() {
                     </option>
                   ))}
                 </select>
-                <p className="text-[11px] text-slate-400 mt-1">
-                  Tier admin menentukan halaman mana saja yang dapat diakses
-                  oleh admin ini.
-                </p>
               </div>
 
               <div className="pt-4 flex items-center justify-end gap-3 border-t border-slate-100">
                 <button
                   type="button"
                   onClick={() => setShowAddModal(false)}
-                  className="px-4 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-100 rounded-xl transition-colors"
+                  className="px-4 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-100 rounded-xl transition-colors cursor-pointer"
                 >
                   Batal
                 </button>
                 <button
                   type="submit"
                   disabled={submitting}
-                  className="px-5 py-2 text-sm font-semibold text-white bg-primary hover:bg-primary-dark rounded-xl shadow-md shadow-primary/20 transition-all disabled:opacity-50"
+                  className="px-5 py-2 text-sm font-semibold text-white bg-primary hover:bg-primary-dark rounded-xl shadow-md shadow-primary/20 transition-all disabled:opacity-50 cursor-pointer"
                 >
                   {submitting ? "Menyimpan..." : "Simpan Admin"}
                 </button>
@@ -740,7 +811,7 @@ export default function KelolaAdmin() {
               </h3>
               <button
                 onClick={() => setShowEditModal(false)}
-                className="text-slate-400 hover:text-slate-600 text-lg font-bold"
+                className="text-slate-400 hover:text-slate-600 text-lg font-bold cursor-pointer"
               >
                 &times;
               </button>
@@ -781,17 +852,38 @@ export default function KelolaAdmin() {
 
               <div>
                 <label className="block text-xs font-semibold text-slate-600 mb-1">
-                  Password
+                  Password Baru
                 </label>
-                <input
-                  type="password"
-                  placeholder="Kosongkan jika tidak ingin mengubah"
-                  value={formData.password}
-                  onChange={(e) =>
-                    setFormData({ ...formData, password: e.target.value })
-                  }
-                  className="w-full px-3.5 py-2.5 text-sm bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
-                />
+                <div className="relative">
+                  <input
+                    type={showPasswordEdit ? "text" : "password"}
+                    placeholder="Kosongkan jika tidak ingin mengubah"
+                    value={formData.password}
+                    onChange={(e) =>
+                      setFormData({ ...formData, password: e.target.value })
+                    }
+                    className={`w-full px-3.5 py-2.5 pr-10 text-sm bg-slate-50 border rounded-xl focus:bg-white focus:outline-none focus:ring-2 transition-all ${
+                      editPasswordTooShort
+                        ? "border-red-300 focus:ring-red-100 focus:border-red-400"
+                        : "border-slate-200 focus:ring-primary/20 focus:border-primary"
+                    }`}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPasswordEdit((v) => !v)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors cursor-pointer"
+                    tabIndex={-1}
+                  >
+                    {showPasswordEdit ? <FaEyeSlash /> : <FaEye />}
+                  </button>
+                </div>
+                <p
+                  className={`text-[11px] mt-1 ${editPasswordTooShort ? "text-red-500 font-medium" : "text-slate-400"}`}
+                >
+                  {editPasswordTooShort
+                    ? `Password minimal ${MIN_PASSWORD_LENGTH} karakter (saat ini ${formData.password.length})`
+                    : "Kosongkan jika password tidak diubah"}
+                </p>
               </div>
 
               <div>
@@ -803,7 +895,7 @@ export default function KelolaAdmin() {
                   onChange={(e) =>
                     setFormData({ ...formData, tier_admin: e.target.value })
                   }
-                  className="w-full px-3.5 py-2.5 text-sm bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
+                  className="w-full px-3.5 py-2.5 text-sm bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all cursor-pointer"
                 >
                   {tiers.map((t) => (
                     <option key={t} value={t}>
@@ -817,14 +909,14 @@ export default function KelolaAdmin() {
                 <button
                   type="button"
                   onClick={() => setShowEditModal(false)}
-                  className="px-4 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-100 rounded-xl transition-colors"
+                  className="px-4 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-100 rounded-xl transition-colors cursor-pointer"
                 >
                   Batal
                 </button>
                 <button
                   type="submit"
                   disabled={submitting}
-                  className="px-5 py-2 text-sm font-semibold text-white bg-primary hover:bg-primary-dark rounded-xl shadow-md shadow-primary/20 transition-all disabled:opacity-50"
+                  className="px-5 py-2 text-sm font-semibold text-white bg-primary hover:bg-primary-dark rounded-xl shadow-md shadow-primary/20 transition-all disabled:opacity-50 cursor-pointer"
                 >
                   {submitting ? "Memperbarui..." : "Simpan Perubahan"}
                 </button>
