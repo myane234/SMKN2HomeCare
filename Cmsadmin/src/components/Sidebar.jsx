@@ -1,4 +1,3 @@
-// src/components/Sidebar.jsx
 import { NavLink } from "react-router-dom";
 import { useState, useEffect, useRef } from "react";
 import logo from "../assets/logo.png";
@@ -33,6 +32,8 @@ import {
   FaChartLine,
   FaFileExcel,
   FaUserCircle,
+  FaPrayingHands,
+  FaGraduationCap,
   FaDatabase,
   FaChevronLeft,
   FaChevronRight,
@@ -114,64 +115,39 @@ const rawSuperAdminMenus = [
         label: "Wilayah",
         icon: <FaGlobeAmericas />,
         children: [
-          {
-            to: "/master-provinsi",
-            label: "Provinsi",
-            icon: <FaMapMarkerAlt />,
-          },
-          {
-            to: "/master-kabupaten",
-            label: "Kota / Kabupaten",
-            icon: <FaCity />,
-          },
-          {
-            to: "/master-kecamatan",
-            label: "Kecamatan",
-            icon: <FaBuilding />,
-          },
-          {
-            to: "/master-kelurahan",
-            label: "Kelurahan",
-            icon: <FaCity />,
-          },
+          { to: "/master-provinsi", label: "Provinsi", icon: <FaMapMarkerAlt /> },
+          { to: "/master-kabupaten", label: "Kota / Kabupaten", icon: <FaCity /> },
+          { to: "/master-kecamatan", label: "Kecamatan", icon: <FaBuilding /> },
+          { to: "/master-kelurahan", label: "Kelurahan", icon: <FaCity /> },
+        ],
+      },
+      {
+        type: "subgroup",
+        label: "Tarif",
+        icon: <FaChartBar />,
+        children: [
+          { to: "/master-tarif", label: "Tarif", icon: <FaChartBar /> },
+          { to: "/master-komponen-tarif", label: "Komponen Tarif", icon: <FaChartBar /> },
+          { to: "/master-tarif-transport", label: "Tarif Transport", icon: <FaChartBar /> },
         ],
       },
       { to: "/master-barang", label: "Stock Barang", icon: <FaChartBar /> },
-      { to: "/master-tarif", label: "Tarif", icon: <FaChartBar /> },
-      {
-        to: "/master-komponen-tarif",
-        label: "Komponen Tarif",
-        icon: <FaChartBar />,
-      },
-      {
-        to: "/master-tarif-transport",
-        label: "Tarif Transport",
-        icon: <FaChartBar />,
-      },
+      { to: "/master-pendidikan", label: "Pendidikan", icon: <FaChartBar /> },
+      { to: "/master-universitas", label: "Universitas", icon: <FaGraduationCap /> },
+      { to: "/master-agama", label: "Agama", icon: <FaPrayingHands /> },
       { to: "/master-kategori", label: "Kategori", icon: <FaTags /> },
+      { to: "/master-bank", label: "Bank", icon: <FaCreditCard /> },
       {
         type: "subgroup",
         label: "Pembayaran",
         icon: <FaWallet />,
         children: [
-          {
-            to: "/master-kategori-pembayaran",
-            label: "Kategori Pembayaran",
-            icon: <FaTags />,
-          },
-          {
-            to: "/master-metode-pembayaran",
-            label: "Metode Pembayaran",
-            icon: <FaCreditCard />,
-          },
+          { to: "/master-kategori-pembayaran", label: "Kategori Pembayaran", icon: <FaTags /> },
+          { to: "/master-metode-pembayaran", label: "Metode Pembayaran", icon: <FaCreditCard /> },
         ],
       },
       { to: "/nakes", label: "Nakes", icon: <FaUserMd />, end: true },
-      {
-        to: "/nakes/requests",
-        label: "Registrasi Nakes",
-        icon: <FaUserPlus />,
-      },
+      { to: "/nakes/requests", label: "Registrasi Nakes", icon: <FaUserPlus /> },
     ],
   },
   { to: "/booking", label: "Booking", icon: <FaCalendarCheck /> },
@@ -182,23 +158,13 @@ const rawSuperAdminMenus = [
     children: [
       { to: "/kelola-admin", label: "Kelola Admin", icon: <FaUserShield /> },
       { to: "/tier-admin", label: "Tier Admin", icon: <FaShieldAlt /> },
-      {
-        to: "/notification-templates",
-        label: "Template Notifikasi",
-        icon: <FaBell />,
-      },
-      {
-        to: "/web-setting",
-        label: "Web Setting (Logo & Icon)",
-        icon: <FaCogs />,
-      },
+      { to: "/notification-templates", label: "Template Notifikasi", icon: <FaBell /> },
+      { to: "/web-setting", label: "Web Setting (Logo & Icon)", icon: <FaCogs /> },
       {
         type: "subgroup",
         label: "Pengaturan",
         icon: <FaCogs />,
-        children: [
-          { to: "/seeders", label: "Seeder Database", icon: <FaDatabase /> },
-        ],
+        children: [{ to: "/seeders", label: "Seeder Database", icon: <FaDatabase /> }],
       },
       { to: "/profile-admin", label: "Profil Admin", icon: <FaUserCircle /> },
     ],
@@ -208,16 +174,8 @@ const rawSuperAdminMenus = [
     label: "Legalitas & Dokumen",
     icon: <FaFileAlt />,
     children: [
-      {
-        to: "/syarat-ketentuan-pasien",
-        label: "Syarat & Ketentuan Pasien",
-        icon: <FaFileAlt />,
-      },
-      {
-        to: "/syarat-ketentuan-nakes",
-        label: "Syarat & Ketentuan Nakes",
-        icon: <FaUserMd />,
-      },
+      { to: "/syarat-ketentuan-pasien", label: "Syarat & Ketentuan Pasien", icon: <FaFileAlt /> },
+      { to: "/syarat-ketentuan-nakes", label: "Syarat & Ketentuan Nakes", icon: <FaUserMd /> },
     ],
   },
   {
@@ -225,16 +183,13 @@ const rawSuperAdminMenus = [
     label: "Statistik, Laporan & Log",
     icon: <FaChartLine />,
     children: [
-      {
-        to: "/statistik-artikel",
-        label: "Statistik View Artikel",
-        icon: <FaChartLine />,
-      },
+      { to: "/statistik-artikel", label: "Statistik View Artikel", icon: <FaChartLine /> },
       { to: "/laporan", label: "Laporan & Export Data", icon: <FaFileExcel /> },
       { to: "/aktivitas-log", label: "Log Aktivitas", icon: <FaHistory /> },
     ],
   },
 ];
+
 
 const MIN_WIDTH = 200;
 const MAX_WIDTH = 360;

@@ -1,6 +1,5 @@
 import { Routes, Route, Navigate } from "react-router-dom";
 import LoginAdminCms from "./pages/LoginAdminCms";
-import LoginSuperAdmin from "./pages/LoginAdminCms";
 import Dashboard from "./pages/Dashboard";
 import DataNakes from "./pages/admin/DataNakes";
 import AdminProfile from "./pages/AdminProfile";
@@ -13,7 +12,6 @@ import PromoEdit from "./pages/PromoEdit";
 import PageArtikel from "./pages/PageArtikel";
 import FormTambahArtikel from "./pages/FormTambahArtikel";
 import FormEditArtikel from "./pages/FormEditArtikel";
-import PageKelolaKonten from "./pages/PageKelolaKonten";
 import PageKelolaKontenHome from "./pages/PageKelolaKontenHome";
 import PageKelolaKontenAbout from "./pages/PageKelolaKontenAbout";
 import PageKelolaKontenMitra from "./pages/PageKelolaKontenMitra";
@@ -32,14 +30,11 @@ import AdminMasterProvinsi from "./pages/admin/AdminMasterProvinsi";
 import AdminMasterkotakabupaten from "./pages/admin/AdminMasterkotakabupaten";
 import AdminMasterKelurahan from "./pages/admin/AdminMasterKelurahan";
 import AdminMasterKategori from "./pages/admin/AdminMasterKategori";
-
 import AdminMasterMetodePembayaran from "./pages/admin/AdminMasterMetodePembayaran";
 import AdminMasterKategoriPembayaran from "./pages/admin/AdminMasterKategoriPembayaran";
-
 import AdminMasterKomponenTarif from "./pages/admin/AdminMasterKomponenTarif";
 import AdminMasterTarifTransport from "./pages/admin/AdminMasterTarifTransport";
 import AdminMasterKecamatan from "./pages/admin/AdminMasterKecamatan";
-
 import PageNotificationTemplates from "./pages/PageNotificationTemplates";
 import PageWebSetting from "./pages/PageWebSetting";
 import PageAktivitasLog from "./pages/PageAktivitasLog";
@@ -48,9 +43,11 @@ import PageSyaratKetentuanNakes from "./pages/PageSyaratKetentuanNakes";
 import PageStatistikArtikel from "./pages/PageStatistikArtikel";
 import PageLaporan from "./pages/PageLaporan";
 import PageProfileAdmin from "./pages/PageProfileAdmin";
+import AdminMasterPendidikan from "./pages/admin/AdminMasterPendidikan"; 
+import AdminMasterUniversitas from "./pages/admin/AdminMasterUniversitas";
+import AdminMasterAgama from "./pages/admin/AdminMasterAgama"; 
 import PageSeederManagement from "./pages/PageSeederManagement";
-
-import { getUserRoles } from "./utils/role";
+import AdminMasterBank from "./pages/admin/AdminMasterBank";
 
 import "leaflet/dist/leaflet.css";
 
@@ -59,13 +56,12 @@ function App() {
     <Routes>
       {/* Public routes */}
       <Route path="/login" element={<LoginAdminCms />} />
-      {/* <Route path="/super-admin/login" element={<LoginSuperAdmin />} /> */}
       <Route
         path="/admindashboard"
         element={<Navigate to="/dashboard" replace />}
       />
 
-      {/* Pindahkan rute profile ke sini (di luar AdminLayout) */}
+      {/* Rute Profile di luar AdminLayout */}
       <Route
         path="/profile"
         element={
@@ -74,6 +70,7 @@ function App() {
           </ProtectedRoute>
         }
       />
+
       {/* Main Admin/Super Admin App Layout */}
       <Route
         element={
@@ -194,14 +191,6 @@ function App() {
             </ProtectedRoute>
           }
         />
-        <Route
-          path="/profile"
-          element={
-            <ProtectedRoute requiredPath="/profile">
-              <AdminProfile />
-            </ProtectedRoute>
-          }
-        />
 
         {/* Nakes & Bookings */}
         <Route
@@ -253,7 +242,7 @@ function App() {
           }
         />
 
-        {/* Config / Admin & Tier Management & Placeholder Pages */}
+        {/* Config / Admin & Tier Management */}
         <Route
           path="/kelola-admin"
           element={
@@ -343,97 +332,22 @@ function App() {
           }
         />
 
-        {/* Master Data */}
-        <Route
-          path="/master-barang"
-          element={
-            <ProtectedRoute requiredPath="/master-barang">
-              <DataBarang />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/master-tarif"
-          element={
-            <ProtectedRoute requiredPath="/master-tarif">
-              <DataMasterTarif />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/master-provinsi"
-          element={
-            <ProtectedRoute requiredPath="/master-provinsi">
-              <AdminMasterProvinsi />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/master-kabupaten"
-          element={
-            <ProtectedRoute requiredPath="/master-kabupaten">
-              <AdminMasterkotakabupaten />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/master-kelurahan"
-          element={
-            <ProtectedRoute requiredPath="/master-kelurahan">
-              <AdminMasterKelurahan />
-            </ProtectedRoute>
-          }
-        />
-
-        <Route
-          path="/master-komponen-tarif"
-          element={
-            <ProtectedRoute requiredPath="/master-komponen-tarif">
-              <AdminMasterKomponenTarif />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/master-tarif-transport"
-          element={
-            <ProtectedRoute requiredPath="/master-tarif-transport">
-              <AdminMasterTarifTransport />
-            </ProtectedRoute>
-          }
-        />
-
-        <Route
-          path="/master-kategori"
-          element={
-            <ProtectedRoute requiredPath="/master-kategori">
-              <AdminMasterKategori />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/master-metode-pembayaran"
-          element={
-            <ProtectedRoute requiredPath="/master-metode-pembayaran">
-              <AdminMasterMetodePembayaran />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/master-kategori-pembayaran"
-          element={
-            <ProtectedRoute requiredPath="/master-kategori-pembayaran">
-              <AdminMasterKategoriPembayaran />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/master-kecamatan"
-          element={
-            <ProtectedRoute requiredPath="/master-kecamatan">
-              <AdminMasterKecamatan />
-            </ProtectedRoute>
-          }
-        />
+        {/* Master Data Routes */}
+        <Route path="/master-komponen-tarif" element={<ProtectedRoute requiredPath="/master-komponen-tarif"><AdminMasterKomponenTarif /></ProtectedRoute>} />
+        <Route path="/master-tarif-transport" element={<ProtectedRoute requiredPath="/master-tarif-transport"><AdminMasterTarifTransport /></ProtectedRoute>} />
+        <Route path="/master-pendidikan" element={<ProtectedRoute requiredPath="/master-pendidikan"><AdminMasterPendidikan /></ProtectedRoute>} />
+        <Route path="/master-universitas" element={<ProtectedRoute requiredPath="/master-universitas"><AdminMasterUniversitas /></ProtectedRoute>} />
+        <Route path="/master-agama" element={<ProtectedRoute requiredPath="/master-agama"><AdminMasterAgama /></ProtectedRoute>} />
+        <Route path="/master-kategori" element={<ProtectedRoute requiredPath="/master-kategori"><AdminMasterKategori /></ProtectedRoute>} />
+        <Route path="/master-metode-pembayaran" element={<ProtectedRoute requiredPath="/master-metode-pembayaran"><AdminMasterMetodePembayaran /></ProtectedRoute>} />
+        <Route path="/master-kategori-pembayaran" element={<ProtectedRoute requiredPath="/master-kategori-pembayaran"><AdminMasterKategoriPembayaran /></ProtectedRoute>} />
+        <Route path="/master-bank" element={<ProtectedRoute requiredPath="/master-bank"><AdminMasterBank /></ProtectedRoute>} />
+        <Route path="/master-kecamatan" element={<ProtectedRoute requiredPath="/master-kecamatan"><AdminMasterKecamatan /></ProtectedRoute>} />
+        <Route path="/master-barang" element={<ProtectedRoute requiredPath="/master-barang"><DataBarang /></ProtectedRoute>} />
+        <Route path="/master-tarif" element={<ProtectedRoute requiredPath="/master-tarif"><DataMasterTarif /></ProtectedRoute>} />
+        <Route path="/master-provinsi" element={<ProtectedRoute requiredPath="/master-provinsi"><AdminMasterProvinsi /></ProtectedRoute>} />
+        <Route path="/master-kabupaten" element={<ProtectedRoute requiredPath="/master-kabupaten"><AdminMasterkotakabupaten /></ProtectedRoute>} />
+        <Route path="/master-kelurahan" element={<ProtectedRoute requiredPath="/master-kelurahan"><AdminMasterKelurahan /></ProtectedRoute>} />
       </Route>
 
       {/* Default redirects */}
