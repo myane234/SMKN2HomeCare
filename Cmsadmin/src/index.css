@@ -103,8 +103,8 @@ body {
 }
 
 .ql-editor {
-  min-height: 200px;
-  padding: 14px 16px;
+  min-height: 320px;
+  padding: 16px 20px;
   line-height: 1.75;
 }
 

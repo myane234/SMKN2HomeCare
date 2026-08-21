@@ -69,11 +69,7 @@ export default function DaftarPage() {
     password_confirmation: "",
   });
 
-  // ── State & ref untuk peta + pencarian alamat ──────────────────────────────
   const [isFetchingAddress, setIsFetchingAddress] = useState(false);
-  // Default true: halaman ini tidak auto-set lokasi dari geolocation saat mount,
-  // jadi setiap kali pin digeser memang murni aksi user dan boleh langsung
-  // memicu reverse geocode.
   const [isEditingMap, setIsEditingMap] = useState(true);
 
   const [searchResults, setSearchResults] = useState([]);
@@ -101,31 +97,26 @@ export default function DaftarPage() {
     clearFieldError(name);
   };
 
-  // ── Saat pin di peta digeser ────────────────────────────────────────────────
   const handleMapChange = (lat, lng) => {
     setForm((prev) => ({ ...prev, latitude: lat, longitude: lng }));
 
     if (!isEditingMap) return;
 
-    // Hentikan timer sebelumnya (debounce)
     if (mapDebounceTimer.current) {
       clearTimeout(mapDebounceTimer.current);
     }
 
     setIsFetchingAddress(true);
 
-    // Ambil alamat otomatis setelah user selesai menggeser pin (delay 500ms)
     mapDebounceTimer.current = setTimeout(async () => {
       const address = await reverseGeocode(lat, lng);
       if (address) {
-        // Update textbox alamat otomatis
         setForm((prev) => ({ ...prev, alamat_utama: address }));
       }
       setIsFetchingAddress(false);
     }, 500);
   };
 
-  // ── Saat user mengetik langsung di field Alamat Utama ──────────────────────
   const handleAlamatChange = (e) => {
     const value = e.target.value;
     setForm((prev) => ({ ...prev, alamat_utama: value }));
@@ -145,7 +136,6 @@ export default function DaftarPage() {
     setIsSearching(true);
     setShowSearchResults(true);
 
-    // Debounce pencarian (delay 500ms)
     searchDebounceTimer.current = setTimeout(async () => {
       const results = await searchAddress(value);
       setSearchResults(results);
@@ -153,7 +143,6 @@ export default function DaftarPage() {
     }, 500);
   };
 
-  // ── Saat user memilih salah satu hasil dari dropdown pencarian ─────────────
   const handleSelectSearchResult = (result) => {
     const lat = parseFloat(result.lat);
     const lng = parseFloat(result.lon);
@@ -169,7 +158,6 @@ export default function DaftarPage() {
     setShowSearchResults(false);
   };
 
-  // ── Validasi semua field, return object berisi pesan error per nama field ──
   const validateForm = () => {
     const errors = {};
 
@@ -206,7 +194,6 @@ export default function DaftarPage() {
     return errors;
   };
 
-  // ── Submit register manual ─────────────────────────────────────────────────
   const handleSubmit = async (e) => {
     e.preventDefault();
     setErrorMsg("");
@@ -223,7 +210,7 @@ export default function DaftarPage() {
         email: form.email,
         password: form.password,
         nama_lengkap: form.nama_lengkap,
-        no_hp: form.no_hp || null, // 👈 no_hp dikirim ke backend
+        no_hp: form.no_hp || null,
         nik: form.nik,
         golongan_darah: form.golongan_darah || null,
         jenis_kelamin: form.jenis_kelamin,
@@ -256,9 +243,7 @@ export default function DaftarPage() {
       }, 1200);
     } catch (err) {
       if (err.fieldErrors && Object.keys(err.fieldErrors).length > 0) {
-        // Mapping error per-field dari server -> tampil di bawah textbox masing-masing
         setFieldErrors(err.fieldErrors);
-
         const errorCount = Object.keys(err.fieldErrors).length;
 
         if (errorCount > 1) {
@@ -276,7 +261,6 @@ export default function DaftarPage() {
     }
   };
 
-  // ── Register/Login dengan Google ───────────────────────────────────────────
   const handleGoogleSuccess = async (accessToken) => {
     setLoading(true);
     setErrorMsg("");
@@ -302,13 +286,16 @@ export default function DaftarPage() {
   };
 
   return (
-    <main className="min-h-screen bg-gray-100">
-      {/* Blue Background */}
-      <section className="h-64 bg-indigo-500" />
+    <main className="min-h-screen bg-gray-100 flex flex-col relative overflow-x-hidden">
+      
+      {/* 1. HEADER ATAS (Biru) */}
+      <section className="w-full h-64 bg-gradient-to-br from-[#0284c7] via-[#004fa4] to-[#2dd4bf] rounded-b-[40px] relative z-10" />
 
-      {/* Register Card */}
-      <div className="-mt-32 flex justify-center px-6 pb-16">
-        <div className="w-full max-w-xl rounded-2xl bg-white p-8 shadow-xl">
+    
+
+      {/* 3. REGISTER CARD (Form) */}
+      <div className="-mt-36 flex justify-center px-6 pb-28 relative z-20">
+        <div className="w-full max-w-xl rounded-3xl bg-white p-8 md:p-10 shadow-2xl border border-white/40">
           <h1 className="mb-8 text-center text-4xl font-bold text-gray-900">
             Registrasi
           </h1>
@@ -387,7 +374,7 @@ export default function DaftarPage() {
               )}
             </div>
 
-            {/* Golongan Darah - Disesuaikan Enum DB ('A', 'B', 'AB', 'O') */}
+            {/* Golongan Darah */}
             <div>
               <label htmlFor="reg-goldar" className="mb-2 block text-sm font-medium text-gray-700">
                 Golongan Darah
@@ -433,7 +420,7 @@ export default function DaftarPage() {
               )}
             </div>
 
-            {/* Alamat Utama — ketik/cari langsung di sini, atau sesuaikan lewat peta */}
+            {/* Alamat Utama */}
             <div>
               <label htmlFor="reg-alamat" className="mb-2 block text-sm font-medium text-gray-700">
                 Alamat Utama
@@ -450,7 +437,6 @@ export default function DaftarPage() {
                     if (searchResults.length > 0) setShowSearchResults(true);
                   }}
                   onBlur={() => {
-                    // Delay dikit supaya klik pada hasil pencarian sempat kedaftar dulu
                     setTimeout(() => setShowSearchResults(false), 150);
                   }}
                   placeholder="Cari alamat, jalan, atau kelurahan..."
@@ -469,7 +455,7 @@ export default function DaftarPage() {
                 )}
 
                 {showSearchResults && searchResults.length > 0 && (
-                  <ul className="absolute z-20 mt-1 max-h-56 w-full overflow-y-auto rounded-lg border border-gray-200 bg-white shadow-lg">
+                  <ul className="absolute z-30 mt-1 max-h-56 w-full overflow-y-auto rounded-lg border border-gray-200 bg-white shadow-lg">
                     {searchResults.map((result) => (
                       <li key={result.place_id}>
                         <button
@@ -485,7 +471,7 @@ export default function DaftarPage() {
                 )}
               </div>
 
-              {/* Peta — geser pin untuk menyesuaikan titik lokasi secara visual */}
+              {/* Peta */}
               <div className="mt-3">
                 <MapPicker
                   lat={form.latitude || -6.2088}
@@ -605,7 +591,7 @@ export default function DaftarPage() {
               {loading ? "Memproses..." : "Daftar"}
             </button>
 
-            {/* Pesan Error — kalau ada yang salah (mis. respons dari server), muncul di sini */}
+            {/* Pesan Error */}
             {errorMsg && (
               <div className="rounded-lg border border-red-200 bg-red-50 p-3.5 text-center">
                 <p className="text-sm font-medium text-red-600">{errorMsg}</p>

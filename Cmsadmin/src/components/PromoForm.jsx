@@ -156,7 +156,7 @@ export default function PromoForm({ initialData, onSubmit, submitting, mode }) {
   );
 
   return (
-    <div className="w-full space-y-6 pb-10">
+    <div className="w-full max-w-screen-2xl mx-auto space-y-6 pb-10">
       {/* Tombol Kembali dengan Ikon Panah */}
       <div>
         <a
@@ -169,7 +169,7 @@ export default function PromoForm({ initialData, onSubmit, submitting, mode }) {
       </div>
 
       <form
-        className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden w-full p-8"
+        className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden w-full p-6 sm:p-8 lg:p-10"
         onSubmit={(e) => {
           e.preventDefault();
           if (validate()) {

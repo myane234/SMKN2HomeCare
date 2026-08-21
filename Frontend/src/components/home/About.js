@@ -5,6 +5,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { FiTarget, FiHeart, FiStar, FiArrowRight } from "react-icons/fi";
 import api from "@/services/api";
+import { resolveImageUrl } from "@/services/resolveImage";
 
 export default function About() {
   const [aboutData, setAboutData] = useState(null);
@@ -26,7 +27,7 @@ export default function About() {
   }, []);
 
   const description = aboutData?.about_description_text || "Platform layanan kesehatan berbasis homecare yang menghadirkan tenaga kesehatan profesional langsung ke rumah Anda. Kami berkomitmen memberikan pelayanan yang aman, mudah, dan terpercaya.";
-  const imageSrc = aboutData?.about_description_image || "/images/tentang-kami/TentangHomeCare.png";
+  const imageSrc = aboutData?.about_description_image ? resolveImageUrl(aboutData.about_description_image) : "/images/tentang-kami/TentangHomeCare.png";
 
   return (
     <section className="relative py-16 sm:py-24 lg:py-32 overflow-hidden bg-white">
