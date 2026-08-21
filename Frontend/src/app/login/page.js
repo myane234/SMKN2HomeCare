@@ -191,9 +191,9 @@ export default function MasukPage() {
         <div className="w-full bg-gradient-to-br from-[#0284c7] via-[#004fa4] to-[#2dd4bf] px-6 pt-10 pb-20 flex flex-col items-start justify-start rounded-b-[40px] shadow-lg text-left">
           <img src={logo} alt="Smartcare Logo" className="h-6 w-auto object-contain brightness-0 invert drop-shadow-[0_2px_6px_rgba(0,0,0,0.2)] mb-2" />
           
-          <div className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-white/25 backdrop-blur-md text-[10px] font-bold uppercase tracking-wider text-white shadow-sm mb-3">
+          {/* <div className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-white/25 backdrop-blur-md text-[10px] font-bold uppercase tracking-wider text-white shadow-sm mb-3">
             <FaShieldAlt size={9} className="text-white" /> PORTAL PASIEN
-          </div>
+          </div> */}
 
           <h1 className="text-xl sm:text-2xl font-black tracking-tight leading-snug text-white drop-shadow-md mb-2">
             Layanan Kesehatan <span className="text-yellow-200">Terpadu di Rumah</span>
@@ -215,9 +215,9 @@ export default function MasukPage() {
           <div className="max-w-xl">
             <div className="mb-8">
               <img src={logo} alt="Smartcare Logo" className="h-12 w-auto object-contain brightness-0 invert drop-shadow-[0_2px_8px_rgba(0,0,0,0.2)] mb-6" />
-              <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white/20 backdrop-blur-md text-xs font-bold uppercase tracking-wider border border-white/30 text-white shadow-sm">
+              {/* <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white/20 backdrop-blur-md text-xs font-bold uppercase tracking-wider border border-white/30 text-white shadow-sm">
                 <FaShieldAlt size={12} className="text-white" /> PORTAL PASIEN
-              </div>
+              </div> */}
             </div>
 
             <h1 className="text-4xl xl:text-5xl font-black tracking-tight leading-tight mb-5 text-white drop-shadow-md">
