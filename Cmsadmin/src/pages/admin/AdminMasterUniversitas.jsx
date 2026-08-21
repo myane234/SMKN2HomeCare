@@ -198,30 +198,37 @@ export default function AdminMasterUniversitas() {
         </table>
       </div>
 
-      {/* Kontrol Pagination */}
-      <div className="flex justify-between items-center bg-white px-6 py-4 rounded-xl shadow-sm border border-slate-200">
-        <p className="text-xs text-slate-500">
-          Menampilkan <span className="font-semibold text-slate-700">{filteredData.length > 0 ? indexOfFirstItem + 1 : 0}</span> sampai <span className="font-semibold text-slate-700">{Math.min(indexOfLastItem, filteredData.length)}</span> dari <span className="font-semibold text-slate-700">{filteredData.length}</span> data
-        </p>
-        <div className="flex items-center gap-2">
+      <div className="flex items-center justify-between px-6 py-4 border-t border-gray-200 bg-white">
+        <div className="text-sm text-gray-500">
+          Halaman <span className="font-semibold text-gray-700">{currentPage}</span> dari <span className="font-semibold text-gray-700">{totalPages || 1}</span>
+        </div>
+        <div className="flex items-center space-x-2">
           <button
-            onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+            onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
             disabled={currentPage === 1}
-            className="p-2 rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition"
+            className={`px-3 py-1.5 text-sm rounded-md border ${
+              currentPage === 1
+                ? "bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed"
+                : "bg-white text-gray-700 border-gray-300 hover:bg-gray-50"
+            }`}
           >
-            <FaChevronLeft className="text-xs" />
+            &larr; Sebelumnya
           </button>
           
-          <span className="text-xs font-semibold text-slate-700 px-3">
-            Halaman {currentPage} dari {totalPages}
+          <span className="px-3 py-1.5 text-sm font-medium text-white bg-emerald-600 rounded-md">
+            {currentPage}
           </span>
 
           <button
-            onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
-            disabled={currentPage === totalPages}
-            className="p-2 rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition"
+            onClick={() => setCurrentPage((prev) => Math.min(prev + 1, totalPages))}
+            disabled={currentPage === totalPages || totalPages === 0}
+            className={`px-3 py-1.5 text-sm rounded-md border ${
+              currentPage === totalPages || totalPages === 0
+                ? "bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed"
+                : "bg-white text-gray-700 border-gray-300 hover:bg-gray-50"
+            }`}
           >
-            <FaChevronRight className="text-xs" />
+            Selanjutnya &rarr;
           </button>
         </div>
       </div>
