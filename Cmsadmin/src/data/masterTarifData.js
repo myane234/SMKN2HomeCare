@@ -17,6 +17,7 @@ function extractData(body) {
   return body;
 }
 
+// GET /api/master-tarif
 export async function getAllTarif() {
   const res = await fetch(`${URL}/master-tarif`, {
     method: 'GET',
@@ -31,6 +32,7 @@ export async function getAllTarif() {
   return Array.isArray(data) ? data : (data ? [data] : []);
 }
 
+// POST /api/master-tarif
 export async function createTarifData(data) {
   const res = await fetch(`${URL}/master-tarif`, {
     method: 'POST',
@@ -45,6 +47,7 @@ export async function createTarifData(data) {
   return extractData(json);
 }
 
+// PUT /api/master-tarif/{id}
 export async function updateTarifData(idMasterTarif, data) {
   const res = await fetch(`${URL}/master-tarif/${encodeURIComponent(idMasterTarif)}`, {
     method: 'PUT',
@@ -59,6 +62,7 @@ export async function updateTarifData(idMasterTarif, data) {
   return extractData(json);
 }
 
+// DELETE /api/master-tarif/{id}
 export async function deleteTarifData(idMasterTarif) {
   const res = await fetch(`${URL}/master-tarif/${encodeURIComponent(idMasterTarif)}`, {
     method: 'DELETE',
