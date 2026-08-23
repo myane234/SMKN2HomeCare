@@ -6,7 +6,8 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "deploy": "npm run build && sudo cp -r dist/* /var/www/portal/ && sudo chown -R www-data:www-data /var/www/portal"
   },
   "dependencies": {
     "@react-oauth/google": "^0.13.5",
