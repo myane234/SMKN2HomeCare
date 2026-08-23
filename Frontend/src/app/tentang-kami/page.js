@@ -1,6 +1,7 @@
 "use client";
 
 import Image from "next/image";
+import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import api from "@/services/api";
 import { resolveImageUrl } from "@/services/resolveImage";
@@ -295,57 +296,156 @@ export default function TentangKami() {
   );
 }
 
-// ─── Wilayah Layanan Map (inline, client-only lewat dynamic import() di useEffect) ──
+const REGIONS = [
+  { id: "ALL", label: "Semua Wilayah", center: [-2.5, 118.0], zoom: 5 },
+  {
+    id: "JAWA",
+    label: "Pulau Jawa",
+    center: [-6.9, 109.5],
+    zoom: 7,
+    provinces: ["JAWA BARAT", "JAWA TENGAH", "JAWA TIMUR", "DKI JAKARTA", "DI YOGYAKARTA", "BANTEN"],
+  },
+  {
+    id: "SUMATERA",
+    label: "Sumatera",
+    center: [0.5, 101.5],
+    zoom: 6,
+    provinces: [
+      "ACEH",
+      "SUMATERA UTARA",
+      "SUMATERA BARAT",
+      "RIAU",
+      "JAMBI",
+      "SUMATERA SELATAN",
+      "BENGKULU",
+      "LAMPUNG",
+      "KEPULAUAN BANGKA BELITUNG",
+      "KEPULAUAN RIAU",
+    ],
+  },
+  {
+    id: "KALIMANTAN",
+    label: "Kalimantan",
+    center: [-1.0, 114.0],
+    zoom: 6,
+    provinces: ["KALIMANTAN BARAT", "KALIMANTAN TENGAH", "KALIMANTAN SELATAN", "KALIMANTAN TIMUR", "KALIMANTAN UTARA"],
+  },
+  {
+    id: "SULAWESI",
+    label: "Sulawesi",
+    center: [-2.0, 121.0],
+    zoom: 6,
+    provinces: ["SULAWESI UTARA", "SULAWESI TENGAH", "SULAWESI SELATAN", "SULAWESI TENGGARA", "GORONTALO", "SULAWESI BARAT"],
+  },
+  {
+    id: "BALI_NUSA",
+    label: "Bali & Nusa Tenggara",
+    center: [-8.5, 118.0],
+    zoom: 7,
+    provinces: ["BALI", "NUSA TENGGARA BARAT", "NUSA TENGGARA TIMUR"],
+  },
+  {
+    id: "MALUKU_PAPUA",
+    label: "Maluku & Papua",
+    center: [-3.5, 133.0],
+    zoom: 6,
+    provinces: ["MALUKU", "MALUKU UTARA", "PAPUA BARAT", "PAPUA"],
+  },
+];
+
+function normalizeProvinceName(rawName) {
+  if (!rawName) return "";
+  let clean = String(rawName)
+    .toUpperCase()
+    .replace(/^PROVINSI\s+/gi, "")
+    .replace(/^PROV\.\s*/gi, "")
+    .replace(/^DAERAH KHUSUS IBUKOTA\s+/gi, "")
+    .replace(/^DAERAH ISTIMEWA\s+/gi, "")
+    .replace(/^D\.I\.\s*/gi, "")
+    .replace(/^DI\s+/gi, "")
+    .replace(/[\.\,\-]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+
+  if (clean === "JAKARTA") return "DKI JAKARTA";
+  if (clean === "YOGYAKARTA") return "DI YOGYAKARTA";
+  return clean;
+}
+
 function WilayahLayananMapSection() {
   const mapContainerRef = useRef(null);
   const mapInstanceRef = useRef(null);
   const markersRef = useRef({});
 
   const ALL_PROVINCES = Object.keys(PROVINCE_COORDS);
-  const [activeProvinces, setActiveProvinces] = useState(ALL_PROVINCES);
+  const [activeProvinces, setActiveProvinces] = useState([]);
+  const [provinceDisplayNames, setProvinceDisplayNames] = useState({});
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
+  const [selectedRegion, setSelectedRegion] = useState("ALL");
   const [hoveredProvince, setHoveredProvince] = useState(null);
+  const [selectedProvince, setSelectedProvince] = useState(null);
   const [mapReady, setMapReady] = useState(false);
 
-  // ── Ambil data wilayah layanan yang aktif ───────────────────────────────────
   useEffect(() => {
-    fetch("/api/wilayah-layanan", {
-      headers: { Accept: "application/json" },
-    })
-      .then((r) => r.json())
-      .then((json) => {
-        if (json.success && Array.isArray(json.data) && json.data.length > 0) {
-          const activeNames = json.data
-            .filter((p) => p.is_active)
-            .map((p) => p.nama_provinsi.toUpperCase());
-          if (activeNames.length > 0) {
-            setActiveProvinces(activeNames);
+    let isMounted = true;
+
+    async function fetchMasterWilayahData() {
+      try {
+        let rawData = [];
+        try {
+          const res = await fetch("/api/wilayah-layanan");
+          const json = await res.json();
+          if (json?.success && Array.isArray(json.data)) rawData = json.data;
+        } catch {
+          rawData = [];
+        }
+
+        if (isMounted && Array.isArray(rawData) && rawData.length > 0) {
+          const activeItems = rawData.filter((item) => Boolean(item.is_active));
+          const activeKeys = [];
+          const nameMap = {};
+
+          activeItems.forEach((item) => {
+            const rawName = item.nama_provinsi || "";
+            const normKey = normalizeProvinceName(rawName);
+            let matchedKey = PROVINCE_COORDS[normKey] ? normKey : Object.keys(PROVINCE_COORDS).find((k) => k.includes(normKey) || normKey.includes(k));
+
+            if (matchedKey) {
+              if (!activeKeys.includes(matchedKey)) activeKeys.push(matchedKey);
+              nameMap[matchedKey] = rawName.trim();
+            }
+          });
+
+          if (activeKeys.length > 0) {
+            setActiveProvinces(activeKeys);
+            setProvinceDisplayNames(nameMap);
+            setLoading(false);
+            return;
           }
         }
-      })
-      .catch(() => {
-        // Fallback default back to ALL_PROVINCES if API is unavailable
-      })
-      .finally(() => setLoading(false));
+      } catch (err) {
+        console.error("Gagal memuat master data wilayah layanan:", err);
+      }
+      if (isMounted) {
+        setActiveProvinces(ALL_PROVINCES);
+        setLoading(false);
+      }
+    }
+
+    fetchMasterWilayahData();
+    return () => { isMounted = false; };
   }, []);
 
-  // ── Inisialisasi peta Leaflet — jamin mapContainerRef selalu ada di DOM ─────
   useEffect(() => {
     let cancelled = false;
-
     async function initMap() {
       if (!mapContainerRef.current || mapInstanceRef.current) return;
-
       const [{ default: L }] = await Promise.all([import("leaflet")]);
-
       if (cancelled || mapInstanceRef.current) return;
 
-      // Hapus kelas leaflet internal jika sebelumnya re-render
       const container = mapContainerRef.current;
-      if (container._leaflet_id) {
-        container._leaflet_id = null;
-      }
+      if (container._leaflet_id) container._leaflet_id = null;
 
       const map = L.map(container, {
         center: [-2.5, 118.0],
@@ -356,57 +456,22 @@ function WilayahLayananMapSection() {
         zoomControl: true,
       });
 
-      // Carto Voyager Tiles - tampilan pulau & laut jernih seperti inspirasi SS
-      const voyagerUrl =
-        "https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png";
-      const osmUrl = "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png";
-
-      const tileLayer = L.tileLayer(voyagerUrl, {
-        attribution:
-          '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/">CARTO</a>',
-        maxZoom: 19,
-        subdomains: "abcd",
+      L.tileLayer("https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png", {
+        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
       }).addTo(map);
-
-      // Fallback ke OSM jika Carto gagal
-      tileLayer.on("tileerror", () => {
-        tileLayer.setUrl(osmUrl);
-      });
 
       mapInstanceRef.current = map;
       setMapReady(true);
-
-      // Paksa map menghitung ukuran kontainer secara presisi agar tidak terjadi area putih
-      const resizeObserver = new ResizeObserver(() => {
-        map.invalidateSize();
-      });
+      const resizeObserver = new ResizeObserver(() => map.invalidateSize());
       resizeObserver.observe(container);
-
-      const timers = [
-        setTimeout(() => map.invalidateSize(), 100),
-        setTimeout(() => map.invalidateSize(), 500),
-        setTimeout(() => map.invalidateSize(), 1000),
-      ];
-
-      return () => {
-        resizeObserver.disconnect();
-        timers.forEach(clearTimeout);
-        map.remove();
-        mapInstanceRef.current = null;
-      };
+      return () => { resizeObserver.disconnect(); map.remove(); };
     }
-
     initMap();
-
-    return () => {
-      cancelled = true;
-    };
+    return () => { cancelled = true; };
   }, []);
 
-  // ── Render marker tiap kali data / hover state berubah ──────────────────────
   useEffect(() => {
     if (!mapReady || !mapInstanceRef.current) return;
-
     let cancelled = false;
 
     async function renderMarkers() {
@@ -414,8 +479,6 @@ function WilayahLayananMapSection() {
       if (cancelled || !mapInstanceRef.current) return;
 
       const map = mapInstanceRef.current;
-
-      // Clear existing markers
       Object.values(markersRef.current).forEach((m) => m.remove());
       markersRef.current = {};
 
@@ -424,296 +487,205 @@ function WilayahLayananMapSection() {
         if (!coord) return;
 
         const isHovered = hoveredProvince === name;
-        const formattedName =
-          name.charAt(0) + name.slice(1).toLowerCase();
+        const isSelected = selectedProvince === name;
+        const formattedName = provinceDisplayNames[name] || (name.charAt(0) + name.slice(1).toLowerCase());
 
-        // High quality glowing circle marker
-        const marker = L.circleMarker(coord, {
-          radius: isHovered ? 10 : 7,
-          weight: isHovered ? 3 : 2,
-          color: isHovered ? "#0284c7" : "#0ea5e9",
-          fillColor: isHovered ? "#38bdf8" : "#0284c7",
-          fillOpacity: isHovered ? 1 : 0.85,
-        })
+        const customIcon = L.divIcon({
+          className: "custom-leaflet-beacon-marker",
+          html: `
+            <div class="relative flex items-center justify-center w-8 h-8 group">
+              <span class="animate-ping absolute inline-flex h-full w-full rounded-full ${isSelected ? 'bg-amber-400 opacity-90' : isHovered ? 'bg-sky-400 opacity-80' : 'bg-sky-400 opacity-40'}"></span>
+              <span class="relative inline-flex items-center justify-center rounded-full h-5 w-5 ${isSelected ? 'bg-amber-500 ring-4 ring-amber-200 text-white font-extrabold text-[10px]' : isHovered ? 'bg-sky-600 ring-4 ring-sky-200 text-white font-bold text-[10px]' : 'bg-sky-500 ring-2 ring-white/90 text-white text-[9px]'} shadow-lg transition-transform duration-200 group-hover:scale-110">✓</span>
+            </div>
+          `,
+          iconSize: [32, 32],
+          iconAnchor: [16, 16],
+        });
+
+        const marker = L.marker(coord, { icon: customIcon })
           .addTo(map)
-          .bindTooltip(
-            `<div class="font-sans text-center">
-              <span class="font-bold text-xs block text-slate-800">${formattedName}</span>
-              <span class="text-[10px] text-sky-600 font-semibold">● Layanan Aktif</span>
-             </div>`,
-            {
-              direction: "top",
-              offset: [0, -10],
-              className: "wilayah-tooltip-custom",
-              opacity: 1,
-            }
-          )
+          .bindTooltip(`<div class="font-sans text-center px-1"><span class="font-extrabold text-xs block text-slate-800">${formattedName}</span><span class="text-[10px] text-emerald-600 font-bold flex items-center justify-center gap-1 mt-0.5">● Layanan Aktif</span></div>`, {
+            direction: "top", offset: [0, -12], className: "wilayah-tooltip-custom", opacity: 1,
+          })
           .on("mouseover", () => setHoveredProvince(name))
           .on("mouseout", () => setHoveredProvince(null))
-          .on("click", () => {
-            map.flyTo(coord, 7, { duration: 1 });
-          });
+          .on("click", () => { setSelectedProvince(name); map.flyTo(coord, 7, { duration: 1 }); });
 
         markersRef.current[name] = marker;
       });
     }
 
     renderMarkers();
+    return () => { cancelled = true; };
+  }, [activeProvinces, hoveredProvince, selectedProvince, mapReady]);
 
-    return () => {
-      cancelled = true;
-    };
-  }, [activeProvinces, hoveredProvince, mapReady]);
+  const filteredActive = activeProvinces.filter((p) => {
+    const displayName = provinceDisplayNames[p] || p;
+    const matchesSearch = p.toLowerCase().includes(searchQuery.toLowerCase()) || displayName.toLowerCase().includes(searchQuery.toLowerCase());
+    if (selectedRegion === "ALL") return matchesSearch;
+    const reg = REGIONS.find((r) => r.id === selectedRegion);
+    return matchesSearch && reg && reg.provinces?.includes(p);
+  });
 
-  const filteredActive = activeProvinces.filter((p) =>
-    p.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const handleRegionSelect = (reg) => {
+    setSelectedRegion(reg.id);
+    setSelectedProvince(null);
+    if (mapInstanceRef.current && reg.center) mapInstanceRef.current.flyTo(reg.center, reg.zoom, { duration: 1.2 });
+  };
 
   const flyToProvince = (name) => {
     const coord = PROVINCE_COORDS[name];
     if (coord && mapInstanceRef.current) {
       setHoveredProvince(name);
+      setSelectedProvince(name);
       mapInstanceRef.current.flyTo(coord, 7, { duration: 1 });
     }
   };
 
   const resetMapView = () => {
-    if (mapInstanceRef.current) {
-      setHoveredProvince(null);
-      mapInstanceRef.current.flyTo([-2.5, 118.0], 5, { duration: 1 });
-    }
+    setSelectedRegion("ALL");
+    setSelectedProvince(null);
+    setHoveredProvince(null);
+    setSearchQuery("");
+    if (mapInstanceRef.current) mapInstanceRef.current.flyTo([-2.5, 118.0], 5, { duration: 1 });
   };
 
   return (
-    <section className="bg-slate-50 py-16 sm:py-24">
-      <div className="mx-auto max-w-7xl px-4 sm:px-6">
-        {/* Section Header */}
-        <div className="mb-10 sm:mb-14 text-center">
-          <p className="text-xs sm:text-sm font-semibold uppercase tracking-[0.2em] text-sky-600">
-            Jangkauan Kami
-          </p>
-          <h2 className="mt-2 sm:mt-4 text-2xl sm:text-3xl lg:text-4xl font-bold text-gray-800 leading-tight">
-            Wilayah Layanan SmartHomeCare
+    <section className="relative bg-gradient-to-b from-slate-50 via-sky-50/40 to-slate-50 py-20 sm:py-28 overflow-hidden">
+      <div className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[300px] bg-sky-200/40 blur-[120px] rounded-full pointer-events-none" />
+      <div className="relative mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+        <div className="mb-10 sm:mb-14 text-center max-w-3xl mx-auto">
+          <span className="inline-flex items-center gap-2 px-3.5 py-1 rounded-full text-xs font-bold uppercase tracking-wider text-sky-700 bg-sky-100/80 border border-sky-200 shadow-xs mb-3">
+            <span className="h-2 w-2 rounded-full bg-sky-500 animate-ping" /> Jangkauan Layanan Nasional
+          </span>
+          <h2 className="text-3xl sm:text-4xl lg:text-5xl font-extrabold text-slate-800 tracking-tight leading-tight">
+            Wilayah Layanan <span className="text-transparent bg-clip-text bg-gradient-to-r from-sky-600 to-blue-600">SmartHomeCare</span>
           </h2>
-          <p className="mx-auto mt-4 max-w-2xl text-sm sm:text-base leading-7 text-gray-600">
-            Kami hadir di{" "}
-            <span className="font-bold text-sky-600">{activeProvinces.length} provinsi</span>{" "}
-            di seluruh Indonesia. Klik atau arahkan kursor ke titik pada peta untuk
-            mengetahui lokasi layanan.
-          </p>
+        </div>
+
+        <div className="flex flex-wrap items-center justify-center gap-2 mb-8">
+          {REGIONS.map((reg) => (
+            <button key={reg.id} type="button" onClick={() => handleRegionSelect(reg)} className={`px-4 py-2 rounded-xl text-xs sm:text-sm font-semibold transition-all ${selectedRegion === reg.id ? "bg-gradient-to-r from-sky-600 to-blue-600 text-white shadow-lg scale-105" : "bg-white text-slate-600 border border-slate-200 hover:bg-slate-50"}`}>
+              {reg.label}
+            </button>
+          ))}
         </div>
 
         <div className="flex flex-col xl:flex-row gap-8 items-start">
-          {/* ── Map Box ── */}
-          <div className="relative w-full xl:flex-1 min-h-[420px]">
-            <div className="relative overflow-hidden rounded-3xl border border-gray-200 bg-white p-3 shadow-lg">
-              {/* Map Canvas (Selalu dirender di DOM agar Leaflet tidak null) */}
-              <div
-                ref={mapContainerRef}
-                className="h-[420px] w-full rounded-2xl sm:h-[480px] z-0 bg-sky-50/50"
-              />
-
-              {/* Top Controls Overlay */}
-              <div className="absolute top-6 right-6 z-[400] flex gap-2">
-                <button
-                  type="button"
-                  onClick={resetMapView}
-                  className="flex items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs font-semibold text-gray-700 shadow-md hover:bg-slate-50 transition-all"
-                  title="Kembali ke tampilan awal Indonesia"
-                >
-                  <svg
-                    className="h-3.5 w-3.5 text-sky-600"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"
-                    />
-                  </svg>
-                  Reset Peta
-                </button>
-              </div>
-
-              {/* Loading indicator overlay jika data API masih loading */}
-              {loading && (
-                <div className="absolute inset-3 z-[400] flex items-center justify-center rounded-2xl bg-white/70 backdrop-blur-xs">
-                  <div className="flex items-center gap-3 rounded-xl bg-white px-4 py-2.5 shadow-md border border-gray-100">
-                    <div className="h-5 w-5 animate-spin rounded-full border-2 border-sky-500 border-t-transparent" />
-                    <span className="text-xs font-medium text-gray-600">
-                      Memuat wilayah peta...
-                    </span>
+          <div className="relative w-full xl:flex-1">
+            <div className="relative overflow-hidden rounded-3xl border border-sky-100 bg-white p-3 shadow-2xl">
+              <div ref={mapContainerRef} className="h-[460px] sm:h-[540px] w-full rounded-2xl z-0 bg-sky-50/50" />
+              {selectedProvince && (
+                <div className="absolute top-6 left-6 z-[450] max-w-xs sm:max-w-sm rounded-2xl bg-white/95 backdrop-blur-md p-5 shadow-2xl border border-sky-100">
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <h4 className="text-lg sm:text-xl font-extrabold text-slate-800">{provinceDisplayNames[selectedProvince] || selectedProvince}</h4>
+                    </div>
+                    <button type="button" onClick={() => setSelectedProvince(null)} className="text-slate-400 hover:text-slate-600">✕</button>
                   </div>
                 </div>
               )}
-
-              {/* Legend Footer */}
-              <div className="mt-3 flex items-center justify-between px-3 py-1 text-xs text-gray-500">
-                <div className="flex items-center gap-2">
-                  <span className="relative flex h-3 w-3">
-                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-sky-400 opacity-75"></span>
-                    <span className="relative inline-flex rounded-full h-3 w-3 bg-sky-500"></span>
-                  </span>
-                  <span className="font-medium text-gray-700">Wilayah Aktif</span>
-                </div>
-                <span className="text-[11px] text-gray-400 hidden sm:inline">
-                  Gunakan scroll / tombol + - untuk perbesar peta
-                </span>
-              </div>
+              <button type="button" onClick={resetMapView} className="absolute top-6 right-6 z-[400] bg-white/90 px-3.5 py-2 rounded-xl text-xs font-bold text-slate-700 shadow-lg">Reset Peta</button>
+              {loading && <div className="absolute inset-0 z-[400] flex items-center justify-center bg-white/80 backdrop-blur-sm">Memuat...</div>}
             </div>
           </div>
 
-          {/* ── Province List Panel ── */}
-          <div className="w-full xl:w-80 shrink-0">
-            <div className="rounded-3xl border border-gray-200 bg-white p-5 shadow-lg">
-              <div className="flex items-center justify-between mb-3">
-                <p className="text-xs font-bold uppercase tracking-widest text-sky-600">
-                  Daftar Provinsi Aktif
-                </p>
-                <span className="rounded-full bg-sky-100 px-2.5 py-0.5 text-[11px] font-semibold text-sky-700">
-                  {activeProvinces.length} Provinsi
+          {/* ── Province List Sidebar Column ── */}
+          <div className="w-full xl:w-88 shrink-0">
+            <div className="rounded-3xl border border-sky-100/80 bg-white/90 backdrop-blur-md p-6 shadow-xl shadow-sky-900/5 hover:border-sky-200 transition-all duration-300">
+              <div className="flex items-center justify-between mb-4 pb-3 border-b border-slate-100">
+                <div>
+                  <h3 className="text-sm font-extrabold uppercase tracking-wider text-slate-800 flex items-center gap-2">
+                    <span className="h-2 w-2 rounded-full bg-sky-500 animate-pulse" />
+                    Daftar Provinsi
+                  </h3>
+                  <p className="text-xs font-medium text-slate-500 mt-0.5">Area Kunjungan Home Care</p>
+                </div>
+                <span className="rounded-full bg-gradient-to-r from-sky-50 to-blue-50 border border-sky-200/80 px-3 py-1 text-xs font-black text-sky-700 shadow-xs">
+                  {filteredActive.length} Wilayah
                 </span>
               </div>
 
-              {/* Search */}
-              <div className="mb-4 flex items-center gap-2 rounded-xl border border-gray-200 bg-slate-50 px-3 py-2 focus-within:border-sky-500 focus-within:ring-1 focus-within:ring-sky-500 transition-all">
-                <svg
-                  className="h-4 w-4 shrink-0 text-gray-400"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
-                  />
+              {/* Search Box */}
+              <div className="mb-4 flex items-center gap-2 rounded-2xl border border-slate-200 bg-slate-50/70 px-3.5 py-2.5 focus-within:border-sky-500 focus-within:ring-2 focus-within:ring-sky-100 focus-within:bg-white transition-all">
+                <svg className="h-4 w-4 shrink-0 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                 </svg>
                 <input
                   type="text"
-                  placeholder="Cari provinsi..."
+                  placeholder="Cari nama provinsi..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full bg-transparent text-xs text-gray-700 outline-none placeholder:text-gray-400"
+                  className="w-full bg-transparent text-xs sm:text-sm text-slate-700 outline-none placeholder:text-slate-400"
                 />
                 {searchQuery && (
-                  <button
-                    type="button"
-                    onClick={() => setSearchQuery("")}
-                    className="text-gray-400 hover:text-gray-600 text-xs font-bold"
-                  >
+                  <button type="button" onClick={() => setSearchQuery("")} className="text-slate-400 hover:text-slate-600 text-xs font-bold p-1 cursor-pointer">
                     ✕
                   </button>
                 )}
               </div>
 
-              {/* Province List */}
-              <div className="max-h-[380px] space-y-1 overflow-y-auto pr-1">
+              {/* Province List Items */}
+              <div className="max-h-[420px] space-y-1.5 overflow-y-auto pr-1">
                 {filteredActive.length === 0 ? (
-                  <p className="py-6 text-center text-xs text-gray-400">
-                    Provinsi &quot;{searchQuery}&quot; tidak ditemukan.
-                  </p>
-                ) : (
-                  filteredActive.map((name, i) => (
-                    <button
-                      key={name}
-                      type="button"
-                      onMouseEnter={() => setHoveredProvince(name)}
-                      onMouseLeave={() => setHoveredProvince(null)}
-                      onClick={() => flyToProvince(name)}
-                      className={`flex w-full items-center gap-3 rounded-xl px-3 py-2 text-left text-xs transition-all duration-150 ${
-                        hoveredProvince === name
-                          ? "bg-sky-500 text-white font-medium shadow-sm translate-x-1"
-                          : "text-gray-700 hover:bg-slate-100 hover:text-gray-900"
-                      }`}
-                    >
-                      <span
-                        className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-lg text-[10px] font-bold ${
-                          hoveredProvince === name
-                            ? "bg-white text-sky-600"
-                            : "bg-sky-100 text-sky-700"
-                        }`}
-                      >
-                        {i + 1}
-                      </span>
-                      <span className="truncate leading-tight flex-1">
-                        {name.charAt(0) + name.slice(1).toLowerCase()}
-                      </span>
-                      <svg
-                        className={`h-3.5 w-3.5 transition-transform ${
-                          hoveredProvince === name
-                            ? "text-white translate-x-0.5"
-                            : "text-gray-300"
-                        }`}
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M9 5l7 7-7 7"
-                        />
-                      </svg>
+                  <div className="py-10 text-center">
+                    <p className="text-xs font-semibold text-slate-500">Provinsi &quot;{searchQuery}&quot; tidak ditemukan.</p>
+                    <button type="button" onClick={resetMapView} className="mt-2 text-xs font-bold text-sky-600 hover:underline">
+                      Reset Pencarian
                     </button>
-                  ))
-                )}
-              </div>
+                  </div>
+                ) : (
+                  filteredActive.map((name) => {
+                    const isHovered = hoveredProvince === name;
+                    const isSelected = selectedProvince === name;
+                    const displayName = provinceDisplayNames[name] || (name.charAt(0) + name.slice(1).toLowerCase());
 
-              <div className="mt-4 border-t border-gray-100 pt-3 text-center">
-                <p className="text-[11px] text-gray-400">
-                  Menampilkan{" "}
-                  <span className="font-semibold text-sky-600">
-                    {filteredActive.length}
-                  </span>{" "}
-                  dari{" "}
-                  <span className="font-semibold text-sky-600">
-                    {activeProvinces.length}
-                  </span>{" "}
-                  provinsi aktif
-                </p>
+                    return (
+                      <button
+                        key={name}
+                        type="button"
+                        onMouseEnter={() => setHoveredProvince(name)}
+                        onMouseLeave={() => setHoveredProvince(null)}
+                        onClick={() => flyToProvince(name)}
+                        className={`flex w-full items-center justify-between gap-3 rounded-2xl px-3.5 py-2.5 text-left text-xs transition-all duration-200 cursor-pointer ${
+                          isSelected
+                            ? "bg-gradient-to-r from-sky-600 to-blue-600 text-white font-bold shadow-lg shadow-sky-600/30 scale-[1.02]"
+                            : isHovered
+                            ? "bg-sky-50 text-sky-900 font-semibold translate-x-1 border border-sky-100"
+                            : "text-slate-700 hover:bg-slate-50 border border-transparent"
+                        }`}
+                      >
+                        <div className="flex items-center gap-2.5 truncate">
+                          <span
+                            className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-xl text-[11px] ${
+                              isSelected ? "bg-white text-sky-700" : isHovered ? "bg-sky-200 text-sky-800" : "bg-slate-100 text-slate-500"
+                            }`}
+                          >
+                            📍
+                          </span>
+                          <span className="truncate leading-tight font-medium">{displayName}</span>
+                        </div>
+
+                        <span
+                          className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold ${
+                            isSelected ? "bg-white/20 text-white" : isHovered ? "bg-sky-100 text-sky-700" : "bg-slate-100 text-slate-500"
+                          }`}
+                        >
+                          Aktif
+                        </span>
+                      </button>
+                    );
+                  })
+                )}
               </div>
             </div>
           </div>
         </div>
-
-        {/* Stats bar */}
-        <div className="mt-10 grid grid-cols-2 gap-4 sm:grid-cols-3 md:flex md:justify-center md:gap-12">
-          {[
-            { label: "Provinsi Aktif", value: activeProvinces.length },
-            { label: "Pulau Besar", value: "5+" },
-            { label: "Cakupan Layanan", value: "Seluruh Indonesia" },
-          ].map((stat) => (
-            <div key={stat.label} className="text-center bg-white border border-gray-100 rounded-2xl p-4 shadow-xs min-w-[150px]">
-              <p className="text-2xl sm:text-3xl font-extrabold text-sky-600">{stat.value}</p>
-              <p className="mt-1 text-xs font-medium text-gray-500">{stat.label}</p>
-            </div>
-          ))}
-        </div>
       </div>
-
       <style jsx global>{`
-        .wilayah-tooltip-custom {
-          background: #ffffff !important;
-          color: #1e293b !important;
-          border: 1px solid #e2e8f0 !important;
-          padding: 6px 12px !important;
-          border-radius: 10px !important;
-          box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -4px rgba(0, 0, 0, 0.1) !important;
-        }
-        .wilayah-tooltip-custom::before {
-          border-top-color: #ffffff !important;
-        }
-        .leaflet-container {
-          font-family: inherit;
-          border-radius: 1rem;
-        }
+        .custom-leaflet-beacon-marker { background: transparent !important; }
+        .wilayah-tooltip-custom { background: #ffffff !important; border: 1px solid #e2e8f0 !important; border-radius: 12px !important; box-shadow: 0 10px 25px -5px rgba(0,0,0,0.1) !important; }
       `}</style>
     </section>
   );
-}
+}
