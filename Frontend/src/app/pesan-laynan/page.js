@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState, Suspense } from "react";
-import { getLayanan, getKategoriLayanan } from "@/services/layananService";
+import { getLayanan } from "@/services/layananService";
 import { getArtikel } from "@/services/artikelService";
 import { useRouter, useSearchParams } from "next/navigation";
 import LoginRequiredModal from "@/components/LoginRequiredModal";
@@ -10,83 +10,11 @@ import Link from "next/link";
 import { resolveImageUrl } from "@/services/resolveImage";
 import api from "@/services/api";
 
-export const KATEGORI_LAYANAN_OPTIONS = ["Ibu dan Anak", "Perawatan Luka", "Medical Checkup", "Fisioterapi", "Pemasangan dan Penggantian Alat Medis", "Kesehatan"];
-
 const CART_STORAGE_KEY = "smarthomecare_cart";
 const FONT_STACK = '"Poppins", "Inter", "Segoe UI", sans-serif';
 
 /**
- * ===================== PROMO CONFIG =====================
- * Tambah/hapus entri di sini untuk memasang atau melepas promo.
- * Setiap promo otomatis muncul sebagai kartu di carousel.
- */
-const PROMOS = [
-  {
-    id: "promo-pertama",
-    label: "Promo",
-    title: "Diskon 20% Pemesanan Pertama",
-    description: "Berlaku untuk pelanggan baru, khusus bulan ini.",
-    ctaLabel: "Klaim Sekarang",
-    ctaHref: "/promo",
-  },
-  {
-    id: "promo-fisioterapi",
-    label: "Promo",
-    title: "Paket Fisioterapi 5x Kunjungan",
-    description: "Hemat hingga 15% dibanding pemesanan satuan.",
-    ctaLabel: "Lihat Paket",
-    ctaHref: "/promo",
-  },
-  {
-    id: "promo-referral",
-    label: "Promo",
-    title: "Ajak Teman, Dapat Saldo Rp50.000",
-    description: "Berlaku untuk setiap teman yang booking pertama kali.",
-    ctaLabel: "Bagikan",
-    ctaHref: "/promo",
-  },
-];
-
-/**
- * ===================== ARTIKEL CONFIG =====================
- * Kartu artikel/edukasi kesehatan, tampil di bawah promo carousel.
- * Tambah/hapus entri di sini untuk mengatur konten yang tampil.
- */
-const ARTICLES = [
-  {
-    id: "artikel-fisioterapi-rumah",
-    tag: "Fisioterapi",
-    title: "5 Manfaat Fisioterapi di Rumah untuk Lansia",
-    excerpt: "Pemulihan lebih nyaman tanpa perlu bolak-balik ke klinik.",
-    image:
-      "https://images.unsplash.com/photo-1576091160399-112ba8d25d1d?q=80&w=800&auto=format&fit=crop",
-    href: "/artikel",
-  },
-  {
-    id: "artikel-luka-diabetes",
-    tag: "Perawatan Luka",
-    title: "Cara Tepat Merawat Luka Diabetes agar Cepat Sembuh",
-    excerpt: "Kenali tanda infeksi dan langkah perawatan yang benar.",
-    image:
-      "https://images.unsplash.com/photo-1584515933487-779824d29309?q=80&w=800&auto=format&fit=crop",
-    href: "/artikel",
-  },
-  {
-    id: "artikel-homecare-vs-rs",
-    tag: "Home Care",
-    title: "Home Care vs Rawat Inap: Mana yang Tepat untuk Keluarga Anda?",
-    excerpt: "Pertimbangan biaya, kenyamanan, dan kecepatan pemulihan.",
-    image:
-      "https://images.unsplash.com/photo-1580281657702-257584239a55?q=80&w=800&auto=format&fit=crop",
-    href: "/artikel",
-  },
-];
-
-/**
  * ===================== HERO BANNER CONFIG =====================
- * Tambah objek baru ke array ini untuk memasang banner tambahan —
- * otomatis jadi slide baru di carousel (panah & titik indikator
- * sudah menyesuaikan jumlah slide).
  */
 const HERO_SLIDES = [
   {
@@ -102,8 +30,6 @@ const HERO_SLIDES = [
 
 /**
  * ===================== DESKRIPSI KATEGORI =====================
- * Teks singkat yang tampil di card kategori pada halaman utama Layanan.
- * Tambah entri baru (key harus lowercase) kalau ada kategori baru dari API.
  */
 const CATEGORY_META = {
   "fisioterapi": "Latihan & terapi gerak oleh fisioterapis profesional.",
@@ -121,12 +47,6 @@ function getCategoryMeta(category) {
   return CATEGORY_META[(category || "").toLowerCase()] || CATEGORY_META.default;
 }
 
-/**
- * ===================== FOTO KATEGORI =====================
- * Isi URL foto di sini kalau sudah ada asetnya (key harus lowercase).
- * Selama masih kosong, card kategori otomatis tampil sebagai frame
- * placeholder kosong — nggak perlu ubah komponen, cukup isi map ini.
- */
 const CATEGORY_IMAGE = {
   "fisioterapi": "",
   "home care": "",
@@ -141,6 +61,7 @@ const CATEGORY_IMAGE = {
 function getCategoryImage(category) {
   return CATEGORY_IMAGE[(category || "").toLowerCase()] || "";
 }
+
 function CategoryIcon({ name, className = "h-5 w-5" }) {
   const common = {
     className,
@@ -216,17 +137,6 @@ function CategoryIcon({ name, className = "h-5 w-5" }) {
   }
 }
 
-function GridIcon({ className = "h-5 w-5" }) {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" className={className}>
-      <rect x="3.5" y="3.5" width="7" height="7" rx="1.5" />
-      <rect x="13.5" y="3.5" width="7" height="7" rx="1.5" />
-      <rect x="3.5" y="13.5" width="7" height="7" rx="1.5" />
-      <rect x="13.5" y="13.5" width="7" height="7" rx="1.5" />
-    </svg>
-  );
-}
-
 function SearchOffIcon({ className = "h-7 w-7" }) {
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" className={className}>
@@ -240,7 +150,7 @@ function TagIcon({ className = "h-4 w-4" }) {
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" className={className}>
       <path d="M12.5 3.5H6a1.5 1.5 0 0 0-1.5 1.5v6.5a1.5 1.5 0 0 0 .44 1.06l8.5 8.5a1.5 1.5 0 0 0 2.12 0l5.44-5.44a1.5 1.5 0 0 0 0-2.12l-8.5-8.5A1.5 1.5 0 0 0 12.5 3.5Z" />
-          <circle cx="8.75" cy="8.75" r="1.25" />
+      <circle cx="8.75" cy="8.75" r="1.25" />
     </svg>
   );
 }
@@ -351,10 +261,6 @@ function formatDuration(value) {
   return `${value} menit`;
 }
 
-function slugify(text) {
-  return text?.toLowerCase().replace(/&/g, "dan").replace(/\s+/g, "-").replace(/(^-|-$)/g, "") || "";
-}
-
 function isTransportIncluded(service) {
   const value = service?.include_transport ?? service?.transport;
   return value === true || value === 1 || value === "1" || value === "true";
@@ -367,17 +273,8 @@ function extractServices(payload) {
   return [];
 }
 
-function filterServicesByCategory(services, category) {
-  if (!category) return services;
-
-  return services.filter((service) => {
-    const serviceCategory = getTextValue(service, ["kategori_layanan", "kategori", "category", "nama_kategori", "id_kategori_layanan"]);
-    return serviceCategory.toLowerCase() === category.toLowerCase();
-  });
-}
-
 function getServiceId(service) {
-  return getTextValue(service, ["id", "id_layanan", "uuid"]) || getTextValue(service, ["nama_layanan", "nama", "title"]);
+  return getTextValue(service, ["id_layanan", "id", "uuid"]) || getTextValue(service, ["nama_layanan", "nama", "title"]);
 }
 
 function loadCartFromStorage() {
@@ -478,13 +375,15 @@ function LayananPageContent() {
     };
   }, []);
 
+  // Fetch Promo aktif dari API /api/promo/active
   useEffect(() => {
     let isMounted = true;
 
     async function loadPromos() {
       try {
         setLoadingPromos(true);
-        const data = await getActivePromos();
+        const res = await api.get("/api/promo/active");
+        const data = res.data?.data || res.data;
         if (!isMounted) return;
         setPromos(Array.isArray(data) ? data : []);
       } catch (error) {
@@ -501,6 +400,7 @@ function LayananPageContent() {
     };
   }, []);
 
+  // Fetch Artikel dari API
   useEffect(() => {
     let isMounted = true;
 
@@ -524,7 +424,6 @@ function LayananPageContent() {
     };
   }, []);
 
-  // Hero autoplay — jeda otomatis saat pointer berada di atas banner
   useEffect(() => {
     if (heroSlides.length <= 1 || heroPaused) return;
     const timer = window.setInterval(() => {
@@ -533,8 +432,6 @@ function LayananPageContent() {
     return () => window.clearInterval(timer);
   }, [heroPaused, heroSlides.length]);
 
-  // Sticky filter bar mendapat bayangan tipis begitu halaman discroll,
-  // supaya terasa "hidup" tanpa mengubah desain dasarnya.
   useEffect(() => {
     const handleScroll = () => setIsScrolled(window.scrollY > 8);
     handleScroll();
@@ -552,6 +449,7 @@ function LayananPageContent() {
 
   const currentCategory = searchParams.get("kategori") || "";
 
+  // Fetch Layanan & Kategori dari API backend (/api/layanan/kategori dan /api/layanan)
   useEffect(() => {
     let isMounted = true;
 
@@ -559,20 +457,28 @@ function LayananPageContent() {
       try {
         setLoading(true);
         const [servicesRes, categoriesRes] = await Promise.allSettled([
-          getLayanan(),
-          getKategoriLayanan(),
+          getLayanan(currentCategory ? { kategori: currentCategory } : undefined),
+          api.get("/api/layanan/kategori"),
         ]);
 
         if (!isMounted) return;
 
         const items = servicesRes.status === "fulfilled" ? extractServices(servicesRes.value) : [];
-        setAllServices(items);
+        if (currentCategory) {
+          setFilteredServices(items);
+        } else {
+          setAllServices(items);
+          setFilteredServices(items);
+        }
 
         let catList = [];
-        if (categoriesRes.status === "fulfilled" && Array.isArray(categoriesRes.value)) {
-          catList = categoriesRes.value
-            .map((c) => (typeof c === "string" ? c : getTextValue(c, ["nama_kategori", "nama", "kategori", "category"])))
-            .filter(Boolean);
+        if (categoriesRes.status === "fulfilled") {
+          const catResponseData = categoriesRes.value.data?.data || categoriesRes.value.data;
+          if (Array.isArray(catResponseData)) {
+            catList = catResponseData
+              .map((c) => (typeof c === "string" ? c : getTextValue(c, ["nama_kategori", "nama", "kategori", "category"])))
+              .filter(Boolean);
+          }
         }
 
         const uniqueFromItems = Array.from(
@@ -598,14 +504,8 @@ function LayananPageContent() {
     return () => {
       isMounted = false;
     };
-  }, []);
+  }, [currentCategory]);
 
-  useEffect(() => {
-    const filtered = filterServicesByCategory(allServices, currentCategory);
-    setFilteredServices(filtered);
-  }, [allServices, currentCategory]);
-
-  // Animasi buka modal detail layanan
   useEffect(() => {
     if (selectedService) {
       const raf = requestAnimationFrame(() => setModalVisible(true));
@@ -614,8 +514,7 @@ function LayananPageContent() {
     setModalVisible(false);
   }, [selectedService]);
 
-  const categoryOptions = (categories.length > 0 ? categories : KATEGORI_LAYANAN_OPTIONS)
-    .filter((c) => c && c.toLowerCase() !== "home care" && c.toLowerCase() !== "homecare");
+  const categoryOptions = categories.filter((c) => c && c.toLowerCase() !== "home care" && c.toLowerCase() !== "homecare");
 
   const categoryCounts = useMemo(() => {
     const counts = {};
@@ -685,14 +584,12 @@ function LayananPageContent() {
   return (
     <>
       <main className="min-h-screen bg-slate-50 pb-24" style={{ fontFamily: FONT_STACK }}>
-        {/* ===================== HERO BANNER ===================== */}
         {heroSlides.length > 0 ? (
           <section
             className="relative h-[300px] w-full overflow-hidden sm:h-[380px] md:h-[440px]"
             onMouseEnter={() => setHeroPaused(true)}
             onMouseLeave={() => setHeroPaused(false)}
           >
-            {/* Fade lembut di bawah biar nyambung ke konten, transisinya halus & bertahap */}
             <div className="pointer-events-none absolute inset-x-0 bottom-0 z-[15] h-24 bg-gradient-to-t from-slate-50 via-slate-50/40 to-transparent sm:h-32" />
 
             {heroSlides.map((slide, index) => (
@@ -767,7 +664,6 @@ function LayananPageContent() {
           </section>
         ) : null}
 
-        {/* ===================== STICKY FILTER BAR (ala GoFood) ===================== */}
         <div
           className={`sticky top-0 z-30 border-b border-slate-200 bg-white/95 backdrop-blur transition-shadow duration-300 ${
             isScrolled ? "shadow-sm" : ""
@@ -782,7 +678,6 @@ function LayananPageContent() {
             </h1>
           </div>
 
-          {/* Tombol kembali — hanya tampil saat sudah masuk ke satu kategori (step "Layanan"). Fokus di sini murni ke list, ganti kategori balik lewat card di halaman depan. */}
           {currentCategory ? (
             <div className="mx-auto max-w-[1600px] px-4 pb-3 md:px-6">
               <button
@@ -802,14 +697,12 @@ function LayananPageContent() {
         <div className="mx-auto max-w-[1600px] px-4 pt-5 md:px-6">
           {currentCategory ? (
             <>
-              {/* ===================== JUMLAH HASIL ===================== */}
               <p className="mb-3 text-sm text-slate-500">
                 <span className="font-semibold text-slate-900">{filteredServices.length}</span> layanan tersedia
                 {" "}
                 untuk <span className="font-semibold text-blue-600">{currentCategory}</span>
               </p>
 
-              {/* ===================== LIST LAYANAN (satu kolom, ala GoFood) ===================== */}
               {loading ? (
                 <div className="divide-y divide-slate-100 overflow-hidden rounded-xl border border-slate-200 bg-white">
                   {Array.from({ length: 5 }).map((_, i) => (
@@ -869,7 +762,6 @@ function LayananPageContent() {
                           isPressed ? "scale-[0.99] bg-slate-50" : ""
                         }`}
                       >
-                        {/* Thumbnail */}
                         <div className="relative h-20 w-20 shrink-0 overflow-hidden rounded-lg bg-slate-100 sm:h-24 sm:w-24">
                           <img
                             src={imageUrl}
@@ -879,7 +771,6 @@ function LayananPageContent() {
                           />
                         </div>
 
-                        {/* Info */}
                         <div className="flex min-w-0 flex-1 flex-col justify-center">
                           <div className="flex items-start justify-between gap-2">
                             <div className="min-w-0">
@@ -933,7 +824,6 @@ function LayananPageContent() {
             </>
           ) : (
             <>
-              {/* ===================== KATEGORI LAYANAN (landing) — langsung card, tanpa heading tambahan ===================== */}
               {loading ? (
                 <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
                   {Array.from({ length: 6 }).map((_, i) => (
@@ -958,7 +848,6 @@ function LayananPageContent() {
                         onClick={() => handleCategorySelect(category)}
                         className="group flex flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white text-left transition-all duration-200 hover:-translate-y-0.5 hover:border-blue-300 hover:shadow-lg active:scale-[0.99]"
                       >
-                        {/* Frame foto kategori — kosong sampai CATEGORY_IMAGE diisi */}
                         <div className="aspect-[4/3] w-full overflow-hidden bg-slate-100">
                           {photo ? (
                             <img
@@ -991,8 +880,8 @@ function LayananPageContent() {
                 </div>
               )}
 
-              {/* ===================== PROMO CAROUSEL ===================== */}
-              {PROMOS.length > 0 ? (
+              {/* Promo Berlangsung (Diambil dari API /api/promo/active) */}
+              {!loadingPromos && promos.length > 0 ? (
                 <div className="mb-6 mt-8">
                   <div className="mb-2 flex items-center justify-between">
                     <h2 className="text-sm font-semibold text-slate-900">Promo Berlangsung</h2>
@@ -1003,33 +892,39 @@ function LayananPageContent() {
                   </div>
 
                   <div className="-mx-4 flex snap-x snap-mandatory gap-3 overflow-x-auto px-4 pb-1 md:mx-0 md:px-0 md:grid md:grid-cols-3 md:overflow-visible [&::-webkit-scrollbar]:hidden">
-                    {PROMOS.map((promo) => (
-                      <div
-                        key={promo.id}
-                        className="flex min-w-[70vw] max-w-[70vw] shrink-0 snap-start flex-col justify-between rounded-xl border border-slate-200 bg-white p-4 transition-all duration-200 hover:-translate-y-0.5 hover:border-blue-200 hover:shadow-md sm:min-w-[240px] sm:max-w-[240px] md:min-w-0 md:max-w-none md:w-full"
-                      >
-                        <div>
-                          <span className="inline-flex items-center gap-1 rounded-full bg-blue-50 px-2 py-0.5 text-[10px] font-semibold text-blue-600">
-                            <TagIcon className="h-3 w-3" />
-                            {promo.label}
-                          </span>
-                          <h3 className="mt-2 text-sm font-semibold leading-snug text-slate-900">{promo.title}</h3>
-                          <p className="mt-1 text-xs leading-relaxed text-slate-500">{promo.description}</p>
-                        </div>
-                        <Link
-                          href={promo.ctaHref}
-                          className="group mt-3 inline-flex items-center text-xs font-semibold text-blue-600 hover:underline"
+                    {promos.map((promo, index) => {
+                      const promoId = promo.id_promo || promo.id || index;
+                      const title = getTextValue(promo, ["nama_paket", "nama", "title"]);
+                      const desc = getTextValue(promo, ["deskripsi", "description"]);
+                      const disc = promo.diskon_persen;
+
+                      return (
+                        <div
+                          key={promoId}
+                          className="flex min-w-[70vw] max-w-[70vw] shrink-0 snap-start flex-col justify-between rounded-xl border border-slate-200 bg-white p-4 transition-all duration-200 hover:-translate-y-0.5 hover:border-blue-200 hover:shadow-md sm:min-w-[240px] sm:max-w-[240px] md:min-w-0 md:max-w-none md:w-full"
                         >
-                          {promo.ctaLabel}
-                          <span className="ml-1 transition-transform duration-200 group-hover:translate-x-0.5">→</span>
-                        </Link>
-                      </div>
-                    ))}
+                          <div>
+                            <span className="inline-flex items-center gap-1 rounded-full bg-blue-50 px-2 py-0.5 text-[10px] font-semibold text-blue-600">
+                              <TagIcon className="h-3 w-3" />
+                              {disc ? `Diskon ${disc}%` : "Promo"}
+                            </span>
+                            <h3 className="mt-2 text-sm font-semibold leading-snug text-slate-900">{title}</h3>
+                            <p className="mt-1 text-xs leading-relaxed text-slate-500">{desc}</p>
+                          </div>
+                          <Link
+                            href="/promo"
+                            className="group mt-3 inline-flex items-center text-xs font-semibold text-blue-600 hover:underline"
+                          >
+                            Lihat Paket
+                            <span className="ml-1 transition-transform duration-200 group-hover:translate-x-0.5">→</span>
+                          </Link>
+                        </div>
+                      );
+                    })}
                   </div>
                 </div>
               ) : null}
 
-              {/* ===================== ARTIKEL & TIPS KESEHATAN ===================== */}
               {loadingArticles ? (
                 <div className="mb-2">
                   <div className="mb-2 flex items-center justify-between">
@@ -1098,8 +993,6 @@ function LayananPageContent() {
         </div>
       </main>
 
-
-      {/* Floating cart button — hanya tampil di step "Layanan" (setelah kategori dipilih) */}
       {currentCategory ? (
         <button
           type="button"
@@ -1122,7 +1015,6 @@ function LayananPageContent() {
         </button>
       ) : null}
 
-      {/* Modal Detail Layanan */}
       {selectedService ? (
         <div
           className={`fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 px-4 py-6 transition-opacity duration-200 ${
