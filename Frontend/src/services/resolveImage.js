@@ -11,6 +11,11 @@ export function resolveImageUrl(image, updatedAt = null) {
     return cleanImage;
   }
 
+  // Handle protocol-relative URLs.
+  if (cleanImage.startsWith("//")) {
+    cleanImage = `https:${cleanImage}`;
+  }
+
   const getBuster = () => {
     if (updatedAt) {
       const ts = new Date(updatedAt).getTime();
@@ -19,41 +24,45 @@ export function resolveImageUrl(image, updatedAt = null) {
     return `t=${Date.now()}`;
   };
 
-  // External absolute URLs are already valid.
-  if (cleanImage.startsWith("http://") || cleanImage.startsWith("https://")) {
-    if (/^https?:\/\/(localhost|127\.0\.0\.1|0\.0\.0\.0)(?::\d+)?\//i.test(cleanImage)) {
-      cleanImage = cleanImage.replace(/^https?:\/\/(localhost|127\.0\.0\.1|0\.0\.0\.0)(?::\d+)?/i, "");
-    } else {
-      const buster = getBuster();
-      if (buster && !cleanImage.includes("v=") && !cleanImage.includes("t=")) {
-        return `${cleanImage}${cleanImage.includes("?") ? "&" : "?"}${buster}`;
+  const baseUrl = (process.env.NEXT_PUBLIC_API_URL || "https://citra.faaruq.com").replace(/\/+$/, "");
+
+  // If the image string contains nested/multiple URLs or local/storage paths (e.g. ".../storage/http://localhost/storage/...")
+  if (cleanImage.includes("http://") || cleanImage.includes("https://")) {
+    const lastHttpIndex = cleanImage.lastIndexOf("http://");
+    const lastHttpsIndex = cleanImage.lastIndexOf("https://");
+    const lastUrlIndex = Math.max(lastHttpIndex, lastHttpsIndex);
+    const targetUrl = cleanImage.substring(lastUrlIndex);
+
+    const urlMatch = targetUrl.match(/^https?:\/\/([^/]+)(\/.*)?$/i);
+    if (urlMatch) {
+      const host = urlMatch[1].toLowerCase();
+      let path = urlMatch[2] || "";
+
+      const isLocalHost = /^(localhost|127\.0\.0\.1|0\.0\.0\.0)(?::\d+)?$/i.test(host);
+      const isBaseHost = baseUrl.toLowerCase().includes(host.split(":")[0]);
+      const hasStorage = path.toLowerCase().includes("/storage/");
+      const isNested = lastUrlIndex > 0;
+
+      if (isLocalHost || isBaseHost || hasStorage || isNested) {
+        cleanImage = path;
+      } else {
+        const buster = getBuster();
+        if (buster && !targetUrl.includes("v=") && !targetUrl.includes("t=")) {
+          return `${targetUrl}${targetUrl.includes("?") ? "&" : "?"}${buster}`;
+        }
+        return targetUrl;
       }
-      return cleanImage;
     }
   }
 
-  // Handle protocol-relative URLs.
-  if (cleanImage.startsWith("//")) {
-    return `https:${cleanImage}`;
-  }
+  // Strip any remaining http(s)://... domain prefixes or embedded occurrences
+  cleanImage = cleanImage.replace(/https?:\/\/[^/]+/gi, "");
 
-  // Remove any host prefix that may have been saved in the DB.
-  cleanImage = cleanImage.replace(/^https?:\/\/(?:localhost|127\.0\.0\.1|0\.0\.0\.0)(?::\d+)?/i, "");
+  // Strip all leading slashes and any repeated /storage/ or storage/ prefixes
+  cleanImage = cleanImage.replace(/^(?:\/?storage\/+|\/+)+/gi, "");
 
-  // Ensure we work with a clean path value.
-  cleanImage = cleanImage.replace(/^\/+/, "");
-
-  // Already a storage path, keep it as one canonical form.
-  if (cleanImage.includes("/storage/")) {
-    cleanImage = `/${cleanImage.replace(/^\/+/, "")}`;
-  } else if (cleanImage.startsWith("storage/")) {
-    cleanImage = `/${cleanImage}`;
-  } else {
-    cleanImage = `/storage/${cleanImage.replace(/^storage\//, "")}`;
-  }
-
-  const baseUrl = (process.env.NEXT_PUBLIC_API_URL || "https://citra.faaruq.com").replace(/\/+$/, "");
-  let fullUrl = `${baseUrl}${cleanImage}`;
+  const canonicalPath = `/storage/${cleanImage}`;
+  let fullUrl = `${baseUrl}${canonicalPath}`;
 
   const buster = getBuster();
   if (buster && !fullUrl.includes("v=") && !fullUrl.includes("t=")) {

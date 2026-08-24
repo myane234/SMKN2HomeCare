@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, Suspense } from "react";
+import { useEffect, useRef, useState, Suspense } from "react";
 import { getLayanan } from "@/services/layananService";
 import { useRouter, useSearchParams } from "next/navigation";
 import LoginRequiredModal from "@/components/LoginRequiredModal";
@@ -42,6 +42,41 @@ const PROMOS = [
     description: "Berlaku untuk setiap teman yang booking pertama kali.",
     ctaLabel: "Bagikan",
     ctaHref: "/promo",
+  },
+];
+
+/**
+ * ===================== ARTIKEL CONFIG =====================
+ * Kartu artikel/edukasi kesehatan, tampil di bawah promo carousel.
+ * Tambah/hapus entri di sini untuk mengatur konten yang tampil.
+ */
+const ARTICLES = [
+  {
+    id: "artikel-fisioterapi-rumah",
+    tag: "Fisioterapi",
+    title: "5 Manfaat Fisioterapi di Rumah untuk Lansia",
+    excerpt: "Pemulihan lebih nyaman tanpa perlu bolak-balik ke klinik.",
+    image:
+      "https://images.unsplash.com/photo-1576091160399-112ba8d25d1d?q=80&w=800&auto=format&fit=crop",
+    href: "/artikel",
+  },
+  {
+    id: "artikel-luka-diabetes",
+    tag: "Perawatan Luka",
+    title: "Cara Tepat Merawat Luka Diabetes agar Cepat Sembuh",
+    excerpt: "Kenali tanda infeksi dan langkah perawatan yang benar.",
+    image:
+      "https://images.unsplash.com/photo-1584515933487-779824d29309?q=80&w=800&auto=format&fit=crop",
+    href: "/artikel",
+  },
+  {
+    id: "artikel-homecare-vs-rs",
+    tag: "Home Care",
+    title: "Home Care vs Rawat Inap: Mana yang Tepat untuk Keluarga Anda?",
+    excerpt: "Pertimbangan biaya, kenyamanan, dan kecepatan pemulihan.",
+    image:
+      "https://images.unsplash.com/photo-1580281657702-257584239a55?q=80&w=800&auto=format&fit=crop",
+    href: "/artikel",
   },
 ];
 
@@ -232,6 +267,14 @@ function CheckIcon({ className = "h-4 w-4" }) {
   );
 }
 
+function ArrowUpRightIcon({ className = "h-3.5 w-3.5" }) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
+      <path d="M7 17 17 7M9 7h8v8" />
+    </svg>
+  );
+}
+
 function getTextValue(item, keys) {
   for (const key of keys) {
     const value = item?.[key];
@@ -323,23 +366,38 @@ function LayananPageContent() {
   const [categories, setCategories] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedService, setSelectedService] = useState(null);
+  const [modalVisible, setModalVisible] = useState(false);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [showLoginModal, setShowLoginModal] = useState(false);
   const [cart, setCart] = useState([]);
   const [addedServiceId, setAddedServiceId] = useState(null);
   const [heroSlide, setHeroSlide] = useState(0);
+  const [heroPaused, setHeroPaused] = useState(false);
+  const [isScrolled, setIsScrolled] = useState(false);
+  const [cartBump, setCartBump] = useState(false);
+  const [pressedServiceId, setPressedServiceId] = useState(null);
 
   useEffect(() => {
     setIsLoggedIn(document.cookie.includes("is_logged_in=true"));
     setCart(loadCartFromStorage());
   }, []);
 
+  // Hero autoplay — jeda otomatis saat pointer berada di atas banner
   useEffect(() => {
-    if (HERO_SLIDES.length <= 1) return;
+    if (HERO_SLIDES.length <= 1 || heroPaused) return;
     const timer = window.setInterval(() => {
       setHeroSlide((prev) => (prev + 1) % HERO_SLIDES.length);
     }, 6000);
     return () => window.clearInterval(timer);
+  }, [heroPaused]);
+
+  // Sticky filter bar mendapat bayangan tipis begitu halaman discroll,
+  // supaya terasa "hidup" tanpa mengubah desain dasarnya.
+  useEffect(() => {
+    const handleScroll = () => setIsScrolled(window.scrollY > 8);
+    handleScroll();
+    window.addEventListener("scroll", handleScroll, { passive: true });
+    return () => window.removeEventListener("scroll", handleScroll);
   }, []);
 
   const goToPrevSlide = () => {
@@ -392,6 +450,15 @@ function LayananPageContent() {
     setFilteredServices(filtered);
   }, [allServices, currentCategory]);
 
+  // Animasi buka modal detail layanan
+  useEffect(() => {
+    if (selectedService) {
+      const raf = requestAnimationFrame(() => setModalVisible(true));
+      return () => cancelAnimationFrame(raf);
+    }
+    setModalVisible(false);
+  }, [selectedService]);
+
   const categoryOptions = categories.length > 0 ? categories : KATEGORI_LAYANAN_OPTIONS;
 
   const handleCategorySelect = (value) => {
@@ -400,6 +467,11 @@ function LayananPageContent() {
     } else {
       router.push("/pesan-laynan");
     }
+  };
+
+  const closeModal = () => {
+    setModalVisible(false);
+    window.setTimeout(() => setSelectedService(null), 180);
   };
 
   const handleAddToCart = (event, service) => {
@@ -431,6 +503,9 @@ function LayananPageContent() {
     setAddedServiceId(serviceId);
     window.setTimeout(() => setAddedServiceId(null), 1200);
 
+    setCartBump(true);
+    window.setTimeout(() => setCartBump(false), 500);
+
     const title = getTextValue(service, ["nama_layanan", "nama", "title"]);
     showToast(`${title} berhasil ditambahkan ke keranjang`, "success");
   };
@@ -446,11 +521,13 @@ function LayananPageContent() {
       <main className="min-h-screen bg-slate-50 pb-24" style={{ fontFamily: FONT_STACK }}>
         {/* ===================== HERO BANNER ===================== */}
         {HERO_SLIDES.length > 0 ? (
-          <section className="relative h-[300px] w-full overflow-hidden sm:h-[380px] md:h-[440px]">
-            {/* Fade halus di bagian atas biar nyambung sama navbar, tidak ada garis tegas */}
-            <div className="pointer-events-none absolute inset-x-0 top-0 z-[15] h-14 bg-gradient-to-b from-blue-50 via-blue-50/40 to-transparent sm:h-20" />
-            {/* Fade halus di bagian bawah biar nyambung ke konten, tidak ada garis tegas */}
-            <div className="pointer-events-none absolute inset-x-0 bottom-0 z-[15] h-14 bg-gradient-to-t from-slate-50 via-slate-50/30 to-transparent sm:h-20" />
+          <section
+            className="relative h-[300px] w-full overflow-hidden sm:h-[380px] md:h-[440px]"
+            onMouseEnter={() => setHeroPaused(true)}
+            onMouseLeave={() => setHeroPaused(false)}
+          >
+            {/* Fade lembut di bawah biar nyambung ke konten, transisinya halus & bertahap */}
+            <div className="pointer-events-none absolute inset-x-0 bottom-0 z-[15] h-24 bg-gradient-to-t from-slate-50 via-slate-50/40 to-transparent sm:h-32" />
 
             {HERO_SLIDES.map((slide, index) => (
               <div
@@ -462,6 +539,7 @@ function LayananPageContent() {
                 <img
                   src={slide.image}
                   alt={slide.title}
+                  loading={index === 0 ? "eager" : "lazy"}
                   className="h-full w-full object-cover object-[center_25%]"
                 />
                 <div className="absolute inset-0 bg-gradient-to-r from-slate-950/70 via-slate-950/35 to-transparent" />
@@ -476,7 +554,7 @@ function LayananPageContent() {
                     {slide.ctaLabel ? (
                       <Link
                         href={slide.ctaHref || "#"}
-                        className="mt-5 inline-flex items-center justify-center rounded-full bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-blue-700"
+                        className="mt-5 inline-flex items-center justify-center rounded-full bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white transition-all duration-200 hover:-translate-y-0.5 hover:bg-blue-700 hover:shadow-lg hover:shadow-blue-600/30 active:translate-y-0"
                       >
                         {slide.ctaLabel}
                       </Link>
@@ -492,7 +570,7 @@ function LayananPageContent() {
                   type="button"
                   onClick={goToPrevSlide}
                   aria-label="Slide sebelumnya"
-                  className="absolute left-3 top-1/2 z-20 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full bg-white/90 text-slate-700 shadow-sm transition hover:bg-white sm:left-5 sm:h-10 sm:w-10"
+                  className="absolute left-3 top-1/2 z-20 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full bg-white/90 text-slate-700 shadow-sm transition-all duration-200 hover:scale-110 hover:bg-white active:scale-95 sm:left-5 sm:h-10 sm:w-10"
                 >
                   <ChevronLeftIcon className="h-5 w-5" />
                 </button>
@@ -500,7 +578,7 @@ function LayananPageContent() {
                   type="button"
                   onClick={goToNextSlide}
                   aria-label="Slide berikutnya"
-                  className="absolute right-3 top-1/2 z-20 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full bg-white/90 text-slate-700 shadow-sm transition hover:bg-white sm:right-5 sm:h-10 sm:w-10"
+                  className="absolute right-3 top-1/2 z-20 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full bg-white/90 text-slate-700 shadow-sm transition-all duration-200 hover:scale-110 hover:bg-white active:scale-95 sm:right-5 sm:h-10 sm:w-10"
                 >
                   <ChevronRightIcon className="h-5 w-5" />
                 </button>
@@ -512,8 +590,8 @@ function LayananPageContent() {
                       type="button"
                       onClick={() => setHeroSlide(index)}
                       aria-label={`Ke slide ${index + 1}`}
-                      className={`h-1.5 rounded-full transition-all ${
-                        index === heroSlide ? "w-6 bg-blue-500" : "w-1.5 bg-white/60"
+                      className={`h-1.5 rounded-full transition-all duration-300 ${
+                        index === heroSlide ? "w-6 bg-blue-500" : "w-1.5 bg-white/60 hover:bg-white/80"
                       }`}
                     />
                   ))}
@@ -524,21 +602,25 @@ function LayananPageContent() {
         ) : null}
 
         {/* ===================== STICKY FILTER BAR (ala GoFood) ===================== */}
-        <div className="sticky top-0 z-30 border-b border-slate-200 bg-white/95 backdrop-blur">
-          <div className="mx-auto max-w-5xl px-4 pt-3 md:px-6">
+        <div
+          className={`sticky top-0 z-30 border-b border-slate-200 bg-white/95 backdrop-blur transition-shadow duration-300 ${
+            isScrolled ? "shadow-sm" : ""
+          }`}
+        >
+          <div className="mx-auto max-w-[1600px] px-4 pt-3 md:px-6">
             <p className="text-[11px] font-bold tracking-[0.25em] text-blue-600">KATALOG LAYANAN</p>
             <h1 className="mt-1 text-lg font-bold text-slate-900 sm:text-xl">Layanan Homecare</h1>
           </div>
 
           {/* Chip kategori — scroll horizontal, snap, tanpa scrollbar */}
-          <div className="mx-auto max-w-5xl px-4 md:px-6">
+          <div className="mx-auto max-w-[1600px] px-4 md:px-6">
             <div className="mt-3 flex snap-x gap-2 overflow-x-auto pb-3 [&::-webkit-scrollbar]:hidden">
               <button
                 type="button"
                 onClick={() => handleCategorySelect("")}
-                className={`flex shrink-0 snap-start items-center gap-1.5 rounded-full border px-3.5 py-2 text-xs font-semibold transition-colors sm:text-sm ${
+                className={`flex shrink-0 snap-start items-center gap-1.5 rounded-full border px-3.5 py-2 text-xs font-semibold transition-all duration-200 active:scale-95 sm:text-sm ${
                   !currentCategory
-                    ? "border-blue-600 bg-blue-600 text-white"
+                    ? "border-blue-600 bg-blue-600 text-white shadow-sm shadow-blue-600/20"
                     : "border-slate-200 bg-white text-slate-600 hover:border-blue-300 hover:text-blue-600"
                 }`}
               >
@@ -553,9 +635,9 @@ function LayananPageContent() {
                     key={category}
                     type="button"
                     onClick={() => handleCategorySelect(category)}
-                    className={`flex shrink-0 snap-start items-center gap-1.5 whitespace-nowrap rounded-full border px-3.5 py-2 text-xs font-semibold transition-colors sm:text-sm ${
+                    className={`flex shrink-0 snap-start items-center gap-1.5 whitespace-nowrap rounded-full border px-3.5 py-2 text-xs font-semibold transition-all duration-200 active:scale-95 sm:text-sm ${
                       isActive
-                        ? "border-blue-600 bg-blue-600 text-white"
+                        ? "border-blue-600 bg-blue-600 text-white shadow-sm shadow-blue-600/20"
                         : "border-slate-200 bg-white text-slate-600 hover:border-blue-300 hover:text-blue-600"
                     }`}
                   >
@@ -569,7 +651,7 @@ function LayananPageContent() {
               <select
                 value={currentCategory}
                 onChange={(e) => handleCategorySelect(e.target.value)}
-                className="ml-auto shrink-0 rounded-full border border-slate-200 bg-white px-3 py-2 text-xs font-medium text-slate-600 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-100 sm:text-sm"
+                className="ml-auto shrink-0 rounded-full border border-slate-200 bg-white px-3 py-2 text-xs font-medium text-slate-600 transition-colors focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-100 sm:text-sm"
               >
                 <option value="">Urutkan / Kategori</option>
                 {categoryOptions.map((category) => (
@@ -582,22 +664,23 @@ function LayananPageContent() {
           </div>
         </div>
 
-        <div className="mx-auto max-w-5xl px-4 pt-5 md:px-6">
+        <div className="mx-auto max-w-[1600px] px-4 pt-5 md:px-6">
           {/* ===================== PROMO CAROUSEL ===================== */}
           {PROMOS.length > 0 ? (
             <div className="mb-6">
               <div className="mb-2 flex items-center justify-between">
                 <h2 className="text-sm font-semibold text-slate-900">Promo Berlangsung</h2>
-                <Link href="/promo" className="text-xs font-semibold text-blue-600 hover:underline">
+                <Link href="/promo" className="group flex items-center gap-0.5 text-xs font-semibold text-blue-600 hover:underline">
                   Lihat semua
+                  <ChevronRightIcon className="h-3.5 w-3.5 transition-transform duration-200 group-hover:translate-x-0.5" />
                 </Link>
               </div>
 
-              <div className="-mx-4 flex snap-x snap-mandatory gap-3 overflow-x-auto px-4 pb-1 md:mx-0 md:px-0 [&::-webkit-scrollbar]:hidden">
+              <div className="-mx-4 flex snap-x snap-mandatory gap-3 overflow-x-auto px-4 pb-1 md:mx-0 md:px-0 md:grid md:grid-cols-3 md:overflow-visible [&::-webkit-scrollbar]:hidden">
                 {PROMOS.map((promo) => (
                   <div
                     key={promo.id}
-                    className="flex min-w-[240px] max-w-[240px] shrink-0 snap-start flex-col justify-between rounded-xl border border-slate-200 bg-white p-4"
+                    className="flex min-w-[70vw] max-w-[70vw] shrink-0 snap-start flex-col justify-between rounded-xl border border-slate-200 bg-white p-4 transition-all duration-200 hover:-translate-y-0.5 hover:border-blue-200 hover:shadow-md sm:min-w-[240px] sm:max-w-[240px] md:min-w-0 md:max-w-none md:w-full"
                   >
                     <div>
                       <span className="inline-flex items-center gap-1 rounded-full bg-blue-50 px-2 py-0.5 text-[10px] font-semibold text-blue-600">
@@ -609,11 +692,57 @@ function LayananPageContent() {
                     </div>
                     <Link
                       href={promo.ctaHref}
-                      className="mt-3 inline-flex items-center text-xs font-semibold text-blue-600 hover:underline"
+                      className="group mt-3 inline-flex items-center text-xs font-semibold text-blue-600 hover:underline"
                     >
-                      {promo.ctaLabel} →
+                      {promo.ctaLabel}
+                      <span className="ml-1 transition-transform duration-200 group-hover:translate-x-0.5">→</span>
                     </Link>
                   </div>
+                ))}
+              </div>
+            </div>
+          ) : null}
+
+          {/* ===================== ARTIKEL & TIPS KESEHATAN ===================== */}
+          {ARTICLES.length > 0 ? (
+            <div className="mb-6">
+              <div className="mb-2 flex items-center justify-between">
+                <h2 className="text-sm font-semibold text-slate-900">Artikel &amp; Tips Kesehatan</h2>
+                <Link href="/artikel" className="group flex items-center gap-0.5 text-xs font-semibold text-blue-600 hover:underline">
+                  Lihat semua
+                  <ChevronRightIcon className="h-3.5 w-3.5 transition-transform duration-200 group-hover:translate-x-0.5" />
+                </Link>
+              </div>
+
+              <div className="-mx-4 flex snap-x snap-mandatory gap-3 overflow-x-auto px-4 pb-1 md:mx-0 md:px-0 [&::-webkit-scrollbar]:hidden">
+                {ARTICLES.map((article) => (
+                  <Link
+                    href={article.href}
+                    key={article.id}
+                    className="group flex min-w-[75vw] max-w-[75vw] shrink-0 snap-start flex-col overflow-hidden rounded-xl border border-slate-200 bg-white transition-all duration-200 hover:-translate-y-0.5 hover:border-blue-200 hover:shadow-md sm:min-w-[260px] sm:max-w-[260px]"
+                  >
+                    <div className="h-32 w-full overflow-hidden bg-slate-100">
+                      <img
+                        src={article.image}
+                        alt={article.title}
+                        loading="lazy"
+                        className="h-full w-full object-cover transition duration-300 group-hover:scale-105"
+                      />
+                    </div>
+                    <div className="flex flex-1 flex-col p-3.5">
+                      <span className="inline-flex w-fit items-center rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-semibold text-slate-600">
+                        {article.tag}
+                      </span>
+                      <h3 className="mt-2 line-clamp-2 text-sm font-semibold leading-snug text-slate-900">
+                        {article.title}
+                      </h3>
+                      <p className="mt-1 line-clamp-2 text-xs leading-relaxed text-slate-500">{article.excerpt}</p>
+                      <span className="mt-auto flex items-center gap-1 pt-3 text-xs font-semibold text-blue-600">
+                        Baca selengkapnya
+                        <ArrowUpRightIcon className="h-3.5 w-3.5 transition-transform duration-200 group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
+                      </span>
+                    </div>
+                  </Link>
                 ))}
               </div>
             </div>
@@ -664,6 +793,7 @@ function LayananPageContent() {
                 const duration = getTextValue(service, ["durasi_menit", "durasi", "duration"]);
                 const serviceId = getServiceId(service);
                 const justAdded = addedServiceId === serviceId;
+                const isPressed = pressedServiceId === serviceId;
                 const transportIncluded = isTransportIncluded(service);
 
                 return (
@@ -672,13 +802,25 @@ function LayananPageContent() {
                     role="article"
                     tabIndex={0}
                     onClick={() => setSelectedService(service)}
-                    className="group flex cursor-pointer gap-3 p-3 transition-colors hover:bg-slate-50 sm:gap-4 sm:p-4"
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter" || event.key === " ") {
+                        event.preventDefault();
+                        setSelectedService(service);
+                      }
+                    }}
+                    onPointerDown={() => setPressedServiceId(serviceId)}
+                    onPointerUp={() => setPressedServiceId(null)}
+                    onPointerLeave={() => setPressedServiceId(null)}
+                    className={`group flex cursor-pointer gap-3 p-3 transition-all duration-150 hover:bg-slate-50 focus-visible:bg-slate-50 focus-visible:outline-none sm:gap-4 sm:p-4 ${
+                      isPressed ? "scale-[0.99] bg-slate-50" : ""
+                    }`}
                   >
                     {/* Thumbnail */}
                     <div className="relative h-20 w-20 shrink-0 overflow-hidden rounded-lg bg-slate-100 sm:h-24 sm:w-24">
                       <img
                         src={imageUrl}
                         alt={title || "Layanan"}
+                        loading="lazy"
                         className="h-full w-full object-cover transition duration-300 group-hover:scale-105"
                       />
                     </div>
@@ -695,7 +837,7 @@ function LayananPageContent() {
                             {title || "Layanan"}
                           </h2>
                         </div>
-                        <ChevronRightIcon className="mt-1 hidden h-4 w-4 shrink-0 text-slate-300 sm:block" />
+                        <ChevronRightIcon className="mt-1 hidden h-4 w-4 shrink-0 text-slate-300 transition-transform duration-200 group-hover:translate-x-0.5 group-hover:text-blue-400 sm:block" />
                       </div>
 
                       {description ? (
@@ -721,8 +863,8 @@ function LayananPageContent() {
                           type="button"
                           onClick={(event) => handleAddToCart(event, service)}
                           aria-label="Tambah ke keranjang"
-                          className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-white transition sm:h-9 sm:w-9 ${
-                            justAdded ? "bg-emerald-600" : "bg-blue-600 hover:bg-blue-700"
+                          className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-white transition-all duration-200 active:scale-90 sm:h-9 sm:w-9 ${
+                            justAdded ? "scale-110 bg-emerald-600" : "bg-blue-600 hover:scale-105 hover:bg-blue-700"
                           }`}
                         >
                           {justAdded ? <CheckIcon className="h-4 w-4" /> : <PlusIcon className="h-4 w-4" />}
@@ -742,11 +884,17 @@ function LayananPageContent() {
         type="button"
         onClick={handleGoToCart}
         aria-label="Buka keranjang"
-        className="fixed bottom-24 right-4 z-40 flex h-14 w-14 items-center justify-center rounded-full bg-emerald-500 text-white shadow-lg transition hover:bg-emerald-600 sm:bottom-8 sm:right-6 sm:h-16 sm:w-16"
+        className={`fixed bottom-24 right-4 z-40 flex h-14 w-14 items-center justify-center rounded-full bg-emerald-500 text-white shadow-lg transition-all duration-200 hover:scale-105 hover:bg-emerald-600 active:scale-95 sm:bottom-8 sm:right-6 sm:h-16 sm:w-16 ${
+          cartBump ? "scale-110" : ""
+        }`}
       >
         <CartIcon className="h-6 w-6 sm:h-7 sm:w-7" />
         {cartItemCount > 0 ? (
-          <span className="absolute -right-1 -top-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-rose-500 px-1 text-[11px] font-bold text-white ring-2 ring-white">
+          <span
+            className={`absolute -right-1 -top-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-rose-500 px-1 text-[11px] font-bold text-white ring-2 ring-white transition-transform duration-200 ${
+              cartBump ? "scale-125" : "scale-100"
+            }`}
+          >
             {cartItemCount}
           </span>
         ) : null}
@@ -755,17 +903,21 @@ function LayananPageContent() {
       {/* Modal Detail Layanan */}
       {selectedService ? (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 px-4 py-6"
-          onClick={() => setSelectedService(null)}
+          className={`fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 px-4 py-6 transition-opacity duration-200 ${
+            modalVisible ? "opacity-100" : "opacity-0"
+          }`}
+          onClick={closeModal}
         >
           <div
-            className="relative max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-2xl bg-white shadow-2xl"
+            className={`relative max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-2xl bg-white shadow-2xl transition-all duration-200 ${
+              modalVisible ? "translate-y-0 scale-100 opacity-100" : "translate-y-3 scale-95 opacity-0"
+            }`}
             onClick={(event) => event.stopPropagation()}
           >
             <button
               type="button"
-              onClick={() => setSelectedService(null)}
-              className="absolute right-4 top-4 z-10 rounded-full bg-white/90 px-3 py-2 text-sm font-semibold text-slate-700 shadow-sm cursor-pointer hover:bg-slate-100"
+              onClick={closeModal}
+              className="absolute right-4 top-4 z-10 rounded-full bg-white/90 px-3 py-2 text-sm font-semibold text-slate-700 shadow-sm transition-colors duration-150 hover:bg-slate-100 cursor-pointer"
             >
               Tutup
             </button>
@@ -820,21 +972,21 @@ function LayananPageContent() {
               <div className="mt-6 flex flex-wrap gap-3">
                 <Link
                   href="/booking"
-                  className="inline-flex items-center justify-center rounded-full bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-blue-700"
+                  className="inline-flex items-center justify-center rounded-full bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white transition-all duration-200 hover:-translate-y-0.5 hover:bg-blue-700 hover:shadow-md active:translate-y-0"
                 >
                   Booking Sekarang
                 </Link>
                 <button
                   type="button"
                   onClick={(event) => handleAddToCart(event, selectedService)}
-                  className="inline-flex items-center justify-center rounded-full bg-emerald-500 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-emerald-600 cursor-pointer"
+                  className="inline-flex items-center justify-center rounded-full bg-emerald-500 px-5 py-2.5 text-sm font-semibold text-white transition-all duration-200 hover:-translate-y-0.5 hover:bg-emerald-600 hover:shadow-md active:translate-y-0 cursor-pointer"
                 >
                   Tambah ke Keranjang
                 </button>
                 <button
                   type="button"
-                  onClick={() => setSelectedService(null)}
-                  className="inline-flex items-center justify-center rounded-full border border-slate-200 px-5 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-100 cursor-pointer"
+                  onClick={closeModal}
+                  className="inline-flex items-center justify-center rounded-full border border-slate-200 px-5 py-2.5 text-sm font-semibold text-slate-700 transition-colors duration-150 hover:bg-slate-100 cursor-pointer"
                 >
                   Tutup
                 </button>
