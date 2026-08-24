@@ -46,13 +46,14 @@ export default function AdminMasterTarif() {
   const [formNama, setFormNama] = useState('');
   const [formLayanan, setFormLayanan] = useState('');
   const [formLayananIds, setFormLayananIds] = useState([]);
-  const [formKategoriLayanan, setFormKategoriLayanan] = useState('');
+  const [formKategoriLayananIds, setFormKategoriLayananIds] = useState([]);
   const [formKategoriTarif, setFormKategoriTarif] = useState('');
   const [formKomponenIds, setFormKomponenIds] = useState([]);
   const [formIdProvinsi, setFormIdProvinsi] = useState('');
   const [formIdKota, setFormIdKota] = useState('');
   const [formFeeNakesTipe, setFormFeeNakesTipe] = useState('nominal');
   const [formFeeNakesNilai, setFormFeeNakesNilai] = useState('');
+  const [formIsTransport, setFormIsTransport] = useState(false);
   const [formActive, setFormActive] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -484,13 +485,14 @@ const parseFormattedNumber = (val) => {
     setFormNama('');
     setFormLayanan('');
     setFormLayananIds([]);
-    setFormKategoriLayanan('');
+    setFormKategoriLayananIds([]);
     setFormKategoriTarif('');
     setFormKomponenIds([]);
     setFormIdProvinsi('');
     setFormIdKota('');
     setFormFeeNakesTipe('nominal');
     setFormFeeNakesNilai('');
+    setFormIsTransport(false);
     setFormActive(true);
 
     setViewMode('add');
@@ -530,7 +532,7 @@ const parseFormattedNumber = (val) => {
       ...includedIds,
     ].filter((id) => !Number.isNaN(id))));
     setFormLayananIds(layananIds);
-    setFormKategoriLayanan('');
+    setFormKategoriLayananIds([]);
     setFormKategoriTarif(String(item?.id_kategori_tarif ?? item?.kategoriTarif?.id_kategori_tarif ?? ''));
 
     /*
@@ -583,6 +585,8 @@ const parseFormattedNumber = (val) => {
     ? String(Math.round(Number(item.fee_nakes_nilai) || 0))
     : String(item.fee_nakes_nilai ?? '')
 );
+
+    setFormIsTransport(normalizeBoolean(item?.is_transport, false));
 
     setFormActive(
       normalizeBoolean(
@@ -678,7 +682,7 @@ const parseFormattedNumber = (val) => {
 
       layanan_ids: formLayananIds,
 
-      id_kategori_layanan: formKategoriLayanan || null,
+      kategori_layanan_ids: formKategoriLayananIds.map(Number),
 
       komponen_tarif_ids:
         formKomponenIds
@@ -698,8 +702,10 @@ const parseFormattedNumber = (val) => {
 
       fee_nakes_nilai:
         parseFloat(
-          formFeeNakesNilai
+          parseFormattedNumber(formFeeNakesNilai)
         ) || 0,
+
+      is_transport: Boolean(formIsTransport),
 
       is_active:
         Boolean(formActive),
@@ -955,42 +961,55 @@ const parseFormattedNumber = (val) => {
               <div className="flex flex-col gap-4">
                 <div>
                   <label className="mb-2 block text-xs font-semibold uppercase tracking-wider text-slate-600">
-                    Kategori Layanan
+                    Kategori Layanan <span className="text-slate-400 text-[10px] font-normal">(pilih satu/beberapa — seluruh layanan di kategori terpilih otomatis masuk)</span>
                   </label>
-                  <select
-                    className="w-full rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm text-slate-800 focus:border-green-500 focus:outline-none focus:ring-2 focus:ring-green-500/20"
-                    value={formKategoriLayanan}
-                    onChange={(e) => {
-                      const categoryId = e.target.value;
-                      setFormKategoriLayanan(categoryId);
-                      if (categoryId) {
-                        const filtered = layananList.filter((item) => String(item.kategori) === String(categoryId));
-                        setFormLayananIds(filtered.map((item) => item.id));
-                      } else {
-                        setFormLayananIds([]);
-                      }
-                    }}
-                  >
-                    <option value="">Semua Kategori (Pilih Manual)</option>
-                    {kategoriLayananList.map((kategori) => (
-                      <option key={kategori.id_kategori_layanan} value={kategori.id_kategori_layanan}>{kategori.nama_kategori}</option>
-                    ))}
-                  </select>
+                  <div className="max-h-28 space-y-1 overflow-y-auto rounded-xl border border-slate-200 bg-slate-50/50 p-2">
+                    {kategoriLayananList.map((kat) => {
+                      const checked = formKategoriLayananIds.includes(String(kat.id_kategori_layanan));
+                      return (
+                        <label key={kat.id_kategori_layanan} className={`flex cursor-pointer items-center gap-2 rounded-lg border px-3 py-2 text-sm ${checked ? 'border-blue-300 bg-blue-50 text-blue-800' : 'border-transparent bg-white text-slate-600 hover:border-slate-200'}`}>
+                          <input
+                            type="checkbox"
+                            checked={checked}
+                            onChange={() => {
+                              const id = String(kat.id_kategori_layanan);
+                              const newKatIds = checked
+                                ? formKategoriLayananIds.filter((k) => k !== id)
+                                : [...formKategoriLayananIds, id];
+                              setFormKategoriLayananIds(newKatIds);
+                              // Auto-select all layanan from selected kategori(s)
+                              const autoLayananIds = layananList
+                                .filter((l) => newKatIds.includes(String(l.kategori)))
+                                .map((l) => l.id);
+                              // Merge with manually selected ones not from any kategori
+                              const manualIds = formLayananIds.filter(
+                                (id) => !layananList.find((l) => l.id === id && formKategoriLayananIds.includes(String(l.kategori)))
+                              );
+                              setFormLayananIds([...new Set([...autoLayananIds, ...manualIds])]);
+                            }}
+                            className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                          />
+                          <span className="truncate font-medium">{kat.nama_kategori}</span>
+                        </label>
+                      );
+                    })}
+                  </div>
+                  <p className="mt-1 text-xs text-slate-400">{formKategoriLayananIds.length} kategori dipilih</p>
                 </div>
-                
+
                 <div>
                   <label className="mb-2 block text-xs font-semibold uppercase tracking-wider text-slate-600">
-                    Layanan (Pilih Satu / Beberapa) <span className="text-red-500">*</span>
+                    Layanan (centang satu / beberapa) <span className="text-red-500">*</span>
                   </label>
-                  <div className="max-h-40 space-y-1 overflow-y-auto rounded-xl border border-slate-200 bg-slate-50/50 p-2">
-                    {layananList
-                      .filter((layanan) => !formKategoriLayanan || String(layanan.kategori) === String(formKategoriLayanan))
-                      .map((layanan) => {
+                  <div className="max-h-44 space-y-1 overflow-y-auto rounded-xl border border-slate-200 bg-slate-50/50 p-2">
+                    {layananList.map((layanan) => {
                       const checked = formLayananIds.includes(layanan.id);
+                      const fromKat = formKategoriLayananIds.includes(String(layanan.kategori));
                       return (
-                        <label key={layanan.id} className={`flex cursor-pointer items-center gap-2 rounded-lg border px-3 py-2 text-sm ${checked ? 'border-green-300 bg-green-50 text-green-800' : 'border-transparent bg-white text-slate-600 hover:border-slate-200'}`}>
+                        <label key={layanan.id} className={`flex cursor-pointer items-center gap-2 rounded-lg border px-3 py-2 text-sm ${checked ? (fromKat ? 'border-blue-200 bg-blue-50/60 text-blue-800' : 'border-green-300 bg-green-50 text-green-800') : 'border-transparent bg-white text-slate-600 hover:border-slate-200'}`}>
                           <input type="checkbox" checked={checked} onChange={() => setFormLayananIds((current) => checked ? current.filter((id) => id !== layanan.id) : [...current, layanan.id])} className="h-4 w-4 rounded border-gray-300 text-green-600 focus:ring-green-500" />
-                          <span className="truncate">{layanan.nama}</span>
+                          <span className="truncate flex-1">{layanan.nama}</span>
+                          {fromKat && <span className="ml-auto shrink-0 text-[10px] text-blue-400 font-medium">Dari Kategori</span>}
                         </label>
                       );
                     })}
@@ -1261,11 +1280,46 @@ const parseFormattedNumber = (val) => {
 </div>
             </div>
 
-            {/* STATUS */}
-            <div>
-              <label className="block text-xs font-semibold uppercase tracking-wider text-slate-600 mb-2">
-                Status Aktif
-              </label>
+            {/* TRANSPORT + STATUS */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+              {/* IS TRANSPORT */}
+              <div>
+                <label className="block text-xs font-semibold uppercase tracking-wider text-slate-600 mb-2">
+                  Termasuk Biaya Transport
+                </label>
+                <div className="flex gap-3">
+                  <button
+                    type="button"
+                    className={
+                      'flex-1 rounded-xl border px-4 py-2.5 text-sm font-semibold transition-all cursor-pointer ' +
+                      (formIsTransport === true
+                        ? 'border-teal-500 bg-teal-50 text-teal-700 shadow-sm'
+                        : 'border-slate-200 bg-white text-slate-500 hover:bg-slate-50')
+                    }
+                    onClick={() => setFormIsTransport(true)}
+                  >
+                    Ya (Termasuk)
+                  </button>
+                  <button
+                    type="button"
+                    className={
+                      'flex-1 rounded-xl border px-4 py-2.5 text-sm font-semibold transition-all cursor-pointer ' +
+                      (formIsTransport === false
+                        ? 'border-slate-600 bg-slate-100 text-slate-700 shadow-sm'
+                        : 'border-slate-200 bg-white text-slate-500 hover:bg-slate-50')
+                    }
+                    onClick={() => setFormIsTransport(false)}
+                  >
+                    Tidak
+                  </button>
+                </div>
+              </div>
+
+              {/* STATUS */}
+              <div>
+                <label className="block text-xs font-semibold uppercase tracking-wider text-slate-600 mb-2">
+                  Status Aktif
+                </label>
 
               <div className="flex gap-3 max-w-sm">
                 <button
@@ -1303,6 +1357,7 @@ const parseFormattedNumber = (val) => {
                 >
                   Nonaktif
                 </button>
+              </div>
               </div>
             </div>
           </div>

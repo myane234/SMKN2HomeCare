@@ -116,7 +116,6 @@ export default function PageLayanan() {
                   <th className="border-b border-slate-200 px-4 py-3 text-left text-xs font-medium uppercase tracking-wide text-slate-500">Harga</th>
                   <th className="border-b border-slate-200 px-4 py-3 text-left text-xs font-medium uppercase tracking-wide text-slate-500">Tipe Layanan</th>
                   <th className="border-b border-slate-200 px-4 py-3 text-left text-xs font-medium uppercase tracking-wide text-slate-500">Durasi</th>
-                  <th className="border-b border-slate-200 px-4 py-3 text-left text-xs font-medium uppercase tracking-wide text-slate-500">Transport</th>
                   <th className="border-b border-slate-200 px-4 py-3 text-left text-xs font-medium uppercase tracking-wide text-slate-500">Diperbarui</th>
                   <th className="border-b border-slate-200 px-4 py-3 text-right text-xs font-medium uppercase tracking-wide text-slate-500">Aksi</th>
                 </tr>
@@ -127,7 +126,6 @@ export default function PageLayanan() {
                   const nama = item.nama_layanan || item.nama || '-';
                   const kategori = item.id_kategori_layanan || item.kategori || '-';
                   const durasi = item.durasi_menit || item.durasi;
-                  const transport = item.include_transport ?? item.transport;
 
                   return (
                     <tr key={item.id || item.slug || idx} className="hover:bg-slate-50">
@@ -157,9 +155,6 @@ export default function PageLayanan() {
                       </td>
                       <td className="border-b border-slate-200 px-4 py-3.5 text-sm">
                         {durasi ? `${durasi} menit` : '-'}
-                      </td>
-                      <td className="border-b border-slate-200 px-4 py-3.5 text-sm">
-                        {transport == 1 || transport === true ? 'Ya' : 'Tidak'}
                       </td>
                       <td className="border-b border-slate-200 px-4 py-3.5 text-sm text-slate-500 whitespace-nowrap">
                         {formatDate(item.updated_at)}

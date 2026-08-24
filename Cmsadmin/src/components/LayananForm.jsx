@@ -192,33 +192,6 @@ export default function LayananForm({ initialData, onSubmit, submitting, mode })
               )}
             </div>
 
-            <label className="form-label mt-4">Include Transport</label>
-            <div className="mt-1 flex gap-2.5">
-              <button
-                type="button"
-                className={
-                  'flex-1 rounded-lg border px-3 py-2.5 text-[13px] font-semibold ' +
-                  (form.transport === true
-                    ? 'border-primary bg-primary-light text-primary-dark'
-                    : 'border-slate-200 bg-white text-slate-500')
-                }
-                onClick={() => setForm((prev) => ({ ...prev, transport: true }))}
-              >
-                Iya
-              </button>
-              <button
-                type="button"
-                className={
-                  'flex-1 rounded-lg border px-3 py-2.5 text-[13px] font-semibold ' +
-                  (form.transport === false
-                    ? 'border-danger bg-danger-bg text-danger'
-                    : 'border-slate-200 bg-white text-slate-500')
-                }
-                onClick={() => setForm((prev) => ({ ...prev, transport: false }))}
-              >
-                Tidak
-              </button>
-            </div>
           </div>
 
           <div className="flex flex-col">
