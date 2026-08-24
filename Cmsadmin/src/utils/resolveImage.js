@@ -3,30 +3,50 @@ import { URL } from './getUrl.js';
 export function resolveImageUrl(value) {
   if (!value || typeof value !== 'string') return '';
 
-  let trimmed = value.trim();
-  if (!trimmed || trimmed === 'null' || trimmed === 'undefined') return '';
+  let cleanImage = value.trim();
+  if (!cleanImage || cleanImage === 'null' || cleanImage === 'undefined') return '';
 
-  if (trimmed.startsWith('data:image/') || trimmed.startsWith('blob:')) {
-    return trimmed;
+  if (cleanImage.startsWith('data:image/') || cleanImage.startsWith('blob:')) {
+    return cleanImage;
   }
 
-  // Strip host prefix (e.g. http://localhost:8000 or http://127.0.0.1:8000) if present in DB
-  trimmed = trimmed.replace(/^https?:\/\/(?:localhost|127\.0\.0\.1|0\.0\.0\.0)(?::\d+)?/i, '');
-
-  if (/^https?:\/\//i.test(trimmed)) {
-    return trimmed;
+  if (cleanImage.startsWith('//')) {
+    cleanImage = `https:${cleanImage}`;
   }
 
   const apiBase = URL === '/api' ? (import.meta.env.VITE_URLDEV || 'https://citra.faaruq.com/api') : URL;
-  const baseUrl = apiBase.replace(/\/api\/?$/, '');
+  const baseUrl = apiBase.replace(/\/api\/?$/, '').replace(/\/+$/, '');
   const fallbackOrigin = typeof window !== 'undefined' ? window.location.origin : '';
   const origin = baseUrl || fallbackOrigin;
 
-  let cleanPath = trimmed.replace(/^\/+/, '');
-  if (!cleanPath.startsWith('storage/')) {
-    cleanPath = `storage/${cleanPath}`;
+  if (cleanImage.includes('http://') || cleanImage.includes('https://')) {
+    const lastHttpIndex = cleanImage.lastIndexOf('http://');
+    const lastHttpsIndex = cleanImage.lastIndexOf('https://');
+    const lastUrlIndex = Math.max(lastHttpIndex, lastHttpsIndex);
+    const targetUrl = cleanImage.substring(lastUrlIndex);
+
+    const urlMatch = targetUrl.match(/^https?:\/\/([^/]+)(\/.*)?$/i);
+    if (urlMatch) {
+      const host = urlMatch[1].toLowerCase();
+      let path = urlMatch[2] || '';
+
+      const isLocalHost = /^(localhost|127\.0\.0\.1|0\.0\.0\.0)(?::\d+)?$/i.test(host);
+      const isBaseHost = origin ? origin.toLowerCase().includes(host.split(':')[0]) : false;
+      const hasStorage = path.toLowerCase().includes('/storage/');
+      const isNested = lastUrlIndex > 0;
+
+      if (isLocalHost || isBaseHost || hasStorage || isNested) {
+        cleanImage = path;
+      } else {
+        return targetUrl;
+      }
+    }
   }
 
-  return origin ? `${origin}/${cleanPath}` : `/${cleanPath}`;
+  cleanImage = cleanImage.replace(/https?:\/\/[^/]+/gi, '');
+  cleanImage = cleanImage.replace(/^(?:\/?storage\/+|\/+)+/gi, '');
+
+  const canonicalPath = `storage/${cleanImage}`;
+  return origin ? `${origin}/${canonicalPath}` : `/${canonicalPath}`;
 }
 

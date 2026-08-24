@@ -205,7 +205,7 @@ export default function PageKelolaKontenAbout() {
           </div>
 
           <div>
-            <label className="form-label">Visi & Misi</label>
+            <label className="form-label">Visi &amp; Misi Perusahaan</label>
             <textarea
               rows={3}
               value={visiMisi}
@@ -216,7 +216,7 @@ export default function PageKelolaKontenAbout() {
           </div>
 
           <div>
-            <label className="form-label">Cara Kerja</label>
+            <label className="form-label">Cara Kerja Layanan</label>
             <textarea
               rows={3}
               value={caraKerja}
@@ -227,18 +227,7 @@ export default function PageKelolaKontenAbout() {
           </div>
 
           <div>
-            <label className="form-label">Wilayah Layanan</label>
-            <textarea
-              rows={3}
-              value={wilayahLayanan}
-              onChange={(e) => setWilayahLayanan(e.target.value)}
-              placeholder="Contoh: Jakarta, Bogor, Depok, Tangerang, Bekasi..."
-              className="form-input resize-none"
-            />
-          </div>
-
-          <div>
-            <label className="form-label">Komitmen</label>
+            <label className="form-label">Komitmen Perusahaan</label>
             <textarea
               rows={3}
               value={komitmen}

@@ -112,9 +112,9 @@ export async function deletePromo(id_promo) {
   await parseJsonResponse(res);
   return true;
 }
+import { resolveImageUrl } from '../utils/resolveImage.js';
+
 export const getImageUrl = (path) => {
   if (!path) return null;
-  // Jika path sudah mengandung http, biarkan (karena mungkin sudah full URL)
-  if (path.startsWith('http')) return path;
-  return `${BASE_URL}${path}`;
+  return resolveImageUrl(path);
 };

@@ -16,7 +16,7 @@ import PageKelolaKontenHome from "./pages/PageKelolaKontenHome";
 import PageKelolaKontenAbout from "./pages/PageKelolaKontenAbout";
 import PageKelolaKontenMitra from "./pages/PageKelolaKontenMitra";
 import PageKelolaKontenFooter from "./pages/PageKelolaKontenFooter";
-import PageNakesRequest from "./pages/admin/registerNakes/PageNakesRequest";
+import PageNakesRequest from "./pages/admin/RegisterNakes/PageNakesRequest";
 import PageNakesRequestDetail from "./pages/admin/RegisterNakes/PageNakesRequestDetail";
 import PageBooking, { PageBookingDetail } from "./pages/admin/PageBooking";
 import AdminLayout from "./components/AdminLayout";

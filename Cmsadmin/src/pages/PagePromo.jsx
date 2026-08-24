@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { deletePromo, getAllPromo } from '../data/PromoEndpoint';
 import { getImageUrl } from '../data/imageHelper.js';
-import Pagination from '../components/Pagination';
+import Pagination from '../components/pagination';
 
 function formatDate(raw) {
   if (!raw) return '-';

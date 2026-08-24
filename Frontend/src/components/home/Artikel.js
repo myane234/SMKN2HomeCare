@@ -1,8 +1,9 @@
-﻿"use client";
+"use client";
 
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import api from "@/services/api";
+import { resolveImageUrl } from "@/services/resolveImage";
 
 function getTextValue(item, keys) {
   for (const key of keys) {
@@ -35,40 +36,7 @@ function extractArticles(payload) {
   return [];
 }
 
-function resolveImageUrl(image) {
-  const placeholder = "https://placehold.co/600x400?text=Artikel";
 
-  if (!image) return placeholder;
-
-  let cleanImage = String(image).trim();
-  if (!cleanImage || cleanImage === "null" || cleanImage === "undefined") return placeholder;
-
-  if (cleanImage.startsWith("data:image/") || cleanImage.startsWith("blob:")) {
-    return cleanImage;
-  }
-
-  if (cleanImage.startsWith("http://") || cleanImage.startsWith("https://")) {
-    if (/^https?:\/\/(localhost|127\.0\.0\.1|0\.0\.0\.0)(?::\d+)?\//i.test(cleanImage)) {
-      cleanImage = cleanImage.replace(/^https?:\/\/(localhost|127\.0\.0\.1|0\.0\.0\.0)(?::\d+)?/i, "");
-    } else {
-      return cleanImage;
-    }
-  }
-
-  cleanImage = cleanImage.replace(/^https?:\/\/(?:localhost|127\.0\.0\.1|0\.0\.0\.0)(?::\d+)?/i, "");
-  cleanImage = cleanImage.replace(/^\/+/, "");
-
-  if (cleanImage.includes("/storage/")) {
-    cleanImage = `/${cleanImage.replace(/^\/+/, "")}`;
-  } else if (cleanImage.startsWith("storage/")) {
-    cleanImage = `/${cleanImage}`;
-  } else {
-    cleanImage = `/storage/${cleanImage.replace(/^storage\//, "")}`;
-  }
-
-  const baseUrl = (process.env.NEXT_PUBLIC_API_URL || "https://citra.faaruq.com").replace(/\/+$/, "");
-  return `${baseUrl}${cleanImage}`;
-}
 
 export default function Artikel() {
   const [articles, setArticles] = useState([]);

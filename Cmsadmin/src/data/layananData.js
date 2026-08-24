@@ -1,24 +1,6 @@
 import { URL } from '../utils/getUrl.js';
 import { getAuthHeaders } from '../utils/auth.js';
-
-function resolveImageUrl(value) {
-  if (!value || typeof value !== 'string') return ''
-
-  const trimmed = value.trim()
-  if (!trimmed) return ''
-
-  if (/^https?:\/\//i.test(trimmed) || trimmed.startsWith('data:image/')) {
-    return trimmed
-  }
-
-  const apiBase = URL === '/api' ? (import.meta.env.VITE_URLDEV || 'https://citra.faaruq.com/api') : URL
-  const baseUrl = apiBase.replace(/\/api\/?$/, '')
-  const fallbackOrigin = typeof window !== 'undefined' ? window.location.origin : ''
-  const origin = baseUrl || fallbackOrigin
-  const normalizedPath = trimmed.replace(/^\/+/, '')
-
-  return origin ? `${origin}/${normalizedPath}` : normalizedPath
-}
+import { resolveImageUrl } from '../utils/resolveImage.js';
 
 function mapApiItem(item) {
   return {

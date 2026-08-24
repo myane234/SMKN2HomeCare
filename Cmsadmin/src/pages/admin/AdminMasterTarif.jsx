@@ -1,51 +1,449 @@
 import { useState, useEffect } from 'react';
-import { FaSearch, FaEdit, FaTrash, FaPlus, FaFileInvoiceDollar, FaArrowLeft, FaSave } from 'react-icons/fa';
+import {
+  FaSearch,
+  FaEdit,
+  FaTrash,
+  FaPlus,
+  FaArrowLeft,
+  FaSave,
+} from 'react-icons/fa';
 import Pagination from '../../components/pagination';
-import { getAllTarif, createTarifData, updateTarifData, deleteTarifData } from '../../data/masterTarifData';
+import {
+  getAllTarif,
+  createTarifData,
+  updateTarifData,
+  deleteTarifData,
+} from '../../data/masterTarifData';
 import { getAllLayanan } from '../../data/layananData';
-import { getAllKotaKabupaten } from '../../data/wilayahLayananData';
+import { getAllKomponenTarif } from '../../data/masterKomponenTarifData';
+import {
+  getAllWilayahLayanan,
+  getAllKotaKabupaten,
+} from '../../data/wilayahLayananData';
 import Swal from 'sweetalert2';
 
-export default function DataMasterTarif() {
-  const [viewMode, setViewMode] = useState('list'); // 'list' | 'add' | 'edit'
+export default function AdminMasterTarif() {
+  const [viewMode, setViewMode] = useState('list');
 
   const [tarifList, setTarifList] = useState([]);
   const [layananList, setLayananList] = useState([]);
+  const [komponenList, setKomponenList] = useState([]);
+  const [provinsiList, setProvinsiList] = useState([]);
   const [kotaList, setKotaList] = useState([]);
+
   const [loading, setLoading] = useState(true);
   const [errorMsg, setErrorMsg] = useState('');
 
-  // Filter State
   const [search, setSearch] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
 
-  // Selected Item untuk Edit
   const [selectedTarif, setSelectedTarif] = useState(null);
 
-  // Form State
   const [formNama, setFormNama] = useState('');
   const [formLayanan, setFormLayanan] = useState('');
-  const [formKota, setFormKota] = useState('');
-  const [formTarifPasien, setFormTarifPasien] = useState('');
-  const [formPotonganPersenNakes, setFormPotonganPersenNakes] = useState('');
+  const [formKomponenIds, setFormKomponenIds] = useState([]);
+  const [formIdProvinsi, setFormIdProvinsi] = useState('');
+  const [formIdKota, setFormIdKota] = useState('');
+  const [formFeeNakesTipe, setFormFeeNakesTipe] = useState('nominal');
+  const [formFeeNakesNilai, setFormFeeNakesNilai] = useState('');
   const [formActive, setFormActive] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  /* =========================================================
+     HELPER
+  ========================================================= */
+
+  const formatRupiah = (val) => {
+    return new Intl.NumberFormat('id-ID', {
+      style: 'currency',
+      currency: 'IDR',
+      maximumFractionDigits: 0,
+    }).format(Number(val) || 0);
+  };
+
+  const formatDisplayNumber = (val) => {
+  if (!val && val !== 0) return '';
+
+  const clean = val.toString().replace(/[^0-9]/g, '');
+
+  if (!clean) return '';
+
+  return Number(clean).toLocaleString('id-ID');
+};
+
+const parseFormattedNumber = (val) => {
+  if (!val) return '';
+
+  return val.toString().replace(/[^0-9]/g, '');
+};
+  
+
+  const normalizeBoolean = (value, defaultValue = true) => {
+    if (value === undefined || value === null || value === '') {
+      return defaultValue;
+    }
+
+    if (typeof value === 'boolean') {
+      return value;
+    }
+
+    if (typeof value === 'string') {
+      if (value.toLowerCase() === 'true' || value === '1') {
+        return true;
+      }
+
+      if (value.toLowerCase() === 'false' || value === '0') {
+        return false;
+      }
+    }
+
+    if (typeof value === 'number') {
+      return value === 1;
+    }
+
+    return defaultValue;
+  };
+
+  /**
+   * Ambil ID komponen dari response master tarif.
+   *
+   * Response GET /master-tarif:
+   * {
+   *   "komponen_tarif": [
+   *     {
+   *       "id_komponen": 1,
+   *       ...
+   *     }
+   *   ]
+   * }
+   *
+   * Fallback tetap disediakan untuk komponen_tarif_ids.
+   */
+  const extractKomponenIds = (item) => {
+    if (!item) {
+      return [];
+    }
+
+    // PRIORITAS 1:
+    // Relationship dari GET /master-tarif
+    if (Array.isArray(item.komponen_tarif)) {
+      return item.komponen_tarif
+        .map((komponen) => {
+          if (typeof komponen === 'object' && komponen !== null) {
+            return (
+              komponen.id_komponen ??
+              komponen.id_komponen_biaya ??
+              komponen.komponen_id ??
+              komponen.id
+            );
+          }
+
+          return komponen;
+        })
+        .map((id) => Number(id))
+        .filter((id) => !Number.isNaN(id));
+    }
+
+    // PRIORITAS 2:
+    // Fallback kalau backend mengembalikan komponen_tarif_ids
+    let rawIds = item.komponen_tarif_ids;
+
+    if (!rawIds) {
+      return [];
+    }
+
+    if (!Array.isArray(rawIds)) {
+      if (typeof rawIds === 'string') {
+        try {
+          rawIds = JSON.parse(rawIds);
+        } catch {
+          rawIds = rawIds
+            .split(',')
+            .map((value) => value.trim())
+            .filter(Boolean);
+        }
+      } else {
+        rawIds = [rawIds];
+      }
+    }
+
+    return rawIds
+      .map((value) => {
+        if (typeof value === 'object' && value !== null) {
+          return (
+            value.id_komponen ??
+            value.id_komponen_biaya ??
+            value.komponen_id ??
+            value.id
+          );
+        }
+
+        return value;
+      })
+      .map((id) => Number(id))
+      .filter((id) => !Number.isNaN(id));
+  };
+
+  /**
+   * Ambil nama komponen langsung dari relationship API.
+   * Kalau relationship tidak ada, fallback ke komponenList.
+   */
+  const getKomponenNames = (item) => {
+    if (!item) {
+      return 'Belum ada komponen di database';
+    }
+
+    // Kalau relationship tersedia dari API
+    if (
+      Array.isArray(item.komponen_tarif) &&
+      item.komponen_tarif.length > 0
+    ) {
+      const names = item.komponen_tarif
+        .map((komponen) => komponen?.nama_komponen || komponen?.nama)
+        .filter(Boolean);
+
+      if (names.length > 0) {
+        return names.join(', ');
+      }
+    }
+
+    // Fallback berdasarkan ID
+    const ids = extractKomponenIds(item);
+
+    if (ids.length === 0) {
+      return 'Belum ada komponen di database';
+    }
+
+    const found = komponenList.filter((komponen) =>
+      ids.includes(Number(komponen.id))
+    );
+
+    if (found.length > 0) {
+      return found
+        .map((komponen) => komponen.nama || komponen.nama_komponen)
+        .filter(Boolean)
+        .join(', ');
+    }
+
+    return `ID: ${ids.join(', ')}`;
+  };
+
+  const getProvinsiName = (id) => {
+    if (!id) {
+      return 'Nasional';
+    }
+
+    const found = provinsiList.find(
+      (provinsi) =>
+        String(provinsi.id_provinsi) === String(id)
+    );
+
+    return found?.nama_provinsi || id;
+  };
+
+  const getKotaName = (id) => {
+    if (!id) {
+      return 'Semua Kota';
+    }
+
+    const found = kotaList.find(
+      (kota) => String(kota.id_kota) === String(id)
+    );
+
+    return found?.nama_kota || id;
+  };
+
+  /* =========================================================
+     FETCH DATA
+  ========================================================= */
 
   const fetchData = async () => {
     setLoading(true);
     setErrorMsg('');
+
     try {
-      const [tarifRes, layananRes, kotaRes] = await Promise.all([
-        getAllTarif().catch(() => []),
-        getAllLayanan().catch(() => []),
-        getAllKotaKabupaten().catch(() => [])
+      const [
+        tarifRes,
+        layananRes,
+        komponenRes,
+        provinsiRes,
+        kotaRes,
+      ] = await Promise.all([
+        getAllTarif().catch((error) => {
+          console.error('Gagal GET master tarif:', error);
+          return [];
+        }),
+
+        getAllLayanan().catch((error) => {
+          console.error('Gagal GET layanan:', error);
+          return [];
+        }),
+
+        getAllKomponenTarif().catch((error) => {
+          console.error('Gagal GET komponen tarif:', error);
+          return { data: [] };
+        }),
+
+        getAllWilayahLayanan().catch((error) => {
+          console.error('Gagal GET wilayah layanan:', error);
+          return [];
+        }),
+
+        getAllKotaKabupaten().catch((error) => {
+          console.error('Gagal GET kota kabupaten:', error);
+          return [];
+        }),
       ]);
 
-      setTarifList(tarifRes);
-      setLayananList(layananRes);
-      setKotaList(kotaRes);
-    } catch (err) {
+      /* -----------------------------------------
+         MASTER TARIF
+      ----------------------------------------- */
+
+      const normalizedTarif = Array.isArray(tarifRes)
+        ? tarifRes
+        : [];
+
+      /* -----------------------------------------
+         KOMPONEN TARIF
+      ----------------------------------------- */
+
+      const rawKomponen = Array.isArray(komponenRes)
+        ? komponenRes
+        : komponenRes?.data || [];
+
+      const normalizedKomponen = rawKomponen
+        .map((komponen) => ({
+          ...komponen,
+
+          id: Number(
+            komponen.id_komponen ??
+              komponen.komponen_id ??
+              komponen.id
+          ),
+
+          nama:
+            komponen.nama_komponen ||
+            komponen.nama ||
+            '',
+
+          tipe_komponen:
+            komponen.tipe_komponen ||
+            komponen.tipe ||
+            '',
+
+          jenis_nilai:
+            komponen.jenis_nilai ||
+            '',
+
+          nilai:
+            komponen.nilai ?? '',
+        }))
+        .filter(
+          (komponen) =>
+            !Number.isNaN(komponen.id)
+        );
+
+      /* -----------------------------------------
+         KOTA
+      ----------------------------------------- */
+
+      const rawKota = Array.isArray(kotaRes)
+        ? kotaRes
+        : kotaRes?.data || [];
+
+      const normalizedKota = rawKota
+        .map((kota) => ({
+          ...kota,
+
+          id_kota: Number(
+            kota.id_kota ??
+              kota.id
+          ),
+
+          id_provinsi:
+            kota.id_provinsi ??
+            kota.provinsi_id,
+
+          nama_kota:
+            kota.nama_kota ||
+            kota.nama ||
+            '',
+        }))
+        .filter(
+          (kota) =>
+            !Number.isNaN(kota.id_kota)
+        );
+
+      /* -----------------------------------------
+         PROVINSI
+      ----------------------------------------- */
+
+      const rawProvinsi = Array.isArray(provinsiRes)
+        ? provinsiRes
+        : provinsiRes?.data || [];
+
+      const normalizedProvinsi = rawProvinsi
+        .map((provinsi) => ({
+          ...provinsi,
+
+          id_provinsi: Number(
+            provinsi.id_provinsi ??
+              provinsi.provinsi_id ??
+              provinsi.id
+          ),
+
+          nama_provinsi:
+            provinsi.nama_provinsi ||
+            provinsi.nama ||
+            '',
+        }))
+        .filter(
+          (provinsi) =>
+            !Number.isNaN(provinsi.id_provinsi)
+        );
+
+      /* -----------------------------------------
+         LAYANAN
+      ----------------------------------------- */
+
+      const rawLayanan = Array.isArray(layananRes)
+        ? layananRes
+        : layananRes?.data || [];
+
+      const normalizedLayanan = rawLayanan
+        .map((layanan) => ({
+          ...layanan,
+
+          id: Number(layanan.id_layanan ?? layanan.id),
+
+          nama:
+            layanan.nama_layanan ||
+            layanan.nama ||
+            '',
+        }))
+        .filter(
+          (layanan) =>
+            !Number.isNaN(layanan.id)
+        );
+
+      /* -----------------------------------------
+         SET STATE
+      ----------------------------------------- */
+
+      setTarifList(normalizedTarif);
+      setLayananList(normalizedLayanan);
+      setKomponenList(normalizedKomponen);
+      setProvinsiList(normalizedProvinsi);
+      setKotaList(normalizedKota);
+
+      console.log('=== MASTER TARIF ===', normalizedTarif);
+      console.log(
+        '=== KOMPONEN TARIF ===',
+        normalizedKomponen
+      );
+    } catch (error) {
+      console.error('Fetch master tarif error:', error);
       setErrorMsg('Gagal memuat data master tarif');
     } finally {
       setLoading(false);
@@ -56,91 +454,308 @@ export default function DataMasterTarif() {
     fetchData();
   }, []);
 
+  /* =========================================================
+     ADD FORM
+  ========================================================= */
+
   const handleOpenAddForm = () => {
     setSelectedTarif(null);
+
     setFormNama('');
     setFormLayanan('');
-    setFormKota('');
-    setFormTarifPasien('');
-    setFormPotonganPersenNakes('');
+    setFormKomponenIds([]);
+    setFormIdProvinsi('');
+    setFormIdKota('');
+    setFormFeeNakesTipe('nominal');
+    setFormFeeNakesNilai('');
     setFormActive(true);
+
     setViewMode('add');
   };
 
+  /* =========================================================
+     EDIT FORM
+  ========================================================= */
+
   const handleOpenEditForm = (item) => {
+    console.log('=== EDIT MASTER TARIF ===');
+    console.log('DATA:', item);
+    console.log(
+      'KOMPONEN TARIF:',
+      item?.komponen_tarif
+    );
+
     setSelectedTarif(item);
-    setFormNama(item.nama_template || '');
-    setFormLayanan((item.id_layanan ?? '').toString());
-    setFormKota((item.id_kota ?? '').toString());
-    setFormTarifPasien((item.tarif_pasien ?? '').toString());
-    setFormPotonganPersenNakes((item.potongan_persen_nakes ?? '').toString());
-    setFormActive(item.is_active !== undefined ? Boolean(item.is_active) : true);
+
+    setFormNama(
+      item?.nama_template || ''
+    );
+
+    setFormLayanan(
+      (
+        item?.id_layanan ??
+        item?.layanan?.id_layanan ??
+        ''
+      ).toString()
+    );
+
+    /*
+     * PENTING:
+     * GET /master-tarif mengembalikan:
+     *
+     * komponen_tarif: [
+     *   {
+     *     id_komponen: 1,
+     *     ...
+     *   }
+     * ]
+     *
+     * Jadi checkbox harus membaca
+     * id_komponen dari relationship tersebut.
+     */
+    const validKomponenIds =
+      extractKomponenIds(item);
+
+    console.log(
+      'KOMPONEN IDS YANG AKAN DICENTANG:',
+      validKomponenIds
+    );
+
+    setFormKomponenIds(
+      validKomponenIds
+    );
+
+    setFormIdProvinsi(
+      (
+        item?.id_provinsi ??
+        ''
+      ).toString()
+    );
+
+    setFormIdKota(
+      (
+        item?.id_kota ??
+        ''
+      ).toString()
+    );
+
+    setFormFeeNakesTipe(
+      item?.fee_nakes_tipe ||
+        'nominal'
+    );
+
+    setFormFeeNakesNilai(
+  item.fee_nakes_tipe === 'nominal'
+    ? String(Math.round(Number(item.fee_nakes_nilai) || 0))
+    : String(item.fee_nakes_nilai ?? '')
+);
+
+    setFormActive(
+      normalizeBoolean(
+        item?.is_active,
+        true
+      )
+    );
+
     setViewMode('edit');
   };
+
+  /* =========================================================
+     BACK
+  ========================================================= */
 
   const handleBackToList = () => {
     setViewMode('list');
     setSelectedTarif(null);
   };
 
-  const formatDisplayNumber = (val) => {
-    if (!val && val !== 0) return '';
-    const clean = val.toString().replace(/[^0-9]/g, '');
-    if (!clean) return '';
-    return Number(clean).toLocaleString('id-ID');
+  /* =========================================================
+     TOGGLE KOMPONEN
+  ========================================================= */
+
+  const toggleKomponen = (id) => {
+    const numericId = Number(id);
+
+    if (Number.isNaN(numericId)) {
+      return;
+    }
+
+    setFormKomponenIds((prev) => {
+      if (prev.includes(numericId)) {
+        return prev.filter(
+          (value) => value !== numericId
+        );
+      }
+
+      return [
+        ...prev,
+        numericId,
+      ];
+    });
   };
 
-  const parseFormattedNumber = (val) => {
-    if (!val) return 0;
-    const clean = val.toString().replace(/[^0-9]/g, '');
-    return parseFloat(clean) || 0;
-  };
+  /* =========================================================
+     SUBMIT
+  ========================================================= */
 
   const handleFormSubmit = async (e) => {
     e.preventDefault();
+
+    if (isSubmitting) {
+      return;
+    }
+
     setIsSubmitting(true);
 
-    if (!formLayanan) {
-      Swal.fire('Error', 'Silakan pilih Layanan', 'error');
+    /*
+     * Validasi utama
+     */
+    if (
+      !formNama.trim() ||
+      !formLayanan.trim() ||
+      formKomponenIds.length === 0
+    ) {
+      Swal.fire(
+        'Error',
+        'Nama template, Layanan, dan Komponen Tarif wajib diisi!',
+        'error'
+      );
+
       setIsSubmitting(false);
       return;
     }
 
-    const tarifPasienNum = parseFormattedNumber(formTarifPasien);
-    const potonganNakesNum = parseInt(formPotonganPersenNakes) || 0;
-
+    /*
+     * Payload SESUAI Swagger API
+     *
+     * POST /master-tarif:
+     * komponen_tarif_ids
+     *
+     * PUT /master-tarif/{id}:
+     * komponen_tarif_ids
+     */
     const payload = {
-      nama_template: formNama,
-      id_layanan: Number(formLayanan),
-      id_kota: formKota ? Number(formKota) : null,
-      tarif_pasien: tarifPasienNum,
-      potongan_persen_nakes: potonganNakesNum,
-      is_active: formActive
+      nama_template:
+        formNama.trim(),
+
+      id_layanan:
+        formLayanan,
+
+      layanan_ids: formLayanan
+        ? [
+            Number(formLayanan) ||
+              formLayanan,
+          ]
+        : [],
+
+      komponen_tarif_ids:
+        formKomponenIds
+          .map((id) => parseInt(id, 10))
+          .filter(
+            (id) => !Number.isNaN(id)
+          ),
+
+      id_provinsi:
+        formIdProvinsi || null,
+
+      id_kota:
+        formIdKota || null,
+
+      fee_nakes_tipe:
+        formFeeNakesTipe,
+
+      fee_nakes_nilai:
+        parseFloat(
+          formFeeNakesNilai
+        ) || 0,
+
+      is_active:
+        Boolean(formActive),
     };
 
+    console.log(
+      '=== PAYLOAD MASTER TARIF ==='
+    );
+    console.log(payload);
+
     try {
-      const idMaster = selectedTarif?.id_master_tarif || selectedTarif?.id;
-      if (viewMode === 'edit' && idMaster) {
-        await updateTarifData(idMaster, payload);
-        Swal.fire({ icon: 'success', title: 'Berhasil', text: 'Template master tarif diperbarui!' });
+      const idMaster =
+        selectedTarif?.id_master_tarif ||
+        selectedTarif?.id;
+
+      if (
+        viewMode === 'edit' &&
+        idMaster
+      ) {
+        /*
+         * UPDATE
+         */
+        await updateTarifData(
+          idMaster,
+          payload
+        );
+
+        await Swal.fire({
+          icon: 'success',
+          title: 'Berhasil',
+          text: 'Template master tarif diperbarui!',
+          timer: 1500,
+          showConfirmButton: false,
+        });
       } else {
-        await createTarifData(payload);
-        Swal.fire({ icon: 'success', title: 'Berhasil', text: 'Template master tarif baru ditambahkan!' });
+        /*
+         * CREATE
+         */
+        await createTarifData(
+          payload
+        );
+
+        await Swal.fire({
+          icon: 'success',
+          title: 'Berhasil',
+          text: 'Template master tarif baru ditambahkan!',
+          timer: 1500,
+          showConfirmButton: false,
+        });
       }
+
+      /*
+       * Refresh list setelah create/update
+       */
+      await fetchData();
+
       setViewMode('list');
-      fetchData();
-    } catch (err) {
-      Swal.fire({ icon: 'error', title: 'Gagal', text: err.message || 'Terjadi kesalahan saat menyimpan data' });
+      setSelectedTarif(null);
+    } catch (error) {
+      console.error(
+        'Gagal menyimpan master tarif:',
+        error
+      );
+
+      Swal.fire({
+        icon: 'error',
+        title: 'Gagal',
+        text:
+          error?.message ||
+          'Terjadi kesalahan saat menyimpan data',
+      });
     } finally {
       setIsSubmitting(false);
     }
   };
 
+  /* =========================================================
+     DELETE
+  ========================================================= */
+
   const handleDeleteClick = (item) => {
-    const idMaster = item.id_master_tarif || item.id;
+    const idMaster =
+      item?.id_master_tarif ||
+      item?.id;
+
     Swal.fire({
       title: 'Hapus Master Tarif?',
-      text: `Anda yakin ingin menghapus template "${item.nama_template}"?`,
+      text: `Anda yakin ingin menghapus template "${item?.nama_template || ''}"?`,
       icon: 'warning',
       showCancelButton: true,
       confirmButtonColor: '#d33',
@@ -148,38 +763,87 @@ export default function DataMasterTarif() {
       confirmButtonText: 'Ya, Hapus!',
       cancelButtonText: 'Batal',
     }).then(async (result) => {
-      if (result.isConfirmed) {
-        try {
-          await deleteTarifData(idMaster);
-          Swal.fire('Terhapus!', 'Template tarif berhasil dihapus.', 'success');
-          fetchData();
-        } catch (err) {
-          Swal.fire('Gagal!', err.message || 'Gagal menghapus template tarif.', 'error');
-        }
+      if (!result.isConfirmed) {
+        return;
+      }
+
+      try {
+        await deleteTarifData(
+          idMaster
+        );
+
+        await Swal.fire({
+          icon: 'success',
+          title: 'Terhapus!',
+          text: 'Template tarif berhasil dihapus.',
+          timer: 1500,
+          showConfirmButton: false,
+        });
+
+        await fetchData();
+      } catch (error) {
+        console.error(
+          'Gagal menghapus master tarif:',
+          error
+        );
+
+        Swal.fire({
+          icon: 'error',
+          title: 'Gagal!',
+          text:
+            error?.message ||
+            'Gagal menghapus template tarif.',
+        });
       }
     });
   };
 
-  const formatRupiah = (val) => {
-    return new Intl.NumberFormat('id-ID', {
-      style: 'currency',
-      currency: 'IDR',
-      maximumFractionDigits: 0,
-    }).format(val || 0);
-  };
+  /* =========================================================
+     FILTER + PAGINATION
+  ========================================================= */
 
-  const filteredTarif = tarifList.filter((item) => {
-    const matchesSearch = item.nama_template?.toLowerCase().includes(search.toLowerCase());
-    return matchesSearch;
-  });
+  const filteredTarif =
+    tarifList.filter((item) => {
+      const namaTemplate =
+        item?.nama_template || '';
 
-  const totalPages = Math.max(Math.ceil(filteredTarif.length / itemsPerPage), 1);
-  const startIndex = (currentPage - 1) * itemsPerPage;
-  const paginatedData = filteredTarif.slice(startIndex, startIndex + itemsPerPage);
+      return namaTemplate
+        .toLowerCase()
+        .includes(
+          search.toLowerCase()
+        );
+    });
 
-  if (viewMode === 'add' || viewMode === 'edit') {
+  const totalPages = Math.max(
+    Math.ceil(
+      filteredTarif.length /
+        itemsPerPage
+    ),
+    1
+  );
+
+  const startIndex =
+    (currentPage - 1) *
+    itemsPerPage;
+
+  const paginatedData =
+    filteredTarif.slice(
+      startIndex,
+      startIndex +
+        itemsPerPage
+    );
+
+  /* =========================================================
+     FORM VIEW
+  ========================================================= */
+
+  if (
+    viewMode === 'add' ||
+    viewMode === 'edit'
+  ) {
     return (
       <div className="w-full space-y-6 pb-10">
+        {/* HEADER */}
         <div>
           <button
             type="button"
@@ -187,139 +851,401 @@ export default function DataMasterTarif() {
             className="inline-flex items-center gap-2 text-sm font-medium text-slate-500 hover:text-slate-800 transition-colors mb-2 cursor-pointer"
           >
             <FaArrowLeft />
-            <span>Kembali ke Master Tarif</span>
+
+            <span>
+              Kembali ke Master Tarif
+            </span>
           </button>
         </div>
 
-        <form onSubmit={handleFormSubmit} className="w-full rounded-2xl border border-slate-200 bg-white p-6 sm:p-8 shadow-sm space-y-6">
+        {/* FORM */}
+        <form
+          onSubmit={handleFormSubmit}
+          className="w-full rounded-2xl border border-slate-200 bg-white p-6 sm:p-8 shadow-sm space-y-6"
+        >
+          {/* TITLE */}
           <div>
             <h2 className="text-base sm:text-lg font-bold text-slate-900">
-              {viewMode === 'add' ? 'Tambah Template Master Tarif' : 'Edit Template Master Tarif'}
+              {viewMode === 'add'
+                ? 'Tambah Template Master Tarif'
+                : 'Edit Template Master Tarif'}
             </h2>
+
             <p className="text-sm text-slate-500 mt-0.5">
-              Atur skema perhitungan tarif baru untuk tindakan medis atau layanan.
+              Pilih layanan dan gabungkan
+              komponen biaya untuk membuat
+              template tarif.
             </p>
           </div>
 
           <div className="space-y-6 pt-2">
-            <div>
-              <label className="block text-xs font-semibold uppercase tracking-wider text-slate-600 mb-2">
-                Nama Template Tarif <span className="text-red-500">*</span>
-              </label>
-              <input
-                type="text"
-                required
-                placeholder="Contoh: Tarif Tindakan Medis Standar"
-                className="w-full rounded-xl border border-slate-200 px-4 py-2.5 text-sm text-slate-800 focus:border-green-500 focus:outline-none focus:ring-2 focus:ring-green-500/20 transition-all"
-                value={formNama}
-                onChange={(e) => setFormNama(e.target.value)}
-              />
-            </div>
-
+            {/* NAMA + LAYANAN */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+              {/* NAMA TEMPLATE */}
               <div>
                 <label className="block text-xs font-semibold uppercase tracking-wider text-slate-600 mb-2">
-                  Layanan <span className="text-red-500">*</span>
+                  Nama Template Tarif{' '}
+                  <span className="text-red-500">
+                    *
+                  </span>
                 </label>
+
+                <input
+                  type="text"
+                  required
+                  maxLength={255}
+                  placeholder="Contoh: Tarif Tindakan Medis Standar"
+                  className="w-full rounded-xl border border-slate-200 px-4 py-2.5 text-sm text-slate-800 focus:border-green-500 focus:outline-none focus:ring-2 focus:ring-green-500/20 transition-all"
+                  value={formNama}
+                  onChange={(e) =>
+                    setFormNama(
+                      e.target.value
+                    )
+                  }
+                />
+              </div>
+
+              {/* LAYANAN */}
+              <div>
+                <label className="block text-xs font-semibold uppercase tracking-wider text-slate-600 mb-2">
+                  Layanan{' '}
+                  <span className="text-red-500">
+                    *
+                  </span>
+                </label>
+
                 <select
                   className="w-full rounded-xl border border-slate-200 px-4 py-2.5 text-sm text-slate-800 focus:border-green-500 focus:outline-none focus:ring-2 focus:ring-green-500/20 transition-all bg-white"
                   value={formLayanan}
-                  onChange={(e) => setFormLayanan(e.target.value)}
+                  onChange={(e) =>
+                    setFormLayanan(
+                      e.target.value
+                    )
+                  }
                   required
                 >
-                  <option value="">Pilih Layanan</option>
-                  {layananList.length > 0 ? (
-                    layananList.map((lay) => (
-                      <option key={lay.id} value={lay.id}>
-                        {lay.nama}
+                  <option value="">
+                    Pilih Layanan
+                  </option>
+
+                  {layananList.map(
+                    (layanan) => (
+                      <option
+                        key={
+                          layanan.id
+                        }
+                        value={
+                          layanan.id
+                        }
+                      >
+                        {layanan.nama}
                       </option>
-                    ))
-                  ) : (
-                    <option disabled>Layanan Kosong</option>
+                    )
+                  )}
+                </select>
+              </div>
+            </div>
+
+            {/* KOMPONEN TARIF */}
+            <div>
+              <label className="block text-xs font-semibold uppercase tracking-wider text-slate-600 mb-2">
+                Pilih Komponen Tarif{' '}
+                <span className="text-red-500">
+                  *
+                </span>
+              </label>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-48 overflow-y-auto border border-slate-200 rounded-xl p-3 bg-slate-50/50">
+                {komponenList.length >
+                0 ? (
+                  komponenList.map(
+                    (komponen) => {
+                      const numericId =
+                        Number(
+                          komponen.id
+                        );
+
+                      const isChecked =
+                        formKomponenIds.includes(
+                          numericId
+                        );
+
+                      return (
+                        <label
+                          key={
+                            numericId
+                          }
+                          className={`flex items-start gap-2 p-2 rounded-lg bg-white border cursor-pointer transition-all ${
+                            isChecked
+                              ? 'border-green-400 bg-green-50/50'
+                              : 'border-slate-100 hover:border-green-300'
+                          }`}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={
+                              isChecked
+                            }
+                            onChange={() =>
+                              toggleKomponen(
+                                numericId
+                              )
+                            }
+                            className="mt-1 w-4 h-4 text-green-600 border-gray-300 rounded focus:ring-green-500"
+                          />
+
+                          <div className="text-xs">
+                            {/* NAMA */}
+                            <div className="font-semibold text-slate-700">
+                              {komponen.nama ||
+                                komponen.nama_komponen}
+                            </div>
+
+                            {/* INFO */}
+                            <div className="text-slate-500">
+                              {komponen.tipe_komponen ||
+                                komponen.tipe ||
+                                '-'}{' '}
+                              |{' '}
+                              {String(
+                                komponen.jenis_nilai
+                              ).toLowerCase() ===
+                                'persen'
+                                ? `Persen: ${komponen.nilai ?? 0}%`
+                                : `Nominal: ${formatRupiah(
+                                    komponen.nilai
+                                  )}`}
+                            </div>
+                          </div>
+                        </label>
+                      );
+                    }
+                  )
+                ) : (
+                  <p className="text-sm text-red-500 col-span-2">
+                    Data Komponen Tarif kosong
+                    atau gagal dimuat!
+                  </p>
+                )}
+              </div>
+
+              {/* JUMLAH KOMPONEN */}
+              <div className="mt-2 text-xs text-slate-500">
+                {formKomponenIds.length >
+                0
+                  ? `${formKomponenIds.length} komponen dipilih`
+                  : 'Belum ada komponen dipilih'}
+              </div>
+            </div>
+
+            {/* PROVINSI + KOTA */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+              {/* PROVINSI */}
+              <div>
+                <label className="block text-xs font-semibold uppercase tracking-wider text-slate-600 mb-2">
+                  Provinsi (Opsional)
+                </label>
+
+                <select
+                  className="w-full rounded-xl border border-slate-200 px-4 py-2.5 text-sm text-slate-800 focus:border-green-500 focus:outline-none focus:ring-2 focus:ring-green-500/20 transition-all bg-white"
+                  value={
+                    formIdProvinsi
+                  }
+                  onChange={(e) => {
+                    setFormIdProvinsi(
+                      e.target.value
+                    );
+
+                    setFormIdKota('');
+                  }}
+                >
+                  <option value="">
+                    Nasional / Semua Provinsi
+                  </option>
+
+                  {provinsiList.map(
+                    (provinsi) => (
+                      <option
+                        key={
+                          provinsi.id_provinsi
+                        }
+                        value={
+                          provinsi.id_provinsi
+                        }
+                      >
+                        {
+                          provinsi.nama_provinsi
+                        }
+                      </option>
+                    )
                   )}
                 </select>
               </div>
 
+              {/* KOTA */}
               <div>
                 <label className="block text-xs font-semibold uppercase tracking-wider text-slate-600 mb-2">
-                  Kota/Kabupaten <span className="text-slate-400 font-normal lowercase">(opsional / default nasional)</span>
+                  Kota/Kabupaten (Opsional)
                 </label>
+
                 <select
                   className="w-full rounded-xl border border-slate-200 px-4 py-2.5 text-sm text-slate-800 focus:border-green-500 focus:outline-none focus:ring-2 focus:ring-green-500/20 transition-all bg-white"
-                  value={formKota}
-                  onChange={(e) => setFormKota(e.target.value)}
+                  value={formIdKota}
+                  onChange={(e) =>
+                    setFormIdKota(
+                      e.target.value
+                    )
+                  }
+                  disabled={
+                    !formIdProvinsi
+                  }
                 >
-                  <option value="">Nasional / Default</option>
-                  {kotaList.map((kota) => (
-                    <option key={kota.id_kota} value={kota.id_kota}>
-                      {kota.nama_kota}
-                    </option>
-                  ))}
+                  <option value="">
+                    Semua Kota di Provinsi
+                  </option>
+
+                  {kotaList
+                    .filter(
+                      (kota) =>
+                        !formIdProvinsi ||
+                        String(
+                          kota.id_provinsi
+                        ) ===
+                          String(
+                            formIdProvinsi
+                          )
+                    )
+                    .map(
+                      (kota) => (
+                        <option
+                          key={
+                            kota.id_kota
+                          }
+                          value={
+                            kota.id_kota
+                          }
+                        >
+                          {
+                            kota.nama_kota
+                          }
+                        </option>
+                      )
+                    )}
                 </select>
               </div>
             </div>
 
+            {/* FEE NAKES */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+              {/* TIPE */}
               <div>
                 <label className="block text-xs font-semibold uppercase tracking-wider text-slate-600 mb-2">
-                  Tarif Pasien (Rp) <span className="text-red-500">*</span>
+                  Tipe Fee Nakes
                 </label>
-                <div className="relative">
-                  <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 text-sm font-medium">Rp</span>
-                  <input
-                    type="text"
-                    required
-                    className="w-full rounded-xl border border-slate-200 pl-11 pr-4 py-2.5 text-sm text-slate-800 focus:border-green-500 focus:outline-none focus:ring-2 focus:ring-green-500/20 transition-all bg-slate-50/50"
-                    value={formatDisplayNumber(formTarifPasien)}
-                    onChange={(e) => setFormTarifPasien(e.target.value.replace(/[^0-9]/g, ''))}
-                    placeholder="0"
-                  />
-                </div>
+
+                <select
+                  className="w-full rounded-xl border border-slate-200 px-4 py-2.5 text-sm text-slate-800 focus:border-green-500 focus:outline-none focus:ring-2 focus:ring-green-500/20 transition-all bg-white"
+                  value={
+                    formFeeNakesTipe
+                  }
+                  onChange={(e) =>
+                    setFormFeeNakesTipe(
+                      e.target.value
+                    )
+                  }
+                >
+                  <option value="nominal">
+                    Nominal (Rp)
+                  </option>
+
+                  <option value="persen">
+                    Persen (%)
+                  </option>
+                </select>
               </div>
 
+              {/* NILAI */}
               <div>
-                <label className="block text-xs font-semibold uppercase tracking-wider text-slate-600 mb-2">
-                  Potongan Hak Nakes (%) <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="number"
-                  required
-                  min="0"
-                  max="100"
-                  className="w-full rounded-xl border border-slate-200 px-4 py-2.5 text-sm text-slate-800 focus:border-green-500 focus:outline-none focus:ring-2 focus:ring-green-500/20 transition-all bg-slate-50/50"
-                  value={formPotonganPersenNakes}
-                  onChange={(e) => setFormPotonganPersenNakes(e.target.value)}
-                  placeholder="Contoh: 80"
-                />
-              </div>
+  <label className="block text-xs font-semibold uppercase tracking-wider text-slate-600 mb-2">
+    Nilai Fee Nakes <span className="text-red-500">*</span>
+  </label>
+
+  {formFeeNakesTipe === 'nominal' ? (
+    <div className="relative">
+      <span className="absolute left-4 top-1/2 -translate-y-1/2 text-sm text-slate-400">
+        Rp
+      </span>
+
+      <input
+        type="text"
+        inputMode="numeric"
+        required
+        value={formatDisplayNumber(formFeeNakesNilai)}
+        onChange={(e) =>
+          setFormFeeNakesNilai(
+            parseFormattedNumber(e.target.value)
+          )
+        }
+        className="w-full rounded-xl border border-slate-200 pl-10 pr-4 py-2.5 text-sm text-slate-800 focus:border-green-500 focus:outline-none focus:ring-2 focus:ring-green-500/20 transition-all bg-slate-50/50"
+        placeholder="Contoh: 50.000"
+      />
+    </div>
+  ) : (
+    <input
+      type="number"
+      required
+      min="0"
+      step="0.01"
+      value={formFeeNakesNilai}
+      onChange={(e) =>
+        setFormFeeNakesNilai(e.target.value)
+      }
+      className="w-full rounded-xl border border-slate-200 px-4 py-2.5 text-sm text-slate-800 focus:border-green-500 focus:outline-none focus:ring-2 focus:ring-green-500/20 transition-all bg-slate-50/50"
+      placeholder="Contoh: 30"
+    />
+  )}
+</div>
             </div>
 
+            {/* STATUS */}
             <div>
               <label className="block text-xs font-semibold uppercase tracking-wider text-slate-600 mb-2">
                 Status Aktif
               </label>
+
               <div className="flex gap-3 max-w-sm">
                 <button
                   type="button"
                   className={
                     'flex-1 rounded-xl border px-4 py-2.5 text-sm font-semibold transition-all cursor-pointer ' +
-                    (formActive === true
+                    (formActive ===
+                    true
                       ? 'border-green-500 bg-green-50 text-green-700 shadow-sm'
                       : 'border-slate-200 bg-white text-slate-500 hover:bg-slate-50')
                   }
-                  onClick={() => setFormActive(true)}
+                  onClick={() =>
+                    setFormActive(
+                      true
+                    )
+                  }
                 >
                   Aktif
                 </button>
+
                 <button
                   type="button"
                   className={
                     'flex-1 rounded-xl border px-4 py-2.5 text-sm font-semibold transition-all cursor-pointer ' +
-                    (formActive === false
+                    (formActive ===
+                    false
                       ? 'border-rose-300 bg-rose-50 text-rose-600 shadow-sm'
                       : 'border-slate-200 bg-white text-slate-500 hover:bg-slate-50')
                   }
-                  onClick={() => setFormActive(false)}
+                  onClick={() =>
+                    setFormActive(
+                      false
+                    )
+                  }
                 >
                   Nonaktif
                 </button>
@@ -327,21 +1253,32 @@ export default function DataMasterTarif() {
             </div>
           </div>
 
+          {/* BUTTON */}
           <div className="flex items-center justify-end gap-3 border-t border-slate-100 pt-6">
-            <button 
-              type="button" 
-              onClick={handleBackToList} 
+            <button
+              type="button"
+              onClick={
+                handleBackToList
+              }
               className="px-5 py-2.5 rounded-xl border border-slate-200 bg-white text-slate-700 text-sm font-semibold hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-slate-200 transition-all cursor-pointer"
             >
               Batal
             </button>
-            <button 
-              type="submit" 
-              disabled={isSubmitting} 
+
+            <button
+              type="submit"
+              disabled={
+                isSubmitting
+              }
               className="px-6 py-2.5 rounded-xl bg-green-600 text-white text-sm font-semibold hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-600/20 transition-all disabled:opacity-50 cursor-pointer shadow-sm flex items-center gap-2"
             >
               <FaSave />
-              <span>{isSubmitting ? 'Menyimpan...' : 'Simpan Template Tarif'}</span>
+
+              <span>
+                {isSubmitting
+                  ? 'Menyimpan...'
+                  : 'Simpan Template Tarif'}
+              </span>
             </button>
           </div>
         </form>
@@ -349,27 +1286,51 @@ export default function DataMasterTarif() {
     );
   }
 
+  /* =========================================================
+     LIST VIEW
+  ========================================================= */
+
   return (
     <div className="w-full space-y-6 pb-10">
+      {/* HEADER */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900 tracking-tight">Master Tarif Blueprint</h1>
-          <p className="text-sm text-slate-500 mt-0.5">Kelola skema template perhitungan tarif dan bagi hasil hak nakes.</p>
+          <h1 className="text-2xl font-bold text-slate-900 tracking-tight">
+            Master Tarif
+          </h1>
+
+          <p className="text-sm text-slate-500 mt-0.5">
+            Kelola skema template perhitungan
+            tarif dan bagi hasil hak nakes.
+          </p>
         </div>
-        <button onClick={handleOpenAddForm} className="inline-flex items-center justify-center gap-2 bg-green-600 hover:bg-green-700 text-white px-4 py-2.5 rounded-xl text-sm font-medium shadow-sm shadow-green-600/20 transition-all cursor-pointer">
+
+        <button
+          onClick={
+            handleOpenAddForm
+          }
+          className="inline-flex items-center justify-center gap-2 bg-green-600 hover:bg-green-700 text-white px-4 py-2.5 rounded-xl text-sm font-medium shadow-sm shadow-green-600/20 transition-all cursor-pointer"
+        >
           <FaPlus />
-          <span>Tambah Template Tarif</span>
+
+          <span>
+            Tambah Template Tarif
+          </span>
         </button>
       </div>
 
+      {/* SEARCH */}
       <div className="flex flex-col gap-4 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
         <div className="flex items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm text-slate-500 flex-grow focus-within:border-green-500 focus-within:bg-white focus-within:ring-2 focus-within:ring-green-500/20 transition-all">
           <FaSearch className="text-slate-400" />
+
           <input
             type="text"
             value={search}
             onChange={(e) => {
-              setSearch(e.target.value);
+              setSearch(
+                e.target.value
+              );
               setCurrentPage(1);
             }}
             placeholder="Cari nama template tarif..."
@@ -378,120 +1339,258 @@ export default function DataMasterTarif() {
         </div>
       </div>
 
+      {/* ERROR */}
       {errorMsg && (
         <div className="rounded-xl bg-red-50 px-4 py-3 text-sm text-red-600 border border-red-100">
           {errorMsg}
         </div>
       )}
 
+      {/* TABLE */}
       <div className="rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden">
         <div className="overflow-x-auto">
           {loading ? (
-            <p className="p-10 text-center text-sm text-slate-500">Memuat data master tarif...</p>
+            <p className="p-10 text-center text-sm text-slate-500">
+              Memuat data master tarif...
+            </p>
           ) : (
             <table className="w-full text-left text-sm border-collapse">
               <thead>
                 <tr className="bg-slate-50 border-b border-slate-200 text-xs font-semibold uppercase tracking-wide text-slate-500">
-                  <th className="px-5 py-4">Nama Template / Layanan / Wilayah</th>
-                  <th className="px-5 py-4 text-right">Tarif Pasien</th>
-                  <th className="px-5 py-4 text-center">Bagi Hasil Nakes</th>
-                  <th className="px-5 py-4 text-right">Biaya Admin</th>
-                  <th className="px-5 py-4 text-center">PPN</th>
-                  <th className="px-5 py-4 text-right">Subtotal</th>
-                  <th className="px-5 py-4 text-center">Status</th>
-                  <th className="px-5 py-4 text-center w-24">Aksi</th>
+                  <th className="px-4 py-4 text-center w-12">
+                    No.
+                  </th>
+
+                  <th className="px-5 py-4">
+                    Nama Template
+                  </th>
+
+                  <th className="px-5 py-4">
+                    Layanan
+                  </th>
+
+                  <th className="px-5 py-4">
+                    Komponen Tarif
+                  </th>
+
+                  <th className="px-5 py-4">
+                    Provinsi
+                  </th>
+
+                  <th className="px-5 py-4 text-center">
+                    Fee Nakes
+                  </th>
+
+                  <th className="px-5 py-4 text-center">
+                    Status
+                  </th>
+
+                  <th className="px-5 py-4 text-center w-24">
+                    Aksi
+                  </th>
                 </tr>
               </thead>
+
               <tbody className="divide-y divide-slate-100">
-                {paginatedData.length === 0 ? (
+                {paginatedData.length ===
+                0 ? (
                   <tr>
-                    <td colSpan="8" className="px-5 py-8 text-center text-sm text-slate-400">
-                      Tidak ada template tarif yang ditemukan.
+                    <td
+                      colSpan="8"
+                      className="px-5 py-8 text-center text-sm text-slate-400"
+                    >
+                      Tidak ada template
+                      tarif yang ditemukan.
                     </td>
                   </tr>
                 ) : (
-                  paginatedData.map((item) => {
-                    const lay = layananList.find(l => Number(l.id) === Number(item.id_layanan));
-                    const kota = kotaList.find(k => Number(k.id_kota) === Number(item.id_kota));
-                    const idMaster = item.id_master_tarif || item.id;
+                  paginatedData.map(
+                    (
+                      item,
+                      index
+                    ) => {
+                      const idMaster =
+                        item?.id_master_tarif ||
+                        item?.id;
 
-                    return (
-                      <tr key={idMaster} className="hover:bg-slate-50 transition-colors">
-                        <td className="px-5 py-4">
-                          <div className="flex items-start gap-3">
-                            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-amber-50 text-amber-600 border border-amber-200 mt-0.5">
-                              <FaFileInvoiceDollar className="text-base" />
+                      const rowNumber =
+                        startIndex +
+                        index +
+                        1;
+
+                      const namaLayanan =
+                        layananList.find(
+                          (layanan) =>
+                            String(
+                              layanan.id
+                            ) ===
+                            String(
+                              item?.id_layanan
+                            )
+                        )?.nama ||
+                        item?.layanan
+                          ?.nama_layanan ||
+                        item?.id_layanan ||
+                        'Tidak ditemukan';
+
+                      const komponenText =
+                        getKomponenNames(
+                          item
+                        );
+
+                      const namaProvinsi =
+                        getProvinsiName(
+                          item?.id_provinsi
+                        );
+
+                      const namaKota =
+                        getKotaName(
+                          item?.id_kota
+                        );
+
+                      const isActive =
+                        normalizeBoolean(
+                          item?.is_active,
+                          true
+                        );
+
+                      return (
+                        <tr
+                          key={
+                            idMaster
+                          }
+                          className="hover:bg-slate-50 transition-colors"
+                        >
+                          {/* NO */}
+                          <td className="px-4 py-4 text-center font-medium text-slate-500">
+                            {rowNumber}
+                          </td>
+
+                          {/* NAMA */}
+                          <td className="px-5 py-4">
+                            <div className="font-semibold text-slate-900">
+                              {
+                                item?.nama_template
+                              }
                             </div>
-                            <div>
-                              <div className="font-semibold text-slate-900">{item.nama_template}</div>
-                              <div className="text-xs text-slate-400 mt-0.5">ID Blueprint: #{idMaster}</div>
-                              <div className="text-xs text-teal-600 font-medium mt-0.5">
-                                Layanan: {lay ? lay.nama : `ID: ${item.id_layanan}`}
-                              </div>
-                              <div className="text-xs text-slate-500 mt-0.5">
-                                Wilayah: {kota ? kota.nama_kota : 'Nasional (Default)'}
-                              </div>
+                          </td>
+
+                          {/* LAYANAN */}
+                          <td className="px-5 py-4">
+                            <div className="text-teal-600 font-medium">
+                              {
+                                namaLayanan
+                              }
                             </div>
-                          </div>
-                        </td>
-                        <td className="px-5 py-4 text-right font-medium text-slate-800">
-                          {formatRupiah(item.tarif_pasien)}
-                        </td>
-                        <td className="px-5 py-4 text-center">
-                          <div className="text-slate-800 font-medium">
-                            {item.potongan_persen_nakes}%
-                          </div>
-                          <div className="text-xs text-slate-500">
-                            {item.fee_nakes_nominal ? formatRupiah(item.fee_nakes_nominal) : '-'}
-                          </div>
-                        </td>
-                        <td className="px-5 py-4 text-right font-medium text-slate-800">
-                          {formatRupiah(item.total_biaya_admin)}
-                        </td>
-                        <td className="px-5 py-4 text-center">
-                          <div className="font-semibold text-slate-700">{item.persen_ppn}%</div>
-                          <div className="text-xs text-slate-500">({formatRupiah(item.total_ppn)})</div>
-                        </td>
-                        <td className="px-5 py-4 text-right font-semibold text-slate-900">
-                          {formatRupiah(item.total_tarif_final || item.subtotal)}
-                        </td>
-                        <td className="px-5 py-4 text-center">
-                          <span className={`inline-flex rounded-full px-3 py-1 text-xs font-semibold ${item.is_active ? 'bg-green-100 text-green-700' : 'bg-slate-100 text-slate-500'}`}>
-                            {item.is_active ? 'Aktif' : 'Nonaktif'}
-                          </span>
-                        </td>
-                        <td className="px-5 py-4 text-center">
-                          <div className="flex items-center justify-center gap-1.5">
-                            <button
-                              onClick={() => handleOpenEditForm(item)}
-                              className="p-2 text-slate-600 bg-slate-50 border border-slate-200 rounded-lg hover:bg-slate-100 transition-colors cursor-pointer"
-                              title="Edit Template"
+                          </td>
+
+                          {/* KOMPONEN */}
+                          <td className="px-5 py-4">
+                            <div className="text-xs text-slate-700 max-w-xs">
+                              {
+                                komponenText
+                              }
+                            </div>
+                          </td>
+
+                          {/* PROVINSI */}
+                          <td className="px-5 py-4">
+                            <div className="text-xs text-slate-700">
+                              {
+                                namaProvinsi
+                              }
+
+                              {item?.id_kota
+                                ? ` - ${namaKota}`
+                                : ''}
+                            </div>
+                          </td>
+
+                          {/* FEE NAKES */}
+                          <td className="px-5 py-4 text-center">
+                            <div className="text-sm font-medium text-slate-800">
+                              {item?.fee_nakes_tipe ===
+                              'persen'
+                                ? `${item?.fee_nakes_nilai ?? 0}%`
+                                : formatRupiah(
+                                    item?.fee_nakes_nilai
+                                  )}
+                            </div>
+                          </td>
+
+                          {/* STATUS */}
+                          <td className="px-5 py-4 text-center">
+                            <span
+                              className={`inline-flex rounded-full px-3 py-1 text-xs font-semibold ${
+                                isActive
+                                  ? 'bg-green-100 text-green-700'
+                                  : 'bg-slate-100 text-slate-500'
+                              }`}
                             >
-                              <FaEdit />
-                            </button>
-                            <button
-                              onClick={() => handleDeleteClick(item)}
-                              className="p-2 text-red-600 bg-red-50 border border-red-200 rounded-lg hover:bg-red-100 transition-colors cursor-pointer"
-                              title="Hapus Template"
-                            >
-                              <FaTrash />
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    );
-                  })
+                              {isActive
+                                ? 'Aktif'
+                                : 'Nonaktif'}
+                            </span>
+                          </td>
+
+                          {/* AKSI */}
+                          <td className="px-5 py-4 text-center">
+                            <div className="flex items-center justify-center gap-1.5">
+                              {/* EDIT */}
+                              <button
+                                onClick={() =>
+                                  handleOpenEditForm(
+                                    item
+                                  )
+                                }
+                                className="p-2 text-slate-600 bg-slate-50 border border-slate-200 rounded-lg hover:bg-slate-100 transition-colors cursor-pointer"
+                                title="Edit Template"
+                              >
+                                <FaEdit />
+                              </button>
+
+                              {/* DELETE */}
+                              <button
+                                onClick={() =>
+                                  handleDeleteClick(
+                                    item
+                                  )
+                                }
+                                className="p-2 text-red-600 bg-red-50 border border-red-200 rounded-lg hover:bg-red-100 transition-colors cursor-pointer"
+                                title="Hapus Template"
+                              >
+                                <FaTrash />
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    }
+                  )
                 )}
               </tbody>
             </table>
           )}
         </div>
 
-        {!loading && filteredTarif.length > 0 && (
-          <div className="border-t border-slate-200 bg-white px-5 py-4">
-            <Pagination currentPage={currentPage} totalPages={totalPages} onPageChange={setCurrentPage} />
-          </div>
-        )}
+        {/* PAGINATION */}
+        {!loading &&
+          filteredTarif.length >
+            0 && (
+            <div className="border-t border-slate-200 bg-white px-5 py-4">
+              <Pagination
+                currentPage={
+                  currentPage
+                }
+                totalPages={
+                  totalPages
+                }
+                onPageChange={
+                  setCurrentPage
+                }
+              />
+            </div>
+          )}
       </div>
     </div>
   );
