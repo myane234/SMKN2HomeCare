@@ -433,7 +433,7 @@ export default function PageSeederManagement() {
       {/* TERMINAL LOG */}
       <section className="rounded-2xl border border-slate-700 bg-slate-950 p-5 text-white shadow-md">
         <div className="mb-3 flex items-center gap-2 border-b border-slate-800 pb-3 text-xs font-semibold text-slate-300 sm:text-sm">
-          <FaTerminal className="text-emerald-400" /> Terminal Seeder
+          <FaTerminal className="text-emerald-400" />  Log Seeders 
           {running !== null && (
             <FaSpinner className="ml-auto animate-spin text-amber-400" />
           )}
