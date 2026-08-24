@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { getAllArtikel, deleteArtikel, KATEGORI_ARTIKEL_OPTIONS } from '../data/artikelData';
-import Pagination from '../components/Pagination';
+import Pagination from '../components/pagination';
 
 function formatDate(raw) {
   if (!raw) return '-';
