@@ -127,6 +127,8 @@ const rawSuperAdminMenus = [
         icon: <FaChartBar />,
         children: [
           { to: "/master-tarif", label: "Tarif", icon: <FaChartBar /> },
+          { to: "/master-kategori-tarif", label: "Kategori Tarif", icon: <FaChartBar /> },
+          { to: "/master-tarif-layanan", label: "Tarif & BHP Layanan", icon: <FaChartBar /> },
           { to: "/master-komponen-tarif", label: "Komponen Tarif", icon: <FaChartBar /> },
           { to: "/master-tarif-transport", label: "Tarif Transport", icon: <FaChartBar /> },
         ],

@@ -55,7 +55,7 @@ function normalizePromo(raw) {
     deskripsi: raw.deskripsi ?? raw.deskripsi_layanan ?? raw.deskripsiLayanan ?? '',
     diskon_persen: raw.diskon_persen ?? raw.potongan_harga ?? raw.potonganHarga ?? 0,
     status_promo: raw.status_promo ?? raw.status ?? 'Tidak Aktif',
-    gambar_promo: raw.gambar_promo ?? null, // Memastikan field gambar ada
+    gambar_promo: raw.gambar_promo_url ?? raw.gambar_promo ?? null,
     layanan_ids: layananIds.filter(Boolean),
     layanans: layanan,
     updated_at: raw.updated_at ?? null,

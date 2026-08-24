@@ -82,6 +82,18 @@ export const ALL_CMS_VIEWS = [
     category: "Master Data",
   },
   {
+    slug: "master-kategori-tarif",
+    label: "Kategori Master Tarif",
+    path: "/master-kategori-tarif",
+    category: "Master Data",
+  },
+  {
+    slug: "master-tarif-layanan",
+    label: "Tarif & BHP per Layanan",
+    path: "/master-tarif-layanan",
+    category: "Master Data",
+  },
+  {
     slug: "master-komponen-tarif",
     label: "Komponen Tarif",
     path: "/master-komponen-tarif",

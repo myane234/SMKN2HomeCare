@@ -69,3 +69,18 @@ export async function deleteBarangData(idBhp) {
 
   return await parseJsonResponse(res);
 }
+
+export async function updateGlobalBhpMargin(data) {
+  const res = await fetch(`${URL}/bhp-items/global-margin`, {
+    method: 'PUT',
+    headers: getAuthHeaders({
+      'Content-Type': 'application/json',
+      'Accept': 'application/json',
+    }),
+    body: JSON.stringify(data),
+  });
+
+  const json = await parseJsonResponse(res);
+  const result = extractData(json);
+  return Array.isArray(result) ? result : result ? [result] : [];
+}

@@ -26,6 +26,8 @@ import KelolaTierAdmin from "./pages/KelolaTierAdmin";
 import DataUser from "./pages/admin/AdminUser";
 import DataBarang from "./pages/admin/AdminMasterBarang";
 import DataMasterTarif from "./pages/admin/AdminMasterTarif";
+import MappingLayananBhp from "./pages/admin/mappingLayananBhp";
+import AdminMasterKategoriTarif from "./pages/admin/AdminMasterKategoriTarif";
 import AdminMasterProvinsi from "./pages/admin/AdminMasterProvinsi";
 import AdminMasterkotakabupaten from "./pages/admin/AdminMasterkotakabupaten";
 import AdminMasterKelurahan from "./pages/admin/AdminMasterKelurahan";
@@ -345,6 +347,8 @@ function App() {
         <Route path="/master-kecamatan" element={<ProtectedRoute requiredPath="/master-kecamatan"><AdminMasterKecamatan /></ProtectedRoute>} />
         <Route path="/master-barang" element={<ProtectedRoute requiredPath="/master-barang"><DataBarang /></ProtectedRoute>} />
         <Route path="/master-tarif" element={<ProtectedRoute requiredPath="/master-tarif"><DataMasterTarif /></ProtectedRoute>} />
+        <Route path="/master-kategori-tarif" element={<ProtectedRoute requiredPath="/master-kategori-tarif"><AdminMasterKategoriTarif /></ProtectedRoute>} />
+        <Route path="/master-tarif-layanan" element={<ProtectedRoute requiredPath="/master-tarif-layanan"><MappingLayananBhp /></ProtectedRoute>} />
         <Route path="/master-provinsi" element={<ProtectedRoute requiredPath="/master-provinsi"><AdminMasterProvinsi /></ProtectedRoute>} />
         <Route path="/master-kabupaten" element={<ProtectedRoute requiredPath="/master-kabupaten"><AdminMasterkotakabupaten /></ProtectedRoute>} />
         <Route path="/master-kelurahan" element={<ProtectedRoute requiredPath="/master-kelurahan"><AdminMasterKelurahan /></ProtectedRoute>} />

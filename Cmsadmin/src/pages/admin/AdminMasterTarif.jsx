@@ -13,8 +13,9 @@ import {
   createTarifData,
   updateTarifData,
   deleteTarifData,
+  getAllKategoriTarif,
 } from '../../data/masterTarifData';
-import { getAllLayanan } from '../../data/layananData';
+import { getAllLayanan, getKategoriLayanan } from '../../data/layananData';
 import { getAllKomponenTarif } from '../../data/masterKomponenTarifData';
 import {
   getAllWilayahLayanan,
@@ -27,6 +28,8 @@ export default function AdminMasterTarif() {
 
   const [tarifList, setTarifList] = useState([]);
   const [layananList, setLayananList] = useState([]);
+  const [kategoriLayananList, setKategoriLayananList] = useState([]);
+  const [kategoriTarifList, setKategoriTarifList] = useState([]);
   const [komponenList, setKomponenList] = useState([]);
   const [provinsiList, setProvinsiList] = useState([]);
   const [kotaList, setKotaList] = useState([]);
@@ -42,6 +45,9 @@ export default function AdminMasterTarif() {
 
   const [formNama, setFormNama] = useState('');
   const [formLayanan, setFormLayanan] = useState('');
+  const [formLayananIds, setFormLayananIds] = useState([]);
+  const [formKategoriLayanan, setFormKategoriLayanan] = useState('');
+  const [formKategoriTarif, setFormKategoriTarif] = useState('');
   const [formKomponenIds, setFormKomponenIds] = useState([]);
   const [formIdProvinsi, setFormIdProvinsi] = useState('');
   const [formIdKota, setFormIdKota] = useState('');
@@ -269,6 +275,8 @@ const parseFormattedNumber = (val) => {
         komponenRes,
         provinsiRes,
         kotaRes,
+        kategoriLayananRes,
+        kategoriTarifRes,
       ] = await Promise.all([
         getAllTarif().catch((error) => {
           console.error('Gagal GET master tarif:', error);
@@ -292,6 +300,16 @@ const parseFormattedNumber = (val) => {
 
         getAllKotaKabupaten().catch((error) => {
           console.error('Gagal GET kota kabupaten:', error);
+          return [];
+        }),
+
+        getKategoriLayanan().catch((error) => {
+          console.error('Gagal GET kategori layanan:', error);
+          return [];
+        }),
+
+        getAllKategoriTarif().catch((error) => {
+          console.error('Gagal GET kategori tarif:', error);
           return [];
         }),
       ]);
@@ -433,6 +451,8 @@ const parseFormattedNumber = (val) => {
 
       setTarifList(normalizedTarif);
       setLayananList(normalizedLayanan);
+      setKategoriLayananList(Array.isArray(kategoriLayananRes) ? kategoriLayananRes : []);
+      setKategoriTarifList(Array.isArray(kategoriTarifRes) ? kategoriTarifRes : []);
       setKomponenList(normalizedKomponen);
       setProvinsiList(normalizedProvinsi);
       setKotaList(normalizedKota);
@@ -463,6 +483,9 @@ const parseFormattedNumber = (val) => {
 
     setFormNama('');
     setFormLayanan('');
+    setFormLayananIds([]);
+    setFormKategoriLayanan('');
+    setFormKategoriTarif('');
     setFormKomponenIds([]);
     setFormIdProvinsi('');
     setFormIdKota('');
@@ -498,6 +521,17 @@ const parseFormattedNumber = (val) => {
         ''
       ).toString()
     );
+
+    const includedIds = Array.isArray(item?.layanan_termasuk || item?.layananTermasuk)
+      ? (item.layanan_termasuk || item.layananTermasuk).map((layanan) => Number(layanan.id_layanan ?? layanan.id))
+      : [];
+    const layananIds = Array.from(new Set([
+      Number(item?.id_layanan ?? item?.layanan?.id_layanan),
+      ...includedIds,
+    ].filter((id) => !Number.isNaN(id))));
+    setFormLayananIds(layananIds);
+    setFormKategoriLayanan('');
+    setFormKategoriTarif(String(item?.id_kategori_tarif ?? item?.kategoriTarif?.id_kategori_tarif ?? ''));
 
     /*
      * PENTING:
@@ -612,12 +646,13 @@ const parseFormattedNumber = (val) => {
      */
     if (
       !formNama.trim() ||
-      !formLayanan.trim() ||
+      !formKategoriTarif ||
+      formLayananIds.length === 0 ||
       formKomponenIds.length === 0
     ) {
       Swal.fire(
         'Error',
-        'Nama template, Layanan, dan Komponen Tarif wajib diisi!',
+        'Nama template, Kategori Tarif, minimal satu layanan, dan Komponen Tarif wajib diisi!',
         'error'
       );
 
@@ -638,15 +673,12 @@ const parseFormattedNumber = (val) => {
       nama_template:
         formNama.trim(),
 
-      id_layanan:
-        formLayanan,
+      id_layanan: formLayananIds[0] || formLayanan,
+      id_kategori_tarif: Number(formKategoriTarif),
 
-      layanan_ids: formLayanan
-        ? [
-            Number(formLayanan) ||
-              formLayanan,
-          ]
-        : [],
+      layanan_ids: formLayananIds,
+
+      id_kategori_layanan: formKategoriLayanan || null,
 
       komponen_tarif_ids:
         formKomponenIds
@@ -903,46 +935,55 @@ const parseFormattedNumber = (val) => {
                     )
                   }
                 />
+                <label className="mt-4 block text-xs font-semibold uppercase tracking-wider text-slate-600 mb-2">
+                  Kategori Tarif <span className="text-red-500">*</span>
+                </label>
+                <select
+                  required
+                  value={formKategoriTarif}
+                  onChange={(e) => setFormKategoriTarif(e.target.value)}
+                  className="w-full rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm text-slate-800 focus:border-green-500 focus:outline-none focus:ring-2 focus:ring-green-500/20"
+                >
+                  <option value="">Pilih kategori tarif</option>
+                  {kategoriTarifList.map((kategori) => (
+                    <option key={kategori.id_kategori_tarif} value={kategori.id_kategori_tarif}>{kategori.nama_kategori}</option>
+                  ))}
+                </select>
               </div>
 
               {/* LAYANAN */}
               <div>
-                <label className="block text-xs font-semibold uppercase tracking-wider text-slate-600 mb-2">
-                  Layanan{' '}
-                  <span className="text-red-500">
-                    *
-                  </span>
+                <label className="mb-2 block text-xs font-semibold uppercase tracking-wider text-slate-600">
+                  Layanan (bisa lebih dari satu) <span className="text-red-500">*</span>
                 </label>
-
                 <select
-                  className="w-full rounded-xl border border-slate-200 px-4 py-2.5 text-sm text-slate-800 focus:border-green-500 focus:outline-none focus:ring-2 focus:ring-green-500/20 transition-all bg-white"
-                  value={formLayanan}
-                  onChange={(e) =>
-                    setFormLayanan(
-                      e.target.value
-                    )
-                  }
-                  required
+                  className="mb-2 w-full rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm text-slate-800 focus:border-green-500 focus:outline-none focus:ring-2 focus:ring-green-500/20"
+                  value={formKategoriLayanan}
+                  onChange={(e) => {
+                    const categoryId = e.target.value;
+                    setFormKategoriLayanan(categoryId);
+                    if (categoryId) {
+                      setFormLayananIds(layananList.filter((item) => String(item.kategori) === categoryId).map((item) => item.id));
+                    }
+                  }}
                 >
-                  <option value="">
-                    Pilih Layanan
-                  </option>
-
-                  {layananList.map(
-                    (layanan) => (
-                      <option
-                        key={
-                          layanan.id
-                        }
-                        value={
-                          layanan.id
-                        }
-                      >
-                        {layanan.nama}
-                      </option>
-                    )
-                  )}
+                  <option value="">Pilih kategori untuk mengambil semua layanan</option>
+                  {kategoriLayananList.map((kategori) => (
+                    <option key={kategori.id_kategori_layanan} value={kategori.id_kategori_layanan}>{kategori.nama_kategori}</option>
+                  ))}
                 </select>
+                <div className="max-h-40 space-y-1 overflow-y-auto rounded-xl border border-slate-200 bg-slate-50/50 p-2">
+                  {layananList.map((layanan) => {
+                    const checked = formLayananIds.includes(layanan.id);
+                    return (
+                      <label key={layanan.id} className={`flex cursor-pointer items-center gap-2 rounded-lg border px-3 py-2 text-sm ${checked ? 'border-green-300 bg-green-50 text-green-800' : 'border-transparent bg-white text-slate-600 hover:border-slate-200'}`}>
+                        <input type="checkbox" checked={checked} onChange={() => setFormLayananIds((current) => checked ? current.filter((id) => id !== layanan.id) : [...current, layanan.id])} className="h-4 w-4 rounded border-gray-300 text-green-600 focus:ring-green-500" />
+                        <span className="truncate">{layanan.nama}</span>
+                      </label>
+                    );
+                  })}
+                </div>
+                <p className="mt-1 text-xs text-slate-500">{formLayananIds.length} layanan dipilih. Kategori akan mengambil seluruh layanan di dalamnya.</p>
               </div>
             </div>
 
