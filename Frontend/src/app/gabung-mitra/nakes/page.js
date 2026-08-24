@@ -704,8 +704,8 @@ export default function RegisterNakesPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 py-10 px-4 sm:px-6">
-      <div className="max-w-xl mx-auto bg-white rounded-2xl shadow-sm border border-gray-100 p-6 sm:p-8">
+    <div className="min-h-screen bg-slate-50/80 py-10 sm:py-16 px-4 sm:px-6 lg:px-8">
+      <div className="max-w-4xl mx-auto bg-white rounded-3xl shadow-xl shadow-slate-200/60 border border-slate-200/80 p-6 sm:p-10">
         
         {/* Header Form & Step Indicator */}
         <div className="mb-6">
