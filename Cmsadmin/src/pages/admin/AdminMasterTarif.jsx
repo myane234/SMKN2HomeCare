@@ -951,39 +951,52 @@ const parseFormattedNumber = (val) => {
                 </select>
               </div>
 
-              {/* LAYANAN */}
-              <div>
-                <label className="mb-2 block text-xs font-semibold uppercase tracking-wider text-slate-600">
-                  Layanan (bisa lebih dari satu) <span className="text-red-500">*</span>
-                </label>
-                <select
-                  className="mb-2 w-full rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm text-slate-800 focus:border-green-500 focus:outline-none focus:ring-2 focus:ring-green-500/20"
-                  value={formKategoriLayanan}
-                  onChange={(e) => {
-                    const categoryId = e.target.value;
-                    setFormKategoriLayanan(categoryId);
-                    if (categoryId) {
-                      setFormLayananIds(layananList.filter((item) => String(item.kategori) === categoryId).map((item) => item.id));
-                    }
-                  }}
-                >
-                  <option value="">Pilih kategori untuk mengambil semua layanan</option>
-                  {kategoriLayananList.map((kategori) => (
-                    <option key={kategori.id_kategori_layanan} value={kategori.id_kategori_layanan}>{kategori.nama_kategori}</option>
-                  ))}
-                </select>
-                <div className="max-h-40 space-y-1 overflow-y-auto rounded-xl border border-slate-200 bg-slate-50/50 p-2">
-                  {layananList.map((layanan) => {
-                    const checked = formLayananIds.includes(layanan.id);
-                    return (
-                      <label key={layanan.id} className={`flex cursor-pointer items-center gap-2 rounded-lg border px-3 py-2 text-sm ${checked ? 'border-green-300 bg-green-50 text-green-800' : 'border-transparent bg-white text-slate-600 hover:border-slate-200'}`}>
-                        <input type="checkbox" checked={checked} onChange={() => setFormLayananIds((current) => checked ? current.filter((id) => id !== layanan.id) : [...current, layanan.id])} className="h-4 w-4 rounded border-gray-300 text-green-600 focus:ring-green-500" />
-                        <span className="truncate">{layanan.nama}</span>
-                      </label>
-                    );
-                  })}
+              {/* KATEGORI & LAYANAN */}
+              <div className="flex flex-col gap-4">
+                <div>
+                  <label className="mb-2 block text-xs font-semibold uppercase tracking-wider text-slate-600">
+                    Kategori Layanan
+                  </label>
+                  <select
+                    className="w-full rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm text-slate-800 focus:border-green-500 focus:outline-none focus:ring-2 focus:ring-green-500/20"
+                    value={formKategoriLayanan}
+                    onChange={(e) => {
+                      const categoryId = e.target.value;
+                      setFormKategoriLayanan(categoryId);
+                      if (categoryId) {
+                        const filtered = layananList.filter((item) => String(item.kategori) === String(categoryId));
+                        setFormLayananIds(filtered.map((item) => item.id));
+                      } else {
+                        setFormLayananIds([]);
+                      }
+                    }}
+                  >
+                    <option value="">Semua Kategori (Pilih Manual)</option>
+                    {kategoriLayananList.map((kategori) => (
+                      <option key={kategori.id_kategori_layanan} value={kategori.id_kategori_layanan}>{kategori.nama_kategori}</option>
+                    ))}
+                  </select>
                 </div>
-                <p className="mt-1 text-xs text-slate-500">{formLayananIds.length} layanan dipilih. Kategori akan mengambil seluruh layanan di dalamnya.</p>
+                
+                <div>
+                  <label className="mb-2 block text-xs font-semibold uppercase tracking-wider text-slate-600">
+                    Layanan (Pilih Satu / Beberapa) <span className="text-red-500">*</span>
+                  </label>
+                  <div className="max-h-40 space-y-1 overflow-y-auto rounded-xl border border-slate-200 bg-slate-50/50 p-2">
+                    {layananList
+                      .filter((layanan) => !formKategoriLayanan || String(layanan.kategori) === String(formKategoriLayanan))
+                      .map((layanan) => {
+                      const checked = formLayananIds.includes(layanan.id);
+                      return (
+                        <label key={layanan.id} className={`flex cursor-pointer items-center gap-2 rounded-lg border px-3 py-2 text-sm ${checked ? 'border-green-300 bg-green-50 text-green-800' : 'border-transparent bg-white text-slate-600 hover:border-slate-200'}`}>
+                          <input type="checkbox" checked={checked} onChange={() => setFormLayananIds((current) => checked ? current.filter((id) => id !== layanan.id) : [...current, layanan.id])} className="h-4 w-4 rounded border-gray-300 text-green-600 focus:ring-green-500" />
+                          <span className="truncate">{layanan.nama}</span>
+                        </label>
+                      );
+                    })}
+                  </div>
+                  <p className="mt-1 text-xs text-slate-500">{formLayananIds.length} layanan dipilih.</p>
+                </div>
               </div>
             </div>
 
