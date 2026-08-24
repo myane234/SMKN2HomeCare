@@ -7,6 +7,7 @@ import {
   deleteBank,
 } from '../../data/masterBankData.js';
 
+
 export default function AdminMasterBank() {
   const [bankList, setBankList] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -36,11 +37,21 @@ export default function AdminMasterBank() {
     setCurrentPage(1);
   }, [searchQuery, statusFilter]);
 
+  const getItemId = (item) => {
+    if (!item) return null;
+    return item.id_bank ?? item.id ?? null;
+  };
+
   async function fetchDataBank() {
     setLoading(true);
     try {
       const data = await getAllBanks();
-      setBankList(data);
+
+      const sorted = (Array.isArray(data) ? data : []).sort(
+        (a, b) => Number(a.id) - Number(b.id)
+      );
+
+      setBankList(sorted);
     } catch (err) {
       console.error('Gagal mengambil data bank:', err);
     } finally {
@@ -59,9 +70,9 @@ export default function AdminMasterBank() {
 
   function handleOpenEdit(item) {
     setSelectedBank(item);
-    setNamaBank(item.nama_bank);
-    setKodeBank(item.kode_bank);
-    setIsActive(item.is_active);
+    setNamaBank(item.nama_bank || '');
+    setKodeBank(item.kode_bank || '');
+    setIsActive(item.is_active ?? true);
     setGambarFile(null);
     setShowForm(true);
   }
@@ -85,7 +96,8 @@ export default function AdminMasterBank() {
 
     try {
       if (selectedBank) {
-        await updateBank(selectedBank.id, formData);
+        const id = getItemId(selectedBank);
+        await updateBank(id, formData);
       } else {
         await createBank(formData);
       }
@@ -93,14 +105,15 @@ export default function AdminMasterBank() {
       fetchDataBank();
     } catch (err) {
       console.error('Gagal menyimpan data bank:', err);
-      alert('Terjadi kesalahan saat menyimpan data bank.');
+      alert(err.message || 'Terjadi kesalahan saat menyimpan data bank.');
     } finally {
       setSubmitting(false);
     }
   }
 
-  async function handleToggle(id) {
+  async function handleToggle(item) {
     try {
+      const id = getItemId(item);
       await toggleStatusBank(id);
       fetchDataBank();
     } catch (err) {
@@ -109,10 +122,11 @@ export default function AdminMasterBank() {
     }
   }
 
-  async function handleDelete(id) {
+  async function handleDelete(item) {
     if (!confirm('Apakah kamu yakin ingin menghapus bank ini?')) return;
 
     try {
+      const id = getItemId(item);
       await deleteBank(id);
       fetchDataBank();
     } catch (err) {
@@ -121,22 +135,10 @@ export default function AdminMasterBank() {
     }
   }
 
-  // Helper untuk merapikan URL gambar agar otomatis mengarah ke backend Laravel
-  function getImgUrl(path) {
-    if (!path) return '';
-    if (path.startsWith('http://') || path.startsWith('https://')) {
-      return path;
-    }
-    // Sesuaikan port backend Laravel Anda jika menggunakan port tertentu (misal: http://localhost:8000)
-    // Jika backend lokal Anda berjalan di http://localhost (tanpa port), gunakan http://localhost saja.
-    return `http://localhost:8000${path.startsWith('/') ? '' : '/'}${path}`;
-  }
-
-  // Filter data berdasarkan pencarian dan status
   const filteredBank = useMemo(() => {
     return bankList.filter((item) => {
       const matchesSearch = 
-        item.nama_bank.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        item.nama_bank?.toLowerCase().includes(searchQuery.toLowerCase()) ||
         (item.kode_bank && item.kode_bank.toLowerCase().includes(searchQuery.toLowerCase()));
       
       const matchesStatus =
@@ -148,7 +150,6 @@ export default function AdminMasterBank() {
     });
   }, [bankList, searchQuery, statusFilter]);
 
-  // Logika Pagination
   const totalPages = Math.ceil(filteredBank.length / itemsPerPage) || 1;
   
   const paginatedBank = useMemo(() => {
@@ -297,13 +298,14 @@ export default function AdminMasterBank() {
                     <tbody className="divide-y divide-slate-100">
                         {paginatedBank.map((item, index) => {
                             const nomorUrut = (currentPage - 1) * itemsPerPage + index + 1;
+                            const uniqueId = getItemId(item);
                             return (
-                            <tr key={item.id} className="hover:bg-slate-50/50">
+                            <tr key={uniqueId || index} className="hover:bg-slate-50/50">
                                 <td className="p-4 font-medium text-slate-500">{nomorUrut}</td>
                                 <td className="p-4">
                                 {item.gambar ? (
                                     <img 
-                                    src={getImgUrl(item.gambar)} 
+                                    src={item.gambar} 
                                     alt={item.nama_bank} 
                                     className="h-8 w-12 object-contain rounded border border-slate-100 bg-white p-0.5" 
                                     />
@@ -322,9 +324,8 @@ export default function AdminMasterBank() {
                                 </td>
                                 <td className="p-4 text-right">
                                 <div className="flex justify-end items-center gap-1.5">
-                                    {/* Toggle Switch */}
                                     <button
-                                    onClick={() => handleToggle(item.id)}
+                                    onClick={() => handleToggle(item)}
                                     type="button"
                                     className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
                                         item.is_active ? 'bg-emerald-600' : 'bg-slate-300'
@@ -338,7 +339,6 @@ export default function AdminMasterBank() {
                                     />
                                     </button>
 
-                                    {/* Tombol Edit (Ikon Pensil) - Padding diubah ke p-1.5 */}
                                     <button
                                     onClick={() => handleOpenEdit(item)}
                                     className="rounded-lg border border-slate-200 bg-white p-1.5 text-slate-600 hover:bg-slate-50 hover:text-emerald-600 transition"
@@ -349,9 +349,8 @@ export default function AdminMasterBank() {
                                     </svg>
                                     </button>
                                     
-                                    {/* Tombol Hapus (Ikon Tong Sampah Merah) - Padding diubah ke p-1.5 */}
                                     <button
-                                    onClick={() => handleDelete(item.id)}
+                                    onClick={() => handleDelete(item)}
                                     className="rounded-lg border border-rose-200 bg-rose-50 p-1.5 text-rose-600 hover:bg-rose-100 transition"
                                     title="Hapus"
                                     >

@@ -160,6 +160,7 @@ const rawSuperAdminMenus = [
       { to: "/tier-admin", label: "Tier Admin", icon: <FaShieldAlt /> },
       { to: "/notification-templates", label: "Template Notifikasi", icon: <FaBell /> },
       { to: "/web-setting", label: "Web Setting (Logo & Icon)", icon: <FaCogs /> },
+      { to: "/konfigurasi-env", label: "API", icon: <FaCogs /> },
       {
         type: "subgroup",
         label: "Pengaturan",
