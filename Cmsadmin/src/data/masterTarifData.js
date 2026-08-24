@@ -32,6 +32,17 @@ export async function getAllTarif() {
   return Array.isArray(data) ? data : (data ? [data] : []);
 }
 
+export async function getAllKategoriTarif() {
+  const res = await fetch(`${URL}/master-kategori-tarif`, {
+    headers: getAuthHeaders({
+      'Content-Type': 'application/json',
+      'Accept': 'application/json',
+    }),
+  });
+  const data = extractData(await parseJsonResponse(res));
+  return Array.isArray(data) ? data : data ? [data] : [];
+}
+
 // POST /api/master-tarif
 export async function createTarifData(data) {
   const res = await fetch(`${URL}/master-tarif`, {
