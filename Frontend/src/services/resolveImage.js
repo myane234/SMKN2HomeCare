@@ -1,73 +1,68 @@
 export function resolveImageUrl(image, updatedAt = null) {
-  const placeholder = "https://placehold.co/900x600?text=Detail+Layanan";
+  const placeholder = "https://placehold.co/900x600?text=SmartHomeCare";
 
   if (!image) return placeholder;
 
   let cleanImage = String(image).trim();
   if (!cleanImage || cleanImage === "null" || cleanImage === "undefined") return placeholder;
 
-  // Keep already valid data/blob URLs as-is.
+  // 1. Data/Blob URLs
   if (cleanImage.startsWith("data:image/") || cleanImage.startsWith("blob:")) {
     return cleanImage;
   }
 
-  // Handle protocol-relative URLs.
+  // 2. Protocol-relative URLs
   if (cleanImage.startsWith("//")) {
     cleanImage = `https:${cleanImage}`;
   }
 
-  const getBuster = () => {
-    if (updatedAt) {
-      const ts = new Date(updatedAt).getTime();
-      if (!isNaN(ts)) return `v=${ts}`;
-    }
-    return `t=${Date.now()}`;
-  };
+  // 3. Local public static assets in Next.js public directory (/images/, /icons/, /logo/, etc.)
+  const normalizedPath = cleanImage.startsWith("/") ? cleanImage : `/${cleanImage}`;
+  if (
+    normalizedPath.startsWith("/images/") ||
+    normalizedPath.startsWith("/icons/") ||
+    normalizedPath.startsWith("/logo/") ||
+    normalizedPath.startsWith("/file.svg") ||
+    normalizedPath.startsWith("/globe.svg")
+  ) {
+    return normalizedPath;
+  }
 
   const baseUrl = (process.env.NEXT_PUBLIC_API_URL || "https://citra.faaruq.com").replace(/\/+$/, "");
 
-  // If the image string contains nested/multiple URLs or local/storage paths (e.g. ".../storage/http://localhost/storage/...")
-  if (cleanImage.includes("http://") || cleanImage.includes("https://")) {
-    const lastHttpIndex = cleanImage.lastIndexOf("http://");
-    const lastHttpsIndex = cleanImage.lastIndexOf("https://");
-    const lastUrlIndex = Math.max(lastHttpIndex, lastHttpsIndex);
-    const targetUrl = cleanImage.substring(lastUrlIndex);
+  // 4. Handle full URLs (HTTP / HTTPS)
+  if (cleanImage.startsWith("http://") || cleanImage.startsWith("https://")) {
+    // Check if URL points to local storage or backend base URL
+    const isLocalHost = cleanImage.includes("localhost") || cleanImage.includes("127.0.0.1");
+    const isBaseUrl = cleanImage.includes(baseUrl);
 
-    const urlMatch = targetUrl.match(/^https?:\/\/([^/]+)(\/.*)?$/i);
-    if (urlMatch) {
-      const host = urlMatch[1].toLowerCase();
-      let path = urlMatch[2] || "";
+    if (cleanImage.includes("/storage/")) {
+      const storageIdx = cleanImage.indexOf("/storage/");
+      const pathAfterStorage = cleanImage.substring(storageIdx + "/storage/".length);
 
-      const isLocalHost = /^(localhost|127\.0\.0\.1|0\.0\.0\.0)(?::\d+)?$/i.test(host);
-      const isBaseHost = baseUrl.toLowerCase().includes(host.split(":")[0]);
-      const hasStorage = path.toLowerCase().includes("/storage/");
-      const isNested = lastUrlIndex > 0;
-
-      if (isLocalHost || isBaseHost || hasStorage || isNested) {
-        cleanImage = path;
-      } else {
-        const buster = getBuster();
-        if (buster && !targetUrl.includes("v=") && !targetUrl.includes("t=")) {
-          return `${targetUrl}${targetUrl.includes("?") ? "&" : "?"}${buster}`;
-        }
-        return targetUrl;
+      // If the path after storage is actually a local asset
+      if (pathAfterStorage.startsWith("images/") || pathAfterStorage.startsWith("/images/")) {
+        return pathAfterStorage.startsWith("/") ? pathAfterStorage : `/${pathAfterStorage}`;
       }
+
+      return `${baseUrl}/storage/${pathAfterStorage.replace(/^\/+/, "")}`;
+    }
+
+    // Third-party external image URL (e.g. iStockphoto, Unsplash, etc.)
+    if (!isLocalHost && !isBaseUrl) {
+      return cleanImage;
     }
   }
 
-  // Strip any remaining http(s)://... domain prefixes or embedded occurrences
-  cleanImage = cleanImage.replace(/https?:\/\/[^/]+/gi, "");
+  // 5. Backend uploaded files in storage (e.g. artikel/123.jpg, layanan/abc.png)
+  let storagePath = cleanImage
+    .replace(/^https?:\/\/[^/]+/gi, "") // strip domain
+    .replace(/^(?:\/?storage\/+|\/+)+/gi, ""); // strip /storage/
 
-  // Strip all leading slashes and any repeated /storage/ or storage/ prefixes
-  cleanImage = cleanImage.replace(/^(?:\/?storage\/+|\/+)+/gi, "");
-
-  const canonicalPath = `/storage/${cleanImage}`;
-  let fullUrl = `${baseUrl}${canonicalPath}`;
-
-  const buster = getBuster();
-  if (buster && !fullUrl.includes("v=") && !fullUrl.includes("t=")) {
-    fullUrl += `${fullUrl.includes("?") ? "&" : "?"}${buster}`;
+  // If path actually points to local public images
+  if (storagePath.startsWith("images/") || storagePath.startsWith("icons/") || storagePath.startsWith("logo/")) {
+    return `/${storagePath}`;
   }
 
-  return fullUrl;
+  return `${baseUrl}/storage/${storagePath}`;
 }

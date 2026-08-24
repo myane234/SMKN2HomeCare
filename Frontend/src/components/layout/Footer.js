@@ -18,6 +18,8 @@ import {
   FaLinkedin,
 } from "react-icons/fa";
 import api from "@/services/api";
+import { getGlobalConfig } from "@/services/configService";
+import { resolveImageUrl } from "@/services/resolveImage";
 
 export default function Footer() {
   const [footerData, setFooterData] = useState({
@@ -25,26 +27,38 @@ export default function Footer() {
     footer_phone: null,
     footer_email: null,
     footer_address: null,
+    footer_logo: null,
     footer_socials: [],
   });
 
   useEffect(() => {
-    api.get("/api/resource/content/footer")
-      .then((res) => {
-        const data = res.data?.data || res.data;
-        if (data) {
-          setFooterData({
-            footer_description: data.footer_description || null,
-            footer_phone: data.footer_phone || null,
-            footer_email: data.footer_email || null,
-            footer_address: data.footer_address || null,
-            footer_socials: Array.isArray(data.footer_socials) ? data.footer_socials : [],
-          });
+    async function loadFooterInfo() {
+      try {
+        const globalCfg = await getGlobalConfig();
+        
+        let resFooter = null;
+        try {
+          const res = await api.get("/api/resource/content/footer");
+          resFooter = res.data?.data || res.data;
+        } catch {
+          // Ignore
         }
-      })
-      .catch((err) => {
+
+        setFooterData({
+          footer_description: resFooter?.footer_description || null,
+          footer_phone: globalCfg?.phone_number || resFooter?.footer_phone || null,
+          footer_email: globalCfg?.email || resFooter?.footer_email || null,
+          footer_address: globalCfg?.address || resFooter?.footer_address || null,
+          footer_logo: globalCfg?.app_logo ? resolveImageUrl(globalCfg.app_logo) : null,
+          footer_socials: Array.isArray(globalCfg?.socials) && globalCfg.socials.length > 0
+            ? globalCfg.socials
+            : (Array.isArray(resFooter?.footer_socials) ? resFooter.footer_socials : []),
+        });
+      } catch (err) {
         console.error("Gagal memuat konten footer:", err);
-      });
+      }
+    }
+    loadFooterInfo();
   }, []);
 
   const defaultDescription =
@@ -95,10 +109,11 @@ export default function Footer() {
         {/* Logo */}
         <div>
           <Image
-            src="/images/logo/logo.png"
+            src={footerData.footer_logo || "/images/logo/logo.png"}
             alt="SmartHomeCare"
             width={170}
             height={60}
+            className="h-14 w-auto object-contain"
           />
 
           <p className="mt-5 text-gray-600 leading-7">

@@ -12,17 +12,29 @@ import { FaShieldAlt } from "react-icons/fa";
 const logo = "/images/logo/logo.png";
 
 // ─── Google Button ────────────────────────────────────────────────────────────
-function GoogleLoginButton({ onSuccess, onError, loading }) {
+function GoogleLoginButton({ onSuccess, onError, loading, isConfigured }) {
   const login = useGoogleLogin({
     flow: "implicit",
     onSuccess: (tokenResponse) => onSuccess(tokenResponse.access_token),
-    onError: () => onError(),
+    onError: () => onError("Login Google dibatalkan atau gagal."),
   });
+
+  const handleClick = () => {
+    if (!isConfigured) {
+      onError("Fitur Google Sign-In belum dikonfigurasi di lingkungan ini. Silakan masuk menggunakan Email & Password.");
+      return;
+    }
+    try {
+      login();
+    } catch {
+      onError("Fitur Google Sign-In belum dikonfigurasi. Silakan masuk menggunakan Email & Password.");
+    }
+  };
 
   return (
     <button
       type="button"
-      onClick={() => login()}
+      onClick={handleClick}
       disabled={loading}
       className="w-full flex items-center justify-center gap-3 rounded-xl border border-slate-200 bg-white py-3.5 font-medium text-slate-700 shadow-sm transition hover:bg-slate-50 hover:shadow disabled:opacity-60 disabled:cursor-not-allowed text-sm cursor-pointer"
     >
@@ -46,7 +58,9 @@ export default function MasukPage() {
   const [errorMsg, setErrorMsg] = useState("");
   const router = useRouter();
 
-  const clientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID || "";
+  const rawClientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID;
+  const clientId = rawClientId && rawClientId.trim() !== "" ? rawClientId : "dummy-client-id.apps.googleusercontent.com";
+  const isConfigured = Boolean(rawClientId && rawClientId.trim() !== "");
 
   function redirectAfterLogin(data) {
     const profileComplete =
@@ -89,8 +103,8 @@ export default function MasukPage() {
     }
   };
 
-  const handleGoogleError = () => {
-    setErrorMsg("Login Google dibatalkan atau gagal");
+  const handleGoogleError = (customMsg) => {
+    setErrorMsg(customMsg || "Login Google dibatalkan atau gagal.");
   };
 
   const renderLoginForm = () => (
@@ -169,6 +183,7 @@ export default function MasukPage() {
           onSuccess={handleGoogleSuccess}
           onError={handleGoogleError}
           loading={loading}
+          isConfigured={isConfigured}
         />
       </GoogleOAuthProvider>
 

@@ -127,6 +127,8 @@ const rawSuperAdminMenus = [
         icon: <FaChartBar />,
         children: [
           { to: "/master-tarif", label: "Tarif", icon: <FaChartBar /> },
+          { to: "/master-kategori-tarif", label: "Kategori Tarif", icon: <FaChartBar /> },
+          { to: "/master-tarif-layanan", label: "Tarif & BHP Layanan", icon: <FaChartBar /> },
           { to: "/master-komponen-tarif", label: "Komponen Tarif", icon: <FaChartBar /> },
           { to: "/master-tarif-transport", label: "Tarif Transport", icon: <FaChartBar /> },
         ],
@@ -160,6 +162,7 @@ const rawSuperAdminMenus = [
       { to: "/tier-admin", label: "Tier Admin", icon: <FaShieldAlt /> },
       { to: "/notification-templates", label: "Template Notifikasi", icon: <FaBell /> },
       { to: "/web-setting", label: "Web Setting (Logo & Icon)", icon: <FaCogs /> },
+      { to: "/konfigurasi-env", label: "API", icon: <FaCogs /> },
       {
         type: "subgroup",
         label: "Pengaturan",

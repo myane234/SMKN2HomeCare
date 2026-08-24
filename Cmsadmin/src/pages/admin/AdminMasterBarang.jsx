@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
-import { FaSearch, FaEdit, FaTrash, FaPlus, FaBoxOpen } from 'react-icons/fa';
+import { FaSearch, FaEdit, FaTrash, FaPlus, FaBoxOpen, FaSlidersH } from 'react-icons/fa';
 import Pagination from '../../components/pagination';
-import { getAllBarang, createBarangData, updateBarangData, deleteBarangData } from '../../data/barangData';
+import { getAllBarang, createBarangData, updateBarangData, deleteBarangData, updateGlobalBhpMargin } from '../../data/barangData';
 import Swal from 'sweetalert2';
 
 export default function DataBarang() {
@@ -23,7 +23,10 @@ export default function DataBarang() {
   // Form State
   const [formNama, setFormNama] = useState('');
   const [formHarga, setFormHarga] = useState('');
-  const [formStok, setFormStok] = useState('');
+  const [formTipe, setFormTipe] = useState('satuan');
+  const [formMarginTipe, setFormMarginTipe] = useState('persen');
+  const [formMarginNilai, setFormMarginNilai] = useState('');
+  const [isMarginOpen, setIsMarginOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const fetchData = () => {
@@ -51,15 +54,19 @@ export default function DataBarang() {
     setSelectedBarang(null);
     setFormNama('');
     setFormHarga('');
-    setFormStok('');
+    setFormTipe('satuan');
+    setFormMarginTipe('persen');
+    setFormMarginNilai('');
     setIsModalOpen(true);
   };
 
   const handleEditClick = (item) => {
     setSelectedBarang(item);
-    setFormNama(item.nama_barang || '');
-    setFormHarga(item.harga_satuan || '');
-    setFormStok(item.stok ?? '');
+    setFormNama(item.nama_bhp || '');
+    setFormHarga(item.harga_modal || '');
+    setFormTipe(item.tipe_bhp || 'satuan');
+    setFormMarginTipe(item.tipe_margin || 'persen');
+    setFormMarginNilai(item.nilai_margin ?? '');
     setIsModalOpen(true);
   };
 
@@ -73,9 +80,12 @@ export default function DataBarang() {
     setIsSubmitting(true);
 
     const payload = {
-      nama_barang: formNama,
-      harga_satuan: parseFloat(formHarga),
-      stok: parseInt(formStok, 10),
+      nama_bhp: formNama,
+      tipe_bhp: formTipe,
+      harga_modal: parseFloat(formHarga),
+      tipe_margin: formMarginTipe,
+      nilai_margin: parseFloat(formMarginNilai) || 0,
+      is_active: true,
     };
 
     try {
@@ -95,10 +105,25 @@ export default function DataBarang() {
     }
   };
 
+  const handleGlobalMargin = async (event) => {
+    event.preventDefault();
+    try {
+      const updated = await updateGlobalBhpMargin({
+        tipe_margin: formMarginTipe,
+        nilai_margin: parseFloat(formMarginNilai) || 0,
+      });
+      setBarangList(updated);
+      setIsMarginOpen(false);
+      Swal.fire({ icon: 'success', title: 'Margin diperbarui', text: 'Margin semua barang dan harga jual berhasil dihitung ulang.', timer: 1600, showConfirmButton: false });
+    } catch (err) {
+      Swal.fire({ icon: 'error', title: 'Gagal', text: err.message || 'Margin global gagal diperbarui.' });
+    }
+  };
+
   const handleDeleteClick = (item) => {
     Swal.fire({
       title: 'Hapus Barang?',
-      text: `Anda yakin ingin menghapus "${item.nama_barang}"? Tindakan ini tidak dapat dibatalkan.`,
+      text: `Anda yakin ingin menghapus "${item.nama_bhp}"? Tindakan ini tidak dapat dibatalkan.`,
       icon: 'warning',
       showCancelButton: true,
       confirmButtonColor: '#d33',
@@ -127,11 +152,11 @@ export default function DataBarang() {
   };
 
   const filteredBarang = barangList.filter((item) => {
-    const matchesSearch = item.nama_barang?.toLowerCase().includes(search.toLowerCase());
+    const matchesSearch = item.nama_bhp?.toLowerCase().includes(search.toLowerCase());
 
     let matchesStok = true;
-    if (filterStok === 'ada') matchesStok = item.stok > 0;
-    if (filterStok === 'habis') matchesStok = item.stok <= 0;
+    if (filterStok === 'ada') matchesStok = item.is_active;
+    if (filterStok === 'habis') matchesStok = !item.is_active;
 
     return matchesSearch && matchesStok;
   });
@@ -146,12 +171,18 @@ export default function DataBarang() {
       <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="page-title">Master Data Barang (BHP)</h1>
-          <p className="page-subtitle">Kelola inventaris Bahan Habis Pakai (BHP) dan penyesuaian stok medis.</p>
+          <p className="page-subtitle">Kelola barang BHP, harga jual, dan margin yang dipakai layanan.</p>
         </div>
+        <div className="flex flex-col gap-2 sm:flex-row">
+        <button onClick={() => setIsMarginOpen(true)} className="btn-outline flex items-center justify-center gap-2">
+          <FaSlidersH />
+          <span>Margin Global</span>
+        </button>
         <button onClick={handleAddClick} className="btn-primary flex items-center justify-center gap-2">
           <FaPlus />
           <span>Tambah Barang</span>
         </button>
+        </div>
       </div>
 
       {/* Filter Section */}
@@ -179,9 +210,9 @@ export default function DataBarang() {
               setCurrentPage(1);
             }}
           >
-            <option value="">Semua Status Stok</option>
-            <option value="ada">Stok Tersedia (&gt; 0)</option>
-            <option value="habis">Stok Habis (0)</option>
+            <option value="">Semua Status</option>
+            <option value="ada">Aktif</option>
+            <option value="habis">Nonaktif</option>
           </select>
         </div>
       </div>
@@ -202,9 +233,10 @@ export default function DataBarang() {
               <thead>
                 <tr className="bg-slate-50 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
                   <th className="border-b border-slate-200 px-4 py-3 text-center w-12">No</th>
-                  <th className="border-b border-slate-200 px-4 py-3 text-left">Nama Barang</th>
-                  <th className="border-b border-slate-200 px-4 py-3 text-right">Harga Satuan</th>
-                  <th className="border-b border-slate-200 px-4 py-3 text-center">Jumlah Stok</th>
+                  <th className="border-b border-slate-200 px-4 py-3 text-left">Nama BHP</th>
+                  <th className="border-b border-slate-200 px-4 py-3 text-right">Harga Modal</th>
+                  <th className="border-b border-slate-200 px-4 py-3 text-right">Margin</th>
+                  <th className="border-b border-slate-200 px-4 py-3 text-right">Harga Jual</th>
                   <th className="border-b border-slate-200 px-4 py-3 text-center">Status</th>
                   <th className="border-b border-slate-200 px-4 py-3 text-center">Aksi</th>
                 </tr>
@@ -212,7 +244,7 @@ export default function DataBarang() {
               <tbody>
                 {paginatedData.length === 0 ? (
                   <tr>
-                    <td colSpan="6" className="px-4 py-8 text-center text-sm text-slate-500">
+                    <td colSpan="7" className="px-4 py-8 text-center text-sm text-slate-500">
                       Tidak ada data barang yang ditemukan.
                     </td>
                   </tr>
@@ -230,22 +262,25 @@ export default function DataBarang() {
                               <FaBoxOpen className="text-base" />
                             </div>
                             <div>
-                              <div className="font-semibold text-slate-900">{item.nama_barang}</div>
+                              <div className="font-semibold text-slate-900">{item.nama_bhp}</div>
                               <div className="text-xs text-slate-400">ID: #{item.id_bhp}</div>
                             </div>
                           </div>
                         </td>
                         <td className="border-b border-slate-200 px-4 py-3.5 text-sm text-right font-medium text-slate-800">
-                          {formatRupiah(item.harga_satuan)}
+                          {formatRupiah(item.harga_modal)}
                         </td>
-                        <td className="border-b border-slate-200 px-4 py-3.5 text-sm text-center font-semibold text-slate-700">
-                          {item.stok}
+                        <td className="border-b border-slate-200 px-4 py-3.5 text-sm text-right font-semibold text-slate-700">
+                          {item.tipe_margin === 'persen' ? `${item.nilai_margin}%` : formatRupiah(item.nilai_margin)}
+                        </td>
+                        <td className="border-b border-slate-200 px-4 py-3.5 text-sm text-right font-semibold text-emerald-700">
+                          {formatRupiah(item.harga_jual)}
                         </td>
                         <td className="border-b border-slate-200 px-4 py-3.5 text-sm text-center">
-                          {item.stok > 0 ? (
-                            <span className="badge badge-aktif">Tersedia</span>
+                          {item.is_active ? (
+                            <span className="badge badge-aktif">Aktif</span>
                           ) : (
-                            <span className="badge badge-nonaktif">Habis</span>
+                            <span className="badge badge-nonaktif">Nonaktif</span>
                           )}
                         </td>
                         <td className="border-b border-slate-200 px-4 py-3.5 text-sm text-center">
@@ -313,7 +348,12 @@ export default function DataBarang() {
                 </div>
 
                 <div>
-                  <label className="form-label">Harga Satuan (Rp)</label>
+                  <label className="form-label">Tipe BHP</label>
+                  <select className="form-input" value={formTipe} onChange={(e) => setFormTipe(e.target.value)}><option value="satuan">Satuan</option><option value="paket">Paket</option></select>
+                </div>
+
+                <div>
+                  <label className="form-label">Harga Modal (Rp)</label>
                   <input
                     type="number"
                     required
@@ -325,17 +365,9 @@ export default function DataBarang() {
                   />
                 </div>
 
-                <div>
-                  <label className="form-label">Jumlah Stok</label>
-                  <input
-                    type="number"
-                    required
-                    min="0"
-                    placeholder="Contoh: 100"
-                    className="form-input"
-                    value={formStok}
-                    onChange={(e) => setFormStok(e.target.value)}
-                  />
+                <div className="grid grid-cols-2 gap-3">
+                  <div><label className="form-label">Tipe Margin</label><select className="form-input" value={formMarginTipe} onChange={(e) => setFormMarginTipe(e.target.value)}><option value="persen">Persen (%)</option><option value="nominal">Nominal (Rp)</option></select></div>
+                  <div><label className="form-label">Nilai Margin</label><input type="number" required min="0" step="0.01" className="form-input" value={formMarginNilai} onChange={(e) => setFormMarginNilai(e.target.value)} /></div>
                 </div>
               </div>
 
@@ -349,6 +381,17 @@ export default function DataBarang() {
               </div>
             </form>
           </div>
+        </div>
+      )}
+
+      {isMarginOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <form onSubmit={handleGlobalMargin} className="w-full max-w-md rounded-xl bg-white p-6 shadow-xl">
+            <h3 className="mb-1 text-lg font-bold text-slate-900">Margin Global</h3>
+            <p className="mb-5 text-sm text-slate-500">Terapkan nilai margin yang sama ke semua barang BHP.</p>
+            <div className="grid grid-cols-2 gap-3"><div><label className="form-label">Tipe Margin</label><select className="form-input" value={formMarginTipe} onChange={(e) => setFormMarginTipe(e.target.value)}><option value="persen">Persen (%)</option><option value="nominal">Nominal (Rp)</option></select></div><div><label className="form-label">Nilai</label><input type="number" required min="0" step="0.01" className="form-input" value={formMarginNilai} onChange={(e) => setFormMarginNilai(e.target.value)} /></div></div>
+            <div className="mt-6 flex justify-end gap-3 border-t border-slate-100 pt-4"><button type="button" onClick={() => setIsMarginOpen(false)} className="btn-outline btn-sm">Batal</button><button type="submit" className="btn-primary btn-sm">Terapkan ke Semua</button></div>
+          </form>
         </div>
       )}
     </div>

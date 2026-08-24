@@ -9,6 +9,10 @@ export default function AdminMasterPendidikan() {
   const [isEditMode, setIsEditMode] = useState(false);
   const [selectedId, setSelectedId] = useState(null);
 
+  // State untuk Pagination
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 10;
+
   // Form State (Hanya nama_pendidikan sesuai endpoint API)
   const [formData, setFormData] = useState({
     nama_pendidikan: '',
@@ -82,9 +86,21 @@ export default function AdminMasterPendidikan() {
     }
   };
 
+  // Filter berdasarkan pencarian
   const filteredData = pendidikanList.filter((item) =>
     item.nama_pendidikan.toLowerCase().includes(searchQuery.toLowerCase())
   );
+
+  // Reset ke halaman 1 jika user mengetik di pencarian
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchQuery]);
+
+  // Logika Pagination
+  const totalPages = Math.ceil(filteredData.length / itemsPerPage) || 1;
+  const indexOfLastItem = currentPage * itemsPerPage;
+  const indexOfFirstItem = indexOfLastItem - itemsPerPage;
+  const currentData = filteredData.slice(indexOfFirstItem, indexOfLastItem);
 
   return (
     <div className="p-6">
@@ -125,17 +141,18 @@ export default function AdminMasterPendidikan() {
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100 text-sm">
-            {filteredData.length === 0 ? (
+            {currentData.length === 0 ? (
               <tr>
                 <td colSpan="3" className="p-8 text-center text-slate-400">Tidak ada data pendidikan.</td>
               </tr>
             ) : (
-              filteredData.map((item, index) => {
+              currentData.map((item, index) => {
                 const itemId = getItemId(item);
+                const absoluteIndex = indexOfFirstItem + index + 1;
 
                 return (
                   <tr key={itemId || index} className="hover:bg-slate-50/50">
-                    <td className="p-4 text-center font-medium text-slate-500">{index + 1}</td>
+                    <td className="p-4 text-center font-medium text-slate-500">{absoluteIndex}</td>
                     <td className="p-4 font-semibold text-slate-800">{item.nama_pendidikan}</td>
                     <td className="p-4 text-right">
                       <div className="flex justify-end items-center gap-1.5">
@@ -161,6 +178,42 @@ export default function AdminMasterPendidikan() {
             )}
           </tbody>
         </table>
+
+        {/* Footer Pagination ala Master Bank */}
+        <div className="flex flex-col sm:flex-row items-center justify-between p-4 border-t border-slate-200 gap-4">
+          <div className="text-sm text-slate-500">
+            Halaman <span className="font-semibold text-slate-700">{currentPage}</span> dari <span className="font-semibold text-slate-700">{totalPages}</span>
+          </div>
+          <div className="flex items-center gap-1 flex-wrap">
+            <button
+              onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
+              disabled={currentPage === 1}
+              className="px-3 py-1.5 rounded-lg border border-slate-200 text-sm text-slate-600 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition"
+            >
+              Sebelumnya
+            </button>
+            {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
+              <button
+                key={page}
+                onClick={() => setCurrentPage(page)}
+                className={`w-8 h-8 rounded-lg text-sm font-medium transition ${
+                  currentPage === page
+                    ? 'bg-emerald-600 text-white shadow-sm'
+                    : 'border border-slate-200 text-slate-600 hover:bg-slate-50'
+                }`}
+              >
+                {page}
+              </button>
+            ))}
+            <button
+              onClick={() => setCurrentPage((prev) => Math.min(prev + 1, totalPages))}
+              disabled={currentPage === totalPages}
+              className="px-3 py-1.5 rounded-lg border border-slate-200 text-sm text-slate-600 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition"
+            >
+              Selanjutnya
+            </button>
+          </div>
+        </div>
       </div>
 
       {/* Modal Form Tambah / Edit */}

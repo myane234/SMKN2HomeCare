@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { getAllLayanan } from '../data/layananData';
 import { FaArrowLeft } from 'react-icons/fa';
+import { getImageUrl } from '../data/imageHelper.js';
 
 const emptyForm = {
   nama_paket: '',
@@ -48,6 +49,8 @@ export default function PromoForm({ initialData, onSubmit, submitting, mode }) {
   const [loadingLayanan, setLoadingLayanan] = useState(true);
   const [serviceSearch, setServiceSearch] = useState('');
   const [serviceOpen, setServiceOpen] = useState(false);
+
+  const imagePreview = image ? URL.createObjectURL(image) : getImageUrl(initialData?.gambar_promo);
 
   useEffect(() => {
     async function loadLayanan() {
@@ -257,13 +260,15 @@ export default function PromoForm({ initialData, onSubmit, submitting, mode }) {
               onChange={handleFileChange}
               className="form-input"
             />
+            {imagePreview && (
+              <img
+                src={imagePreview}
+                alt="Preview gambar promo"
+                className="mt-3 h-40 w-full rounded-xl border border-slate-200 object-cover"
+              />
+            )}
             {mode === 'edit' && initialData?.gambar_promo && !image && (
-              <p className="mt-2 text-sm text-slate-500">
-                Gambar saat ini:{' '}
-                <a href={initialData.gambar_promo} target="_blank" rel="noreferrer" className="text-blue-500 underline">
-                  Lihat Gambar
-                </a>
-              </p>
+              <p className="mt-2 text-sm text-slate-500">Gambar saat ini akan dipertahankan jika tidak memilih file baru.</p>
             )}
           </div>
 
