@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import api from "@/services/api";
+import { getArtikel, DEFAULT_ARTIKEL } from "@/services/artikelService";
 import { resolveImageUrl } from "@/services/resolveImage";
 
 function getTextValue(item, keys) {
@@ -47,11 +47,11 @@ export default function Artikel() {
   useEffect(() => {
     async function loadArticles() {
       try {
-        const response = await api.get("/api/artikel");
-        const items = extractArticles(response?.data);
-        setArticles(items.slice(0, 3));
+        const items = await getArtikel();
+        setArticles(items.length > 0 ? items.slice(0, 3) : DEFAULT_ARTIKEL.slice(0, 3));
       } catch (error) {
         console.error("Gagal memuat artikel dashboard", error);
+        setArticles(DEFAULT_ARTIKEL.slice(0, 3));
       }
     }
 
