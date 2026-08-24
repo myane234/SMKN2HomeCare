@@ -16,6 +16,7 @@ import {
   Eye,
   RotateCcw
 } from 'lucide-react';
+import api from '@/services/api';
 
 const LOREM = `Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat.
 
@@ -146,11 +147,57 @@ const CATEGORIES = [
 ];
 
 export default function TermsDashboard() {
+  const [tosData, setTosData] = useState(TOS_DATA);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('semua');
   const [expandedSections, setExpandedSections] = useState({});
   const [activeSection, setActiveSection] = useState('pasal-1');
   const [isAccepted, setIsAccepted] = useState(false);
+
+  useEffect(() => {
+    let isMounted = true;
+    async function loadTermsContent() {
+      try {
+        const endpoints = [
+          '/api/resource/content/terms',
+          '/api/syarat-ketentuan',
+          '/api/terms-of-service'
+        ];
+        let apiData = null;
+        for (const ep of endpoints) {
+          try {
+            const res = await api.get(ep, { validateStatus: (s) => s < 500 });
+            if (res.status === 200 && res.data) {
+              const contentObj = res.data?.data || res.data;
+              if (contentObj && (Array.isArray(contentObj) || Array.isArray(contentObj?.sections) || contentObj?.content)) {
+                apiData = contentObj;
+                break;
+              }
+            }
+          } catch (e) {
+            // Ignore
+          }
+        }
+        if (isMounted) {
+          if (apiData) {
+            if (Array.isArray(apiData)) {
+              setTosData(apiData);
+            } else if (Array.isArray(apiData?.sections)) {
+              setTosData(apiData.sections);
+            }
+          } else {
+            setTosData(TOS_DATA);
+          }
+        }
+      } catch (err) {
+        if (isMounted) setTosData(TOS_DATA);
+      }
+    }
+    loadTermsContent();
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   useEffect(() => {
     try {
@@ -159,34 +206,34 @@ export default function TermsDashboard() {
         setIsAccepted(true);
       }
       const initExpanded = {};
-      TOS_DATA.forEach((s) => {
+      tosData.forEach((s) => {
         initExpanded[s.id] = true;
       });
       setExpandedSections(initExpanded);
     } catch {
       // Ignore
     }
-  }, []);
+  }, [tosData]);
 
   const filteredSections = useMemo(() => {
-    return TOS_DATA.filter((item) => {
+    return tosData.filter((item) => {
       const matchesCategory =
         selectedCategory === 'semua' || item.category === selectedCategory;
       const q = searchQuery.toLowerCase().trim();
       const matchesSearch =
         !q ||
-        item.title.toLowerCase().includes(q) ||
-        item.summary.toLowerCase().includes(q) ||
-        item.content.toLowerCase().includes(q) ||
-        `pasal ${item.number}`.includes(q);
+        (item.title && item.title.toLowerCase().includes(q)) ||
+        (item.summary && item.summary.toLowerCase().includes(q)) ||
+        (item.content && item.content.toLowerCase().includes(q)) ||
+        `pasal ${item.number || ''}`.includes(q);
       return matchesCategory && matchesSearch;
     });
-  }, [searchQuery, selectedCategory]);
+  }, [tosData, searchQuery, selectedCategory]);
 
   useEffect(() => {
     const handleScroll = () => {
       const scrollPosition = window.scrollY + 200;
-      for (const section of TOS_DATA) {
+      for (const section of tosData) {
         const el = document.getElementById(section.id);
         if (el) {
           const top = el.offsetTop;
@@ -200,7 +247,7 @@ export default function TermsDashboard() {
     };
     window.addEventListener('scroll', handleScroll);
     return () => window.removeEventListener('scroll', handleScroll);
-  }, []);
+  }, [tosData]);
 
   const toggleSection = (id) => {
     setExpandedSections((prev) => ({
@@ -211,7 +258,7 @@ export default function TermsDashboard() {
 
   const expandAll = () => {
     const all = {};
-    TOS_DATA.forEach((s) => (all[s.id] = true));
+    tosData.forEach((s) => (all[s.id] = true));
     setExpandedSections(all);
   };
 
@@ -347,12 +394,12 @@ export default function TermsDashboard() {
                 Daftar Pasal
               </h3>
               <span className="text-xs font-semibold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-md">
-                {filteredSections.length} / {TOS_DATA.length}
+                {filteredSections.length} / {tosData.length}
               </span>
             </div>
 
             <nav className="space-y-1 max-h-[calc(100vh-220px)] overflow-y-auto pr-1">
-              {TOS_DATA.map((section) => {
+              {tosData.map((section) => {
                 const isActive = activeSection === section.id;
                 const isFilteredOut = !filteredSections.some((s) => s.id === section.id);
                 return (

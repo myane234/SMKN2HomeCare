@@ -20,17 +20,29 @@ const MapPicker = dynamic(() => import("@/components/MapPicker"), {
 });
 
 // ─── Google Button ───────────────────────────────────────────────────────────
-function GoogleRegisterButton({ onSuccess, onError, loading }) {
+function GoogleRegisterButton({ onSuccess, onError, loading, isConfigured }) {
   const login = useGoogleLogin({
     flow: "implicit",
     onSuccess: (tokenResponse) => onSuccess(tokenResponse.access_token),
-    onError: () => onError(),
+    onError: () => onError("Pendaftaran Google dibatalkan atau gagal."),
   });
+
+  const handleClick = () => {
+    if (!isConfigured) {
+      onError("Fitur Google Sign-In/Register belum dikonfigurasi di lingkungan ini. Silakan mendaftar secara manual.");
+      return;
+    }
+    try {
+      login();
+    } catch {
+      onError("Fitur Google Sign-In/Register belum dikonfigurasi. Silakan mendaftar secara manual.");
+    }
+  };
 
   return (
     <button
       type="button"
-      onClick={() => login()}
+      onClick={handleClick}
       disabled={loading}
       className="w-full flex items-center justify-center gap-3 rounded-full border border-gray-300 bg-white py-3 font-medium text-gray-700 shadow-sm transition hover:bg-gray-50 hover:shadow disabled:opacity-60 disabled:cursor-not-allowed"
     >
@@ -79,7 +91,9 @@ export default function DaftarPage() {
   const mapDebounceTimer = useRef(null);
   const searchDebounceTimer = useRef(null);
 
-  const clientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID || "";
+  const rawClientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID;
+  const clientId = rawClientId && rawClientId.trim() !== "" ? rawClientId : "dummy-client-id.apps.googleusercontent.com";
+  const isConfigured = Boolean(rawClientId && rawClientId.trim() !== "");
 
   const clearFieldError = (name) => {
     setFieldErrors((prev) => {
@@ -609,8 +623,9 @@ export default function DaftarPage() {
             <GoogleOAuthProvider clientId={clientId}>
               <GoogleRegisterButton
                 onSuccess={handleGoogleSuccess}
-                onError={handleGoogleError}
+                onError={(customMsg) => setErrorMsg(customMsg || "Pendaftaran Google dibatalkan atau gagal.")}
                 loading={loading}
+                isConfigured={isConfigured}
               />
             </GoogleOAuthProvider>
 

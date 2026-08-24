@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import api from "@/services/api";
+import { getArtikel, DEFAULT_ARTIKEL } from "@/services/artikelService";
 import { resolveImageUrl } from "@/services/resolveImage";
 
 export const KATEGORI_ARTIKEL_OPTIONS = ["Tips Kesehatan", "Kegiatan"];
@@ -107,13 +108,13 @@ export default function SemuaArtikelPage() {
       try {
         setLoading(true);
         const params = category ? { kategori_artikel: category } : {};
-        const response = await api.get("/api/artikel", { params });
+        const items = await getArtikel(params);
         if (!isMounted) return;
 
-        const items = extractArticles(response?.data);
-        setArticles(items);
+        setArticles(items.length > 0 ? items : DEFAULT_ARTIKEL);
       } catch (error) {
         console.error("Gagal memuat artikel", error);
+        if (isMounted) setArticles(DEFAULT_ARTIKEL);
       } finally {
         if (isMounted) setLoading(false);
       }
