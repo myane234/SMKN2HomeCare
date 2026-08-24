@@ -29,7 +29,6 @@ import {
 } from 'react-icons/fi';
 import { getProfileFromCookies, fetchAndStoreProfile } from '@/services/profileService';
 import api from '@/services/api';
-import { URL} from '../../../'
 
 const MapPicker = dynamic(() => import('@/components/MapPicker'), { ssr: false });
 
@@ -39,6 +38,9 @@ const JENIS_KELAMIN = [
   { value: 'P', label: 'Perempuan' },
 ];
 
+/**
+ * Helper untuk meratakan URL Avatar agar aman diakses dari backend Laravel / Storage
+ */
 const getFullAvatarUrl = (rawAvatar) => {
   if (!rawAvatar) return null;
 
@@ -60,10 +62,12 @@ const getFullAvatarUrl = (rawAvatar) => {
     return secureUrl;
   }
   
+  // Jika menggunakan proxy Next.js / backend Laravel secara relatif atau port 8000
+  const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8000';
   const cleanPath = rawAvatar.startsWith('/') ? rawAvatar.slice(1) : rawAvatar;
   const finalPath = cleanPath.startsWith('storage/') ? cleanPath : `storage/${cleanPath}`;
   
-  return `${URL}/${finalPath}`;
+  return `${backendUrl}/${finalPath}`;
 };
 
 export default function EditProfilePage() {
@@ -377,6 +381,7 @@ export default function EditProfilePage() {
 
       formData.append('_method', 'PUT');
 
+      // Menggunakan instance 'api' yang terhubung dengan interceptor & baseURL
       await api.post('/api/pasien', formData, {
         headers: {
           "Content-Type": "multipart/form-data",
