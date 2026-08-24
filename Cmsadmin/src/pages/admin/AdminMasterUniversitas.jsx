@@ -1,308 +1,421 @@
-import React, { useState, useEffect } from 'react';
-import { FaEdit, FaTrash, FaPlus, FaSearch } from 'react-icons/fa';
-import { 
-  getAllUniversitas, 
-  createUniversitas, 
-  updateUniversitas, 
-  deleteUniversitas 
-} from '../../data/masterUniversitasData.js';
+import { useState, useEffect, useMemo } from 'react';
+import {
+  getAllBanks,
+  createBank,
+  updateBank,
+  toggleStatusBank,
+  deleteBank,
+} from '../../data/masterBankData.js';
 
-export default function AdminMasterUniversitas() {
-  console.log("Komponen AdminMasterUniversitas BERHASIL DIMUAT!");
-  const [universitasList, setUniversitasList] = useState([]);
+export default function AdminMasterBank() {
+  const [bankList, setBankList] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
+  const [showForm, setShowForm] = useState(false);
+  const [selectedBank, setSelectedBank] = useState(null);
+
+  // Form Field States
+  const [namaBank, setNamaBank] = useState('');
+  const [kodeBank, setKodeBank] = useState('');
+  const [isActive, setIsActive] = useState(true);
+  const [gambarFile, setGambarFile] = useState(null);
+
+  // State untuk filter & pencarian
   const [searchQuery, setSearchQuery] = useState('');
-  const [isOpenModal, setIsOpenModal] = useState(false);
-  const [isEditMode, setIsEditMode] = useState(false);
-  const [selectedId, setSelectedId] = useState(null);
+  const [statusFilter, setStatusFilter] = useState('semua');
 
-  // Pagination State
+  // State untuk Pagination
   const [currentPage, setCurrentPage] = useState(1);
-  const itemsPerPage = 10;
+  const itemsPerPage = 5;
 
-  // Form State
-  const [formData, setFormData] = useState({
-    nama_universitas: '',
-    is_active: true,
-  });
-
-  // Ambil data dari API backend saat komponen dimuat
   useEffect(() => {
-    loadData();
+    fetchDataBank();
   }, []);
 
-  const loadData = async () => {
-    console.log("loadData dipanggil!");
-    try {
-      const data = await getAllUniversitas();
-      console.log("DEBUG API RESPON:", data); // <-- Cek hasil ini di tab Console browser!
-      setUniversitasList(Array.isArray(data) ? data : []);
-    } catch (error) {
-      console.error('Gagal mengambil data universitas:', error);
-    }
-  };
-
-  const handleOpenAdd = () => {
-    setIsEditMode(false);
-    setFormData({ nama_universitas: '', is_active: true });
-    setIsOpenModal(true);
-  };
-
-  const handleOpenEdit = (item) => {
-    setIsEditMode(true);
-    const id = item.universita_id_universitas || item.id;
-    setSelectedId(id);
-    setFormData({ 
-      nama_universitas: item.nama_universitas, 
-      is_active: item.is_active 
-    });
-    setIsOpenModal(true);
-  };
-
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    try {
-      if (isEditMode) {
-        await updateUniversitas(selectedId, formData);
-      } else {
-        await createUniversitas(formData);
-      }
-      setIsOpenModal(false);
-      loadData();
-    } catch (error) {
-      console.error('Gagal menyimpan data universitas:', error);
-      alert(error.message);
-    }
-  };
-
-  const handleToggle = async (item) => {
-    try {
-      const id = item.universita_id_universitas || item.id;
-      const updatedStatus = !item.is_active;
-      
-      await updateUniversitas(id, {
-        nama_universitas: item.nama_universitas,
-        is_active: updatedStatus
-      });
-      loadData();
-    } catch (error) {
-      console.error('Gagal mengubah status:', error);
-    }
-  };
-
-  const handleDelete = async (idItem) => {
-    if (window.confirm('Yakin ingin menghapus data universitas ini?')) {
-      try {
-        await deleteUniversitas(idItem);
-        loadData();
-      } catch (error) {
-        console.error('Gagal menghapus data:', error);
-      }
-    }
-  };
-
-  // 1. Filter data berdasarkan pencarian
-  const filteredData = universitasList.filter((item) =>
-    item.nama_universitas?.toLowerCase().includes(searchQuery.toLowerCase())
-  );
-
-  // 2. Hitung data untuk pagination
-  const totalPages = Math.ceil(filteredData.length / itemsPerPage) || 1;
-  const indexOfLastItem = currentPage * itemsPerPage;
-  const indexOfFirstItem = indexOfLastItem - itemsPerPage;
-  const currentItems = filteredData.slice(indexOfFirstItem, indexOfLastItem);
-
-  const handleSearchChange = (e) => {
-    setSearchQuery(e.target.value);
+  useEffect(() => {
     setCurrentPage(1);
+  }, [searchQuery, statusFilter]);
+
+  const getItemId = (item) => {
+    if (!item) return null;
+    return item.id_bank ?? item.id ?? null;
   };
+
+  async function fetchDataBank() {
+    setLoading(true);
+    try {
+      const data = await getAllBanks();
+      const list = Array.isArray(data) ? data : [];
+      setBankList(list);
+
+      // Hitung total halaman berdasarkan data baru dan arahkan ke halaman paling akhir
+      const filteredCount = list.length; // atau sesuaikan jika ada filter aktif
+      const lastPage = Math.ceil(filteredCount / itemsPerPage) || 1;
+      setCurrentPage(lastPage);
+    } catch (err) {
+      console.error('Gagal mengambil data bank:', err);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  function handleOpenCreate() {
+    setSelectedBank(null);
+    setNamaBank('');
+    setKodeBank('');
+    setIsActive(true);
+    setGambarFile(null);
+    setShowForm(true);
+  }
+
+  function handleOpenEdit(item) {
+    setSelectedBank(item);
+    setNamaBank(item.nama_bank || '');
+    setKodeBank(item.kode_bank || '');
+    setIsActive(item.is_active ?? true);
+    setGambarFile(null);
+    setShowForm(true);
+  }
+
+  function handleCloseForm() {
+    setShowForm(false);
+    setSelectedBank(null);
+  }
+
+  async function handleSubmitForm(e) {
+    e.preventDefault();
+    setSubmitting(true);
+
+    const formData = new FormData();
+    formData.append('nama_bank', namaBank);
+    formData.append('kode_bank', kodeBank);
+    formData.append('is_active', isActive ? '1' : '0');
+    if (gambarFile) {
+      formData.append('gambar', gambarFile);
+    }
+
+    try {
+      if (selectedBank) {
+        const id = getItemId(selectedBank);
+        await updateBank(id, formData);
+      } else {
+        await createBank(formData);
+      }
+      handleCloseForm();
+      fetchDataBank();
+    } catch (err) {
+      console.error('Gagal menyimpan data bank:', err);
+      alert(err.message || 'Terjadi kesalahan saat menyimpan data bank.');
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  async function handleToggle(item) {
+    try {
+      const id = getItemId(item);
+      await toggleStatusBank(id);
+      fetchDataBank();
+    } catch (err) {
+      console.error('Gagal mengubah status bank:', err);
+      alert('Gagal mengubah status.');
+    }
+  }
+
+  async function handleDelete(item) {
+    if (!confirm('Apakah kamu yakin ingin menghapus bank ini?')) return;
+
+    try {
+      const id = getItemId(item);
+      await deleteBank(id);
+      fetchDataBank();
+    } catch (err) {
+      console.error('Gagal menghapus bank:', err);
+      alert('Gagal menghapus data.');
+    }
+  }
+
+  const filteredBank = useMemo(() => {
+    const filtered = bankList.filter((item) => {
+      const matchesSearch = 
+        item.nama_bank?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        (item.kode_bank && item.kode_bank.toLowerCase().includes(searchQuery.toLowerCase()));
+      
+      const matchesStatus =
+        statusFilter === 'semua' ||
+        (statusFilter === 'aktif' && item.is_active) ||
+        (statusFilter === 'nonaktif' && !item.is_active);
+
+      return matchesSearch && matchesStatus;
+    });
+
+    // Urutkan berdasarkan ID secara descending (terbaru di atas/halaman pertama)
+    return filtered.sort((a, b) => {
+      const idA = Number(a.id_bank ?? a.id ?? 0);
+      const idB = Number(b.id_bank ?? b.id ?? 0);
+      return idB - idA;
+    });
+  }, [bankList, searchQuery, statusFilter]);
+
+  const totalPages = Math.ceil(filteredBank.length / itemsPerPage) || 1;
+  
+  const paginatedBank = useMemo(() => {
+    const start = (currentPage - 1) * itemsPerPage;
+    return filteredBank.slice(start, start + itemsPerPage);
+  }, [filteredBank, currentPage]);
 
   return (
     <div className="p-6">
-      {/* Header & Tombol Tambah */}
-      <div className="flex justify-between items-center mb-6">
+      <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-slate-800">Master Universitas</h1>
+          <h1 className="text-xl font-bold text-slate-800">Master Bank</h1>
           <p className="text-sm text-slate-500">
-            Total seluruh data: <span className="font-semibold text-slate-700">{universitasList.length}</span> Universitas
+            Kelola data master bank untuk keperluan pencairan dana (payout) mitra.
           </p>
         </div>
-        <button
-          onClick={handleOpenAdd}
-          className="flex items-center gap-2 bg-emerald-600 text-white px-4 py-2 rounded-lg hover:bg-emerald-700 transition"
-        >
-          <FaPlus /> Tambah Universitas
-        </button>
+        {!showForm && (
+          <button
+            onClick={handleOpenCreate}
+            className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-700"
+          >
+            + Tambah Bank
+          </button>
+        )}
       </div>
 
-      {/* Kotak Pencarian */}
-      <div className="bg-white p-4 rounded-xl shadow-sm border border-slate-200 mb-6 flex items-center gap-3">
-        <FaSearch className="text-slate-400" />
-        <input
-          type="text"
-          placeholder="Cari berdasarkan nama universitas..."
-          value={searchQuery}
-          onChange={handleSearchChange}
-          className="w-full outline-none text-sm text-slate-700"
-        />
-      </div>
+      {showForm ? (
+        <div className="mb-6 rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+          <h2 className="mb-4 text-base font-bold text-slate-800">
+            {selectedBank ? 'Edit Data Bank' : 'Tambah Bank Baru'}
+          </h2>
+          <form onSubmit={handleSubmitForm} className="space-y-4">
+            <div>
+              <label className="block text-xs font-semibold uppercase text-slate-600 mb-1">Nama Bank</label>
+              <input
+                type="text"
+                required
+                placeholder="Contoh: Bank Mandiri"
+                value={namaBank}
+                onChange={(e) => setNamaBank(e.target.value)}
+                className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-700 focus:border-emerald-500 focus:outline-none"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-semibold uppercase text-slate-600 mb-1">Kode Bank</label>
+              <input
+                type="text"
+                placeholder="Contoh: 008"
+                value={kodeBank}
+                onChange={(e) => setKodeBank(e.target.value)}
+                className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-700 focus:border-emerald-500 focus:outline-none"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-semibold uppercase text-slate-600 mb-1">Logo Bank (Opsional)</label>
+              <input
+                type="file"
+                accept="image/png, image/jpeg, image/jpg, image/webp, image/svg+xml"
+                onChange={(e) => setGambarFile(e.target.files[0])}
+                className="w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-emerald-50 file:text-emerald-700 hover:file:bg-emerald-100"
+              />
+              <span className="text-[11px] text-slate-400 mt-1 block">Format: jpeg, png, jpg, webp, svg. Max: 1MB.</span>
+            </div>
+            <div className="flex items-center gap-2 pt-2">
+              <input
+                type="checkbox"
+                id="isActiveBank"
+                checked={isActive}
+                onChange={(e) => setIsActive(e.target.checked)}
+                className="h-4 w-4 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500"
+              />
+              <label htmlFor="isActiveBank" className="text-sm font-medium text-slate-700">Status Aktif</label>
+            </div>
 
-      {/* Tabel Data */}
-      <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden mb-4">
-        <table className="w-full text-left border-collapse">
-          <thead>
-            <tr className="bg-slate-50 text-slate-600 text-xs uppercase tracking-wider border-b border-slate-200">
-              <th className="p-4 w-16 text-center">No</th>
-              <th className="p-4">Nama Universitas</th>
-              <th className="p-4 w-32">Status</th>
-              <th className="p-4 w-32 text-right">Aksi</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-slate-100 text-sm">
-            {currentItems.length === 0 ? (
-              <tr>
-                <td colSpan="4" className="p-8 text-center text-slate-400">Tidak ada data universitas ditemukan.</td>
-              </tr>
+            <div className="flex justify-end gap-2 pt-4 border-t border-slate-100">
+              <button
+                type="button"
+                onClick={handleCloseForm}
+                className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-50"
+              >
+                Batal
+              </button>
+              <button
+                type="submit"
+                disabled={submitting}
+                className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-700 disabled:opacity-50"
+              >
+                {submitting ? 'Menyimpan...' : 'Simpan'}
+              </button>
+            </div>
+          </form>
+        </div>
+      ) : (
+        <div className="space-y-4">
+          {/* Baris Filter & Pencarian */}
+          <div className="flex flex-col gap-3 rounded-xl border border-slate-200 bg-white p-4 shadow-sm sm:flex-row sm:items-center">
+            <div className="relative flex-1">
+              <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-slate-400">
+                <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                </svg>
+              </span>
+              <input
+                type="text"
+                placeholder="Cari nama bank atau kode bank..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full rounded-lg border border-slate-200 bg-white py-2 pl-9 pr-4 text-sm text-slate-700 focus:border-emerald-500 focus:outline-none"
+              />
+            </div>
+            <div className="flex items-center gap-2">
+              <select
+                value={statusFilter}
+                onChange={(e) => setStatusFilter(e.target.value)}
+                className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 focus:border-emerald-500 focus:outline-none"
+              >
+                <option value="semua">Semua Status</option>
+                <option value="aktif">Aktif</option>
+                <option value="nonaktif">Nonaktif</option>
+              </select>
+            </div>
+          </div>
+
+          {/* Tabel Data */}
+          <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+            {loading ? (
+              <div className="p-8 text-center text-sm text-slate-500">Memuat data...</div>
+            ) : filteredBank.length === 0 ? (
+              <div className="p-8 text-center text-sm text-slate-500">
+                Tidak ada data bank yang ditemukan.
+              </div>
             ) : (
-              currentItems.map((item, index) => {
-                const uniqueId = item.universita_id_universitas || item.id;
-                return (
-                  <tr key={uniqueId} className="hover:bg-slate-50/50">
-                    <td className="p-4 text-center font-medium text-slate-500">
-                      {indexOfFirstItem + index + 1}
-                    </td>
-                    <td className="p-4 font-semibold text-slate-800">{item.nama_universitas}</td>
-                    <td className="p-4">
-                      <span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${
-                        item.is_active ? 'bg-emerald-50 text-emerald-600 border border-emerald-100' : 'bg-rose-50 text-rose-600 border border-rose-200'
-                      }`}>
-                        {item.is_active ? 'Aktif' : 'Nonaktif'}
-                      </span>
-                    </td>
-                    <td className="p-4 text-right">
-                      <div className="flex justify-end items-center gap-1.5">
+              <>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left text-sm text-slate-600">
+                    <thead className="border-b border-slate-200 bg-slate-50 text-xs font-semibold uppercase text-slate-500">
+                      <tr>
+                        <th className="p-4 w-12">No</th>
+                        <th className="p-4">Logo</th>
+                        <th className="p-4">Kode Bank</th>
+                        <th className="p-4">Nama Bank</th>
+                        <th className="p-4">Status</th>
+                        <th className="p-4 text-right">Aksi</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                      {paginatedBank.map((item, index) => {
+                        const nomorUrut = (currentPage - 1) * itemsPerPage + index + 1;
+                        const uniqueId = getItemId(item);
+                        return (
+                          <tr key={uniqueId || index} className="hover:bg-slate-50/50">
+                            <td className="p-4 font-medium text-slate-500">{nomorUrut}</td>
+                            <td className="p-4">
+                              {item.gambar ? (
+                                <img 
+                                  src={item.gambar} 
+                                  alt={item.nama_bank} 
+                                  className="h-8 w-12 object-contain rounded border border-slate-100 bg-white p-0.5" 
+                                />
+                              ) : (
+                                <div className="h-8 w-12 rounded bg-slate-100 flex items-center justify-center text-[10px] text-slate-400 font-bold">N/A</div>
+                              )}
+                            </td>
+                            <td className="p-4 font-mono text-slate-600">{item.kode_bank || '-'}</td>
+                            <td className="p-4 font-semibold text-slate-800">{item.nama_bank}</td>
+                            <td className="p-4">
+                              <span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${
+                                item.is_active ? 'bg-emerald-50 text-emerald-600 border border-emerald-100' : 'bg-rose-50 text-rose-600 border border-rose-200'
+                              }`}>
+                                {item.is_active ? 'Aktif' : 'Nonaktif'}
+                              </span>
+                            </td>
+                            <td className="p-4 text-right">
+                              <div className="flex justify-end items-center gap-1.5">
+                                <button
+                                  onClick={() => handleToggle(item)}
+                                  type="button"
+                                  className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
+                                    item.is_active ? 'bg-emerald-600' : 'bg-slate-300'
+                                  }`}
+                                  title="Ubah Status"
+                                >
+                                  <span
+                                    className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
+                                      item.is_active ? 'translate-x-5' : 'translate-x-0'
+                                    }`}
+                                  />
+                                </button>
+
+                                <button
+                                  onClick={() => handleOpenEdit(item)}
+                                  className="rounded-lg border border-slate-200 bg-white p-1.5 text-slate-600 hover:bg-slate-50 hover:text-emerald-600 transition"
+                                  title="Edit"
+                                >
+                                  <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                                  </svg>
+                                </button>
+                                
+                                <button
+                                  onClick={() => handleDelete(item)}
+                                  className="rounded-lg border border-rose-200 bg-rose-50 p-1.5 text-rose-600 hover:bg-rose-100 transition"
+                                  title="Hapus"
+                                >
+                                  <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                  </svg>
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody> 
+                  </table>
+                </div>
+
+                {/* Pagination */}
+                <div className="flex items-center justify-between border-t border-slate-200 px-4 py-3 sm:px-6">
+                  <div className="text-sm text-slate-500">
+                    Halaman <span className="font-semibold text-slate-700">{currentPage}</span> dari{' '}
+                    <span className="font-semibold text-slate-700">{totalPages}</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
+                      disabled={currentPage === 1}
+                      className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-600 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
+                    >
+                      Sebelumnya
+                    </button>
+                    
+                    <div className="flex items-center gap-1">
+                      {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
                         <button
-                          onClick={() => handleToggle(item)}
-                          type="button"
-                          className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
-                            item.is_active ? 'bg-emerald-600' : 'bg-slate-300'
+                          key={page}
+                          onClick={() => setCurrentPage(page)}
+                          className={`h-8 w-8 rounded-lg text-xs font-semibold transition-colors ${
+                            currentPage === page
+                              ? 'bg-emerald-600 text-white'
+                              : 'border border-slate-200 bg-white text-slate-600 hover:bg-slate-50'
                           }`}
-                          title="Ubah Status"
                         >
-                          <span
-                            className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
-                              item.is_active ? 'translate-x-5' : 'translate-x-0'
-                            }`}
-                          />
+                          {page}
                         </button>
+                      ))}
+                    </div>
 
-                        <button
-                          onClick={() => handleOpenEdit(item)}
-                          className="rounded-lg border border-slate-200 bg-white p-1.5 text-slate-600 hover:bg-slate-50 hover:text-emerald-600 transition"
-                          title="Edit"
-                        >
-                          <FaEdit className="text-sm" />
-                        </button>
-
-                        <button
-                          onClick={() => handleDelete(uniqueId)}
-                          className="rounded-lg border border-rose-200 bg-rose-50 p-1.5 text-rose-600 hover:bg-rose-100 transition"
-                          title="Hapus"
-                        >
-                          <FaTrash className="text-sm" />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                );
-              })
+                    <button
+                      onClick={() => setCurrentPage((prev) => Math.min(prev + 1, totalPages))}
+                      disabled={currentPage === totalPages}
+                      className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-600 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
+                    >
+                      Selanjutnya 
+                    </button>
+                  </div>
+                </div>
+              </>
             )}
-          </tbody>
-        </table>
-      </div>
-
-      {/* Footer / Pagination Section */}
-      <div className="flex items-center justify-between px-6 py-4 border-t border-gray-200 bg-white rounded-xl shadow-sm border border-slate-200">
-        <div className="text-sm text-gray-500">
-          Halaman <span className="font-semibold text-gray-700">{currentPage}</span> dari <span className="font-semibold text-gray-700">{totalPages || 1}</span>
-        </div>
-        <div className="flex items-center space-x-2">
-          <button
-            onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
-            disabled={currentPage === 1}
-            className={`px-3 py-1.5 text-sm rounded-md border ${
-              currentPage === 1
-                ? "bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed"
-                : "bg-white text-gray-700 border-gray-300 hover:bg-gray-50"
-            }`}
-          >
-            &larr; Sebelumnya
-          </button>
-          
-          <span className="px-3 py-1.5 text-sm font-medium text-white bg-emerald-600 rounded-md">
-            {currentPage}
-          </span>
-
-          <button
-            onClick={() => setCurrentPage((prev) => Math.min(prev + 1, totalPages))}
-            disabled={currentPage === totalPages || totalPages === 0}
-            className={`px-3 py-1.5 text-sm rounded-md border ${
-              currentPage === totalPages || totalPages === 0
-                ? "bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed"
-                : "bg-white text-gray-700 border-gray-300 hover:bg-gray-50"
-            }`}
-          >
-            Selanjutnya &rarr;
-          </button>
-        </div>
-      </div>
-
-      {/* Modal Form Tambah / Edit */}
-      {isOpenModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl w-full max-w-md p-6 shadow-xl">
-            <h2 className="text-lg font-bold text-slate-800 mb-4">
-              {isEditMode ? 'Edit Universitas' : 'Tambah Universitas'}
-            </h2>
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div>
-                <label className="block text-xs font-semibold uppercase text-slate-500 mb-1">Nama Universitas</label>
-                <input
-                  type="text"
-                  maxLength={255}
-                  required
-                  placeholder="Contoh: Universitas Indonesia"
-                  value={formData.nama_universitas}
-                  onChange={(e) => setFormData({ ...formData, nama_universitas: e.target.value })}
-                  className="w-full border border-slate-200 rounded-lg p-2.5 text-sm outline-none focus:border-emerald-500"
-                />
-              </div>
-              <div className="flex items-center gap-2 pt-2">
-                <input
-                  type="checkbox"
-                  id="status_aktif_univ"
-                  checked={formData.is_active}
-                  onChange={(e) => setFormData({ ...formData, is_active: e.target.checked })}
-                  className="w-4 h-4 text-emerald-600 rounded border-slate-300 focus:ring-emerald-500"
-                />
-                <label htmlFor="status_aktif_univ" className="text-sm font-medium text-slate-700">Status Aktif</label>
-              </div>
-
-              <div className="flex justify-end gap-2 pt-4 border-t border-slate-100">
-                <button
-                  type="button"
-                  onClick={() => setIsOpenModal(false)}
-                  className="px-4 py-2 rounded-lg border border-slate-200 text-sm font-medium text-slate-600 hover:bg-slate-50"
-                >
-                  Batal
-                </button>
-                <button
-                  type="submit"
-                  className="px-4 py-2 rounded-lg bg-emerald-600 text-sm font-medium text-white hover:bg-emerald-700"
-                >
-                  Simpan
-                </button>
-              </div>
-            </form>
           </div>
         </div>
       )}
