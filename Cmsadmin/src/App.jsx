@@ -48,6 +48,7 @@ import AdminMasterUniversitas from "./pages/admin/AdminMasterUniversitas";
 import AdminMasterAgama from "./pages/admin/AdminMasterAgama"; 
 import PageSeederManagement from "./pages/PageSeederManagement";
 import AdminMasterBank from "./pages/admin/AdminMasterBank";
+import PageApi from "./pages/PageApi";
 
 import "leaflet/dist/leaflet.css";
 
@@ -272,6 +273,14 @@ function App() {
           element={
             <ProtectedRoute requiredPath="/web-setting">
               <PageWebSetting />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/konfigurasi-env"
+          element={
+            <ProtectedRoute requiredPath="/konfigurasi-env">
+              <PageApi />
             </ProtectedRoute>
           }
         />
