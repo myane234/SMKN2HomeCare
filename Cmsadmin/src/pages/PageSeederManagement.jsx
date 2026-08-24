@@ -667,6 +667,82 @@ export default function PageSeederManagement() {
         </form>
       </section>
 
+      {/* DOCUMENTATION SECTION */}
+      <section className="rounded-2xl border border-slate-200/80 bg-white p-5 sm:p-6 shadow-xs">
+        <h2 className="flex items-center gap-2 text-sm font-semibold text-slate-900 sm:text-base mb-4">
+          <FaGlobe className="text-primary" /> Panduan Format Data Wilayah
+        </h2>
+        
+        <div className="space-y-6 text-sm text-slate-600">
+          <div>
+            <h3 className="font-semibold text-slate-800">1. Format API (JSON Response)</h3>
+            <p className="mt-1">Endpoint API harus mengembalikan array JSON dengan struktur berikut. Gunakan placeholder (cth: <code>{`{id_provinsi}`}</code>) di dalam URL agar sistem otomatis menggantinya saat melakukan request.</p>
+            <ul className="mt-2 list-disc list-inside space-y-1">
+              <li><strong>Provinces:</strong> <code>{`[{"id": "11", "name": "ACEH"}]`}</code></li>
+              <li><strong>Regencies:</strong> URL wajib menggunakan <code>{`{id_provinsi}`}</code>. Contoh data: <code>{`[{"id": "1801", "province_id": "18", "name": "KABUPATEN LAMPUNG BARAT"}]`}</code></li>
+              <li><strong>Districts:</strong> URL wajib menggunakan <code>{`{id_kota}`}</code>. Contoh data: <code>{`[{"id": "1810010", "regency_id": "1810", "name": "PARDASUKA"}]`}</code></li>
+              <li><strong>Villages:</strong> URL wajib menggunakan <code>{`{id_kecamatan}`}</code>. Contoh data: <code>{`[{"id": "1810010004", "district_id": "1810010", "name": "SELAPAN"}]`}</code></li>
+            </ul>
+          </div>
+
+          <div>
+            <h3 className="font-semibold text-slate-800">2. Format CSV / Excel (.xlsx)</h3>
+            <p className="mt-1">Pastikan baris pertama adalah baris header. Berikut adalah penamaan header/kolom yang didukung (bisa menggunakan salah satu opsi per baris):</p>
+            <div className="mt-2 overflow-x-auto rounded-lg border border-slate-200">
+              <table className="w-full text-left text-xs text-slate-600">
+                <thead className="bg-slate-50 text-slate-700">
+                  <tr>
+                    <th className="p-2 border-b">Data</th>
+                    <th className="p-2 border-b border-l">Pilihan Header Kolom</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  <tr><td className="p-2 font-medium">ID Provinsi</td><td className="p-2 border-l"><code>province_id, provinsi_id, id_provinsi</code></td></tr>
+                  <tr><td className="p-2 font-medium">Nama Provinsi</td><td className="p-2 border-l"><code>province_name, provinsi_name, nama_provinsi</code></td></tr>
+                  <tr><td className="p-2 font-medium">ID Kota/Kab</td><td className="p-2 border-l"><code>regency_id, city_id, kota_id, id_kota</code></td></tr>
+                  <tr><td className="p-2 font-medium">Nama Kota/Kab</td><td className="p-2 border-l"><code>regency_name, city_name, kota_name, nama_kota</code></td></tr>
+                  <tr><td className="p-2 font-medium">ID Kecamatan</td><td className="p-2 border-l"><code>district_id, kecamatan_id, id_kecamatan</code></td></tr>
+                  <tr><td className="p-2 font-medium">Nama Kecamatan</td><td className="p-2 border-l"><code>district_name, kecamatan_name, nama_kecamatan</code></td></tr>
+                  <tr><td className="p-2 font-medium">ID Kelurahan</td><td className="p-2 border-l"><code>village_id, kelurahan_id, id_kelurahan</code></td></tr>
+                  <tr><td className="p-2 font-medium">Nama Kelurahan</td><td className="p-2 border-l"><code>village_name, kelurahan_name, nama_kelurahan</code></td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <div>
+            <h3 className="font-semibold text-slate-800">3. Format JSON (File Upload)</h3>
+            <p className="mt-1">Jika Anda mengunggah file JSON, file tersebut dapat berisi array flat (seperti format CSV) atau berstruktur hierarki (nested) seperti contoh berikut:</p>
+            <pre className="mt-2 bg-slate-900 text-slate-300 p-4 rounded-lg border border-slate-700 text-[11px] overflow-x-auto">
+{`[
+  {
+    "id": "11",
+    "name": "ACEH",
+    "regencies": [
+      {
+        "id": "1101",
+        "name": "KABUPATEN ACEH SELATAN",
+        "districts": [
+          {
+            "id": "1101010",
+            "name": "BAKONGAN",
+            "villages": [
+              {
+                "id": "1101010001",
+                "name": "KEUDE BAKONGAN"
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  }
+]`}
+            </pre>
+          </div>
+        </div>
+      </section>
+
       {/* FOOTER SOURCE INFO */}
       {source?.source_type && (
         <div className="rounded-xl border border-slate-200/60 bg-slate-50 px-4 py-3 text-xs text-slate-500">
