@@ -1,11 +1,12 @@
 "use client";
 
-import { useEffect, useRef, useState, Suspense } from "react";
+import { useEffect, useMemo, useRef, useState, Suspense } from "react";
 import { getLayanan } from "@/services/layananService";
 import { useRouter, useSearchParams } from "next/navigation";
 import LoginRequiredModal from "@/components/LoginRequiredModal";
 import { showToast } from "@/components/Toast";
 import Link from "next/link";
+import { getActivePromos, generatePromoSlug } from "@/services/promoService";
 import { resolveImageUrl } from "@/services/resolveImage";
 
 export const KATEGORI_LAYANAN_OPTIONS = ["Fisioterapi", "Home Care", "Perawatan Luka", "Kesehatan"];
@@ -99,8 +100,25 @@ const HERO_SLIDES = [
 ];
 
 /**
- * ===================== ICON SET (SVG, tanpa emoji) =====================
+ * ===================== DESKRIPSI KATEGORI =====================
+ * Teks singkat yang tampil di card kategori pada halaman utama Layanan.
+ * Tambah entri baru (key harus lowercase) kalau ada kategori baru dari API.
  */
+const CATEGORY_META = {
+  "fisioterapi": "Latihan & terapi gerak oleh fisioterapis profesional.",
+  "home care": "Pendampingan dan perawatan harian di rumah Anda.",
+  "perawatan luka": "Penanganan luka steril oleh perawat berpengalaman.",
+  "kesehatan": "Pemeriksaan dan konsultasi kesehatan umum.",
+  "ibu dan anak": "Layanan khusus untuk ibu menyusui, bayi, dan anak.",
+  "medical checkup": "Pemeriksaan kesehatan lengkap langsung di rumah.",
+  "pemasangan alat medis": "Pemasangan & penggantian alat medis oleh tenaga ahli.",
+  "pemasangan dan penggantian alat medis": "Pemasangan & penggantian alat medis oleh tenaga ahli.",
+  "default": "Layanan homecare profesional siap membantu Anda.",
+};
+
+function getCategoryMeta(category) {
+  return CATEGORY_META[(category || "").toLowerCase()] || CATEGORY_META.default;
+}
 function CategoryIcon({ name, className = "h-5 w-5" }) {
   const common = {
     className,
@@ -376,10 +394,35 @@ function LayananPageContent() {
   const [isScrolled, setIsScrolled] = useState(false);
   const [cartBump, setCartBump] = useState(false);
   const [pressedServiceId, setPressedServiceId] = useState(null);
+  const [promos, setPromos] = useState([]);
+  const [loadingPromos, setLoadingPromos] = useState(true);
 
   useEffect(() => {
     setIsLoggedIn(document.cookie.includes("is_logged_in=true"));
     setCart(loadCartFromStorage());
+  }, []);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    async function loadPromos() {
+      try {
+        setLoadingPromos(true);
+        const data = await getActivePromos();
+        if (!isMounted) return;
+        setPromos(Array.isArray(data) ? data : []);
+      } catch (error) {
+        console.error("Gagal memuat data promo", error);
+      } finally {
+        if (isMounted) setLoadingPromos(false);
+      }
+    }
+
+    loadPromos();
+
+    return () => {
+      isMounted = false;
+    };
   }, []);
 
   // Hero autoplay — jeda otomatis saat pointer berada di atas banner
@@ -460,6 +503,16 @@ function LayananPageContent() {
   }, [selectedService]);
 
   const categoryOptions = categories.length > 0 ? categories : KATEGORI_LAYANAN_OPTIONS;
+
+  const categoryCounts = useMemo(() => {
+    const counts = {};
+    allServices.forEach((service) => {
+      const cat = getTextValue(service, ["kategori_layanan", "kategori", "category", "nama_kategori"]);
+      if (!cat) return;
+      counts[cat] = (counts[cat] || 0) + 1;
+    });
+    return counts;
+  }, [allServices]);
 
   const handleCategorySelect = (value) => {
     if (value) {
@@ -607,298 +660,358 @@ function LayananPageContent() {
             isScrolled ? "shadow-sm" : ""
           }`}
         >
-          <div className="mx-auto max-w-[1600px] px-4 pt-3 md:px-6">
-            <p className="text-[11px] font-bold tracking-[0.25em] text-blue-600">KATALOG LAYANAN</p>
-            <h1 className="mt-1 text-lg font-bold text-slate-900 sm:text-xl">Layanan Homecare</h1>
+          <div className="mx-auto max-w-[1600px] px-4 pt-6 md:px-6 md:pt-8">
+            <p className="text-[11px] font-bold tracking-[0.25em] text-blue-600">
+              {currentCategory ? "KATALOG LAYANAN · LAYANAN" : "KATALOG LAYANAN"}
+            </p>
+            <h1 className="mt-1 text-lg font-bold text-slate-900 sm:text-xl">
+              {currentCategory || "Layanan Homecare"}
+            </h1>
           </div>
 
-          {/* Chip kategori — scroll horizontal, snap, tanpa scrollbar */}
-          <div className="mx-auto max-w-[1600px] px-4 md:px-6">
-            <div className="mt-3 flex snap-x gap-2 overflow-x-auto pb-3 [&::-webkit-scrollbar]:hidden">
+          {/* Tombol kembali — hanya tampil saat sudah masuk ke satu kategori (step "Layanan"). Fokus di sini murni ke list, ganti kategori balik lewat card di halaman depan. */}
+          {currentCategory ? (
+            <div className="mx-auto max-w-[1600px] px-4 pb-3 md:px-6">
               <button
                 type="button"
                 onClick={() => handleCategorySelect("")}
-                className={`flex shrink-0 snap-start items-center gap-1.5 rounded-full border px-3.5 py-2 text-xs font-semibold transition-all duration-200 active:scale-95 sm:text-sm ${
-                  !currentCategory
-                    ? "border-blue-600 bg-blue-600 text-white shadow-sm shadow-blue-600/20"
-                    : "border-slate-200 bg-white text-slate-600 hover:border-blue-300 hover:text-blue-600"
-                }`}
+                className="flex items-center gap-1.5 rounded-full border border-slate-200 bg-white px-3.5 py-2 text-xs font-semibold text-slate-600 transition-all duration-200 hover:border-blue-300 hover:text-blue-600 active:scale-95 sm:text-sm"
               >
-                <GridIcon className="h-4 w-4" />
-                Semua
+                <ChevronLeftIcon className="h-4 w-4" />
+                Semua Kategori
               </button>
-
-              {categoryOptions.map((category) => {
-                const isActive = currentCategory.toLowerCase() === category.toLowerCase();
-                return (
-                  <button
-                    key={category}
-                    type="button"
-                    onClick={() => handleCategorySelect(category)}
-                    className={`flex shrink-0 snap-start items-center gap-1.5 whitespace-nowrap rounded-full border px-3.5 py-2 text-xs font-semibold transition-all duration-200 active:scale-95 sm:text-sm ${
-                      isActive
-                        ? "border-blue-600 bg-blue-600 text-white shadow-sm shadow-blue-600/20"
-                        : "border-slate-200 bg-white text-slate-600 hover:border-blue-300 hover:text-blue-600"
-                    }`}
-                  >
-                    <CategoryIcon name={category} className="h-4 w-4" />
-                    {category}
-                  </button>
-                );
-              })}
-
-              {/* Dropdown sebagai fallback aksesibilitas / pencarian kategori cepat */}
-              <select
-                value={currentCategory}
-                onChange={(e) => handleCategorySelect(e.target.value)}
-                className="ml-auto shrink-0 rounded-full border border-slate-200 bg-white px-3 py-2 text-xs font-medium text-slate-600 transition-colors focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-100 sm:text-sm"
-              >
-                <option value="">Urutkan / Kategori</option>
-                {categoryOptions.map((category) => (
-                  <option key={category} value={category}>
-                    {category}
-                  </option>
-                ))}
-              </select>
             </div>
-          </div>
+          ) : (
+            <div className="h-3" />
+          )}
         </div>
 
         <div className="mx-auto max-w-[1600px] px-4 pt-5 md:px-6">
-          {/* ===================== PROMO CAROUSEL ===================== */}
-          {PROMOS.length > 0 ? (
-            <div className="mb-6">
-              <div className="mb-2 flex items-center justify-between">
-                <h2 className="text-sm font-semibold text-slate-900">Promo Berlangsung</h2>
-                <Link href="/promo" className="group flex items-center gap-0.5 text-xs font-semibold text-blue-600 hover:underline">
-                  Lihat semua
-                  <ChevronRightIcon className="h-3.5 w-3.5 transition-transform duration-200 group-hover:translate-x-0.5" />
-                </Link>
-              </div>
-
-              <div className="-mx-4 flex snap-x snap-mandatory gap-3 overflow-x-auto px-4 pb-1 md:mx-0 md:px-0 md:grid md:grid-cols-3 md:overflow-visible [&::-webkit-scrollbar]:hidden">
-                {PROMOS.map((promo) => (
-                  <div
-                    key={promo.id}
-                    className="flex min-w-[70vw] max-w-[70vw] shrink-0 snap-start flex-col justify-between rounded-xl border border-slate-200 bg-white p-4 transition-all duration-200 hover:-translate-y-0.5 hover:border-blue-200 hover:shadow-md sm:min-w-[240px] sm:max-w-[240px] md:min-w-0 md:max-w-none md:w-full"
-                  >
-                    <div>
-                      <span className="inline-flex items-center gap-1 rounded-full bg-blue-50 px-2 py-0.5 text-[10px] font-semibold text-blue-600">
-                        <TagIcon className="h-3 w-3" />
-                        {promo.label}
-                      </span>
-                      <h3 className="mt-2 text-sm font-semibold leading-snug text-slate-900">{promo.title}</h3>
-                      <p className="mt-1 text-xs leading-relaxed text-slate-500">{promo.description}</p>
-                    </div>
-                    <Link
-                      href={promo.ctaHref}
-                      className="group mt-3 inline-flex items-center text-xs font-semibold text-blue-600 hover:underline"
-                    >
-                      {promo.ctaLabel}
-                      <span className="ml-1 transition-transform duration-200 group-hover:translate-x-0.5">→</span>
-                    </Link>
-                  </div>
-                ))}
-              </div>
-            </div>
-          ) : null}
-
-          {/* ===================== ARTIKEL & TIPS KESEHATAN ===================== */}
-          {ARTICLES.length > 0 ? (
-            <div className="mb-6">
-              <div className="mb-2 flex items-center justify-between">
-                <h2 className="text-sm font-semibold text-slate-900">Artikel &amp; Tips Kesehatan</h2>
-                <Link href="/artikel" className="group flex items-center gap-0.5 text-xs font-semibold text-blue-600 hover:underline">
-                  Lihat semua
-                  <ChevronRightIcon className="h-3.5 w-3.5 transition-transform duration-200 group-hover:translate-x-0.5" />
-                </Link>
-              </div>
-
-              <div className="-mx-4 flex snap-x snap-mandatory gap-3 overflow-x-auto px-4 pb-1 md:mx-0 md:px-0 [&::-webkit-scrollbar]:hidden">
-                {ARTICLES.map((article) => (
-                  <Link
-                    href={article.href}
-                    key={article.id}
-                    className="group flex min-w-[75vw] max-w-[75vw] shrink-0 snap-start flex-col overflow-hidden rounded-xl border border-slate-200 bg-white transition-all duration-200 hover:-translate-y-0.5 hover:border-blue-200 hover:shadow-md sm:min-w-[260px] sm:max-w-[260px]"
-                  >
-                    <div className="h-32 w-full overflow-hidden bg-slate-100">
-                      <img
-                        src={article.image}
-                        alt={article.title}
-                        loading="lazy"
-                        className="h-full w-full object-cover transition duration-300 group-hover:scale-105"
-                      />
-                    </div>
-                    <div className="flex flex-1 flex-col p-3.5">
-                      <span className="inline-flex w-fit items-center rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-semibold text-slate-600">
-                        {article.tag}
-                      </span>
-                      <h3 className="mt-2 line-clamp-2 text-sm font-semibold leading-snug text-slate-900">
-                        {article.title}
-                      </h3>
-                      <p className="mt-1 line-clamp-2 text-xs leading-relaxed text-slate-500">{article.excerpt}</p>
-                      <span className="mt-auto flex items-center gap-1 pt-3 text-xs font-semibold text-blue-600">
-                        Baca selengkapnya
-                        <ArrowUpRightIcon className="h-3.5 w-3.5 transition-transform duration-200 group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
-                      </span>
-                    </div>
-                  </Link>
-                ))}
-              </div>
-            </div>
-          ) : null}
-
-          {/* ===================== JUMLAH HASIL ===================== */}
-          <p className="mb-3 text-sm text-slate-500">
-            <span className="font-semibold text-slate-900">{filteredServices.length}</span> layanan tersedia
-            {currentCategory ? (
-              <>
+          {currentCategory ? (
+            <>
+              {/* ===================== JUMLAH HASIL ===================== */}
+              <p className="mb-3 text-sm text-slate-500">
+                <span className="font-semibold text-slate-900">{filteredServices.length}</span> layanan tersedia
                 {" "}
                 untuk <span className="font-semibold text-blue-600">{currentCategory}</span>
-              </>
-            ) : null}
-          </p>
-
-          {/* ===================== LIST LAYANAN (satu kolom, ala GoFood) ===================== */}
-          {loading ? (
-            <div className="divide-y divide-slate-100 overflow-hidden rounded-xl border border-slate-200 bg-white">
-              {Array.from({ length: 5 }).map((_, i) => (
-                <div key={i} className="flex animate-pulse gap-4 p-4">
-                  <div className="h-20 w-20 shrink-0 rounded-lg bg-slate-100 sm:h-24 sm:w-24" />
-                  <div className="flex-1 space-y-2 py-1">
-                    <div className="h-4 w-2/3 rounded bg-slate-100" />
-                    <div className="h-3 w-full rounded bg-slate-50" />
-                    <div className="h-3 w-1/3 rounded bg-slate-50" />
-                  </div>
-                </div>
-              ))}
-            </div>
-          ) : filteredServices.length === 0 ? (
-            <div className="rounded-xl border border-slate-200 bg-white p-10 text-center text-slate-500">
-              <SearchOffIcon className="mx-auto h-8 w-8 text-slate-300" />
-              <p className="mt-3 font-medium">
-                {currentCategory
-                  ? `Tidak ada layanan dengan kategori "${currentCategory}"`
-                  : "Belum ada data layanan yang tersedia."}
               </p>
-            </div>
-          ) : (
-            <div className="divide-y divide-slate-100 overflow-hidden rounded-xl border border-slate-200 bg-white">
-              {filteredServices.map((service, index) => {
-                const title = getTextValue(service, ["nama_layanan", "nama", "title"]);
-                const description = getTextValue(service, ["deskripsi_layanan", "deskripsi", "keterangan", "description"]);
-                const imageUrl = resolveImageUrl(getTextValue(service, ["foto_layanan", "foto", "image"]));
-                const category = getTextValue(service, ["kategori_layanan", "kategori", "category", "nama_kategori"]);
-                const price = getTextValue(service, ["harga", "price"]);
-                const duration = getTextValue(service, ["durasi_menit", "durasi", "duration"]);
-                const serviceId = getServiceId(service);
-                const justAdded = addedServiceId === serviceId;
-                const isPressed = pressedServiceId === serviceId;
-                const transportIncluded = isTransportIncluded(service);
 
-                return (
-                  <article
-                    key={`${title}-${index}`}
-                    role="article"
-                    tabIndex={0}
-                    onClick={() => setSelectedService(service)}
-                    onKeyDown={(event) => {
-                      if (event.key === "Enter" || event.key === " ") {
-                        event.preventDefault();
-                        setSelectedService(service);
-                      }
-                    }}
-                    onPointerDown={() => setPressedServiceId(serviceId)}
-                    onPointerUp={() => setPressedServiceId(null)}
-                    onPointerLeave={() => setPressedServiceId(null)}
-                    className={`group flex cursor-pointer gap-3 p-3 transition-all duration-150 hover:bg-slate-50 focus-visible:bg-slate-50 focus-visible:outline-none sm:gap-4 sm:p-4 ${
-                      isPressed ? "scale-[0.99] bg-slate-50" : ""
-                    }`}
-                  >
-                    {/* Thumbnail */}
-                    <div className="relative h-20 w-20 shrink-0 overflow-hidden rounded-lg bg-slate-100 sm:h-24 sm:w-24">
-                      <img
-                        src={imageUrl}
-                        alt={title || "Layanan"}
-                        loading="lazy"
-                        className="h-full w-full object-cover transition duration-300 group-hover:scale-105"
-                      />
-                    </div>
-
-                    {/* Info */}
-                    <div className="flex min-w-0 flex-1 flex-col justify-center">
-                      <div className="flex items-start justify-between gap-2">
-                        <div className="min-w-0">
-                          <div className="flex items-center gap-1.5 text-[11px] font-medium text-blue-600">
-                            <CategoryIcon name={category} className="h-3.5 w-3.5" />
-                            <span className="truncate">{category || "Layanan"}</span>
-                          </div>
-                          <h2 className="mt-0.5 truncate text-sm font-semibold text-slate-900 sm:text-base">
-                            {title || "Layanan"}
-                          </h2>
-                        </div>
-                        <ChevronRightIcon className="mt-1 hidden h-4 w-4 shrink-0 text-slate-300 transition-transform duration-200 group-hover:translate-x-0.5 group-hover:text-blue-400 sm:block" />
+              {/* ===================== LIST LAYANAN (satu kolom, ala GoFood) ===================== */}
+              {loading ? (
+                <div className="divide-y divide-slate-100 overflow-hidden rounded-xl border border-slate-200 bg-white">
+                  {Array.from({ length: 5 }).map((_, i) => (
+                    <div key={i} className="flex animate-pulse gap-4 p-4">
+                      <div className="h-20 w-20 shrink-0 rounded-lg bg-slate-100 sm:h-24 sm:w-24" />
+                      <div className="flex-1 space-y-2 py-1">
+                        <div className="h-4 w-2/3 rounded bg-slate-100" />
+                        <div className="h-3 w-full rounded bg-slate-50" />
+                        <div className="h-3 w-1/3 rounded bg-slate-50" />
                       </div>
+                    </div>
+                  ))}
+                </div>
+              ) : filteredServices.length === 0 ? (
+                <div className="rounded-xl border border-slate-200 bg-white p-10 text-center text-slate-500">
+                  <SearchOffIcon className="mx-auto h-8 w-8 text-slate-300" />
+                  <p className="mt-3 font-medium">Tidak ada layanan dengan kategori "{currentCategory}"</p>
+                  <button
+                    type="button"
+                    onClick={() => handleCategorySelect("")}
+                    className="mt-4 inline-flex items-center gap-1 text-sm font-semibold text-blue-600 hover:underline"
+                  >
+                    <ChevronLeftIcon className="h-4 w-4" />
+                    Kembali ke kategori
+                  </button>
+                </div>
+              ) : (
+                <div className="divide-y divide-slate-100 overflow-hidden rounded-xl border border-slate-200 bg-white">
+                  {filteredServices.map((service, index) => {
+                    const title = getTextValue(service, ["nama_layanan", "nama", "title"]);
+                    const description = getTextValue(service, ["deskripsi_layanan", "deskripsi", "keterangan", "description"]);
+                    const imageUrl = resolveImageUrl(getTextValue(service, ["foto_layanan", "foto", "image"]));
+                    const category = getTextValue(service, ["kategori_layanan", "kategori", "category", "nama_kategori"]);
+                    const price = getTextValue(service, ["harga", "price"]);
+                    const duration = getTextValue(service, ["durasi_menit", "durasi", "duration"]);
+                    const serviceId = getServiceId(service);
+                    const justAdded = addedServiceId === serviceId;
+                    const isPressed = pressedServiceId === serviceId;
+                    const transportIncluded = isTransportIncluded(service);
 
-                      {description ? (
-                        <p className="mt-1 line-clamp-1 text-xs text-slate-500 sm:text-sm">{description}</p>
-                      ) : null}
+                    return (
+                      <article
+                        key={`${title}-${index}`}
+                        role="article"
+                        tabIndex={0}
+                        onClick={() => setSelectedService(service)}
+                        onKeyDown={(event) => {
+                          if (event.key === "Enter" || event.key === " ") {
+                            event.preventDefault();
+                            setSelectedService(service);
+                          }
+                        }}
+                        onPointerDown={() => setPressedServiceId(serviceId)}
+                        onPointerUp={() => setPressedServiceId(null)}
+                        onPointerLeave={() => setPressedServiceId(null)}
+                        className={`group flex cursor-pointer gap-3 p-3 transition-all duration-150 hover:bg-slate-50 focus-visible:bg-slate-50 focus-visible:outline-none sm:gap-4 sm:p-4 ${
+                          isPressed ? "scale-[0.99] bg-slate-50" : ""
+                        }`}
+                      >
+                        {/* Thumbnail */}
+                        <div className="relative h-20 w-20 shrink-0 overflow-hidden rounded-lg bg-slate-100 sm:h-24 sm:w-24">
+                          <img
+                            src={imageUrl}
+                            alt={title || "Layanan"}
+                            loading="lazy"
+                            className="h-full w-full object-cover transition duration-300 group-hover:scale-105"
+                          />
+                        </div>
 
-                      <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-slate-500 sm:text-xs">
-                        {duration ? (
-                          <span className="flex items-center gap-1">
-                            <ClockIcon className="h-3.5 w-3.5" />
-                            {formatDuration(duration)}
-                          </span>
-                        ) : null}
-                        <span className="flex items-center gap-1">
-                          <TruckIcon className="h-3.5 w-3.5" />
-                          {transportIncluded ? "Transport termasuk" : "Transport terpisah"}
+                        {/* Info */}
+                        <div className="flex min-w-0 flex-1 flex-col justify-center">
+                          <div className="flex items-start justify-between gap-2">
+                            <div className="min-w-0">
+                              <div className="flex items-center gap-1.5 text-[11px] font-medium text-blue-600">
+                                <CategoryIcon name={category} className="h-3.5 w-3.5" />
+                                <span className="truncate">{category || "Layanan"}</span>
+                              </div>
+                              <h2 className="mt-0.5 truncate text-sm font-semibold text-slate-900 sm:text-base">
+                                {title || "Layanan"}
+                              </h2>
+                            </div>
+                            <ChevronRightIcon className="mt-1 hidden h-4 w-4 shrink-0 text-slate-300 transition-transform duration-200 group-hover:translate-x-0.5 group-hover:text-blue-400 sm:block" />
+                          </div>
+
+                          {description ? (
+                            <p className="mt-1 line-clamp-1 text-xs text-slate-500 sm:text-sm">{description}</p>
+                          ) : null}
+
+                          <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-slate-500 sm:text-xs">
+                            {duration ? (
+                              <span className="flex items-center gap-1">
+                                <ClockIcon className="h-3.5 w-3.5" />
+                                {formatDuration(duration)}
+                              </span>
+                            ) : null}
+                            <span className="flex items-center gap-1">
+                              <TruckIcon className="h-3.5 w-3.5" />
+                              {transportIncluded ? "Transport termasuk" : "Transport terpisah"}
+                            </span>
+                          </div>
+
+                          <div className="mt-2 flex items-center justify-between">
+                            <span className="text-sm font-bold text-slate-900 sm:text-base">{formatCurrency(price)}</span>
+                            <button
+                              type="button"
+                              onClick={(event) => handleAddToCart(event, service)}
+                              aria-label="Tambah ke keranjang"
+                              className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-white transition-all duration-200 active:scale-90 sm:h-9 sm:w-9 ${
+                                justAdded ? "scale-110 bg-emerald-600" : "bg-blue-600 hover:scale-105 hover:bg-blue-700"
+                              }`}
+                            >
+                              {justAdded ? <CheckIcon className="h-4 w-4" /> : <PlusIcon className="h-4 w-4" />}
+                            </button>
+                          </div>
+                        </div>
+                      </article>
+                    );
+                  })}
+                </div>
+              )}
+            </>
+          ) : (
+            <>
+              {/* ===================== KATEGORI LAYANAN (landing) — langsung card, tanpa heading tambahan ===================== */}
+              {loading ? (
+                <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
+                  {Array.from({ length: 6 }).map((_, i) => (
+                    <div key={i} className="animate-pulse rounded-2xl border border-slate-200 bg-white p-4 sm:p-7">
+                      <div className="h-11 w-11 rounded-xl bg-slate-100 sm:h-16 sm:w-16 sm:rounded-2xl" />
+                      <div className="mt-4 h-4 w-2/3 rounded bg-slate-100 sm:mt-5 sm:h-5" />
+                      <div className="mt-2 h-3 w-full rounded bg-slate-50 sm:mt-3 sm:h-3.5" />
+                      <div className="mt-1 h-3 w-4/5 rounded bg-slate-50 sm:mt-1.5 sm:h-3.5" />
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
+                  {categoryOptions.map((category) => (
+                    <button
+                      key={category}
+                      type="button"
+                      onClick={() => handleCategorySelect(category)}
+                      className="group flex flex-col items-start rounded-2xl border border-slate-200 bg-white p-4 text-left transition-all duration-200 hover:-translate-y-0.5 hover:border-blue-300 hover:shadow-lg active:scale-[0.99] sm:p-7"
+                    >
+                      <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-blue-50 text-blue-600 transition-colors duration-200 group-hover:bg-blue-600 group-hover:text-white sm:h-16 sm:w-16 sm:rounded-2xl">
+                        <CategoryIcon name={category} className="h-5 w-5 sm:h-8 sm:w-8" />
+                      </span>
+                      <h3 className="mt-3 text-sm font-semibold text-slate-900 sm:mt-5 sm:text-lg md:text-xl">{category}</h3>
+                      <p className="mt-1.5 line-clamp-2 text-xs leading-relaxed text-slate-500 sm:mt-2 sm:text-sm sm:line-clamp-none">
+                        {getCategoryMeta(category)}
+                      </p>
+                      <div className="mt-3 flex w-full items-center justify-between border-t border-slate-100 pt-3 sm:mt-5 sm:pt-4">
+                        <span className="text-xs font-medium text-slate-400 sm:text-sm">
+                          {categoryCounts[category] || 0} layanan
+                        </span>
+                        <span className="flex items-center gap-1 text-xs font-semibold text-blue-600 sm:text-sm">
+                          Lihat
+                          <ChevronRightIcon className="h-3.5 w-3.5 transition-transform duration-200 group-hover:translate-x-0.5 sm:h-4 sm:w-4" />
                         </span>
                       </div>
+                    </button>
+                  ))}
+                </div>
+              )}
 
-                      <div className="mt-2 flex items-center justify-between">
-                        <span className="text-sm font-bold text-slate-900 sm:text-base">{formatCurrency(price)}</span>
-                        <button
-                          type="button"
-                          onClick={(event) => handleAddToCart(event, service)}
-                          aria-label="Tambah ke keranjang"
-                          className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-white transition-all duration-200 active:scale-90 sm:h-9 sm:w-9 ${
-                            justAdded ? "scale-110 bg-emerald-600" : "bg-blue-600 hover:scale-105 hover:bg-blue-700"
-                          }`}
+              {/* ===================== PROMO CAROUSEL ===================== */}
+              {loadingPromos ? (
+                <div className="mb-6 mt-8">
+                  <div className="mb-2 flex items-center justify-between">
+                    <h2 className="text-sm font-semibold text-slate-900">Promo Berlangsung</h2>
+                  </div>
+                  <div className="-mx-4 flex gap-3 overflow-x-auto px-4 pb-1 md:mx-0 md:px-0 md:grid md:grid-cols-3 [&::-webkit-scrollbar]:hidden">
+                    {Array.from({ length: 3 }).map((_, i) => (
+                      <div key={i} className="h-48 w-full animate-pulse rounded-xl border border-slate-200 bg-white p-4" />
+                    ))}
+                  </div>
+                </div>
+              ) : promos.length > 0 ? (
+                <div className="mb-6 mt-8">
+                  <div className="mb-2 flex items-center justify-between">
+                    <h2 className="text-sm font-semibold text-slate-900">Promo Berlangsung</h2>
+                    <Link href="/promo" className="group flex items-center gap-0.5 text-xs font-semibold text-blue-600 hover:underline">
+                      Lihat semua
+                      <ChevronRightIcon className="h-3.5 w-3.5 transition-transform duration-200 group-hover:translate-x-0.5" />
+                    </Link>
+                  </div>
+
+                  <div className="-mx-4 flex snap-x snap-mandatory gap-3 overflow-x-auto px-4 pb-1 md:mx-0 md:px-0 md:grid md:grid-cols-3 md:overflow-visible [&::-webkit-scrollbar]:hidden">
+                    {promos.map((promo, index) => {
+                      const title = getTextValue(promo, ["nama_paket", "nama", "title", "judul"]);
+                      const description = getTextValue(promo, ["deskripsi", "description", "keterangan"]);
+                      const rawImage = getTextValue(promo, ["gambar_promo", "gambar", "image", "foto"]);
+                      const imageUrl = resolveImageUrl(rawImage);
+                      const diskonPersen = promo?.diskon_persen;
+                      const slug = generatePromoSlug(title) || promo?.id_promo || promo?.id || index;
+
+                      return (
+                        <div
+                          key={promo?.id_promo || promo?.id || index}
+                          className="flex min-w-[70vw] max-w-[70vw] shrink-0 snap-start flex-col justify-between overflow-hidden rounded-xl border border-slate-200 bg-white transition-all duration-200 hover:-translate-y-0.5 hover:border-blue-200 hover:shadow-md sm:min-w-[240px] sm:max-w-[240px] md:min-w-0 md:max-w-none md:w-full"
                         >
-                          {justAdded ? <CheckIcon className="h-4 w-4" /> : <PlusIcon className="h-4 w-4" />}
-                        </button>
-                      </div>
-                    </div>
-                  </article>
-                );
-              })}
-            </div>
+                          <div className="relative h-36 w-full overflow-hidden bg-slate-100">
+                            <img
+                              src={imageUrl}
+                              alt={title || "Promo"}
+                              loading="lazy"
+                              className="h-full w-full object-cover transition duration-300 hover:scale-105"
+                            />
+                            {diskonPersen ? (
+                              <div className="absolute left-2.5 top-2.5 rounded-md bg-red-500 px-2 py-1 text-[10px] font-bold text-white shadow-sm">
+                                Diskon {Number(diskonPersen)}%
+                              </div>
+                            ) : null}
+                          </div>
+
+                          <div className="flex flex-1 flex-col justify-between p-3.5">
+                            <div>
+                              <span className="inline-flex items-center gap-1 rounded-full bg-blue-50 px-2 py-0.5 text-[10px] font-semibold text-blue-600">
+                                <TagIcon className="h-3 w-3" />
+                                Promo
+                              </span>
+                              <h3 className="mt-1.5 line-clamp-1 text-sm font-semibold leading-snug text-slate-900">
+                                {title || "Promo SmartHomeCare"}
+                              </h3>
+                              {description ? (
+                                <p className="mt-1 line-clamp-2 text-xs leading-relaxed text-slate-500">{description}</p>
+                              ) : null}
+                            </div>
+                            <Link
+                              href={`/promo/${slug}`}
+                              className="group mt-3 inline-flex items-center text-xs font-semibold text-blue-600 hover:underline"
+                            >
+                              Klaim Sekarang
+                              <span className="ml-1 transition-transform duration-200 group-hover:translate-x-0.5">→</span>
+                            </Link>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              ) : null}
+
+              {/* ===================== ARTIKEL & TIPS KESEHATAN ===================== */}
+              {ARTICLES.length > 0 ? (
+                <div className="mb-2">
+                  <div className="mb-2 flex items-center justify-between">
+                    <h2 className="text-sm font-semibold text-slate-900">Artikel &amp; Tips Kesehatan</h2>
+                    <Link href="/artikel" className="group flex items-center gap-0.5 text-xs font-semibold text-blue-600 hover:underline">
+                      Lihat semua
+                      <ChevronRightIcon className="h-3.5 w-3.5 transition-transform duration-200 group-hover:translate-x-0.5" />
+                    </Link>
+                  </div>
+
+                  <div className="-mx-4 flex snap-x snap-mandatory gap-3 overflow-x-auto px-4 pb-1 md:mx-0 md:px-0 md:grid md:grid-cols-3 md:overflow-visible [&::-webkit-scrollbar]:hidden">
+                    {ARTICLES.map((article) => (
+                      <Link
+                        href={article.href}
+                        key={article.id}
+                        className="group flex min-w-[75vw] max-w-[75vw] shrink-0 snap-start flex-col overflow-hidden rounded-xl border border-slate-200 bg-white transition-all duration-200 hover:-translate-y-0.5 hover:border-blue-200 hover:shadow-md sm:min-w-[260px] sm:max-w-[260px] md:min-w-0 md:max-w-none md:w-full"
+                      >
+                        <div className="h-32 w-full overflow-hidden bg-slate-100">
+                          <img
+                            src={article.image}
+                            alt={article.title}
+                            loading="lazy"
+                            className="h-full w-full object-cover transition duration-300 group-hover:scale-105"
+                          />
+                        </div>
+                        <div className="flex flex-1 flex-col p-3.5">
+                          <span className="inline-flex w-fit items-center rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-semibold text-slate-600">
+                            {article.tag}
+                          </span>
+                          <h3 className="mt-2 line-clamp-2 text-sm font-semibold leading-snug text-slate-900">
+                            {article.title}
+                          </h3>
+                          <p className="mt-1 line-clamp-2 text-xs leading-relaxed text-slate-500">{article.excerpt}</p>
+                          <span className="mt-auto flex items-center gap-1 pt-3 text-xs font-semibold text-blue-600">
+                            Baca selengkapnya
+                            <ArrowUpRightIcon className="h-3.5 w-3.5 transition-transform duration-200 group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
+                          </span>
+                        </div>
+                      </Link>
+                    ))}
+                  </div>
+                </div>
+              ) : null}
+            </>
           )}
         </div>
       </main>
 
-      {/* Floating cart button */}
-      <button
-        type="button"
-        onClick={handleGoToCart}
-        aria-label="Buka keranjang"
-        className={`fixed bottom-24 right-4 z-40 flex h-14 w-14 items-center justify-center rounded-full bg-emerald-500 text-white shadow-lg transition-all duration-200 hover:scale-105 hover:bg-emerald-600 active:scale-95 sm:bottom-8 sm:right-6 sm:h-16 sm:w-16 ${
-          cartBump ? "scale-110" : ""
-        }`}
-      >
-        <CartIcon className="h-6 w-6 sm:h-7 sm:w-7" />
-        {cartItemCount > 0 ? (
-          <span
-            className={`absolute -right-1 -top-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-rose-500 px-1 text-[11px] font-bold text-white ring-2 ring-white transition-transform duration-200 ${
-              cartBump ? "scale-125" : "scale-100"
-            }`}
-          >
-            {cartItemCount}
-          </span>
-        ) : null}
-      </button>
+
+      {/* Floating cart button — hanya tampil di step "Layanan" (setelah kategori dipilih) */}
+      {currentCategory ? (
+        <button
+          type="button"
+          onClick={handleGoToCart}
+          aria-label="Buka keranjang"
+          className={`fixed bottom-24 right-4 z-40 flex h-14 w-14 items-center justify-center rounded-full bg-emerald-500 text-white shadow-lg transition-all duration-200 hover:scale-105 hover:bg-emerald-600 active:scale-95 sm:bottom-8 sm:right-6 sm:h-16 sm:w-16 ${
+            cartBump ? "scale-110" : ""
+          }`}
+        >
+          <CartIcon className="h-6 w-6 sm:h-7 sm:w-7" />
+          {cartItemCount > 0 ? (
+            <span
+              className={`absolute -right-1 -top-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-rose-500 px-1 text-[11px] font-bold text-white ring-2 ring-white transition-transform duration-200 ${
+                cartBump ? "scale-125" : "scale-100"
+              }`}
+            >
+              {cartItemCount}
+            </span>
+          ) : null}
+        </button>
+      ) : null}
 
       {/* Modal Detail Layanan */}
       {selectedService ? (
