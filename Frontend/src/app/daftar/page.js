@@ -44,15 +44,15 @@ function GoogleRegisterButton({ onSuccess, onError, loading, isConfigured }) {
       type="button"
       onClick={handleClick}
       disabled={loading}
-      className="w-full flex items-center justify-center gap-3 rounded-full border border-gray-300 bg-white py-3 font-medium text-gray-700 shadow-sm transition hover:bg-gray-50 hover:shadow disabled:opacity-60 disabled:cursor-not-allowed"
+      className="w-full flex items-center justify-center gap-3 rounded-full border border-gray-300 bg-white py-3 px-4 font-medium text-gray-700 shadow-sm transition hover:bg-gray-50 hover:shadow disabled:opacity-60 disabled:cursor-not-allowed text-sm sm:text-base"
     >
-      <svg className="h-5 w-5" viewBox="0 0 24 24" aria-hidden="true">
+      <svg className="h-5 w-5 shrink-0" viewBox="0 0 24 24" aria-hidden="true">
         <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
         <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
         <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z"/>
         <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
       </svg>
-      Daftar dengan Google
+      <span>Daftar dengan Google</span>
     </button>
   );
 }
@@ -302,15 +302,13 @@ export default function DaftarPage() {
   return (
     <main className="min-h-screen bg-gray-100 flex flex-col relative overflow-x-hidden">
       
-      {/* 1. HEADER ATAS (Biru) */}
-      <section className="w-full h-64 bg-gradient-to-br from-[#0284c7] via-[#004fa4] to-[#2dd4bf] rounded-b-[40px] relative z-10" />
+      {/* 1. HEADER ATAS (Responsif Tinggi) */}
+      <section className="w-full h-48 sm:h-64 bg-gradient-to-br from-[#0284c7] via-[#004fa4] to-[#2dd4bf] rounded-b-[30px] sm:rounded-b-[40px] relative z-10" />
 
-    
-
-      {/* 3. REGISTER CARD (Form) */}
-      <div className="-mt-36 flex justify-center px-6 pb-28 relative z-20">
-        <div className="w-full max-w-xl rounded-3xl bg-white p-8 md:p-10 shadow-2xl border border-white/40">
-          <h1 className="mb-8 text-center text-4xl font-bold text-gray-900">
+      {/* 2. REGISTER CARD (Penyesuaian Margin Negatif & Padding Responsif) */}
+      <div className="-mt-28 sm:-mt-36 flex justify-center px-4 sm:px-6 pb-20 sm:pb-28 relative z-20">
+        <div className="w-full max-w-xl rounded-2xl sm:rounded-3xl bg-white p-5 sm:p-8 md:p-10 shadow-2xl border border-white/40">
+          <h1 className="mb-6 sm:mb-8 text-center text-3xl sm:text-4xl font-bold text-gray-900">
             Registrasi
           </h1>
 
@@ -335,7 +333,7 @@ export default function DaftarPage() {
                 onChange={handleChange}
                 placeholder="Nama sesuai KTP"
                 required
-                className={`w-full rounded border px-4 py-3 text-slate-900 outline-none transition focus:ring-2 ${
+                className={`w-full rounded-lg border px-4 py-3 text-sm sm:text-base text-slate-900 outline-none transition focus:ring-2 ${
                   fieldErrors.nama_lengkap
                     ? "border-red-400 focus:border-red-500 focus:ring-red-200"
                     : "border-gray-300 focus:border-indigo-500 focus:ring-indigo-200"
@@ -358,7 +356,7 @@ export default function DaftarPage() {
                 value={form.no_hp}
                 onChange={handleChange}
                 placeholder="0812xxxxxxxx"
-                className="w-full rounded border border-gray-300 px-4 py-3 text-slate-900 outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200"
+                className="w-full rounded-lg border border-gray-300 px-4 py-3 text-sm sm:text-base text-slate-900 outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200"
               />
             </div>
 
@@ -376,7 +374,7 @@ export default function DaftarPage() {
                 placeholder="16 digit Nomor Induk Kependudukan"
                 maxLength={16}
                 required
-                className={`w-full rounded border px-4 py-3 text-slate-900 outline-none transition focus:ring-2 ${
+                className={`w-full rounded-lg border px-4 py-3 text-sm sm:text-base text-slate-900 outline-none transition focus:ring-2 ${
                   fieldErrors.nik
                     ? "border-red-400 focus:border-red-500 focus:ring-red-200"
                     : "border-gray-300 focus:border-indigo-500 focus:ring-indigo-200"
@@ -398,7 +396,7 @@ export default function DaftarPage() {
                 name="golongan_darah"
                 value={form.golongan_darah}
                 onChange={handleChange}
-                className="w-full rounded border border-gray-300 px-4 py-3 text-slate-900 outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200"
+                className="w-full rounded-lg border border-gray-300 px-4 py-3 text-sm sm:text-base text-slate-900 outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 bg-white"
               >
                 <option value="">Pilih Golongan Darah</option>
                 <option value="A">A</option>
@@ -419,7 +417,7 @@ export default function DaftarPage() {
                 value={form.jenis_kelamin}
                 onChange={handleChange}
                 required
-                className={`w-full rounded border px-4 py-3 text-slate-900 outline-none transition focus:ring-2 ${
+                className={`w-full rounded-lg border px-4 py-3 text-sm sm:text-base text-slate-900 outline-none transition focus:ring-2 bg-white ${
                   fieldErrors.jenis_kelamin
                     ? "border-red-400 focus:border-red-500 focus:ring-red-200"
                     : "border-gray-300 focus:border-indigo-500 focus:ring-indigo-200"
@@ -455,7 +453,7 @@ export default function DaftarPage() {
                   }}
                   placeholder="Cari alamat, jalan, atau kelurahan..."
                   required
-                  className={`w-full rounded border px-4 py-3 text-slate-900 outline-none transition focus:ring-2 ${
+                  className={`w-full rounded-lg border px-4 py-3 text-sm sm:text-base text-slate-900 outline-none transition focus:ring-2 ${
                     fieldErrors.alamat_utama
                       ? "border-red-400 focus:border-red-500 focus:ring-red-200"
                       : "border-gray-300 focus:border-indigo-500 focus:ring-indigo-200"
@@ -486,7 +484,7 @@ export default function DaftarPage() {
               </div>
 
               {/* Peta */}
-              <div className="mt-3">
+              <div className="mt-3 overflow-hidden rounded-xl border border-gray-200">
                 <MapPicker
                   lat={form.latitude || -6.2088}
                   lng={form.longitude || 106.8456}
@@ -515,7 +513,7 @@ export default function DaftarPage() {
                 onChange={handleChange}
                 placeholder="contoh@gmail.com"
                 required
-                className={`w-full rounded border px-4 py-3 text-slate-900 outline-none transition focus:ring-2 ${
+                className={`w-full rounded-lg border px-4 py-3 text-sm sm:text-base text-slate-900 outline-none transition focus:ring-2 ${
                   fieldErrors.email
                     ? "border-red-400 focus:border-red-500 focus:ring-red-200"
                     : "border-gray-300 focus:border-indigo-500 focus:ring-indigo-200"
@@ -541,7 +539,7 @@ export default function DaftarPage() {
                   placeholder="Minimal 8 karakter"
                   required
                   minLength={8}
-                  className={`w-full rounded border px-4 py-3 pr-12 text-slate-900 outline-none transition focus:ring-2 ${
+                  className={`w-full rounded-lg border px-4 py-3 pr-12 text-sm sm:text-base text-slate-900 outline-none transition focus:ring-2 ${
                     fieldErrors.password
                       ? "border-red-400 focus:border-red-500 focus:ring-red-200"
                       : "border-gray-300 focus:border-indigo-500 focus:ring-indigo-200"
@@ -575,7 +573,7 @@ export default function DaftarPage() {
                   onChange={handleChange}
                   placeholder="••••••••"
                   required
-                  className={`w-full rounded border px-4 py-3 pr-12 text-slate-900 outline-none transition focus:ring-2 ${
+                  className={`w-full rounded-lg border px-4 py-3 pr-12 text-sm sm:text-base text-slate-900 outline-none transition focus:ring-2 ${
                     fieldErrors.password_confirmation
                       ? "border-red-400 focus:border-red-500 focus:ring-red-200"
                       : "border-gray-300 focus:border-indigo-500 focus:ring-indigo-200"
@@ -600,7 +598,7 @@ export default function DaftarPage() {
               type="submit"
               id="btn-daftar"
               disabled={loading}
-              className="mt-2 w-full rounded-full bg-indigo-500 py-3 text-lg font-semibold text-white transition hover:bg-indigo-600 disabled:opacity-70 disabled:cursor-not-allowed"
+              className="mt-2 w-full rounded-full bg-indigo-500 py-3 text-base sm:text-lg font-semibold text-white transition hover:bg-indigo-600 disabled:opacity-70 disabled:cursor-not-allowed shadow-md"
             >
               {loading ? "Memproses..." : "Daftar"}
             </button>
@@ -613,7 +611,7 @@ export default function DaftarPage() {
             )}
 
             {/* Divider */}
-            <div className="flex items-center">
+            <div className="flex items-center my-4">
               <div className="h-px flex-1 bg-gray-200" />
               <span className="mx-3 text-sm text-gray-400">atau</span>
               <div className="h-px flex-1 bg-gray-200" />

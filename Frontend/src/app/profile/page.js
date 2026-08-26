@@ -292,8 +292,27 @@ export default function ProfilePage() {
           {/* AVATAR & USER INFO */}
           <div className="pt-5 pb-5 px-5 flex items-center gap-4">
             <div className="relative shrink-0">
-              <div className="w-16 h-16 rounded-full border-2 border-gray-100 shadow-sm bg-blue-600 text-white font-bold text-xl flex items-center justify-center overflow-hidden">
-                {userInitial}
+              <div 
+                className="w-16 h-16 rounded-full border-2 border-gray-100 shadow-sm text-white font-bold text-xl flex items-center justify-center overflow-hidden"
+                style={{ 
+                  background: (!profile?.pasien?.avatar || profile.pasien.avatar.includes('googleusercontent.com')) 
+                    ? 'linear-gradient(135deg, #6366f1 0%, #a855f7 100%)' 
+                    : 'transparent' 
+                }}
+              >
+                {profile?.pasien?.avatar && !profile.pasien.avatar.includes('googleusercontent.com') ? (
+                  <img
+                    src={
+                      profile.pasien.avatar.startsWith('data:image/') || profile.pasien.avatar.startsWith('http')
+                        ? profile.pasien.avatar
+                        : `http://localhost:3000/storage/${profile.pasien.avatar.startsWith('/') ? profile.pasien.avatar.slice(1) : profile.pasien.avatar}`
+                    }
+                    alt="Avatar"
+                    className="w-full h-full object-cover"
+                  />
+                ) : (
+                  <span>{userInitial}</span>
+                )}
               </div>
 
               <Link 
