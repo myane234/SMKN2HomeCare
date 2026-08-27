@@ -1,8 +1,13 @@
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { BASE_URL } from "../../utils/apiClient";
+import { URL as API_URL } from "../../utils/getUrl";
+import { BASE_URL as CLIENT_BASE_URL } from "../../utils/apiClient";
 import { getAuthHeaders } from "../../utils/auth";
 import Pagination from "../../components/pagination";
+
+// Ensure BASE_URL always has /api prefix
+const RAW_URL = API_URL || CLIENT_BASE_URL || "https://citra.faaruq.com/api";
+const BASE_URL = RAW_URL.endsWith("/api") ? RAW_URL : `${RAW_URL.replace(/\/+$/, "")}/api`;
 
 // ==========================================
 // UTILS & HELPER FUNCTIONS
@@ -88,10 +93,16 @@ export default function PageBooking() {
       setLoading(true);
       setErrorMsg("");
       
-      // Try /manage-admin/bookings route first, fallback to /booking
+      // Try /manage-admin/bookings route first, fallback to /admin/bookings, then /booking
       let res = await fetch(`${BASE_URL}/manage-admin/bookings`, {
         headers: getAuthHeaders({ Accept: "application/json" }),
       });
+
+      if (!res.ok) {
+        res = await fetch(`${BASE_URL}/admin/bookings`, {
+          headers: getAuthHeaders({ Accept: "application/json" }),
+        });
+      }
 
       if (!res.ok) {
         res = await fetch(`${BASE_URL}/booking`, {
@@ -304,7 +315,7 @@ export default function PageBooking() {
                         <span className="text-[11px] text-slate-400 block truncate max-w-xs">{booking.alamat_kunjungan || "-"}</span>
                       </td>
                       <td className="px-4 py-3.5">
-                        <span className="font-medium text-slate-800">{booking.tenaga_medis?.nama_lengkap || booking.tenaga_medis?.nama || <span class="italic text-slate-400">Belum Ditugaskan</span>}</span>
+                        <span className="font-medium text-slate-800">{booking.tenaga_medis?.nama_lengkap || booking.tenaga_medis?.nama || <span className="italic text-slate-400">Belum Ditugaskan</span>}</span>
                       </td>
                       <td className="px-4 py-3.5">
                         <span className="font-medium text-slate-800">{booking.layanan?.nama_layanan || booking.layanan?.nama || "-"}</span>
