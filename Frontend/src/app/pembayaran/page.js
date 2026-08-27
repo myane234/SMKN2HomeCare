@@ -109,7 +109,7 @@ function PembayaranContent() {
 
   return (
     <div className="min-h-screen bg-slate-50 font-sans text-slate-800 pb-16">
-      <!-- HEADER -->
+      {/* HEADER */}
       <div className="bg-white border-b border-slate-200 sticky top-0 z-20 shadow-sm">
         <div className="max-w-3xl mx-auto px-4 py-3.5 flex items-center justify-between">
           <div className="flex items-center gap-3">
@@ -134,7 +134,7 @@ function PembayaranContent() {
       </div>
 
       <div className="max-w-3xl mx-auto px-4 py-6 space-y-5">
-        <!-- SEARCH / INPUT BOOKING ID -->
+        {/* SEARCH / INPUT BOOKING ID */}
         <div className="bg-white rounded-2xl p-4 border border-slate-200 shadow-sm space-y-3">
           <label className="block text-xs font-bold text-slate-600 uppercase tracking-wider">
             Cari / Masukkan Kode Booking Pasien
