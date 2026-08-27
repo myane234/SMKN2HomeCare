@@ -28,42 +28,43 @@ function formatDate(value) {
 }
 
 function formatRupiah(amount) {
+  const num = Number(amount) || 0;
   return new Intl.NumberFormat("id-ID", {
     style: "currency",
     currency: "IDR",
     maximumFractionDigits: 0,
-  }).format(amount || 0);
+  }).format(num);
 }
 
 function renderStatusBadge(status) {
   const value = String(status || "pending").toLowerCase();
   if (value === "selesai" || value === "completed" || value === "success") {
-    return <span className="inline-flex items-center rounded-md bg-emerald-100 px-2.5 py-1 text-xs font-bold text-emerald-800 border border-emerald-200">Selesai</span>;
+    return <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-3 py-1 text-xs font-extrabold text-emerald-700 border border-emerald-200 shadow-sm"><span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>Selesai</span>;
   }
   if (value === "dibatalkan" || value === "cancelled" || value === "canceled") {
-    return <span className="inline-flex items-center rounded-md bg-rose-100 px-2.5 py-1 text-xs font-bold text-rose-800 border border-rose-200">Dibatalkan</span>;
+    return <span className="inline-flex items-center gap-1 rounded-full bg-rose-50 px-3 py-1 text-xs font-extrabold text-rose-700 border border-rose-200 shadow-sm"><span className="w-1.5 h-1.5 rounded-full bg-rose-500"></span>Dibatalkan</span>;
   }
   if (value === "diperjalanan" || value === "di perjalanan" || value === "dalam perjalanan") {
-    return <span className="inline-flex items-center rounded-md bg-blue-100 px-2.5 py-1 text-xs font-bold text-blue-800 border border-blue-200">Di Perjalanan</span>;
+    return <span className="inline-flex items-center gap-1 rounded-full bg-sky-50 px-3 py-1 text-xs font-extrabold text-sky-700 border border-sky-200 shadow-sm"><span className="w-1.5 h-1.5 rounded-full bg-sky-500 animate-pulse"></span>Di Perjalanan</span>;
   }
   if (value === "tindakan" || value === "sedang tindakan") {
-    return <span className="inline-flex items-center rounded-md bg-purple-100 px-2.5 py-1 text-xs font-bold text-purple-800 border border-purple-200">Tindakan</span>;
+    return <span className="inline-flex items-center gap-1 rounded-full bg-purple-50 px-3 py-1 text-xs font-extrabold text-purple-700 border border-purple-200 shadow-sm"><span className="w-1.5 h-1.5 rounded-full bg-purple-500 animate-pulse"></span>Tindakan</span>;
   }
-  return <span className="inline-flex items-center rounded-md bg-amber-100 px-2.5 py-1 text-xs font-bold text-amber-800 border border-amber-200">{status || "Pending"}</span>;
+  return <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 px-3 py-1 text-xs font-extrabold text-amber-700 border border-amber-200 shadow-sm"><span className="w-1.5 h-1.5 rounded-full bg-amber-500"></span>{status || "Pending"}</span>;
 }
 
 function renderPaymentBadge(status) {
   const value = String(status || "belum bayar").toLowerCase();
   if (["settlement", "sukses", "paid", "lunas", "capture"].includes(value)) {
-    return <span className="inline-flex items-center rounded-md bg-emerald-100 px-2.5 py-1 text-xs font-bold text-emerald-800 border border-emerald-200">Lunas</span>;
+    return <span className="inline-flex items-center rounded-full bg-emerald-100 px-3 py-1 text-xs font-bold text-emerald-800 border border-emerald-300">Lunas</span>;
   }
   if (["pending", "menunggu", "waiting"].includes(value)) {
-    return <span className="inline-flex items-center rounded-md bg-amber-100 px-2.5 py-1 text-xs font-bold text-amber-800 border border-amber-200">Pending</span>;
+    return <span className="inline-flex items-center rounded-full bg-amber-100 px-3 py-1 text-xs font-bold text-amber-800 border border-amber-300">Pending</span>;
   }
   if (["expire", "failed", "gagal", "deny", "cancel"].includes(value)) {
-    return <span className="inline-flex items-center rounded-md bg-rose-100 px-2.5 py-1 text-xs font-bold text-rose-800 border border-rose-200">Gagal</span>;
+    return <span className="inline-flex items-center rounded-full bg-rose-100 px-3 py-1 text-xs font-bold text-rose-800 border border-rose-300">Gagal</span>;
   }
-  return <span className="inline-flex items-center rounded-md bg-slate-100 px-2.5 py-1 text-xs font-bold text-slate-700 border border-slate-200">Belum Bayar</span>;
+  return <span className="inline-flex items-center rounded-full bg-slate-100 px-3 py-1 text-xs font-bold text-slate-700 border border-slate-300">Belum Bayar</span>;
 }
 
 function getNormalizedPaymentStatus(booking) {
@@ -93,7 +94,6 @@ export default function PageBooking() {
       setLoading(true);
       setErrorMsg("");
       
-      // Try /manage-admin/bookings route first, fallback to /admin/bookings, then /booking
       let res = await fetch(`${BASE_URL}/manage-admin/bookings`, {
         headers: getAuthHeaders({ Accept: "application/json" }),
       });
@@ -170,10 +170,16 @@ export default function PageBooking() {
     .reduce((sum, b) => sum + Number(b.transaksi?.jumlah_total || 0), 0);
 
   const totalHakNakesAmount = bookings
-    .reduce((sum, b) => sum + Number(b.transaksi?.hak_nakes || 0), 0);
+    .reduce((sum, b) => {
+      const tx = b.transaksi;
+      return sum + Number(tx?.bagi_hasil?.hak_nakes ?? tx?.hak_nakes ?? 0);
+    }, 0);
 
   const totalProfitHcAmount = bookings
-    .reduce((sum, b) => sum + Number(b.transaksi?.profit_hc || 0), 0);
+    .reduce((sum, b) => {
+      const tx = b.transaksi;
+      return sum + Number(tx?.bagi_hasil?.profit_hc ?? tx?.profit_hc ?? 0);
+    }, 0);
 
   const counts = {
     all: bookings.length,
@@ -446,7 +452,12 @@ export function PageBookingDetail() {
   }
 
   if (loading) {
-    return <div className="p-8 text-center text-sm text-slate-500">Memuat detail booking...</div>;
+    return (
+      <div className="min-h-[60vh] flex flex-col items-center justify-center p-8 text-center">
+        <div className="w-10 h-10 border-4 border-indigo-200 border-t-indigo-600 rounded-full animate-spin mb-3"></div>
+        <p className="text-xs font-semibold text-slate-500">Memuat detail booking #{id}...</p>
+      </div>
+    );
   }
 
   if (errorMsg || !booking) {
@@ -455,7 +466,7 @@ export function PageBookingDetail() {
         <button onClick={() => navigate(-1)} className="text-xs font-semibold text-indigo-600 hover:underline flex items-center gap-1">
           &larr; Kembali
         </button>
-        <div className="rounded-2xl border border-rose-200 bg-rose-50 p-4 text-xs text-rose-600 font-medium">
+        <div className="rounded-2xl border border-rose-200 bg-rose-50 p-5 text-xs text-rose-700 font-medium">
           {errorMsg || "Data booking tidak ditemukan."}
         </div>
       </div>
@@ -464,15 +475,30 @@ export function PageBookingDetail() {
 
   const tx = booking.transaksi;
 
+  // Extract financial fields accurately supporting both Resource structure and raw model structure
+  const sl = Number(tx?.rincian_biaya?.sl ?? tx?.sl ?? 0);
+  const sb = Number(tx?.rincian_biaya?.sb ?? tx?.sb ?? 0);
+  const st = Number(tx?.rincian_biaya?.st ?? tx?.st ?? 0);
+  const ba = Number(tx?.rincian_biaya?.ba ?? tx?.ba ?? 0);
+  const ppn = Number(tx?.rincian_biaya?.ppn ?? tx?.ppn ?? 0);
+  const persenPpn = Number(tx?.persentase?.ppn ?? tx?.persen_ppn ?? 0);
+
+  const hakNakes = Number(laporan?.bagi_hasil?.hak_nakes ?? tx?.bagi_hasil?.hak_nakes ?? tx?.hak_nakes ?? 0);
+  const profitHc = Number(laporan?.bagi_hasil?.profit_hc ?? tx?.bagi_hasil?.profit_hc ?? tx?.profit_hc ?? 0);
+  const feeMidtrans = Number(laporan?.bagi_hasil?.fee_midtrans ?? tx?.bagi_hasil?.fee_midtrans ?? tx?.fee_midtrans ?? 4000);
+  const hppBhp = Number(laporan?.bagi_hasil?.hpp_bhp ?? tx?.bagi_hasil?.hpp_bhp ?? tx?.hpp_bhp ?? 0);
+
+  const totalTagihan = Number(laporan?.jumlah_total ?? tx?.jumlah_total ?? (sl + sb + st + ba + ppn));
+
   return (
     <div className="p-6 max-w-5xl mx-auto space-y-6">
       {/* Top Bar Navigation */}
       <div className="flex items-center justify-between">
         <button
-          onClick={() => navigate("/booking")}
+          onClick={() => navigate("/bookings")}
           className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50 transition shadow-sm"
         >
-          <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <svg className="h-4 w-4 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
           </svg>
           Kembali ke Daftar Booking
@@ -484,22 +510,27 @@ export function PageBookingDetail() {
       </div>
 
       {statusMessage && (
-        <div className="rounded-xl bg-emerald-50 p-3.5 text-xs text-emerald-700 font-semibold border border-emerald-200">
-          {statusMessage}
+        <div className="rounded-xl bg-emerald-50 p-4 text-xs text-emerald-800 font-semibold border border-emerald-200 shadow-sm flex items-center gap-2">
+          <svg className="w-4 h-4 text-emerald-600 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
+          </svg>
+          <span>{statusMessage}</span>
         </div>
       )}
 
-      {/* Main Booking Code & Status Controller */}
-      <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+      {/* Main Booking Header Banner */}
+      <div className="rounded-2xl border border-slate-200 bg-gradient-to-r from-slate-900 to-slate-800 p-6 text-white shadow-md flex flex-col md:flex-row md:items-center md:justify-between gap-5">
         <div>
-          <span className="text-xs font-extrabold uppercase tracking-wider text-indigo-600">Rincian & Laporan Transaksi Booking</span>
-          <h1 className="mt-1 text-2xl font-extrabold text-slate-900 font-mono">{booking.booking_code || `#${booking.id_booking}`}</h1>
-          <p className="mt-1 text-xs text-slate-400">Dibuat pada: {formatDate(booking.created_at)}</p>
+          <span className="inline-block px-2.5 py-1 rounded-md bg-indigo-500/20 text-indigo-300 text-[10px] font-extrabold uppercase tracking-wider mb-2 border border-indigo-400/30">
+            Rincian & Status Booking #{booking.id_booking}
+          </span>
+          <h1 className="text-2xl md:text-3xl font-black font-mono tracking-tight text-white">{booking.booking_code || `#${booking.id_booking}`}</h1>
+          <p className="mt-1 text-xs text-slate-300">Waktu Order: {formatDate(booking.created_at || booking.dibuat_pada)}</p>
         </div>
 
-        {/* Panel Update Status Booking */}
-        <div className="rounded-xl border border-slate-200 bg-slate-50 p-3.5 flex flex-col gap-2">
-          <label className="text-[11px] font-bold uppercase tracking-wider text-slate-500">Ubah Status Booking:</label>
+        {/* Status Update Panel */}
+        <div className="bg-white/10 backdrop-blur-md rounded-xl p-3.5 border border-white/10 space-y-2 shrink-0">
+          <span className="text-[11px] font-bold text-slate-300 uppercase tracking-wider block">Ubah Status Booking:</span>
           <div className="flex flex-wrap gap-1.5">
             {availableStatuses.map((st) => {
               const isActive = String(booking.status_booking || "").toLowerCase() === st.toLowerCase();
@@ -510,8 +541,8 @@ export function PageBookingDetail() {
                   onClick={() => handleUpdateStatus(st)}
                   className={`px-3 py-1.5 rounded-lg text-xs font-bold transition ${
                     isActive
-                      ? "bg-indigo-600 text-white shadow-sm"
-                      : "bg-white border border-slate-200 text-slate-700 hover:bg-slate-100"
+                      ? "bg-indigo-500 text-white shadow-md font-extrabold"
+                      : "bg-slate-800/80 hover:bg-slate-700 text-slate-200 border border-slate-600/50"
                   }`}
                 >
                   {st}
@@ -527,106 +558,131 @@ export function PageBookingDetail() {
         <div className="lg:col-span-2 space-y-6">
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-              <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400">Informasi Pasien</h3>
-              <p className="mt-2 text-base font-bold text-slate-900">{booking.pasien?.nama_lengkap || booking.pasien?.nama || "-"}</p>
-              <div className="mt-2 space-y-1 text-xs text-slate-500">
-                <p>No. Telp: <span className="font-semibold text-slate-700">{booking.pasien?.no_telp || "-"}</span></p>
-                <p>NIK: <span className="font-semibold text-slate-700">{booking.pasien?.nik || "-"}</span></p>
+              <div className="flex items-center gap-2 text-indigo-600 mb-2">
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                </svg>
+                <h3 className="text-xs font-extrabold uppercase tracking-wider text-slate-500">Data Pasien</h3>
+              </div>
+              <p className="text-base font-bold text-slate-900">{booking.pasien?.nama_lengkap || booking.pasien?.nama || "-"}</p>
+              <div className="mt-2 space-y-1 text-xs text-slate-500 border-t border-slate-100 pt-2">
+                <p>No. Telp: <span className="font-semibold text-slate-800">{booking.pasien?.no_telp || "-"}</span></p>
+                <p>NIK: <span className="font-semibold text-slate-800">{booking.pasien?.nik || "-"}</span></p>
               </div>
             </div>
 
             <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-              <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400">Tenaga Medis</h3>
-              <p className="mt-2 text-base font-bold text-slate-900">{booking.tenaga_medis?.nama_lengkap || booking.tenaga_medis?.nama || "Belum Ditugaskan"}</p>
-              <div className="mt-2 space-y-1 text-xs text-slate-500">
-                <p>Spesialisasi: <span className="font-semibold text-slate-700">{booking.tenaga_medis?.jenis_tenaga_medis || "-"}</span></p>
-                <p>STR: <span className="font-semibold text-slate-700">{booking.tenaga_medis?.no_str || "-"}</span></p>
+              <div className="flex items-center gap-2 text-emerald-600 mb-2">
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+                </svg>
+                <h3 className="text-xs font-extrabold uppercase tracking-wider text-slate-500">Tenaga Medis</h3>
+              </div>
+              <p className="text-base font-bold text-slate-900">{booking.tenaga_medis?.nama_lengkap || booking.tenaga_medis?.nama || <span className="italic text-slate-400">Belum Ditugaskan</span>}</p>
+              <div className="mt-2 space-y-1 text-xs text-slate-500 border-t border-slate-100 pt-2">
+                <p>Jenis Nakes: <span className="font-semibold text-slate-800">{booking.tenaga_medis?.jenis_tenaga_medis || "-"}</span></p>
+                <p>No. Telepon: <span className="font-semibold text-slate-800">{booking.tenaga_medis?.no_telp || "-"}</span></p>
               </div>
             </div>
           </div>
 
+          {/* Schedule & Service Card */}
           <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm space-y-4">
-            <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400">Jadwal & Lokasi Kunjungan</h3>
-            <div className="grid grid-cols-2 gap-4 text-xs">
-              <div>
-                <span className="text-slate-400 block">Layanan Terpilih</span>
-                <span className="font-bold text-slate-800 text-sm">{booking.layanan?.nama_layanan || booking.layanan?.nama || "-"}</span>
+            <h3 className="text-xs font-extrabold uppercase tracking-wider text-slate-400 border-b border-slate-100 pb-2">Jadwal & Lokasi Kunjungan</h3>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
+              <div className="bg-slate-50 p-3.5 rounded-xl border border-slate-100">
+                <span className="text-slate-400 block text-[11px] uppercase font-bold">Layanan Terpilih</span>
+                <span className="font-extrabold text-slate-900 text-sm block mt-0.5">{booking.layanan?.nama_layanan || booking.layanan?.nama || "-"}</span>
               </div>
-              <div>
-                <span className="text-slate-400 block">Waktu Kunjungan</span>
-                <span className="font-bold text-slate-800 text-sm">{formatDate(booking.tanggal_kunjungan)} ({booking.jam_kunjungan || "-"})</span>
+              <div className="bg-slate-50 p-3.5 rounded-xl border border-slate-100">
+                <span className="text-slate-400 block text-[11px] uppercase font-bold">Waktu Kedatangan</span>
+                <span className="font-extrabold text-slate-900 text-sm block mt-0.5">{formatDate(booking.tanggal_kunjungan_raw || booking.tanggal_kunjungan)} ({booking.jam_kunjungan || "-"})</span>
               </div>
             </div>
 
-            <div className="pt-3 border-t border-slate-100 text-xs">
-              <span className="text-slate-400 block font-semibold">Alamat Kunjungan</span>
-              <p className="mt-1 font-medium text-slate-800 leading-relaxed">{booking.alamat_kunjungan || "-"}</p>
-              {booking.latitude_kunjungan && booking.longitude_kunjungan && (
+            <div className="pt-2 text-xs">
+              <span className="text-slate-400 block font-semibold text-[11px] uppercase">Alamat Pasien</span>
+              <p className="mt-1 font-medium text-slate-800 leading-relaxed bg-slate-50 p-3 rounded-xl border border-slate-100">{booking.alamat_kunjungan || "-"}</p>
+              {booking.koordinat_kunjungan?.latitude || booking.latitude_kunjungan ? (
                 <a
-                  href={`https://maps.google.com/?q=${booking.latitude_kunjungan},${booking.longitude_kunjungan}`}
+                  href={`https://maps.google.com/?q=${booking.koordinat_kunjungan?.latitude || booking.latitude_kunjungan},${booking.koordinat_kunjungan?.longitude || booking.longitude_kunjungan}`}
                   target="_blank"
                   rel="noreferrer"
-                  className="mt-2 inline-flex items-center text-xs font-bold text-indigo-600 hover:underline"
+                  className="mt-3 inline-flex items-center gap-1.5 text-xs font-bold text-indigo-600 hover:text-indigo-800 transition"
                 >
-                  Lihat di Google Maps &rarr;
+                  <svg className="w-4 h-4 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                  </svg>
+                  Buka Lokasi di Google Maps &rarr;
                 </a>
-              )}
+              ) : null}
             </div>
           </div>
         </div>
 
         {/* Right Column: Financial & Cost Breakdown */}
         <div className="space-y-6">
-          {tx && (
-            <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm space-y-4">
-              <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400">Rincian Komponen Biaya</h3>
+          <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm space-y-4">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-2">
+              <h3 className="text-xs font-extrabold uppercase tracking-wider text-slate-400">Rincian Komponen Biaya</h3>
+              <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-slate-100 text-slate-600">{tx?.metode_pembayaran ? String(tx.metode_pembayaran).toUpperCase() : 'MANUAL'}</span>
+            </div>
 
-              <div className="space-y-2.5 text-xs">
-                <div className="flex justify-between text-slate-600">
-                  <span>Tarif Jasa Medis (SL)</span>
-                  <span className="font-semibold text-slate-900">{formatRupiah(tx.sl)}</span>
-                </div>
-                <div className="flex justify-between text-slate-600">
-                  <span>Bahan Habis Pakai (SB)</span>
-                  <span className="font-semibold text-slate-900">{formatRupiah(tx.sb)}</span>
-                </div>
-                <div className="flex justify-between text-slate-600">
-                  <span>Biaya Transportasi (ST)</span>
-                  <span className="font-semibold text-slate-900">{formatRupiah(tx.st)}</span>
-                </div>
-                <div className="flex justify-between text-slate-600">
-                  <span>Biaya Admin Aplikasi</span>
-                  <span className="font-semibold text-slate-900">{formatRupiah(tx.ba)}</span>
-                </div>
-                <div className="flex justify-between text-slate-600">
-                  <span>PPN Pajak ({tx.persen_ppn || 0}%)</span>
-                  <span className="font-semibold text-slate-900">{formatRupiah(tx.ppn)}</span>
-                </div>
+            <div className="space-y-3 text-xs">
+              <div className="flex justify-between items-center text-slate-600">
+                <span>Tarif Jasa Medis (SL)</span>
+                <span className="font-extrabold text-slate-900">{formatRupiah(sl)}</span>
+              </div>
+              <div className="flex justify-between items-center text-slate-600">
+                <span>Bahan Habis Pakai (SB)</span>
+                <span className="font-extrabold text-slate-900">{formatRupiah(sb)}</span>
+              </div>
+              <div className="flex justify-between items-center text-slate-600">
+                <span>Biaya Transportasi (ST)</span>
+                <span className="font-extrabold text-slate-900">{formatRupiah(st)}</span>
+              </div>
+              <div className="flex justify-between items-center text-slate-600">
+                <span>Biaya Admin Aplikasi</span>
+                <span className="font-extrabold text-slate-900">{formatRupiah(ba)}</span>
+              </div>
+              <div className="flex justify-between items-center text-slate-600">
+                <span>PPN Pajak ({persenPpn}%)</span>
+                <span className="font-extrabold text-slate-900">{formatRupiah(ppn)}</span>
+              </div>
 
-                <div className="border-t border-slate-200 pt-3 flex justify-between text-sm font-extrabold text-slate-900">
-                  <span>Total Tagihan Pasien</span>
-                  <span className="text-indigo-600">{formatRupiah(tx.jumlah_total)}</span>
-                </div>
+              <div className="border-t border-slate-200 pt-3 flex justify-between items-center text-sm font-black text-slate-900">
+                <span>TOTAL TAGIHAN</span>
+                <span className="text-indigo-600 text-base">{formatRupiah(totalTagihan)}</span>
+              </div>
+            </div>
 
-                {/* Bagi Hasil Internal Card */}
-                <div className="mt-4 rounded-xl bg-slate-900 text-white p-4 space-y-2">
-                  <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">Distribusi Bagi Hasil Internal</span>
-                  <div className="flex justify-between text-xs">
-                    <span className="text-slate-400">Hak Nakes:</span>
-                    <span className="font-bold text-emerald-400">{formatRupiah(tx.hak_nakes)}</span>
-                  </div>
-                  <div className="flex justify-between text-xs">
-                    <span className="text-slate-400">Net Profit HC:</span>
-                    <span className="font-bold text-blue-400">{formatRupiah(tx.profit_hc)}</span>
-                  </div>
-                  <div className="flex justify-between text-[11px] text-slate-400 pt-1 border-t border-slate-800">
-                    <span>Fee Midtrans: {formatRupiah(tx.fee_midtrans || 4000)}</span>
-                    <span>HPP BHP: {formatRupiah(tx.hpp_bhp || 0)}</span>
-                  </div>
+            {/* Bagi Hasil Internal Card */}
+            <div className="mt-5 rounded-xl bg-slate-900 text-white p-4 space-y-3 shadow-md">
+              <div className="flex items-center justify-between border-b border-slate-800 pb-2">
+                <span className="text-[11px] font-extrabold uppercase tracking-wider text-slate-300">Distribusi Bagi Hasil Internal</span>
+                <span className="text-[10px] font-bold text-emerald-400 bg-emerald-950/80 border border-emerald-800 px-2 py-0.5 rounded-full">REALTIME</span>
+              </div>
+              <div className="flex justify-between items-center text-xs">
+                <span className="text-slate-300 font-medium">Hak Nakes:</span>
+                <span className="font-black text-emerald-400 text-sm">{formatRupiah(hakNakes)}</span>
+              </div>
+              <div className="flex justify-between items-center text-xs">
+                <span className="text-slate-300 font-medium">Net Profit HC:</span>
+                <span className="font-black text-sky-400 text-sm">{formatRupiah(profitHc)}</span>
+              </div>
+              <div className="pt-2 border-t border-slate-800 grid grid-cols-2 gap-2 text-[11px] text-slate-400">
+                <div>
+                  <span className="block text-[10px] text-slate-500">Fee Gateway:</span>
+                  <span className="font-bold text-slate-300">{formatRupiah(feeMidtrans)}</span>
+                </div>
+                <div>
+                  <span className="block text-[10px] text-slate-500">HPP BHP:</span>
+                  <span className="font-bold text-slate-300">{formatRupiah(hppBhp)}</span>
                 </div>
               </div>
             </div>
-          )}
+          </div>
         </div>
       </div>
     </div>

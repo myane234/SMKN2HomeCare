@@ -237,6 +237,14 @@ function App() {
           }
         />
         <Route
+          path="/booking/:id"
+          element={
+            <ProtectedRoute requiredPath="/booking">
+              <PageBookingDetail />
+            </ProtectedRoute>
+          }
+        />
+        <Route
           path="/users"
           element={
             <ProtectedRoute requiredPath="/users">
