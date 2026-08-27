@@ -87,3 +87,24 @@ export const getPromoBySlug = async (slug) => {
     return null;
   }
 };
+
+// ── Client Side POST Promo (Multipart / Form Data) ──────────────────────────────
+export const createPromo = async (payload) => {
+  let body = payload;
+  if (payload && !(payload instanceof FormData) && typeof payload === 'object') {
+    body = new FormData();
+    Object.keys(payload).forEach((key) => {
+      if (payload[key] !== null && payload[key] !== undefined) {
+        body.append(key, payload[key]);
+      }
+    });
+  }
+
+  const response = await api.post('/api/promo', body, {
+    headers: {
+      'Accept': 'application/json',
+    },
+  });
+
+  return response.data;
+};

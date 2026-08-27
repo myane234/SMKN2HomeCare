@@ -6,6 +6,7 @@ import {
   updateUniversitas, 
   deleteUniversitas 
 } from '../../data/masterUniversitasData.js';
+import Swal from 'sweetalert2';
 
 export default function AdminMasterUniversitas() {
   const [universitasList, setUniversitasList] = useState([]);
@@ -104,22 +105,79 @@ export default function AdminMasterUniversitas() {
     }
   };
 
-  const handleDelete = async (item) => {
-    const id = getItemId(item);
-    if (!id) {
-      alert('ID universitas tidak ditemukan!');
-      return;
-    }
-    if (window.confirm('Yakin ingin menghapus data universitas ini?')) {
-      try {
-        await deleteUniversitas(id);
-        loadData();
-      } catch (error) {
-        console.error('Gagal menghapus data:', error);
-        alert(error.message);
-      }
-    }
-  };
+const handleDelete = async (item) => {
+  const id = getItemId(item);
+
+  if (!id) {
+    Swal.fire({
+      icon: 'error',
+      title: 'Data Tidak Valid',
+      text: 'ID universitas tidak ditemukan.',
+      confirmButtonColor: '#e11d48',
+      confirmButtonText: 'Mengerti',
+    });
+    return;
+  }
+
+  const namaUniversitas = item?.nama_universitas || 'Universitas ini';
+
+  const result = await Swal.fire({
+    title: 'Hapus Universitas?',
+    html: `
+      <div style="font-size: 15px; color: #64748b; line-height: 1.6;">
+        Anda yakin ingin menghapus
+        <strong style="color: #1e293b;">"${namaUniversitas}"</strong>?
+        <br>
+        <span style="font-size: 13px; color: #94a3b8;">
+          Pastikan data yang dipilih sudah benar.
+        </span>
+      </div>
+    `,
+    icon: 'warning',
+    showCancelButton: true,
+    reverseButtons: true,
+    focusCancel: true,
+    confirmButtonColor: '#e11d48',
+    cancelButtonColor: '#64748b',
+    confirmButtonText: 'Ya, Hapus',
+    cancelButtonText: 'Batal',
+    buttonsStyling: true,
+  });
+
+  if (!result.isConfirmed) return;
+
+  try {
+    await deleteUniversitas(id);
+
+    await Swal.fire({
+      icon: 'success',
+      title: 'Berhasil Dihapus!',
+      html: `
+        <span style="color: #64748b;">
+          Data universitas
+          <strong style="color: #1e293b;">"${namaUniversitas}"</strong>
+          berhasil dihapus.
+        </span>
+      `,
+      timer: 1800,
+      showConfirmButton: false,
+      timerProgressBar: true,
+    });
+
+    await loadData();
+
+  } catch (error) {
+    console.error('Gagal menghapus data universitas:', error);
+
+    Swal.fire({
+      icon: 'error',
+      title: 'Gagal Menghapus',
+      text: error?.message || 'Terjadi kesalahan saat menghapus data universitas.',
+      confirmButtonColor: '#e11d48',
+      confirmButtonText: 'Coba Lagi',
+    });
+  }
+};
 
   const handleSearchChange = (e) => {
     setSearchQuery(e.target.value);

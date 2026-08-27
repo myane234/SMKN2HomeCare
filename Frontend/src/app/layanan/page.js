@@ -182,7 +182,7 @@ function LayananPageContent() {
             {filteredServices.map((service, index) => {
               const title = getTextValue(service, ["nama_layanan", "nama", "title"]);
               const description = getTextValue(service, ["deskripsi_layanan", "deskripsi", "keterangan", "description"]);
-              const imageUrl = resolveImageUrl(getTextValue(service, ["foto_layanan", "foto", "image"]));
+              const imageUrl = resolveImageUrl(getTextValue(service, ["foto_layanan", "gambar", "foto", "image", "foto_layanan_url", "gambar_url", "foto_url", "image_url"]));
               const category = getTextValue(service, ["kategori_layanan", "kategori", "category", "nama_kategori"]);
               const price = getTextValue(service, ["harga", "price"]);
               const duration = getTextValue(service, ["durasi_menit", "durasi", "duration"]);

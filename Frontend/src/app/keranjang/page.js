@@ -166,7 +166,7 @@ export default function KeranjangPage() {
                   const id = getServiceId(service);
                   const title = getTextValue(service, ["nama_layanan", "nama", "title"]);
                   const category = getTextValue(service, ["kategori_layanan", "kategori", "category", "nama_kategori"]);
-                  const imageUrl = resolveImageUrl(getTextValue(service, ["foto_layanan", "foto", "image"]));
+                  const imageUrl = resolveImageUrl(getTextValue(service, ["foto_layanan", "gambar", "foto", "image", "foto_layanan_url", "gambar_url", "foto_url", "image_url"]));
                   const price = Number(getTextValue(service, ["harga", "price"])) || 0;
                   const originalPrice = Number(getTextValue(service, ["harga_asli", "original_price"])) || 0;
                   const hasDiscount = originalPrice > price;

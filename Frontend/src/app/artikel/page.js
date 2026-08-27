@@ -4,7 +4,7 @@ import { useEffect, useState, useMemo } from "react";
 import Link from "next/link";
 import { FiSearch, FiCalendar, FiArrowRight, FiBookOpen, FiChevronLeft, FiChevronRight, FiGrid, FiList } from "react-icons/fi";
 import api from "@/services/api";
-import { getArtikel, DEFAULT_ARTIKEL } from "@/services/artikelService";
+import { getArtikel } from "@/services/artikelService";
 import { resolveImageUrl } from "@/services/resolveImage";
 
 export const KATEGORI_ARTIKEL_OPTIONS = ["Tips Kesehatan", "Kegiatan", "Perawatan Lansia", "Edukasi Medis"];

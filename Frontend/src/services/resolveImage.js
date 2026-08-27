@@ -31,16 +31,28 @@ export function resolveImageUrl(image, updatedAt = null) {
     return normalizedPath;
   }
 
-  const baseUrl = (process.env.NEXT_PUBLIC_API_URL || "https://citra.faaruq.com").replace(/\/+$/, "");
+  // 4. Clean up nested malformed URLs (e.g. "https://citra.faaruq.com/storage/http://localhost/storage/layanan/abc.jpg")
+  const lastHttp = cleanImage.lastIndexOf("http://");
+  const lastHttps = cleanImage.lastIndexOf("https://");
+  const lastUrlIndex = Math.max(lastHttp, lastHttps);
+  if (lastUrlIndex > 0) {
+    cleanImage = cleanImage.substring(lastUrlIndex);
+  }
 
-  // 4. Handle full URLs (HTTP / HTTPS)
+  const apiEnv = (process.env.NEXT_PUBLIC_API_URL || "").replace(/\/+$/, "");
+
+  // 5. Handle HTTP / HTTPS URLs
   if (cleanImage.startsWith("http://") || cleanImage.startsWith("https://")) {
     const isLocalHost = cleanImage.includes("localhost") || cleanImage.includes("127.0.0.1");
-    const isBaseUrl = cleanImage.includes(baseUrl);
+    const isApiHost = apiEnv ? cleanImage.includes(apiEnv) : false;
 
     if (cleanImage.includes("/storage/")) {
       const storageIdx = cleanImage.indexOf("/storage/");
-      const pathAfterStorage = cleanImage.substring(storageIdx + "/storage/".length);
+      const storagePath = cleanImage.substring(storageIdx); // e.g. "/storage/layanan/xxx.png"
+
+      if (storagePath.startsWith("/storage/images/")) {
+        return storagePath.replace("/storage/images/", "/images/");
+      }
 
       // If the path after storage is actually a local asset (images/ or layanan/ or icons/)
       if (
@@ -54,19 +66,20 @@ export function resolveImageUrl(image, updatedAt = null) {
         return `/images/${cleanLocalPath.replace(/^\/+/, "")}`;
       }
 
-      return `${baseUrl}/storage/${pathAfterStorage.replace(/^\/+/, "")}`;
+      // Relative /storage/... uses Next.js rewrite proxy in next.config.mjs to proxy backend images
+      return storagePath;
     }
 
-    // Third-party external image URL (e.g. iStockphoto, Unsplash, etc.)
-    if (!isLocalHost && !isBaseUrl) {
+    // Third-party external image URL (e.g. Unsplash, placehold.co, etc.)
+    if (!isLocalHost && !isApiHost) {
       return cleanImage;
     }
   }
 
-  // 5. Backend uploaded files in storage (e.g. artikel/123.jpg, layanan/abc.png)
+  // 6. Relative backend paths (e.g. "layanan/123.jpg" or "storage/layanan/123.jpg")
   let storagePath = cleanImage
-    .replace(/^https?:\/\/[^/]+/gi, "") // strip domain
-    .replace(/^(?:\/?storage\/+|\/+)+/gi, ""); // strip /storage/
+    .replace(/^https?:\/\/[^/]+/gi, "")
+    .replace(/^(?:\/?storage\/+|\/+)+/gi, "");
 
   // If path actually points to local public images or categories
   if (
@@ -83,5 +96,9 @@ export function resolveImageUrl(image, updatedAt = null) {
     return `/images/${storagePath}`;
   }
 
-  return `${baseUrl}/storage/${storagePath}`;
+  if (apiEnv) {
+    return `${apiEnv}/storage/${storagePath}`;
+  }
+
+  return `/storage/${storagePath}`;
 }

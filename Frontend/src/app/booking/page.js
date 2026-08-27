@@ -269,7 +269,7 @@ export default function BookingPage() {
                   const s = item.service || {};
                   const title = s.nama_layanan || s.nama || s.title || "Layanan";
                   const price = Number(s.harga || s.price) || 0;
-                  const img = resolveImageUrl(s.foto_layanan || s.foto || s.image);
+                  const img = resolveImageUrl(s.foto_layanan || s.gambar || s.foto || s.image || s.foto_layanan_url || s.gambar_url);
 
                   return (
                     <div key={idx} className="flex items-center gap-3 py-3 first:pt-0 last:pb-0">

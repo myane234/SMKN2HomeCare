@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { FaEdit, FaTrash, FaPlus, FaSearch } from 'react-icons/fa';
-import { getAllPendidikan, createPendidikan, updatePendidikan, deletePendidikan } from '../../data/masterPendidikanData';
+import { getAllPendidikan, createPendidikan, updatePendidikan, deletePendidikan } from '../../data/masterPendidikanData';import Swal from 'sweetalert2';
+
 
 export default function AdminMasterPendidikan() {
   const [pendidikanList, setPendidikanList] = useState([]);
@@ -74,17 +75,84 @@ export default function AdminMasterPendidikan() {
     }
   };
 
-  const handleDelete = async (id) => {
-    if (!id) return;
-    if (window.confirm('Yakin ingin menghapus data pendidikan ini?')) {
-      try {
-        await deletePendidikan(id);
-        loadData();
-      } catch (error) {
-        alert(error.message);
-      }
-    }
-  };
+const handleDelete = async (id) => {
+  if (!id) {
+    Swal.fire({
+      icon: 'error',
+      title: 'Data Tidak Valid',
+      text: 'ID pendidikan tidak ditemukan.',
+      confirmButtonColor: '#e11d48',
+      confirmButtonText: 'Mengerti',
+    });
+    return;
+  }
+
+  const selectedItem = pendidikanList.find(
+    (item) => getItemId(item) === id
+  );
+
+  const namaPendidikan =
+    selectedItem?.nama_pendidikan || 'Jenjang pendidikan ini';
+
+  const result = await Swal.fire({
+    title: 'Hapus Pendidikan?',
+    html: `
+      <div style="font-size: 15px; color: #64748b; line-height: 1.6;">
+        Anda yakin ingin menghapus
+        <strong style="color: #1e293b;">"${namaPendidikan}"</strong>?
+        <br>
+        <span style="font-size: 13px; color: #94a3b8;">
+          Pastikan jenjang pendidikan yang dipilih sudah benar.
+        </span>
+      </div>
+    `,
+    icon: 'warning',
+    showCancelButton: true,
+    reverseButtons: true,
+    focusCancel: true,
+    confirmButtonColor: '#e11d48',
+    cancelButtonColor: '#64748b',
+    confirmButtonText: 'Ya, Hapus',
+    cancelButtonText: 'Batal',
+    buttonsStyling: true,
+  });
+
+  if (!result.isConfirmed) return;
+
+  try {
+    await deletePendidikan(id);
+
+    await Swal.fire({
+      icon: 'success',
+      title: 'Berhasil Dihapus!',
+      html: `
+        <span style="color: #64748b;">
+          Jenjang pendidikan
+          <strong style="color: #1e293b;">"${namaPendidikan}"</strong>
+          berhasil dihapus.
+        </span>
+      `,
+      timer: 1800,
+      showConfirmButton: false,
+      timerProgressBar: true,
+    });
+
+    await loadData();
+
+  } catch (error) {
+    console.error('Gagal menghapus data pendidikan:', error);
+
+    Swal.fire({
+      icon: 'error',
+      title: 'Gagal Menghapus',
+      text:
+        error?.message ||
+        'Terjadi kesalahan saat menghapus data pendidikan.',
+      confirmButtonColor: '#e11d48',
+      confirmButtonText: 'Coba Lagi',
+    });
+  }
+};
 
   // Filter berdasarkan pencarian
   const filteredData = pendidikanList.filter((item) =>
