@@ -1,9 +1,9 @@
 // Generic fetch wrapper for the Laravel API.
 // Change VITE_API_BASE_URL in your .env file to match your backend
-// (e.g. http://localhost:8000 for `php artisan serve`, or http://localhost
-// if you're using Laravel Herd/Valet on port 80).
+// (e.g. http://localhost:8000/api or https://citra.faaruq.com/api).
 
-export const BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://citra.faaruq.com';
+const rawBase = import.meta.env.VITE_API_BASE_URL || 'https://citra.faaruq.com/api';
+export const BASE_URL = rawBase.endsWith('/api') ? rawBase : `${rawBase.replace(/\/+$/, '')}/api`;
 
 async function handleResponse(res) {
   const isJson = res.headers.get('content-type')?.includes('application/json');
@@ -20,12 +20,14 @@ async function handleResponse(res) {
 }
 
 export async function apiGet(path) {
-  const res = await fetch(`${BASE_URL}${path}`);
+  const url = path.startsWith('/api') ? `${BASE_URL.replace(/\/api$/, '')}${path}` : `${BASE_URL}${path.startsWith('/') ? '' : '/'}${path}`;
+  const res = await fetch(url);
   return handleResponse(res);
 }
 
 export async function apiPostForm(path, formData) {
-  const res = await fetch(`${BASE_URL}${path}`, {
+  const url = path.startsWith('/api') ? `${BASE_URL.replace(/\/api$/, '')}${path}` : `${BASE_URL}${path.startsWith('/') ? '' : '/'}${path}`;
+  const res = await fetch(url, {
     method: 'POST',
     body: formData,
   });
@@ -33,10 +35,9 @@ export async function apiPostForm(path, formData) {
 }
 
 export async function apiPutForm(path, formData) {
-  // Laravel workaround: multipart PUT/PATCH requests don't populate $_FILES
-  // properly in PHP, so we POST with a `_method` override field instead.
   formData.append('_method', 'PUT');
-  const res = await fetch(`${BASE_URL}${path}`, {
+  const url = path.startsWith('/api') ? `${BASE_URL.replace(/\/api$/, '')}${path}` : `${BASE_URL}${path.startsWith('/') ? '' : '/'}${path}`;
+  const res = await fetch(url, {
     method: 'POST',
     body: formData,
   });
@@ -44,6 +45,7 @@ export async function apiPutForm(path, formData) {
 }
 
 export async function apiDelete(path) {
-  const res = await fetch(`${BASE_URL}${path}`, { method: 'DELETE' });
+  const url = path.startsWith('/api') ? `${BASE_URL.replace(/\/api$/, '')}${path}` : `${BASE_URL}${path.startsWith('/') ? '' : '/'}${path}`;
+  const res = await fetch(url, { method: 'DELETE' });
   return handleResponse(res);
 }
