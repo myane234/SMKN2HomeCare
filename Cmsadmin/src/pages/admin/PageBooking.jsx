@@ -519,18 +519,26 @@ export function PageBookingDetail() {
       )}
 
       {/* Main Booking Header Banner */}
-      <div className="rounded-2xl border border-slate-200 bg-gradient-to-r from-slate-900 to-slate-800 p-6 text-white shadow-md flex flex-col md:flex-row md:items-center md:justify-between gap-5">
+      <div className="rounded-2xl border border-indigo-100 bg-gradient-to-r from-indigo-50/80 via-blue-50/50 to-white p-6 shadow-sm flex flex-col md:flex-row md:items-center md:justify-between gap-5">
         <div>
-          <span className="inline-block px-2.5 py-1 rounded-md bg-indigo-500/20 text-indigo-300 text-[10px] font-extrabold uppercase tracking-wider mb-2 border border-indigo-400/30">
+          <span className="inline-block px-2.5 py-1 rounded-md bg-indigo-100 text-indigo-700 text-[10px] font-extrabold uppercase tracking-wider mb-2 border border-indigo-200">
             Rincian & Status Booking #{booking.id_booking}
           </span>
-          <h1 className="text-2xl md:text-3xl font-black font-mono tracking-tight text-white">{booking.booking_code || `#${booking.id_booking}`}</h1>
-          <p className="mt-1 text-xs text-slate-300">Waktu Order: {formatDate(booking.created_at || booking.dibuat_pada)}</p>
+          <h1 className="text-2xl md:text-3xl font-black font-mono tracking-tight text-slate-900">
+            {booking.booking_code || `#${booking.id_booking}`}
+          </h1>
+          <p className="mt-1 text-xs text-slate-500">
+            Dibuat: <span className="font-semibold text-slate-700">{booking.dibuat_pada || formatDate(booking.created_at_raw)}</span> 
+            <span className="mx-1.5">•</span> 
+            Diperbarui: <span className="font-semibold text-slate-700">{booking.diperbarui_pada || formatDate(booking.updated_at_raw)}</span>
+          </p>
         </div>
 
         {/* Status Update Panel */}
-        <div className="bg-white/10 backdrop-blur-md rounded-xl p-3.5 border border-white/10 space-y-2 shrink-0">
-          <span className="text-[11px] font-bold text-slate-300 uppercase tracking-wider block">Ubah Status Booking:</span>
+        <div className="bg-white rounded-xl p-3.5 border border-slate-200 space-y-2 shrink-0 shadow-sm">
+          <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block">
+            Ubah Status Booking:
+          </span>
           <div className="flex flex-wrap gap-1.5">
             {availableStatuses.map((st) => {
               const isActive = String(booking.status_booking || "").toLowerCase() === st.toLowerCase();
@@ -541,8 +549,8 @@ export function PageBookingDetail() {
                   onClick={() => handleUpdateStatus(st)}
                   className={`px-3 py-1.5 rounded-lg text-xs font-bold transition ${
                     isActive
-                      ? "bg-indigo-500 text-white shadow-md font-extrabold"
-                      : "bg-slate-800/80 hover:bg-slate-700 text-slate-200 border border-slate-600/50"
+                      ? "bg-indigo-600 text-white shadow-sm font-extrabold"
+                      : "bg-slate-50 hover:bg-slate-100 text-slate-700 border border-slate-200"
                   }`}
                 >
                   {st}
@@ -588,18 +596,58 @@ export function PageBookingDetail() {
 
           {/* Schedule & Service Card */}
           <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm space-y-4">
-            <h3 className="text-xs font-extrabold uppercase tracking-wider text-slate-400 border-b border-slate-100 pb-2">Jadwal & Lokasi Kunjungan</h3>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
+            <h3 className="text-xs font-extrabold uppercase tracking-wider text-slate-400 border-b border-slate-100 pb-2">
+              Detail Layanan & Riwayat Waktu
+            </h3>
+
+            {/* Row 1: Layanan Terpilih & Jadwal Kunjungan */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
               <div className="bg-slate-50 p-3.5 rounded-xl border border-slate-100">
                 <span className="text-slate-400 block text-[11px] uppercase font-bold">Layanan Terpilih</span>
-                <span className="font-extrabold text-slate-900 text-sm block mt-0.5">{booking.layanan?.nama_layanan || booking.layanan?.nama || "-"}</span>
+                <span className="font-extrabold text-slate-900 text-sm block mt-0.5">
+                  {booking.layanan?.nama_layanan || booking.layanan?.nama || "-"}
+                </span>
+                <span className="text-[10px] text-slate-400 block mt-0.5 capitalize">
+                  Tipe: {booking.layanan?.tipe_layanan || "-"}
+                </span>
               </div>
-              <div className="bg-slate-50 p-3.5 rounded-xl border border-slate-100">
-                <span className="text-slate-400 block text-[11px] uppercase font-bold">Waktu Kedatangan</span>
-                <span className="font-extrabold text-slate-900 text-sm block mt-0.5">{formatDate(booking.tanggal_kunjungan_raw || booking.tanggal_kunjungan)} ({booking.jam_kunjungan || "-"})</span>
+
+              <div className="bg-indigo-50/60 p-3.5 rounded-xl border border-indigo-100">
+                <span className="text-indigo-500 block text-[11px] uppercase font-bold">Jadwal Kedatangan Nakes</span>
+                <span className="font-extrabold text-indigo-950 text-sm block mt-0.5">
+                  {booking.tanggal_kunjungan || formatDate(booking.tanggal_kunjungan_raw)}
+                </span>
+                <span className="text-xs font-bold text-indigo-600 block mt-0.5">
+                  Pukul {booking.jam_kunjungan || "-"} WIB
+                </span>
               </div>
             </div>
 
+            {/* Row 2: Rincian Timeline Transaksi & Order */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs pt-1">
+              <div className="bg-slate-50 p-3 rounded-xl border border-slate-100">
+                <span className="text-slate-400 block text-[10px] uppercase font-bold">Waktu Order Dibuat</span>
+                <span className="font-bold text-slate-800 text-xs block mt-0.5">
+                  {booking.dibuat_pada || formatDate(booking.created_at_raw)}
+                </span>
+              </div>
+
+              <div className="bg-slate-50 p-3 rounded-xl border border-slate-100">
+                <span className="text-slate-400 block text-[10px] uppercase font-bold">Terakhir Diperbarui</span>
+                <span className="font-bold text-slate-800 text-xs block mt-0.5">
+                  {booking.diperbarui_pada || formatDate(booking.updated_at_raw)}
+                </span>
+              </div>
+
+              <div className="bg-slate-50 p-3 rounded-xl border border-slate-100">
+                <span className="text-slate-400 block text-[10px] uppercase font-bold">Waktu Pembayaran</span>
+                <span className={`font-bold text-xs block mt-0.5 ${booking.transaksi?.waktu_bayar ? "text-emerald-700" : "text-amber-600"}`}>
+                  {booking.transaksi?.waktu_bayar ? formatDate(booking.transaksi.waktu_bayar) : "Belum Dibayar"}
+                </span>
+              </div>
+            </div>
+
+            {/* Row 3: Alamat Pasien & Koordinat Maps */}
             <div className="pt-2 text-xs">
               <span className="text-slate-400 block font-semibold text-[11px] uppercase">Alamat Pasien</span>
               <p className="mt-1 font-medium text-slate-800 leading-relaxed bg-slate-50 p-3 rounded-xl border border-slate-100">{booking.alamat_kunjungan || "-"}</p>
@@ -658,27 +706,28 @@ export function PageBookingDetail() {
             </div>
 
             {/* Bagi Hasil Internal Card */}
-            <div className="mt-5 rounded-xl bg-slate-900 text-white p-4 space-y-3 shadow-md">
-              <div className="flex items-center justify-between border-b border-slate-800 pb-2">
-                <span className="text-[11px] font-extrabold uppercase tracking-wider text-slate-300">Distribusi Bagi Hasil Internal</span>
-                <span className="text-[10px] font-bold text-emerald-400 bg-emerald-950/80 border border-emerald-800 px-2 py-0.5 rounded-full">REALTIME</span>
+            <div className="mt-5 rounded-xl bg-slate-50 border border-slate-200 p-4 space-y-3 shadow-xs">
+              <div className="flex items-center justify-between border-b border-slate-200 pb-2">
+                <span className="text-[11px] font-extrabold uppercase tracking-wider text-slate-700">
+                  Bagi Hasil
+                </span>
               </div>
               <div className="flex justify-between items-center text-xs">
-                <span className="text-slate-300 font-medium">Hak Nakes:</span>
-                <span className="font-black text-emerald-400 text-sm">{formatRupiah(hakNakes)}</span>
+                <span className="text-slate-600 font-medium">Hak Nakes:</span>
+                <span className="font-black text-emerald-700 text-sm">{formatRupiah(hakNakes)}</span>
               </div>
               <div className="flex justify-between items-center text-xs">
-                <span className="text-slate-300 font-medium">Net Profit HC:</span>
-                <span className="font-black text-sky-400 text-sm">{formatRupiah(profitHc)}</span>
+                <span className="text-slate-600 font-medium">Profit HomeCare:</span>
+                <span className="font-black text-indigo-700 text-sm">{formatRupiah(profitHc)}</span>
               </div>
-              <div className="pt-2 border-t border-slate-800 grid grid-cols-2 gap-2 text-[11px] text-slate-400">
+              <div className="pt-2 border-t border-slate-200 grid grid-cols-2 gap-2 text-[11px] text-slate-500">
                 <div>
-                  <span className="block text-[10px] text-slate-500">Fee Gateway:</span>
-                  <span className="font-bold text-slate-300">{formatRupiah(feeMidtrans)}</span>
+                  <span className="block text-[10px] text-slate-400 font-medium">Fee Payment Gateway:</span>
+                  <span className="font-bold text-slate-700">{formatRupiah(feeMidtrans)}</span>
                 </div>
                 <div>
-                  <span className="block text-[10px] text-slate-500">HPP BHP:</span>
-                  <span className="font-bold text-slate-300">{formatRupiah(hppBhp)}</span>
+                  <span className="block text-[10px] text-slate-400 font-medium">HPP Bahan Habis Pakai:</span>
+                  <span className="font-bold text-slate-700">{formatRupiah(hppBhp)}</span>
                 </div>
               </div>
             </div>
