@@ -20,6 +20,20 @@ function extractData(body) {
 // ── Master Universitas ────────────────────────────────────────────────────
 
 export async function getAllUniversitas() {
+  try {
+    const res = await fetch(`${URL}/universitas`, {
+      method: 'GET',
+      headers: getAuthHeaders({ 'Accept': 'application/json' }),
+    });
+    if (res.ok) {
+      const json = await res.json();
+      const data = extractData(json);
+      return Array.isArray(data) ? data : (data ? [data] : []);
+    }
+  } catch {
+    // Fallback below
+  }
+
   const res = await fetch(`${URL}/master-universitas`, {
     method: 'GET',
     headers: getAuthHeaders({ 'Accept': 'application/json' }),

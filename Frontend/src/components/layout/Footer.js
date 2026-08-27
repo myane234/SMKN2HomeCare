@@ -29,6 +29,7 @@ export default function Footer() {
     footer_address: null,
     footer_logo: null,
     footer_socials: [],
+    footer_links: [],
   });
 
   useEffect(() => {
@@ -53,6 +54,7 @@ export default function Footer() {
           footer_socials: Array.isArray(globalCfg?.socials) && globalCfg.socials.length > 0
             ? globalCfg.socials
             : (Array.isArray(resFooter?.footer_socials) ? resFooter.footer_socials : []),
+          footer_links: Array.isArray(resFooter?.footer_links) ? resFooter.footer_links : [],
         });
       } catch (err) {
         console.error("Gagal memuat konten footer:", err);
@@ -156,6 +158,12 @@ export default function Footer() {
             </li>
             <li>
               <Link href="/artikel">Artikel</Link>
+            </li>
+            <li>
+              <Link href="/ulasan">Ulasan Pasien</Link>
+            </li>
+            <li>
+              <Link href="/hubungi-kami">Hubungi Kami</Link>
             </li>
           </ul>
         </div>

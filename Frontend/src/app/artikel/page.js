@@ -1,12 +1,13 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import Link from "next/link";
+import { FiSearch, FiCalendar, FiArrowRight, FiBookOpen, FiChevronLeft, FiChevronRight, FiGrid, FiList } from "react-icons/fi";
 import api from "@/services/api";
 import { getArtikel } from "@/services/artikelService";
 import { resolveImageUrl } from "@/services/resolveImage";
 
-export const KATEGORI_ARTIKEL_OPTIONS = ["Tips Kesehatan", "Kegiatan"];
+export const KATEGORI_ARTIKEL_OPTIONS = ["Tips Kesehatan", "Kegiatan", "Perawatan Lansia", "Edukasi Medis"];
 
 function getTextValue(item, keys) {
   for (const key of keys) {
@@ -29,7 +30,7 @@ function createSlug(value) {
 }
 
 function getArticleSlug(item) {
-  return createSlug(getTextValue(item, ["judul_artikel", "judul", "title"]));
+  return createSlug(getTextValue(item, ["slug", "slug_artikel", "url_slug", "judul_artikel", "judul", "title"]));
 }
 
 function extractArticles(payload) {
@@ -39,8 +40,6 @@ function extractArticles(payload) {
   return [];
 }
 
-// Strip HTML tags/entities left over from the rich text editor (Quill) so we
-// never render raw markup like <h1> or <span class="ql-size-huge"> as text.
 function stripHtml(html) {
   if (!html) return "";
   const text = String(html)
@@ -57,26 +56,43 @@ function stripHtml(html) {
 }
 
 function getArticleSummary(item) {
-  // Prefer an explicit excerpt/summary field if the API provides one
   const explicit = getTextValue(item, ["ringkasan", "excerpt", "deskripsi"]);
   if (explicit) return stripHtml(explicit);
 
-  // Otherwise fall back to the article body, stripped of HTML tags
   const rawContent = getTextValue(item, ["isi_artikel", "konten", "content"]);
   const plain = stripHtml(rawContent);
-  return plain.length > 140 ? `${plain.slice(0, 140).trim()}…` : plain;
+  return plain.length > 130 ? `${plain.slice(0, 130).trim()}…` : plain;
+}
+
+function formatDate(dateStr) {
+  if (!dateStr) return "Terbaru";
+  try {
+    const d = new Date(dateStr);
+    if (isNaN(d.getTime())) return String(dateStr);
+    return d.toLocaleDateString("id-ID", {
+      day: "numeric",
+      month: "short",
+      year: "numeric"
+    });
+  } catch {
+    return String(dateStr);
+  }
 }
 
 export default function SemuaArtikelPage() {
   const [articles, setArticles] = useState([]);
   const [categories, setCategories] = useState([]);
   const [selectedCategory, setSelectedCategory] = useState("");
+  const [searchQuery, setSearchQuery] = useState("");
   const [loading, setLoading] = useState(true);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(6);
+  const [displayMode, setDisplayMode] = useState("pagination"); // 'pagination' or 'lazy'
+  const [visibleLazyCount, setVisibleLazyCount] = useState(6);
 
-  // Load categories once on initial mount (unfiltered)
+  // Load categories on initial mount
   useEffect(() => {
     let isMounted = true;
-
     async function loadCategories() {
       try {
         const response = await api.get("/api/artikel");
@@ -95,15 +111,13 @@ export default function SemuaArtikelPage() {
         console.error("Gagal memuat kategori artikel", error);
       }
     }
-
     loadCategories();
     return () => { isMounted = false; };
   }, []);
 
-  // Load/filter articles when selectedCategory changes
+  // Load articles
   useEffect(() => {
     let isMounted = true;
-
     async function loadArticles(category = "") {
       try {
         setLoading(true);
@@ -111,157 +125,281 @@ export default function SemuaArtikelPage() {
         const items = await getArtikel(params);
         if (!isMounted) return;
 
-        setArticles(items);
+        setArticles(items.length > 0 ? items : DEFAULT_ARTIKEL);
+        setCurrentPage(1);
+        setVisibleLazyCount(6);
       } catch (error) {
         console.error("Gagal memuat artikel", error);
-        if (isMounted) setArticles([]);
+        if (isMounted) {
+          setArticles(DEFAULT_ARTIKEL);
+          setCurrentPage(1);
+          setVisibleLazyCount(6);
+        }
       } finally {
         if (isMounted) setLoading(false);
       }
     }
 
     loadArticles(selectedCategory);
-
-    return () => {
-      isMounted = false;
-    };
+    return () => { isMounted = false; };
   }, [selectedCategory]);
 
   const categoryOptions = categories.length > 0 ? categories : KATEGORI_ARTIKEL_OPTIONS;
 
+  // Search & Filter
+  const filteredArticles = useMemo(() => {
+    if (!searchQuery.trim()) return articles;
+    const q = searchQuery.toLowerCase().trim();
+    return articles.filter(item => {
+      const title = getTextValue(item, ["judul_artikel", "judul", "title"]).toLowerCase();
+      const summary = getArticleSummary(item).toLowerCase();
+      return title.includes(q) || summary.includes(q);
+    });
+  }, [articles, searchQuery]);
+
+  // Pagination calculations
+  const totalPages = Math.max(1, Math.ceil(filteredArticles.length / itemsPerPage));
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const paginatedArticles = displayMode === "pagination"
+    ? filteredArticles.slice(startIndex, startIndex + itemsPerPage)
+    : filteredArticles.slice(0, visibleLazyCount);
+
+  const handlePageChange = (page) => {
+    if (page >= 1 && page <= totalPages) {
+      setCurrentPage(page);
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    }
+  };
+
+  const handleLoadMore = () => {
+    setVisibleLazyCount(prev => Math.min(prev + 6, filteredArticles.length));
+  };
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 py-8">
-      <div className="mx-auto max-w-6xl px-4 sm:px-6">
-        {/* Header Section */}
-        <div className="mb-12 text-center">
-          <span className="inline-flex rounded-full bg-sky-100 px-5 py-2 text-xs font-bold tracking-[0.2em] text-sky-700" style={{ fontFamily: '"Poppins", "Inter", "Segoe UI", sans-serif' }}>
-            PUSAT INFORMASI KESEHATAN
+    <div className="min-h-screen bg-slate-50 font-sans text-slate-800 py-10 px-4 sm:px-6 lg:px-8">
+      <div className="max-w-6xl mx-auto space-y-8">
+        
+        {/* Header Banner */}
+        <div className="text-center max-w-3xl mx-auto">
+          <span className="inline-flex rounded-full bg-sky-100 px-4 py-1.5 text-xs font-bold tracking-widest text-sky-700 uppercase">
+            PUSAT ARTIKEL &amp; EDUKASI PASIEN
           </span>
-          <h1 className="mt-4 text-5xl font-semibold tracking-tight text-sky-800 sm:text-4xl" style={{ fontFamily: '"Poppins", "Inter", "Segoe UI", sans-serif' }}>
-            Artikel &amp; Tips Kesehatan
+          <h1 className="mt-3 text-3xl sm:text-4xl font-bold tracking-tight text-slate-900">
+            Artikel &amp; Edukasi Kesehatan
           </h1>
-          <p className="mt-3 mx-auto max-w-3xl text-base leading-7 text-slate-600" style={{ fontFamily: '"Poppins", "Inter", "Segoe UI", sans-serif' }}>
-            Temukan informasi dan edukasi kesehatan terpercaya dari perawat dan bidan profesional kami
+          <p className="mt-2 text-sm sm:text-base text-slate-500 leading-relaxed">
+            Temukan panduan praktis, tips perawatan rumah medis, dan informasi kesehatan terkini dari tim profesional SmartHomeCare.
           </p>
         </div>
 
-        {/* Filter Section */}
-        <div className="mb-8 flex justify-start">
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-            <label htmlFor="kategori-artikel" className="text-sm font-medium text-slate-500">
-              Filter Kategori:
-            </label>
-            <select
-              id="kategori-artikel"
-              value={selectedCategory}
-              onChange={(event) => setSelectedCategory(event.target.value)}
-              className="rounded-lg border-2 border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition-all duration-300 hover:border-blue-400 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200"
-            >
-              <option value="">Semua</option>
-              {categoryOptions.map((category) => (
-                <option key={category} value={category}>
-                  {category}
-                </option>
-              ))}
-            </select>
+        {/* Filter Bar: Search, Category & Pagination Mode */}
+        <div className="bg-white rounded-2xl border border-slate-200 p-4 sm:p-5 shadow-2xs space-y-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            
+            {/* Search Input */}
+            <div className="relative flex-1 max-w-md">
+              <FiSearch className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 text-sm" />
+              <input
+                type="text"
+                placeholder="Cari judul artikel atau kata kunci..."
+                value={searchQuery}
+                onChange={e => {
+                  setSearchQuery(e.target.value);
+                  setCurrentPage(1);
+                  setVisibleLazyCount(6);
+                }}
+                className="w-full rounded-xl border border-slate-200 pl-10 pr-4 py-2 text-xs sm:text-sm text-slate-800 focus:border-sky-500 focus:outline-none"
+              />
+            </div>
+
+            {/* Category Dropdown */}
+            <div className="flex flex-wrap items-center gap-3">
+              <div className="flex items-center gap-2">
+                <label htmlFor="kategori-select" className="text-xs font-semibold text-slate-500">
+                  Kategori:
+                </label>
+                <select
+                  id="kategori-select"
+                  value={selectedCategory}
+                  onChange={e => setSelectedCategory(e.target.value)}
+                  className="rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-xs font-medium text-slate-700 focus:border-sky-500 focus:outline-none cursor-pointer"
+                >
+                  <option value="">Semua Kategori</option>
+                  {categoryOptions.map(cat => (
+                    <option key={cat} value={cat}>{cat}</option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Mode Paging Switch (Numbered vs Lazy Load) */}
+              <div className="flex items-center bg-slate-100 p-1 rounded-xl border border-slate-200">
+                <button
+                  onClick={() => setDisplayMode("pagination")}
+                  className={`px-3 py-1 text-xs font-semibold rounded-lg transition cursor-pointer ${
+                    displayMode === "pagination" ? "bg-white text-sky-700 shadow-2xs font-bold" : "text-slate-500 hover:text-slate-800"
+                  }`}
+                  title="Tampilan Halaman Berpenomoran (Numbered Paging)"
+                >
+                  Numbered Paging
+                </button>
+                <button
+                  onClick={() => setDisplayMode("lazy")}
+                  className={`px-3 py-1 text-xs font-semibold rounded-lg transition cursor-pointer ${
+                    displayMode === "lazy" ? "bg-white text-sky-700 shadow-2xs font-bold" : "text-slate-500 hover:text-slate-800"
+                  }`}
+                  title="Tampilan Muat Lebih Banyak (Lazy Load)"
+                >
+                  Lazy Load
+                </button>
+              </div>
+            </div>
+
           </div>
+
+          {/* Indicator Info Bar */}
+          {!loading && filteredArticles.length > 0 && (
+            <div className="flex items-center justify-between pt-2 border-t border-slate-100 text-xs text-slate-500">
+              <span>
+                {displayMode === "pagination" ? (
+                  <>Menampilkan <strong className="text-slate-800">{startIndex + 1} - {Math.min(startIndex + itemsPerPage, filteredArticles.length)}</strong> dari <strong className="text-slate-800">{filteredArticles.length}</strong> artikel</>
+                ) : (
+                  <>Menampilkan <strong className="text-slate-800">{Math.min(visibleLazyCount, filteredArticles.length)}</strong> dari <strong className="text-slate-800">{filteredArticles.length}</strong> artikel</>
+                )}
+              </span>
+
+              {displayMode === "pagination" && (
+                <span>Halaman <strong className="text-sky-700">{currentPage}</strong> dari <strong className="text-slate-700">{totalPages}</strong></span>
+              )}
+            </div>
+          )}
         </div>
 
-        {/* Loading State */}
+        {/* Article Grid */}
         {loading ? (
-          <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
-            {[...Array(6)].map((_, i) => (
-              <div
-                key={i}
-                className="h-80 animate-pulse rounded-xl bg-gradient-to-r from-slate-200 via-slate-100 to-slate-200"
-              />
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {[1, 2, 3, 4, 5, 6].map(n => (
+              <div key={n} className="h-80 rounded-2xl bg-slate-200 animate-pulse" />
             ))}
           </div>
-        ) : articles.length === 0 ? (
-          <div className="rounded-xl border-2 border-dashed border-slate-300 bg-gradient-to-br from-slate-50 to-blue-50 p-8 text-center">
-            <div className="text-3xl mb-2">📭</div>
-            <h3 className="text-base font-bold text-slate-900">Belum ada artikel</h3>
-            <p className="mt-1 text-sm text-slate-500">
-              Kategori yang Anda pilih belum memiliki artikel. Silakan coba kategori lain atau kembali lagi nanti.
-            </p>
+        ) : filteredArticles.length === 0 ? (
+          <div className="rounded-2xl border border-slate-200 bg-white p-12 text-center text-slate-500 space-y-2">
+            <FiBookOpen className="mx-auto text-4xl text-slate-300" />
+            <h3 className="text-base font-bold text-slate-800">Artikel Tidak Ditemukan</h3>
+            <p className="text-xs text-slate-500">Tidak ada artikel yang cocok dengan pencarian atau kategori yang dipilih.</p>
           </div>
         ) : (
-          /* Grid Card Artikel UI Tegak/Grid 3 Kolom */
-          <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
-            {articles.map((item, index) => {
-              const title = getTextValue(item, ["judul_artikel", "judul", "title"]);
-              const summary = getArticleSummary(item);
-              const category = getTextValue(item, ["kategori_artikel", "kategori", "category"]);
-              const image = resolveImageUrl(getTextValue(item, ["gambar_artikel", "gambar", "image", "foto"]));
-              const slug = getArticleSlug(item);
+          <>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {paginatedArticles.map((item, index) => {
+                const title = getTextValue(item, ["judul_artikel", "judul", "title"]);
+                const summary = getArticleSummary(item);
+                const category = getTextValue(item, ["kategori_artikel", "kategori", "category"]);
+                const image = resolveImageUrl(getTextValue(item, ["gambar_artikel", "gambar", "image", "foto"]));
+                const slug = getArticleSlug(item);
+                const date = formatDate(getTextValue(item, ["created_at", "updated_at", "tanggal"]));
 
-              return (
-                <div
-                  key={`${slug || title || index}`}
-                  className="group relative h-full overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm transition-all duration-500 hover:shadow-lg hover:shadow-blue-400/20"
-                  style={{
-                    transition: 'all 0.5s cubic-bezier(0.4, 0.0, 0.2, 1)'
-                  }}
-                >
-                  {/* Glow effect di belakang */}
-                  <div
-                    className="absolute inset-0 rounded-xl opacity-0 transition-opacity duration-500 group-hover:opacity-100"
-                    style={{
-                      background: 'radial-gradient(circle at center, rgba(59, 130, 246, 0.08) 0%, transparent 70%)',
-                      pointerEvents: 'none'
-                    }}
-                  />
-
-                  <div className="relative flex h-full flex-col overflow-hidden p-0">
-                    {/* Image Container dengan Zoom Effect */}
-                    <div className="relative h-44 w-full overflow-hidden bg-slate-200">
-                      <img
-                        src={image}
-                        alt={title || "Artikel"}
-                        className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-110"
-                      />
-                      {/* Overlay gradient on hover */}
-                      <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent opacity-0 transition-opacity duration-500 group-hover:opacity-100" />
-                    </div>
-
-                    {/* Content Container */}
-                    <div className="flex flex-grow flex-col justify-between p-4">
-                      <div>
-                        {/* Category Badge */}
-                        <span className="inline-flex rounded-full bg-blue-50 px-2 py-0.5 text-xs font-semibold uppercase tracking-wide text-blue-700 transition-colors duration-300 group-hover:bg-blue-100">
-                          {category || "Kategori"}
+                return (
+                  <article
+                    key={`${slug || title || index}`}
+                    className="group bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-2xs hover:shadow-md transition-all duration-300 flex flex-col justify-between"
+                  >
+                    <div>
+                      {/* Thumbnail */}
+                      <div className="relative h-48 w-full overflow-hidden bg-slate-100">
+                        <img
+                          src={image}
+                          alt={title || "Artikel"}
+                          className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
+                        />
+                        <span className="absolute top-3 left-3 bg-white/90 backdrop-blur-xs px-2.5 py-1 rounded-md text-[11px] font-bold text-sky-700 uppercase tracking-wider shadow-2xs">
+                          {category || "Kesehatan"}
                         </span>
+                      </div>
 
-                        {/* Title */}
+                      {/* Card Body */}
+                      <div className="p-5 space-y-2">
+                        <div className="flex items-center gap-1.5 text-slate-400 text-[11px]">
+                          <FiCalendar size={12} />
+                          <span suppressHydrationWarning>{date}</span>
+                        </div>
+
                         <Link href={`/artikel/${slug || index}`}>
-                          <h2 className="mt-2 text-base font-bold leading-snug text-slate-950 transition-colors duration-300 hover:text-blue-600 line-clamp-2">
-                            {title || "Judul artikel"}
+                          <h2 className="text-base font-bold text-slate-900 group-hover:text-sky-600 transition line-clamp-2 leading-snug">
+                            {title || "Judul Artikel"}
                           </h2>
                         </Link>
 
-                        {/* Description */}
-                        <p className="mt-2 text-xs leading-relaxed text-slate-600 line-clamp-2 transition-colors duration-300">
-                          {summary || "Baca artikel lengkap untuk informasi lebih lanjut."}
+                        <p className="text-xs text-slate-600 leading-relaxed line-clamp-3">
+                          {summary}
                         </p>
                       </div>
-
-                      {/* CTA Button */}
-                      <div className="pt-2 mt-3 border-t border-slate-100">
-                        <Link
-                          href={`/artikel/${slug || index}`}
-                          className="inline-flex items-center gap-1 text-xs font-semibold text-blue-600 transition-all duration-300 hover:text-blue-700 hover:gap-2"
-                        >
-                          Baca Selengkapnya
-                          <span className="transition-transform duration-300 group-hover:translate-x-0.5">→</span>
-                        </Link>
-                      </div>
                     </div>
-                  </div>
+
+                    {/* Card Footer Link */}
+                    <div className="p-5 pt-0">
+                      <Link
+                        href={`/artikel/${slug || index}`}
+                        className="inline-flex items-center gap-1.5 text-xs font-semibold text-sky-600 hover:text-sky-700 transition"
+                      >
+                        Baca Selengkapnya <FiArrowRight size={14} />
+                      </Link>
+                    </div>
+                  </article>
+                );
+              })}
+            </div>
+
+            {/* Paging Mode 1: Numbered Pagination Bar */}
+            {displayMode === "pagination" && totalPages > 1 && (
+              <div className="pt-6 flex flex-wrap items-center justify-center gap-2">
+                <button
+                  onClick={() => handlePageChange(currentPage - 1)}
+                  disabled={currentPage === 1}
+                  className="inline-flex items-center gap-1 px-3.5 py-2 rounded-xl text-xs font-semibold text-slate-600 border border-slate-200 bg-white hover:bg-slate-50 transition disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
+                >
+                  <FiChevronLeft /> Sebelumnya
+                </button>
+
+                <div className="flex items-center gap-1">
+                  {Array.from({ length: totalPages }, (_, i) => i + 1).map(page => (
+                    <button
+                      key={page}
+                      onClick={() => handlePageChange(page)}
+                      className={`h-9 w-9 rounded-xl text-xs font-bold transition cursor-pointer ${
+                        currentPage === page
+                          ? "bg-sky-600 text-white shadow-xs"
+                          : "bg-white text-slate-700 border border-slate-200 hover:bg-slate-50"
+                      }`}
+                    >
+                      {page}
+                    </button>
+                  ))}
                 </div>
-              );
-            })}
-          </div>
+
+                <button
+                  onClick={() => handlePageChange(currentPage + 1)}
+                  disabled={currentPage === totalPages}
+                  className="inline-flex items-center gap-1 px-3.5 py-2 rounded-xl text-xs font-semibold text-slate-600 border border-slate-200 bg-white hover:bg-slate-50 transition disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
+                >
+                  Berikutnya <FiChevronRight />
+                </button>
+              </div>
+            )}
+
+            {/* Paging Mode 2: Lazy Loading Button */}
+            {displayMode === "lazy" && visibleLazyCount < filteredArticles.length && (
+              <div className="pt-6 text-center">
+                <button
+                  onClick={handleLoadMore}
+                  className="inline-flex items-center gap-2 px-6 py-2.5 rounded-xl bg-sky-600 hover:bg-sky-700 text-white text-xs font-bold shadow-xs transition active:scale-95 cursor-pointer"
+                >
+                  Muat Lebih Banyak Artikel ({filteredArticles.length - visibleLazyCount} tersisa)
+                </button>
+              </div>
+            )}
+          </>
         )}
+
       </div>
     </div>
   );

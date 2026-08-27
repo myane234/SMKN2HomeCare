@@ -1,5 +1,5 @@
 export function resolveImageUrl(image, updatedAt = null) {
-  const placeholder = "https://placehold.co/900x600?text=SmartHomeCare";
+  const placeholder = "/images/layanan/pijat-bayi.png";
 
   if (!image) return placeholder;
 
@@ -16,12 +16,15 @@ export function resolveImageUrl(image, updatedAt = null) {
     cleanImage = `https:${cleanImage}`;
   }
 
-  // 3. Local public static assets in Next.js public directory (/images/, /icons/, /logo/, etc.)
+  // 3. Local public static assets in Next.js public directory
   const normalizedPath = cleanImage.startsWith("/") ? cleanImage : `/${cleanImage}`;
   if (
     normalizedPath.startsWith("/images/") ||
     normalizedPath.startsWith("/icons/") ||
     normalizedPath.startsWith("/logo/") ||
+    normalizedPath.startsWith("/layanan/") ||
+    normalizedPath.startsWith("/about/") ||
+    normalizedPath.startsWith("/hero/") ||
     normalizedPath.startsWith("/file.svg") ||
     normalizedPath.startsWith("/globe.svg")
   ) {
@@ -51,8 +54,16 @@ export function resolveImageUrl(image, updatedAt = null) {
         return storagePath.replace("/storage/images/", "/images/");
       }
 
-      if (apiEnv) {
-        return `${apiEnv}${storagePath}`;
+      // If the path after storage is actually a local asset (images/ or layanan/ or icons/)
+      if (
+        pathAfterStorage.startsWith("images/") ||
+        pathAfterStorage.startsWith("layanan/") ||
+        pathAfterStorage.startsWith("icons/") ||
+        pathAfterStorage.startsWith("about/") ||
+        pathAfterStorage.startsWith("hero/")
+      ) {
+        const cleanLocalPath = pathAfterStorage.replace(/^images\//, "");
+        return `/images/${cleanLocalPath.replace(/^\/+/, "")}`;
       }
 
       // Relative /storage/... uses Next.js rewrite proxy in next.config.mjs to proxy backend images
@@ -70,8 +81,19 @@ export function resolveImageUrl(image, updatedAt = null) {
     .replace(/^https?:\/\/[^/]+/gi, "")
     .replace(/^(?:\/?storage\/+|\/+)+/gi, "");
 
-  if (storagePath.startsWith("images/") || storagePath.startsWith("icons/") || storagePath.startsWith("logo/")) {
-    return `/${storagePath}`;
+  // If path actually points to local public images or categories
+  if (
+    storagePath.startsWith("images/") ||
+    storagePath.startsWith("layanan/") ||
+    storagePath.startsWith("icons/") ||
+    storagePath.startsWith("about/") ||
+    storagePath.startsWith("hero/") ||
+    storagePath.startsWith("logo/")
+  ) {
+    if (storagePath.startsWith("images/")) {
+      return `/${storagePath}`;
+    }
+    return `/images/${storagePath}`;
   }
 
   if (apiEnv) {

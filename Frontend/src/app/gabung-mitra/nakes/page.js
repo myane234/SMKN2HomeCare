@@ -15,7 +15,7 @@ import {
   FiSearch
 } from 'react-icons/fi';
 import api from '@/services/api';
-import { DAFTAR_UNIVERSITAS } from '@/services/dataUniversitas';
+import { DAFTAR_UNIVERSITAS, getUniversitas } from '@/services/dataUniversitas';
 import { getProfileMe } from '@/services/profileService';
 import { registerNakes, getWilayahLayanan, getKategoriLayanan } from '@/services/nakesService';
 
@@ -139,14 +139,8 @@ export default function RegisterNakesPage() {
     const delayDebounce = setTimeout(async () => {
       setIsSearchingUniv(true);
       try {
-        const res = await fetch(
-          `http://universities.hipolabs.com/search?country=Indonesia&name=${encodeURIComponent(query)}`
-        );
-        if (res.ok) {
-          const data = await res.json();
-          const names = data.map((item) => item.name);
-          setApiUniversitas(names);
-        }
+        const names = await getUniversitas(query);
+        setApiUniversitas(names || []);
       } catch (err) {
         console.error('Gagal mengambil data universitas dari API:', err);
       } finally {
