@@ -6,6 +6,7 @@ import {
   toggleStatusBank,
   deleteBank,
 } from '../../data/masterBankData.js';
+import Swal from 'sweetalert2';
 
 
 export default function AdminMasterBank() {
@@ -122,18 +123,79 @@ export default function AdminMasterBank() {
     }
   }
 
-  async function handleDelete(item) {
-    if (!confirm('Apakah kamu yakin ingin menghapus bank ini?')) return;
+async function handleDelete(item) {
+  const id = getItemId(item);
 
-    try {
-      const id = getItemId(item);
-      await deleteBank(id);
-      fetchDataBank();
-    } catch (err) {
-      console.error('Gagal menghapus bank:', err);
-      alert('Gagal menghapus data.');
-    }
+  if (!id) {
+    Swal.fire({
+      icon: 'error',
+      title: 'Data Tidak Valid',
+      text: 'ID bank tidak ditemukan.',
+      confirmButtonColor: '#e11d48',
+      confirmButtonText: 'Mengerti',
+    });
+    return;
   }
+
+  const namaBank = item?.nama_bank || 'Bank ini';
+
+  const result = await Swal.fire({
+    title: 'Hapus Bank?',
+    html: `
+      <div style="font-size: 15px; color: #64748b; line-height: 1.6;">
+        Anda yakin ingin menghapus
+        <strong style="color: #1e293b;">"${namaBank}"</strong>?
+        <br>
+        <span style="font-size: 13px; color: #94a3b8;">
+          Pastikan data bank yang dipilih sudah benar.
+        </span>
+      </div>
+    `,
+    icon: 'warning',
+    showCancelButton: true,
+    reverseButtons: true,
+    focusCancel: true,
+    confirmButtonColor: '#e11d48',
+    cancelButtonColor: '#64748b',
+    confirmButtonText: 'Ya, Hapus',
+    cancelButtonText: 'Batal',
+    buttonsStyling: true,
+  });
+
+  if (!result.isConfirmed) return;
+
+  try {
+    await deleteBank(id);
+
+    await Swal.fire({
+      icon: 'success',
+      title: 'Berhasil Dihapus!',
+      html: `
+        <span style="color: #64748b;">
+          Data bank
+          <strong style="color: #1e293b;">"${namaBank}"</strong>
+          berhasil dihapus.
+        </span>
+      `,
+      timer: 1800,
+      showConfirmButton: false,
+      timerProgressBar: true,
+    });
+
+    await fetchDataBank();
+
+  } catch (err) {
+    console.error('Gagal menghapus data bank:', err);
+
+    Swal.fire({
+      icon: 'error',
+      title: 'Gagal Menghapus',
+      text: err?.message || 'Terjadi kesalahan saat menghapus data bank.',
+      confirmButtonColor: '#e11d48',
+      confirmButtonText: 'Coba Lagi',
+    });
+  }
+}
 
   const filteredBank = useMemo(() => {
     return bankList.filter((item) => {
