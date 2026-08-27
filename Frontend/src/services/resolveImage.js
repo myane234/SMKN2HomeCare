@@ -1,5 +1,5 @@
 export function resolveImageUrl(image, updatedAt = null) {
-  const placeholder = "https://placehold.co/900x600?text=SmartHomeCare";
+  const placeholder = "/images/layanan/pijat-bayi.png";
 
   if (!image) return placeholder;
 
@@ -16,12 +16,15 @@ export function resolveImageUrl(image, updatedAt = null) {
     cleanImage = `https:${cleanImage}`;
   }
 
-  // 3. Local public static assets in Next.js public directory (/images/, /icons/, /logo/, etc.)
+  // 3. Local public static assets in Next.js public directory
   const normalizedPath = cleanImage.startsWith("/") ? cleanImage : `/${cleanImage}`;
   if (
     normalizedPath.startsWith("/images/") ||
     normalizedPath.startsWith("/icons/") ||
     normalizedPath.startsWith("/logo/") ||
+    normalizedPath.startsWith("/layanan/") ||
+    normalizedPath.startsWith("/about/") ||
+    normalizedPath.startsWith("/hero/") ||
     normalizedPath.startsWith("/file.svg") ||
     normalizedPath.startsWith("/globe.svg")
   ) {
@@ -32,7 +35,6 @@ export function resolveImageUrl(image, updatedAt = null) {
 
   // 4. Handle full URLs (HTTP / HTTPS)
   if (cleanImage.startsWith("http://") || cleanImage.startsWith("https://")) {
-    // Check if URL points to local storage or backend base URL
     const isLocalHost = cleanImage.includes("localhost") || cleanImage.includes("127.0.0.1");
     const isBaseUrl = cleanImage.includes(baseUrl);
 
@@ -40,9 +42,16 @@ export function resolveImageUrl(image, updatedAt = null) {
       const storageIdx = cleanImage.indexOf("/storage/");
       const pathAfterStorage = cleanImage.substring(storageIdx + "/storage/".length);
 
-      // If the path after storage is actually a local asset
-      if (pathAfterStorage.startsWith("images/") || pathAfterStorage.startsWith("/images/")) {
-        return pathAfterStorage.startsWith("/") ? pathAfterStorage : `/${pathAfterStorage}`;
+      // If the path after storage is actually a local asset (images/ or layanan/ or icons/)
+      if (
+        pathAfterStorage.startsWith("images/") ||
+        pathAfterStorage.startsWith("layanan/") ||
+        pathAfterStorage.startsWith("icons/") ||
+        pathAfterStorage.startsWith("about/") ||
+        pathAfterStorage.startsWith("hero/")
+      ) {
+        const cleanLocalPath = pathAfterStorage.replace(/^images\//, "");
+        return `/images/${cleanLocalPath.replace(/^\/+/, "")}`;
       }
 
       return `${baseUrl}/storage/${pathAfterStorage.replace(/^\/+/, "")}`;
@@ -59,9 +68,19 @@ export function resolveImageUrl(image, updatedAt = null) {
     .replace(/^https?:\/\/[^/]+/gi, "") // strip domain
     .replace(/^(?:\/?storage\/+|\/+)+/gi, ""); // strip /storage/
 
-  // If path actually points to local public images
-  if (storagePath.startsWith("images/") || storagePath.startsWith("icons/") || storagePath.startsWith("logo/")) {
-    return `/${storagePath}`;
+  // If path actually points to local public images or categories
+  if (
+    storagePath.startsWith("images/") ||
+    storagePath.startsWith("layanan/") ||
+    storagePath.startsWith("icons/") ||
+    storagePath.startsWith("about/") ||
+    storagePath.startsWith("hero/") ||
+    storagePath.startsWith("logo/")
+  ) {
+    if (storagePath.startsWith("images/")) {
+      return `/${storagePath}`;
+    }
+    return `/images/${storagePath}`;
   }
 
   return `${baseUrl}/storage/${storagePath}`;

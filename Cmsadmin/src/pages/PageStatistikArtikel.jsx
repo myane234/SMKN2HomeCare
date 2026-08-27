@@ -14,15 +14,6 @@ export default function PageStatistikArtikel() {
         </div>
       </div>
 
-      {/* Info Banner */}
-      <div className="bg-sky-50 border border-sky-200 rounded-xl p-4 text-sky-800 text-sm flex items-start gap-3">
-        <FaInfoCircle className="text-sky-600 text-lg shrink-0 mt-0.5" />
-        <div>
-          <p className="font-bold">Halaman Statistik Artikel Siap API</p>
-          <p className="text-xs text-sky-700 mt-0.5">Tampilan grafik dan tabel statistik view artikel telah disiapkan untuk dihubungkan ke backend.</p>
-        </div>
-      </div>
-
       {/* Summary Cards Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-6">
         <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-xs space-y-2">

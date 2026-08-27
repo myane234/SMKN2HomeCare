@@ -24,7 +24,7 @@ const HERO_SLIDES = [
     description: "Pesan layanan perawat profesional dengan mudah, aman, dan nyaman langsung dari rumah Anda.",
     ctaLabel: "Pesan Sekarang",
     ctaHref: "/pesan-laynan",
-    image: "https://perawatlansia.id/wp-content/uploads/2024/01/resize_nurse-or-doctor-who-work-as-homecare-staff-help-to-2023-11-27-04-56-33-utc-768x512.jpg",
+    image: "/images/hero/hero-1.jpg",
   },
 ];
 
@@ -48,18 +48,18 @@ function getCategoryMeta(category) {
 }
 
 const CATEGORY_IMAGE = {
-  "fisioterapi": "",
-  "home care": "",
-  "perawatan luka": "",
-  "kesehatan": "",
-  "ibu dan anak": "",
-  "medical checkup": "",
-  "pemasangan alat medis": "",
-  "pemasangan dan penggantian alat medis": "",
+  "fisioterapi": "/images/icons/fisio.png",
+  "home care": "/images/layanan/pijat-bayi.png",
+  "perawatan luka": "/images/layanan/luka/luka-diabetes.png",
+  "kesehatan": "/images/icons/mcu.png",
+  "ibu dan anak": "/images/layanan/ibu-anak/pijat-bayi.png",
+  "medical checkup": "/images/icons/mcu.png",
+  "pemasangan alat medis": "/images/layanan/alat-medis/infus.png",
+  "pemasangan dan penggantian alat medis": "/images/layanan/alat-medis/infus.png",
 };
 
 function getCategoryImage(category) {
-  return CATEGORY_IMAGE[(category || "").toLowerCase()] || "";
+  return CATEGORY_IMAGE[(category || "").toLowerCase()] || "/images/layanan/pijat-bayi.png";
 }
 
 function CategoryIcon({ name, className = "h-5 w-5" }) {
@@ -603,6 +603,10 @@ function LayananPageContent() {
                   src={slide.image}
                   alt={slide.title}
                   loading={index === 0 ? "eager" : "lazy"}
+                  onError={(e) => {
+                    e.target.onerror = null;
+                    e.target.src = "/images/hero/hero-1.jpg";
+                  }}
                   className="h-full w-full object-cover object-[center_25%]"
                 />
                 <div className="absolute inset-0 bg-gradient-to-r from-slate-950/70 via-slate-950/35 to-transparent" />
@@ -767,6 +771,10 @@ function LayananPageContent() {
                             src={imageUrl}
                             alt={title || "Layanan"}
                             loading="lazy"
+                            onError={(e) => {
+                              e.target.onerror = null;
+                              e.target.src = "/images/layanan/pijat-bayi.png";
+                            }}
                             className="h-full w-full object-cover transition duration-300 group-hover:scale-105"
                           />
                         </div>
@@ -854,6 +862,10 @@ function LayananPageContent() {
                               src={photo}
                               alt={category}
                               loading="lazy"
+                              onError={(e) => {
+                                e.target.onerror = null;
+                                e.target.src = "/images/layanan/pijat-bayi.png";
+                              }}
                               className="h-full w-full object-cover transition duration-300 group-hover:scale-105"
                             />
                           ) : null}
@@ -1040,6 +1052,10 @@ function LayananPageContent() {
               <img
                 src={resolveImageUrl(getTextValue(selectedService, ["foto_layanan", "foto", "image"]))}
                 alt={getTextValue(selectedService, ["nama_layanan", "nama", "title"]) || "Layanan"}
+                onError={(e) => {
+                  e.target.onerror = null;
+                  e.target.src = "/images/layanan/pijat-bayi.png";
+                }}
                 className="h-full w-full object-cover"
               />
             </div>
