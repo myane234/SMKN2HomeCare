@@ -45,21 +45,13 @@ export default async function PromoDetail({ params, searchParams }) {
   const rawImage = getTextValue(promo, ["gambar_promo", "gambar", "image", "foto"]);
   const image = resolveImageUrl(rawImage);
   
-  const rawDateStr = getTextValue(promo, ["tanggal_berakhir", "expired_at", "end_date"]);
-  const expiredDate = (() => {
-    if (!rawDateStr) return "-";
-    try {
-      const d = new Date(rawDateStr);
-      if (isNaN(d.getTime())) return String(rawDateStr);
-      return d.toLocaleDateString('id-ID', {
-        day: 'numeric',
-        month: 'long',
-        year: 'numeric'
-      });
-    } catch {
-      return String(rawDateStr);
-    }
-  })();
+  const expiredDate = new Date(
+    getTextValue(promo, ["tanggal_berakhir", "expired_at", "end_date"])
+  ).toLocaleDateString('id-ID', {
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric'
+  });
 
   return (
     <main className="mx-auto max-w-7xl px-4 md:px-6 py-8 sm:py-14">
@@ -135,7 +127,7 @@ export default async function PromoDetail({ params, searchParams }) {
                 </div>
                 <div>
                   <h3 className="font-semibold text-slate-800">Berlaku Sampai</h3>
-                  <p className="text-sm text-slate-500" suppressHydrationWarning>{expiredDate || "-"}</p>
+                  <p className="text-sm text-slate-500">{expiredDate || "-"}</p>
                 </div>
               </div>
 

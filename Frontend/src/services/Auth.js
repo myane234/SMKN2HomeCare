@@ -60,9 +60,8 @@ export async function loginForm(email, password) {
  * Backend: POST /api/register
  * Fields: email, password, nama_lengkap, nik (16 digit), golongan_darah, jenis_kelamin, alamat_utama
  */
-export async function registerUser({ email, password, nama_lengkap, no_hp, nik, golongan_darah, jenis_kelamin, alamat_utama, nama_role }) {
+export async function registerUser({ email, password, nama_lengkap, no_hp, nik, golongan_darah, jenis_kelamin, alamat_utama }) {
   try {
-    const roleString = nama_role || "Pasien";
     const res = await api.post('/api/register', {
       email,
       password,
@@ -72,9 +71,6 @@ export async function registerUser({ email, password, nama_lengkap, no_hp, nik, 
       golongan_darah,
       jenis_kelamin,
       alamat_utama,
-      nama_role: roleString,
-      role: roleString,
-      role_name: roleString,
     });
 
     return res.data;

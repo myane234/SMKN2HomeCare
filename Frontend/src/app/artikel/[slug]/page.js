@@ -43,15 +43,13 @@ function extractArticles(payload) {
 function formatDate(value) {
   if (!value) return "";
   try {
-    const d = new Date(value);
-    if (isNaN(d.getTime())) return String(value);
-    return d.toLocaleDateString("id-ID", {
+    return new Date(value).toLocaleDateString("id-ID", {
       day: "numeric",
       month: "long",
       year: "numeric",
     });
   } catch {
-    return String(value);
+    return value;
   }
 }
 

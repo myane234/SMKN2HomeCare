@@ -3,20 +3,15 @@ import Link from "next/link";
 import { getActivePromosSSR, generatePromoSlug, getTextValue } from "@/services/promoService";
 import { resolveImageUrl } from "@/services/resolveImage";
 
-export const dynamic = 'force-dynamic';
-
 function formatDate(dateString) {
-  if (!dateString) return "-";
   try {
-    const d = new Date(dateString);
-    if (isNaN(d.getTime())) return String(dateString);
-    return d.toLocaleDateString('id-ID', {
+    return new Date(dateString).toLocaleDateString('id-ID', {
       day: 'numeric',
       month: 'long',
       year: 'numeric'
     });
   } catch {
-    return String(dateString);
+    return dateString;
   }
 }
 
@@ -93,7 +88,7 @@ export default async function PromoPage() {
 
                     <div className="mt-3 pt-3 border-t border-slate-100">
                       <p className="text-xs font-medium text-slate-700">
-                        Berakhir: <span className="text-blue-600 font-semibold" suppressHydrationWarning>{endDate || "-"}</span>
+                        Berakhir: <span className="text-blue-600 font-semibold">{endDate || "-"}</span>
                       </p>
                     </div>
 

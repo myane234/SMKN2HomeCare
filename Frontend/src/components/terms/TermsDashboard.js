@@ -159,7 +159,6 @@ export default function TermsDashboard() {
     async function loadTermsContent() {
       try {
         const endpoints = [
-          '/api/legalitas/detail/syarat-ketentuan-pasien',
           '/api/resource/content/terms',
           '/api/syarat-ketentuan',
           '/api/terms-of-service'
@@ -185,19 +184,6 @@ export default function TermsDashboard() {
               setTosData(apiData);
             } else if (Array.isArray(apiData?.sections)) {
               setTosData(apiData.sections);
-            } else if (apiData?.content) {
-              // Jika endpoint /api/legalitas/detail/{key} mengembalikan single document { title, content }
-              setTosData([{
-                id: 'pasal-1',
-                number: 1,
-                roman: 'I',
-                title: apiData.title || 'Syarat & Ketentuan Pasien',
-                category: 'umum',
-                categoryName: 'Legalitas Resmi',
-                icon: ShieldCheck,
-                summary: 'Dokumen Syarat & Ketentuan Layanan resmi dari sistem.',
-                content: apiData.content
-              }]);
             }
           } else {
             setTosData(TOS_DATA);

@@ -28,11 +28,14 @@ function GoogleRegisterButton({ onSuccess, onError, loading, isConfigured }) {
   });
 
   const handleClick = () => {
+    if (!isConfigured) {
+      onError("Fitur Google Sign-In/Register belum dikonfigurasi di lingkungan ini. Silakan mendaftar secara manual.");
+      return;
+    }
     try {
       login();
-    } catch (err) {
-      console.warn("Google Sign-In prompt error:", err);
-      onError("Fitur Google Sign-In belum tersedia di browser/lingkungan ini. Silakan mendaftar secara manual.");
+    } catch {
+      onError("Fitur Google Sign-In/Register belum dikonfigurasi. Silakan mendaftar secara manual.");
     }
   };
 

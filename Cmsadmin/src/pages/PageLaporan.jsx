@@ -8,9 +8,18 @@ export default function PageLaporan() {
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-slate-200/80 pb-4">
         <div>
           <h1 className="text-xl sm:text-2xl font-bold text-slate-900 flex items-center gap-2.5">
-            <FaFileExcel className="text-primary" /> Laporan &amp; Export Data
+            <FaFileExcel className="text-primary" /> Laporan & Export Data
           </h1>
           <p className="text-xs sm:text-sm text-slate-500 mt-1">Ekspor dan unduh laporan transaksi, pemesanan, nakes, serta data umum sistem</p>
+        </div>
+      </div>
+
+      {/* Info Banner */}
+      <div className="bg-sky-50 border border-sky-200 rounded-xl p-4 text-sky-800 text-sm flex items-start gap-3">
+        <FaInfoCircle className="text-sky-600 text-lg shrink-0 mt-0.5" />
+        <div>
+          <p className="font-bold">Halaman Laporan Siap API</p>
+          <p className="text-xs text-sky-700 mt-0.5">Form penarikan dan ekspor data laporan dalam format Excel / PDF telah disiapkan untuk dihubungkan ke backend.</p>
         </div>
       </div>
 
