@@ -20,11 +20,14 @@ function GoogleLoginButton({ onSuccess, onError, loading, isConfigured }) {
   });
 
   const handleClick = () => {
+    if (!isConfigured) {
+      onError("Fitur Google Sign-In belum dikonfigurasi di lingkungan ini. Silakan masuk menggunakan Email & Password.");
+      return;
+    }
     try {
       login();
-    } catch (err) {
-      console.warn("Google Sign-In prompt error:", err);
-      onError("Fitur Google Sign-In belum tersedia di browser/lingkungan ini. Silakan masuk menggunakan Email & Password.");
+    } catch {
+      onError("Fitur Google Sign-In belum dikonfigurasi. Silakan masuk menggunakan Email & Password.");
     }
   };
 

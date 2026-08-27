@@ -14,6 +14,15 @@ export default function PageAktivitasLog() {
         </div>
       </div>
 
+      {/* Info Banner */}
+      <div className="bg-sky-50 border border-sky-200 rounded-xl p-4 text-sky-800 text-sm flex items-start gap-3">
+        <FaInfoCircle className="text-sky-600 text-lg shrink-0 mt-0.5" />
+        <div>
+          <p className="font-bold">Halaman Log Siap Dihubungkan ke API</p>
+          <p className="text-xs text-sky-700 mt-0.5">Struktur tabel riwayat aktivitas log telah disiapkan untuk menampilkan log audit dari server.</p>
+        </div>
+      </div>
+
       {/* Filter and Table */}
       <div className="bg-white rounded-2xl border border-slate-200/80 p-4 sm:p-6 lg:p-8 shadow-xs space-y-4">
         <div className="flex flex-col sm:flex-row items-center justify-between gap-4">

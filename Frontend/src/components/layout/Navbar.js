@@ -210,36 +210,6 @@ export default function Navbar() {
                 </li>
                 <li>
                     <Link 
-                        href="/ulasan" 
-                        className={`relative px-4 py-2 rounded-lg text-sm transition-all duration-300 ease-in-out hover:bg-gray-50 ${
-                            pathname === "/ulasan" 
-                                ? "text-green-600 font-semibold" 
-                                : "text-gray-600 hover:text-green-600"
-                        }`}
-                    >
-                        Ulasan
-                        {pathname === "/ulasan" && (
-                            <span className="absolute bottom-0 left-1/2 -translate-x-1/2 w-5 h-0.5 bg-green-500 rounded-full" />
-                        )}
-                    </Link>
-                </li>
-                <li>
-                    <Link 
-                        href="/hubungi-kami" 
-                        className={`relative px-4 py-2 rounded-lg text-sm transition-all duration-300 ease-in-out hover:bg-gray-50 ${
-                            pathname === "/hubungi-kami" 
-                                ? "text-green-600 font-semibold" 
-                                : "text-gray-600 hover:text-green-600"
-                        }`}
-                    >
-                        Hubungi Kami
-                        {pathname === "/hubungi-kami" && (
-                            <span className="absolute bottom-0 left-1/2 -translate-x-1/2 w-5 h-0.5 bg-green-500 rounded-full" />
-                        )}
-                    </Link>
-                </li>
-                <li>
-                    <Link 
                         href="/gabung-mitra" 
                         className={`relative px-4 py-2 rounded-lg text-sm transition-all duration-300 ease-in-out hover:bg-gray-50 ${
                             pathname === "/gabung-mitra" 

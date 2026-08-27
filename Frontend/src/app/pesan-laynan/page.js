@@ -18,17 +18,7 @@ const FONT_STACK = '"Poppins", "Inter", "Segoe UI", sans-serif';
 /**
  * ===================== HERO BANNER CONFIG =====================
  */
-const HERO_SLIDES = [
-  {
-    id: "hero-homecare",
-    eyebrow: "SMARTHOMECARE",
-    title: "Perawat Home Care Siap Membantu di Rumah Anda",
-    description: "Pesan layanan perawat profesional dengan mudah, aman, dan nyaman langsung dari rumah Anda.",
-    ctaLabel: "Pesan Sekarang",
-    ctaHref: "/pesan-laynan",
-    image: "/images/hero/hero-1.jpg",
-  },
-];
+const HERO_SLIDES = [];
 
 /**
  * ===================== DESKRIPSI KATEGORI =====================
@@ -118,18 +108,18 @@ function isServiceInCategory(service, targetCategory, rawCategoryList = []) {
 }
 
 const CATEGORY_IMAGE = {
-  "fisioterapi": "/images/icons/fisio.png",
-  "home care": "/images/layanan/pijat-bayi.png",
-  "perawatan luka": "/images/layanan/luka/luka-diabetes.png",
-  "kesehatan": "/images/icons/mcu.png",
-  "ibu dan anak": "/images/layanan/ibu-anak/pijat-bayi.png",
-  "medical checkup": "/images/icons/mcu.png",
-  "pemasangan alat medis": "/images/layanan/alat-medis/infus.png",
-  "pemasangan dan penggantian alat medis": "/images/layanan/alat-medis/infus.png",
+  "fisioterapi": "",
+  "home care": "",
+  "perawatan luka": "",
+  "kesehatan": "",
+  "ibu dan anak": "",
+  "medical checkup": "",
+  "pemasangan alat medis": "",
+  "pemasangan dan penggantian alat medis": "",
 };
 
 function getCategoryImage(category) {
-  return CATEGORY_IMAGE[(category || "").toLowerCase()] || "/images/layanan/pijat-bayi.png";
+  return CATEGORY_IMAGE[(category || "").toLowerCase()] || "";
 }
 
 function CategoryIcon({ name, className = "h-5 w-5" }) {
@@ -687,10 +677,6 @@ function LayananPageContent() {
                   src={slide.image}
                   alt={slide.title}
                   loading={index === 0 ? "eager" : "lazy"}
-                  onError={(e) => {
-                    e.target.onerror = null;
-                    e.target.src = "/images/hero/hero-1.jpg";
-                  }}
                   className="h-full w-full object-cover object-[center_25%]"
                 />
                 <div className="absolute inset-0 bg-gradient-to-r from-slate-950/70 via-slate-950/35 to-transparent" />
@@ -832,37 +818,33 @@ function LayananPageContent() {
                       const isPressed = pressedServiceId === serviceId;
                       const transportIncluded = isTransportIncluded(service);
 
-                    return (
-                      <article
-                        key={`${title}-${index}`}
-                        role="article"
-                        tabIndex={0}
-                        onClick={() => setSelectedService(service)}
-                        onKeyDown={(event) => {
-                          if (event.key === "Enter" || event.key === " ") {
-                            event.preventDefault();
-                            setSelectedService(service);
-                          }
-                        }}
-                        onPointerDown={() => setPressedServiceId(serviceId)}
-                        onPointerUp={() => setPressedServiceId(null)}
-                        onPointerLeave={() => setPressedServiceId(null)}
-                        className={`group flex cursor-pointer gap-3 p-3 transition-all duration-150 hover:bg-slate-50 focus-visible:bg-slate-50 focus-visible:outline-none sm:gap-4 sm:p-4 ${
-                          isPressed ? "scale-[0.99] bg-slate-50" : ""
-                        }`}
-                      >
-                        <div className="relative h-20 w-20 shrink-0 overflow-hidden rounded-lg bg-slate-100 sm:h-24 sm:w-24">
-                          <img
-                            src={imageUrl}
-                            alt={title || "Layanan"}
-                            loading="lazy"
-                            onError={(e) => {
-                              e.target.onerror = null;
-                              e.target.src = "/images/layanan/pijat-bayi.png";
-                            }}
-                            className="h-full w-full object-cover transition duration-300 group-hover:scale-105"
-                          />
-                        </div>
+                      return (
+                        <article
+                          key={`${title}-${index}`}
+                          role="article"
+                          tabIndex={0}
+                          onClick={() => setSelectedService(service)}
+                          onKeyDown={(event) => {
+                            if (event.key === "Enter" || event.key === " ") {
+                              event.preventDefault();
+                              setSelectedService(service);
+                            }
+                          }}
+                          onPointerDown={() => setPressedServiceId(serviceId)}
+                          onPointerUp={() => setPressedServiceId(null)}
+                          onPointerLeave={() => setPressedServiceId(null)}
+                          className={`group flex cursor-pointer gap-3 p-3 transition-all duration-150 hover:bg-slate-50 focus-visible:bg-slate-50 focus-visible:outline-none sm:gap-4 sm:p-4 ${
+                            isPressed ? "scale-[0.99] bg-slate-50" : ""
+                          }`}
+                        >
+                          <div className="relative h-20 w-20 shrink-0 overflow-hidden rounded-lg bg-slate-100 sm:h-24 sm:w-24">
+                            <img
+                              src={imageUrl}
+                              alt={title || "Layanan"}
+                              loading="lazy"
+                              className="h-full w-full object-cover transition duration-300 group-hover:scale-105"
+                            />
+                          </div>
 
                           <div className="flex min-w-0 flex-1 flex-col justify-center">
                             <div className="flex items-start justify-between gap-2">
@@ -957,10 +939,6 @@ function LayananPageContent() {
                               src={photo}
                               alt={category}
                               loading="lazy"
-                              onError={(e) => {
-                                e.target.onerror = null;
-                                e.target.src = "/images/layanan/pijat-bayi.png";
-                              }}
                               className="h-full w-full object-cover transition duration-300 group-hover:scale-105"
                             />
                           ) : null}
@@ -1170,10 +1148,6 @@ function LayananPageContent() {
               <img
                 src={resolveImageUrl(getTextValue(selectedService, ["foto_layanan", "gambar", "foto", "image", "foto_layanan_url", "gambar_url", "foto_url", "image_url"]))}
                 alt={getTextValue(selectedService, ["nama_layanan", "nama", "title"]) || "Layanan"}
-                onError={(e) => {
-                  e.target.onerror = null;
-                  e.target.src = "/images/layanan/pijat-bayi.png";
-                }}
                 className="h-full w-full object-cover"
               />
             </div>

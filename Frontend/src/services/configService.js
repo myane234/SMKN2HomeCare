@@ -23,53 +23,14 @@ export const DEFAULT_SEO_CONFIG = {
   meta_keywords: 'homecare, kesehatan, perawat, dokter, fisioterapi'
 };
 
-// ── Web Setting (Logo & Favicon) ────────────────────────────────────────────────
-export const getWebSetting = async () => {
-  try {
-    const res = await api.get('/api/web-setting', { validateStatus: s => s < 500 });
-    if (res.status === 200 && res.data?.success && res.data?.data) {
-      return res.data.data;
-    }
-    return { app_logo: '/images/logo/logo.png', app_favicon: '/favicon.ico' };
-  } catch (error) {
-    console.warn('Gagal memuat web setting:', error);
-    return { app_logo: '/images/logo/logo.png', app_favicon: '/favicon.ico' };
-  }
-};
-
-export async function getWebSettingSSR() {
-  try {
-    const res = await fetch(`${getBaseUrl()}/api/web-setting`, { cache: 'no-store' });
-    if (!res.ok) return { app_logo: '/images/logo/logo.png', app_favicon: '/favicon.ico' };
-    const json = await res.json();
-    if (json?.success && json?.data) {
-      return json.data;
-    }
-    return { app_logo: '/images/logo/logo.png', app_favicon: '/favicon.ico' };
-  } catch (error) {
-    console.warn('Gagal memuat web setting (SSR):', error);
-    return { app_logo: '/images/logo/logo.png', app_favicon: '/favicon.ico' };
-  }
-}
-
 // ── Client Fetch (Axios) ───────────────────────────────────────────────────────
 export const getGlobalConfig = async () => {
   try {
-    const webSetting = await getWebSetting();
     const res = await api.get('/api/global-config', { validateStatus: s => s < 500 });
     if (res.status === 200 && res.data?.success && res.data?.data) {
-      return {
-        ...DEFAULT_GLOBAL_CONFIG,
-        ...res.data.data,
-        app_logo: webSetting?.app_logo || res.data.data.app_logo || DEFAULT_GLOBAL_CONFIG.app_logo,
-        app_favicon: webSetting?.app_favicon || res.data.data.app_favicon || DEFAULT_GLOBAL_CONFIG.app_favicon,
-      };
+      return { ...DEFAULT_GLOBAL_CONFIG, ...res.data.data };
     }
-    return {
-      ...DEFAULT_GLOBAL_CONFIG,
-      app_logo: webSetting?.app_logo || DEFAULT_GLOBAL_CONFIG.app_logo,
-      app_favicon: webSetting?.app_favicon || DEFAULT_GLOBAL_CONFIG.app_favicon,
-    };
+    return DEFAULT_GLOBAL_CONFIG;
   } catch (error) {
     console.warn('Gagal memuat global config, menggunakan default fallback:', error);
     return DEFAULT_GLOBAL_CONFIG;
@@ -92,19 +53,13 @@ export const getSeoConfig = async () => {
 // ── SSR Fetch (Server Components / Metadata) ───────────────────────────────────
 export async function getGlobalConfigSSR() {
   try {
-    const webSetting = await getWebSettingSSR();
     const res = await fetch(`${getBaseUrl()}/api/global-config`, { cache: 'no-store' });
-    if (!res.ok) return { ...DEFAULT_GLOBAL_CONFIG, app_logo: webSetting?.app_logo || DEFAULT_GLOBAL_CONFIG.app_logo, app_favicon: webSetting?.app_favicon || DEFAULT_GLOBAL_CONFIG.app_favicon };
+    if (!res.ok) return DEFAULT_GLOBAL_CONFIG;
     const json = await res.json();
     if (json?.success && json?.data) {
-      return {
-        ...DEFAULT_GLOBAL_CONFIG,
-        ...json.data,
-        app_logo: webSetting?.app_logo || json.data.app_logo || DEFAULT_GLOBAL_CONFIG.app_logo,
-        app_favicon: webSetting?.app_favicon || json.data.app_favicon || DEFAULT_GLOBAL_CONFIG.app_favicon,
-      };
+      return { ...DEFAULT_GLOBAL_CONFIG, ...json.data };
     }
-    return { ...DEFAULT_GLOBAL_CONFIG, app_logo: webSetting?.app_logo || DEFAULT_GLOBAL_CONFIG.app_logo, app_favicon: webSetting?.app_favicon || DEFAULT_GLOBAL_CONFIG.app_favicon };
+    return DEFAULT_GLOBAL_CONFIG;
   } catch (error) {
     console.warn('Gagal memuat global config (SSR), menggunakan default fallback:', error);
     return DEFAULT_GLOBAL_CONFIG;

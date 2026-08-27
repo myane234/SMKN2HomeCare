@@ -74,21 +74,6 @@ export default function PageWebSetting() {
   const fetchGlobalConfig = async () => {
     try {
       setLoadingGlobal(true);
-      
-      // Fetch web-setting for logo & favicon
-      let webSettingLogo = '';
-      let webSettingFavicon = '';
-      try {
-        const wsRes = await fetch(`${URL}/web-setting`);
-        const wsBody = await wsRes.json();
-        if (wsRes.ok && wsBody.success && wsBody.data) {
-          webSettingLogo = wsBody.data.app_logo || '';
-          webSettingFavicon = wsBody.data.app_favicon || '';
-        }
-      } catch (err) {
-        console.warn('Gagal memuat /web-setting:', err);
-      }
-
       const res = await fetch(`${URL}/global-config`, {
         headers: getAuthHeaders()
       });
@@ -96,8 +81,8 @@ export default function PageWebSetting() {
       if (res.ok && body.success && body.data) {
         setGlobalConfig({
           app_name: body.data.app_name || '',
-          app_logo: webSettingLogo || body.data.app_logo || '',
-          app_favicon: webSettingFavicon || body.data.app_favicon || '',
+          app_logo: body.data.app_logo || '',
+          app_favicon: body.data.app_favicon || '',
           whatsapp_number: body.data.whatsapp_number || '',
           phone_number: body.data.phone_number || '',
           email: body.data.email || '',
@@ -105,12 +90,6 @@ export default function PageWebSetting() {
           socials: Array.isArray(body.data.socials) ? body.data.socials : [],
           maintenance_mode: Boolean(body.data.maintenance_mode)
         });
-      } else if (webSettingLogo || webSettingFavicon) {
-        setGlobalConfig(prev => ({
-          ...prev,
-          app_logo: webSettingLogo || prev.app_logo,
-          app_favicon: webSettingFavicon || prev.app_favicon
-        }));
       }
     } catch (err) {
       console.error('Gagal memuat global config:', err);
@@ -185,32 +164,6 @@ export default function PageWebSetting() {
     e.preventDefault();
     try {
       setSavingGlobal(true);
-
-      // Submit web-setting endpoint if logo or favicon files present
-      if (logoFile || faviconFile) {
-        const wsFormData = new FormData();
-        if (logoFile) wsFormData.append('app_logo', logoFile);
-        if (faviconFile) wsFormData.append('app_favicon', faviconFile);
-
-        try {
-          const wsRes = await fetch(`${URL}/web-setting`, {
-            method: 'POST',
-            headers: getAuthHeaders(),
-            body: wsFormData
-          });
-          const wsBody = await wsRes.json();
-          if (wsRes.ok && wsBody.success && wsBody.data) {
-            setGlobalConfig(prev => ({
-              ...prev,
-              app_logo: wsBody.data.app_logo || prev.app_logo,
-              app_favicon: wsBody.data.app_favicon || prev.app_favicon
-            }));
-          }
-        } catch (wsErr) {
-          console.error('Error saving web-setting:', wsErr);
-        }
-      }
-
       const formData = new FormData();
       formData.append('app_name', globalConfig.app_name || '');
       if (logoFile) formData.append('app_logo', logoFile);
@@ -232,18 +185,17 @@ export default function PageWebSetting() {
       if (res.ok && body.success) {
         showToast('success', body.message || 'Konfigurasi global berhasil diperbarui');
         if (body.data) {
-          setGlobalConfig(prev => ({
-            ...prev,
-            app_name: body.data.app_name || prev.app_name,
-            app_logo: body.data.app_logo || prev.app_logo,
-            app_favicon: body.data.app_favicon || prev.app_favicon,
-            whatsapp_number: body.data.whatsapp_number || prev.whatsapp_number,
-            phone_number: body.data.phone_number || prev.phone_number,
-            email: body.data.email || prev.email,
-            address: body.data.address || prev.address,
-            socials: Array.isArray(body.data.socials) ? body.data.socials : prev.socials,
+          setGlobalConfig({
+            app_name: body.data.app_name || '',
+            app_logo: body.data.app_logo || '',
+            app_favicon: body.data.app_favicon || '',
+            whatsapp_number: body.data.whatsapp_number || '',
+            phone_number: body.data.phone_number || '',
+            email: body.data.email || '',
+            address: body.data.address || '',
+            socials: Array.isArray(body.data.socials) ? body.data.socials : [],
             maintenance_mode: Boolean(body.data.maintenance_mode)
-          }));
+          });
         }
         setLogoFile(null);
         setFaviconFile(null);

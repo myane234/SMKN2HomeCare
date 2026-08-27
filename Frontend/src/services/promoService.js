@@ -2,6 +2,8 @@ import api from './api';
 
 const getBaseUrl = () => process.env.NEXT_PUBLIC_API_URL || 'https://citra.faaruq.com';
 
+export const DEFAULT_PROMOS = [];
+
 // Helper untuk membaca property dengan safe fallbacks
 export function getTextValue(item, keys) {
   for (const key of keys) {
@@ -38,7 +40,13 @@ export async function getActivePromosSSR(params = {}) {
     const url = new URL(`${getBaseUrl()}/api/promo/active`);
     Object.entries(params).forEach(([k, v]) => url.searchParams.set(k, v));
     
-    const res = await fetch(url.toString(), { cache: 'no-store' });
+    const res = await fetch(url.toString(), {
+      cache: 'no-store',
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+      },
+    });
     if (!res.ok) return [];
     const json = await res.json();
     return extractArray(json);
@@ -66,7 +74,13 @@ export async function getPromoBySlugSSR(slug) {
 // ── Client Side Fetch (Axios) ──────────────────────────────────────────────────
 export const getActivePromos = async (params = {}) => {
   try {
-    const response = await api.get('/api/promo/active', { params });
+    const response = await api.get('/api/promo/active', {
+      params,
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+      },
+    });
     return extractArray(response.data);
   } catch (error) {
     console.warn('Gagal memuat API promo:', error);

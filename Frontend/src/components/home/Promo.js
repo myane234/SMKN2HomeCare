@@ -151,22 +151,14 @@ export default function Promo() {
                   <div className="mt-4 pt-4 border-t border-gray-100">
                     <p className="flex items-center gap-2 text-xs text-gray-500">
                       Berakhir:{" "}
-                      <span className="font-medium text-gray-700" suppressHydrationWarning>
-                        {(() => {
-                          const rawDate = getTextValue(promo, ["tanggal_berakhir", "expired_at", "end_date"]);
-                          if (!rawDate) return "-";
-                          try {
-                            const d = new Date(rawDate);
-                            if (isNaN(d.getTime())) return String(rawDate);
-                            return d.toLocaleDateString('id-ID', {
-                              day: 'numeric',
-                              month: 'long',
-                              year: 'numeric'
-                            });
-                          } catch {
-                            return String(rawDate);
-                          }
-                        })()}
+                      <span className="font-medium text-gray-700">
+                        {new Date(
+                          getTextValue(promo, ["tanggal_berakhir", "expired_at", "end_date"])
+                        ).toLocaleDateString('id-ID', {
+                          day: 'numeric',
+                          month: 'long',
+                          year: 'numeric'
+                        })}
                       </span>
                     </p>
                   </div>
