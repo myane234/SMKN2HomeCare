@@ -2,35 +2,7 @@ import api from './api';
 
 const getBaseUrl = () => process.env.NEXT_PUBLIC_API_URL || 'https://citra.faaruq.com';
 
-export const DEFAULT_PROMOS = [
-  {
-    id_promo: 1,
-    id: 1,
-    nama_paket: "Promo Paket Sehat Lansia",
-    deskripsi: "Diskon 20% untuk pendampingan perawatan lansia homecare selama 7 hari berturut-turut.",
-    diskon_persen: 20,
-    tanggal_berakhir: "2026-12-31",
-    gambar_promo: "/images/hero/hero-1.jpg"
-  },
-  {
-    id_promo: 2,
-    id: 2,
-    nama_paket: "Paket Perawatan Ibu & Bayi Baru Lahir",
-    deskripsi: "Hemat hingga 15% untuk layanan pijat laktasi, perawatan tali pusar, dan senam nifas di rumah.",
-    diskon_persen: 15,
-    tanggal_berakhir: "2026-12-31",
-    gambar_promo: "/images/layanan/pijat-bayi.png"
-  },
-  {
-    id_promo: 3,
-    id: 3,
-    nama_paket: "Voucher Medical Checkup Rumah",
-    deskripsi: "Pemeriksaan darah dan tanda-tanda vital lengkap keluarga dengan potongan langsung Rp 50.000.",
-    diskon_persen: 10,
-    tanggal_berakhir: "2026-12-31",
-    gambar_promo: "/images/icons/mcu.png"
-  }
-];
+export const DEFAULT_PROMOS = [];
 
 // Helper untuk membaca property dengan safe fallbacks
 export function getTextValue(item, keys) {
@@ -65,17 +37,22 @@ function extractArray(payload) {
 // ── SSR Fetch untuk Server Components ──────────────────────────────────────────
 export async function getActivePromosSSR(params = {}) {
   try {
-    const url = new URL(`${getBaseUrl()}/api/promo`);
+    const url = new URL(`${getBaseUrl()}/api/promo/active`);
     Object.entries(params).forEach(([k, v]) => url.searchParams.set(k, v));
     
-    const res = await fetch(url.toString(), { cache: 'no-store' });
-    if (!res.ok) return DEFAULT_PROMOS;
+    const res = await fetch(url.toString(), {
+      cache: 'no-store',
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+      },
+    });
+    if (!res.ok) return [];
     const json = await res.json();
-    const items = extractArray(json);
-    return items.length > 0 ? items : DEFAULT_PROMOS;
+    return extractArray(json);
   } catch (error) {
-    console.warn('Gagal memuat API promo (SSR), menggunakan data default fallback:', error);
-    return DEFAULT_PROMOS;
+    console.warn('Gagal memuat API promo (SSR):', error);
+    return [];
   }
 }
 
@@ -87,22 +64,27 @@ export async function getPromoBySlugSSR(slug) {
       const id = getTextValue(item, ["id_promo", "id"]);
       return generatePromoSlug(name) === slug || id === String(slug);
     });
-    return promo || DEFAULT_PROMOS[0];
+    return promo || null;
   } catch (error) {
-    console.warn(`Gagal memuat API promo ${slug} (SSR), menggunakan data default fallback:`, error);
-    return DEFAULT_PROMOS[0];
+    console.warn(`Gagal memuat API promo ${slug} (SSR):`, error);
+    return null;
   }
 }
 
 // ── Client Side Fetch (Axios) ──────────────────────────────────────────────────
 export const getActivePromos = async (params = {}) => {
   try {
-    const response = await api.get('/api/promo', { params });
-    const items = extractArray(response.data);
-    return items.length > 0 ? items : DEFAULT_PROMOS;
+    const response = await api.get('/api/promo/active', {
+      params,
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+      },
+    });
+    return extractArray(response.data);
   } catch (error) {
-    console.warn('Gagal memuat API promo, menggunakan data default fallback:', error);
-    return DEFAULT_PROMOS;
+    console.warn('Gagal memuat API promo:', error);
+    return [];
   }
 };
 
@@ -113,9 +95,30 @@ export const getPromoBySlug = async (slug) => {
       const name = getTextValue(item, ["nama_paket", "nama", "title", "judul"]);
       const id = getTextValue(item, ["id_promo", "id"]);
       return generatePromoSlug(name) === slug || id === String(slug);
-    }) || DEFAULT_PROMOS[0];
+    }) || null;
   } catch (error) {
-    console.warn('Gagal memuat API promo by slug, menggunakan data default fallback:', error);
-    return DEFAULT_PROMOS[0];
+    console.warn('Gagal memuat API promo by slug:', error);
+    return null;
   }
+};
+
+// ── Client Side POST Promo (Multipart / Form Data) ──────────────────────────────
+export const createPromo = async (payload) => {
+  let body = payload;
+  if (payload && !(payload instanceof FormData) && typeof payload === 'object') {
+    body = new FormData();
+    Object.keys(payload).forEach((key) => {
+      if (payload[key] !== null && payload[key] !== undefined) {
+        body.append(key, payload[key]);
+      }
+    });
+  }
+
+  const response = await api.post('/api/promo', body, {
+    headers: {
+      'Accept': 'application/json',
+    },
+  });
+
+  return response.data;
 };
