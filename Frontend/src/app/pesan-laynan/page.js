@@ -9,6 +9,7 @@ import { showToast } from "@/components/Toast";
 import Link from "next/link";
 import { resolveImageUrl } from "@/services/resolveImage";
 import api from "@/services/api";
+import Pagination from "@/components/Pagination";
 
 const CART_STORAGE_KEY = "smarthomecare_cart";
 const FONT_STACK = '"Poppins", "Inter", "Segoe UI", sans-serif';
@@ -322,6 +323,8 @@ function LayananPageContent() {
   const [loadingPromos, setLoadingPromos] = useState(true);
   const [articles, setArticles] = useState([]);
   const [loadingArticles, setLoadingArticles] = useState(true);
+  const [categoryPage, setCategoryPage] = useState(1);
+  const [categoryDataMap, setCategoryDataMap] = useState({});
 
   useEffect(() => {
     setIsLoggedIn(document.cookie.includes("is_logged_in=true"));
@@ -452,33 +455,43 @@ function LayananPageContent() {
   // Fetch Layanan & Kategori dari API backend (/api/layanan/kategori dan /api/layanan)
   useEffect(() => {
     let isMounted = true;
+    setCategoryPage(1);
 
     async function loadServices() {
       try {
         setLoading(true);
         const [servicesRes, categoriesRes] = await Promise.allSettled([
-          getLayanan(currentCategory ? { kategori: currentCategory } : undefined),
+          getLayanan(),
           api.get("/api/layanan/kategori"),
         ]);
 
         if (!isMounted) return;
 
         const items = servicesRes.status === "fulfilled" ? extractServices(servicesRes.value) : [];
-        if (currentCategory) {
-          setFilteredServices(items);
-        } else {
-          setAllServices(items);
-          setFilteredServices(items);
-        }
+        setAllServices(items);
 
+        // Build category data map from API response (stores photo_kategori etc.)
+        const catDataMap = {};
         let catList = [];
         if (categoriesRes.status === "fulfilled") {
           const catResponseData = categoriesRes.value.data?.data || categoriesRes.value.data;
           if (Array.isArray(catResponseData)) {
-            catList = catResponseData
-              .map((c) => (typeof c === "string" ? c : getTextValue(c, ["nama_kategori", "nama", "kategori", "category"])))
-              .filter(Boolean);
+            catResponseData.forEach((c) => {
+              if (typeof c === "string") {
+                catList.push(c);
+              } else {
+                const name = getTextValue(c, ["nama_kategori", "nama", "kategori", "category"]);
+                if (name) {
+                  catList.push(name);
+                  catDataMap[name] = c;
+                }
+              }
+            });
           }
+        }
+
+        if (isMounted) {
+          setCategoryDataMap(catDataMap);
         }
 
         const uniqueFromItems = Array.from(
@@ -492,6 +505,17 @@ function LayananPageContent() {
         const mergedCategories = Array.from(new Set([...catList, ...uniqueFromItems]))
           .filter((c) => c && c.toLowerCase() !== "home care" && c.toLowerCase() !== "homecare");
         setCategories(mergedCategories);
+
+        // Filter by category if selected
+        if (currentCategory) {
+          const filtered = items.filter((item) => {
+            const cat = getTextValue(item, ["kategori_layanan", "kategori", "category", "nama_kategori"]);
+            return cat && cat.toLowerCase() === currentCategory.toLowerCase();
+          });
+          setFilteredServices(filtered);
+        } else {
+          setFilteredServices(items);
+        }
       } catch (error) {
         console.error("Gagal memuat data layanan", error);
       } finally {
@@ -729,98 +753,115 @@ function LayananPageContent() {
                     Kembali ke kategori
                   </button>
                 </div>
-              ) : (
-                <div className="divide-y divide-slate-100 overflow-hidden rounded-xl border border-slate-200 bg-white">
-                  {filteredServices.map((service, index) => {
-                    const title = getTextValue(service, ["nama_layanan", "nama", "title"]);
-                    const description = getTextValue(service, ["deskripsi_layanan", "deskripsi", "keterangan", "description"]);
-                    const imageUrl = resolveImageUrl(getTextValue(service, ["foto_layanan", "foto", "image"]));
-                    const category = getTextValue(service, ["kategori_layanan", "kategori", "category", "nama_kategori"]);
-                    const price = getTextValue(service, ["harga", "price"]);
-                    const duration = getTextValue(service, ["durasi_menit", "durasi", "duration"]);
-                    const serviceId = getServiceId(service);
-                    const justAdded = addedServiceId === serviceId;
-                    const isPressed = pressedServiceId === serviceId;
-                    const transportIncluded = isTransportIncluded(service);
+              ) : (() => {
+                const ITEMS_PER_PAGE = 10;
+                const totalPages = Math.ceil(filteredServices.length / ITEMS_PER_PAGE);
+                const startIdx = (categoryPage - 1) * ITEMS_PER_PAGE;
+                const paginatedServices = filteredServices.slice(startIdx, startIdx + ITEMS_PER_PAGE);
 
-                    return (
-                      <article
-                        key={`${title}-${index}`}
-                        role="article"
-                        tabIndex={0}
-                        onClick={() => setSelectedService(service)}
-                        onKeyDown={(event) => {
-                          if (event.key === "Enter" || event.key === " ") {
-                            event.preventDefault();
-                            setSelectedService(service);
-                          }
-                        }}
-                        onPointerDown={() => setPressedServiceId(serviceId)}
-                        onPointerUp={() => setPressedServiceId(null)}
-                        onPointerLeave={() => setPressedServiceId(null)}
-                        className={`group flex cursor-pointer gap-3 p-3 transition-all duration-150 hover:bg-slate-50 focus-visible:bg-slate-50 focus-visible:outline-none sm:gap-4 sm:p-4 ${
-                          isPressed ? "scale-[0.99] bg-slate-50" : ""
-                        }`}
-                      >
-                        <div className="relative h-20 w-20 shrink-0 overflow-hidden rounded-lg bg-slate-100 sm:h-24 sm:w-24">
-                          <img
-                            src={imageUrl}
-                            alt={title || "Layanan"}
-                            loading="lazy"
-                            className="h-full w-full object-cover transition duration-300 group-hover:scale-105"
-                          />
-                        </div>
+                return (
+                  <>
+                    <div className="divide-y divide-slate-100 overflow-hidden rounded-xl border border-slate-200 bg-white">
+                      {paginatedServices.map((service, index) => {
+                        const title = getTextValue(service, ["nama_layanan", "nama", "title"]);
+                        const description = getTextValue(service, ["deskripsi_layanan", "deskripsi", "keterangan", "description"]);
+                        const imageUrl = resolveImageUrl(getTextValue(service, ["foto_layanan", "foto", "image"]));
+                        const category = getTextValue(service, ["kategori_layanan", "kategori", "category", "nama_kategori"]);
+                        const price = getTextValue(service, ["harga", "price"]);
+                        const duration = getTextValue(service, ["durasi_menit", "durasi", "duration"]);
+                        const serviceId = getServiceId(service);
+                        const justAdded = addedServiceId === serviceId;
+                        const isPressed = pressedServiceId === serviceId;
+                        const transportIncluded = isTransportIncluded(service);
 
-                        <div className="flex min-w-0 flex-1 flex-col justify-center">
-                          <div className="flex items-start justify-between gap-2">
-                            <div className="min-w-0">
-                              <div className="flex items-center gap-1.5 text-[11px] font-medium text-blue-600">
-                                <CategoryIcon name={category} className="h-3.5 w-3.5" />
-                                <span className="truncate">{category || "Layanan"}</span>
-                              </div>
-                              <h2 className="mt-0.5 truncate text-sm font-semibold text-slate-900 sm:text-base">
-                                {title || "Layanan"}
-                              </h2>
+                        return (
+                          <article
+                            key={`${title}-${startIdx + index}`}
+                            role="article"
+                            tabIndex={0}
+                            onClick={() => setSelectedService(service)}
+                            onKeyDown={(event) => {
+                              if (event.key === "Enter" || event.key === " ") {
+                                event.preventDefault();
+                                setSelectedService(service);
+                              }
+                            }}
+                            onPointerDown={() => setPressedServiceId(serviceId)}
+                            onPointerUp={() => setPressedServiceId(null)}
+                            onPointerLeave={() => setPressedServiceId(null)}
+                            className={`group flex cursor-pointer gap-3 p-3 transition-all duration-150 hover:bg-slate-50 focus-visible:bg-slate-50 focus-visible:outline-none sm:gap-4 sm:p-4 ${
+                              isPressed ? "scale-[0.99] bg-slate-50" : ""
+                            }`}
+                          >
+                            <div className="relative h-20 w-20 shrink-0 overflow-hidden rounded-lg bg-slate-100 sm:h-24 sm:w-24">
+                              <img
+                                src={imageUrl}
+                                alt={title || "Layanan"}
+                                loading="lazy"
+                                className="h-full w-full object-cover transition duration-300 group-hover:scale-105"
+                              />
                             </div>
-                            <ChevronRightIcon className="mt-1 hidden h-4 w-4 shrink-0 text-slate-300 transition-transform duration-200 group-hover:translate-x-0.5 group-hover:text-blue-400 sm:block" />
-                          </div>
 
-                          {description ? (
-                            <p className="mt-1 line-clamp-1 text-xs text-slate-500 sm:text-sm">{description}</p>
-                          ) : null}
+                            <div className="flex min-w-0 flex-1 flex-col justify-center">
+                              <div className="flex items-start justify-between gap-2">
+                                <div className="min-w-0">
+                                  <div className="flex items-center gap-1.5 text-[11px] font-medium text-blue-600">
+                                    <CategoryIcon name={category} className="h-3.5 w-3.5" />
+                                    <span className="truncate">{category || "Layanan"}</span>
+                                  </div>
+                                  <h2 className="mt-0.5 truncate text-sm font-semibold text-slate-900 sm:text-base">
+                                    {title || "Layanan"}
+                                  </h2>
+                                </div>
+                                <ChevronRightIcon className="mt-1 hidden h-4 w-4 shrink-0 text-slate-300 transition-transform duration-200 group-hover:translate-x-0.5 group-hover:text-blue-400 sm:block" />
+                              </div>
 
-                          <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-slate-500 sm:text-xs">
-                            {duration ? (
-                              <span className="flex items-center gap-1">
-                                <ClockIcon className="h-3.5 w-3.5" />
-                                {formatDuration(duration)}
-                              </span>
-                            ) : null}
-                            <span className="flex items-center gap-1">
-                              <TruckIcon className="h-3.5 w-3.5" />
-                              {transportIncluded ? "Transport termasuk" : "Transport terpisah"}
-                            </span>
-                          </div>
+                              {description ? (
+                                <p className="mt-1 line-clamp-1 text-xs text-slate-500 sm:text-sm">{description}</p>
+                              ) : null}
 
-                          <div className="mt-2 flex items-center justify-between">
-                            <span className="text-sm font-bold text-slate-900 sm:text-base">{formatCurrency(price)}</span>
-                            <button
-                              type="button"
-                              onClick={(event) => handleAddToCart(event, service)}
-                              aria-label="Tambah ke keranjang"
-                              className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-white transition-all duration-200 active:scale-90 sm:h-9 sm:w-9 ${
-                                justAdded ? "scale-110 bg-emerald-600" : "bg-blue-600 hover:scale-105 hover:bg-blue-700"
-                              }`}
-                            >
-                              {justAdded ? <CheckIcon className="h-4 w-4" /> : <PlusIcon className="h-4 w-4" />}
-                            </button>
-                          </div>
-                        </div>
-                      </article>
-                    );
-                  })}
-                </div>
-              )}
+                              <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-slate-500 sm:text-xs">
+                                {duration ? (
+                                  <span className="flex items-center gap-1">
+                                    <ClockIcon className="h-3.5 w-3.5" />
+                                    {formatDuration(duration)}
+                                  </span>
+                                ) : null}
+                                <span className="flex items-center gap-1">
+                                  <TruckIcon className="h-3.5 w-3.5" />
+                                  {transportIncluded ? "Transport termasuk" : "Transport terpisah"}
+                                </span>
+                              </div>
+
+                              <div className="mt-2 flex items-center justify-between">
+                                <span className="text-sm font-bold text-slate-900 sm:text-base">{formatCurrency(price)}</span>
+                                <button
+                                  type="button"
+                                  onClick={(event) => handleAddToCart(event, service)}
+                                  aria-label="Tambah ke keranjang"
+                                  className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-white transition-all duration-200 active:scale-90 sm:h-9 sm:w-9 ${
+                                    justAdded ? "scale-110 bg-emerald-600" : "bg-blue-600 hover:scale-105 hover:bg-blue-700"
+                                  }`}
+                                >
+                                  {justAdded ? <CheckIcon className="h-4 w-4" /> : <PlusIcon className="h-4 w-4" />}
+                                </button>
+                              </div>
+                            </div>
+                          </article>
+                        );
+                      })}
+                    </div>
+                    <Pagination
+                      currentPage={categoryPage}
+                      totalPages={totalPages}
+                      onPageChange={(page) => {
+                        setCategoryPage(page);
+                        window.scrollTo({ top: 0, behavior: "smooth" });
+                      }}
+                    />
+                  </>
+                );
+              })()}
             </>
           ) : (
             <>
@@ -840,7 +881,10 @@ function LayananPageContent() {
               ) : (
                 <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
                   {categoryOptions.map((category) => {
-                    const photo = getCategoryImage(category);
+                    const catData = categoryDataMap[category];
+                    const photo = catData?.photo_kategori
+                      ? (catData.photo_kategori.startsWith("http") ? catData.photo_kategori : resolveImageUrl(catData.photo_kategori))
+                      : getCategoryImage(category);
                     return (
                       <button
                         key={category}
