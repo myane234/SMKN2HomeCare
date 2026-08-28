@@ -21,6 +21,31 @@ import {
 import { logoutUser } from '../../services/Auth.js';
 import { getProfileFromCookies, fetchAndStoreProfile } from '@/services/profileService';
 
+const getFullAvatarUrl = (rawAvatar) => {
+  if (!rawAvatar) return null;
+  if (typeof rawAvatar === 'object') return window.URL.createObjectURL(rawAvatar);
+  if (rawAvatar.startsWith('blob:') || rawAvatar.startsWith('data:image/')) return rawAvatar;
+  
+  const backendUrl = 'https://citra.faaruq.com';
+
+  // Jika dari database terlanjur tersimpan dengan localhost:3000, ubah ke domain backend asli
+  if (rawAvatar.includes('localhost:3000')) {
+    return rawAvatar.replace(/https?:\/\/localhost:3000/, backendUrl);
+  }
+
+  if (rawAvatar.startsWith('http://') || rawAvatar.startsWith('https://')) {
+    if (rawAvatar.includes('googleusercontent.com')) return null;
+    return rawAvatar;
+  }
+  
+  const cleanPath = rawAvatar.trim().startsWith('/') ? rawAvatar.trim().slice(1) : rawAvatar.trim();
+  if (cleanPath.startsWith('storage/')) {
+    return `${backendUrl}/${cleanPath}`;
+  }
+  
+  return `${backendUrl}/storage/${cleanPath}`;
+};
+
 export default function ProfilePage() {
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(false);
@@ -30,10 +55,8 @@ export default function ProfilePage() {
   useEffect(() => {
     const profileData = getProfileFromCookies();
     if (profileData) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect
       setProfile(profileData);
 
-      // Read active role from cookie or default to first role
       const savedRole = document.cookie
         .split('; ')
         .find(row => row.startsWith('active_role='))
@@ -46,7 +69,6 @@ export default function ProfilePage() {
       }
     }
 
-    // Refresh profile to get the absolute latest status from the database
     const refreshProfile = async () => {
       const freshProfile = await fetchAndStoreProfile();
       if (freshProfile) {
@@ -67,17 +89,14 @@ export default function ProfilePage() {
     refreshProfile();
   }, []);
 
-  // Check if user has multiple roles
-  const hasMultipleRoles = profile?.roles?.length >= 2;
-
-  // Get user display name
   const userName = profile?.pasien?.nama_lengkap || 
                    profile?.tenaga_medis?.nama_lengkap || 
                    'User';
   const userInitial = userName.charAt(0).toUpperCase();
-
-  // Get current role label
   const roleLabel = activeRole === 'nakes' ? 'Tenaga Medis' : 'Pasien';
+
+  const rawAvatarPath = profile?.pasien?.avatar || profile?.pasien?.foto || profile?.pasien?.foto_profil || profile?.avatar || profile?.user?.avatar;
+  const avatarUrl = getFullAvatarUrl(rawAvatarPath);
 
   const handleSwitchRole = (newRole) => {
     setActiveRole(newRole);
@@ -117,18 +136,15 @@ export default function ProfilePage() {
     { label: 'Pengaturan', icon: <FiSettings size={20} />, href: '/settings' },
   ];
 
-  // 🔹 LOGIKA DYNAMIC CARD NAKES (Hanya muncul jika sudah pernah daftar / tenaga_medis ada)
   const renderNakesPortalCard = () => {
     const tenagaMedis = profile?.tenaga_medis;
 
-    // KONDISI: Jika belum pernah daftar (null), kembalikan null (tidak ditampilkan sama sekali)
     if (!tenagaMedis) {
       return null;
     }
 
     const status = tenagaMedis.status?.toLowerCase();
 
-    // KONDISI 1: Status Pending (Pasien sudah registrasi & menunggu verifikasi berkas)
     if (status === 'pending') {
       return (
         <div className="bg-amber-50 border border-amber-200 rounded-3xl p-5 shadow-sm mt-12 mb-4">
@@ -150,7 +166,6 @@ export default function ProfilePage() {
       );
     }
 
-    // KONDISI 2: Status Pelatihan (Menunggu jadwal pelatihan)
     if (status === 'pelatihan') {
       return (
         <div className="bg-indigo-50 border border-indigo-200 rounded-3xl p-5 shadow-sm mt-12 mb-4">
@@ -172,7 +187,6 @@ export default function ProfilePage() {
       );
     }
 
-    // KONDISI 3: Status Rejected (Ditolak / Perlu Perbaikan berkas)
     if (status === 'rejected') {
       return (
         <div className="bg-rose-50 border border-rose-200 rounded-3xl p-5 shadow-sm mt-12 mb-4">
@@ -201,7 +215,6 @@ export default function ProfilePage() {
       );
     }
 
-    // KONDISI 4: Status Approved (Sudah Aktif / Jadi Nakes resmi & di-acc)
     if (status === 'approved') {
       if (!tenagaMedis.is_data_complete) {
         return (
@@ -263,8 +276,6 @@ export default function ProfilePage() {
 
   return (
     <div className="min-h-screen bg-gray-50 font-sans antialiased pb-24">
-
-      {/* 🔹 1. BANNER BIRU ATAS */}
       <div className="bg-blue-600 h-36 w-full pt-6 px-5 text-white">
         <div className="max-w-5xl mx-auto flex items-center gap-3">
           <button 
@@ -280,35 +291,28 @@ export default function ProfilePage() {
         </div>
       </div>
 
-      {/* 🔹 2. KONTEN UTAMA */}
       <div className="max-w-5xl mx-auto px-4 -mt-10 relative z-10">
-
-        {/* 🔹 3. CARD PORTAL NAKES (Hanya muncul jika sudah mendaftar) */}
         {renderNakesPortalCard()}
 
-        {/* KARTU PROFIL UTAMA */}
         <div className={`bg-white rounded-3xl border border-gray-100 shadow-sm mb-4 ${!profile?.tenaga_medis ? 'mt-12' : ''}`}>
-
-          {/* AVATAR & USER INFO */}
           <div className="pt-5 pb-5 px-5 flex items-center gap-4">
             <div className="relative shrink-0">
               <div 
                 className="w-16 h-16 rounded-full border-2 border-gray-100 shadow-sm text-white font-bold text-xl flex items-center justify-center overflow-hidden"
                 style={{ 
-                  background: (!profile?.pasien?.avatar || profile.pasien.avatar.includes('googleusercontent.com')) 
+                  background: !avatarUrl
                     ? 'linear-gradient(135deg, #6366f1 0%, #a855f7 100%)' 
                     : 'transparent' 
                 }}
               >
-                {profile?.pasien?.avatar && !profile.pasien.avatar.includes('googleusercontent.com') ? (
+                {avatarUrl ? (
                   <img
-                    src={
-                      profile.pasien.avatar.startsWith('data:image/') || profile.pasien.avatar.startsWith('http')
-                        ? profile.pasien.avatar
-                        : `http://localhost:3000/storage/${profile.pasien.avatar.startsWith('/') ? profile.pasien.avatar.slice(1) : profile.pasien.avatar}`
-                    }
+                    src={avatarUrl}
                     alt="Avatar"
                     className="w-full h-full object-cover"
+                    onError={(e) => {
+                      e.target.style.display = 'none';
+                    }}
                   />
                 ) : (
                   <span>{userInitial}</span>
@@ -333,7 +337,6 @@ export default function ProfilePage() {
             </div>
           </div>
 
-          {/* LIST MENU */}
           <div className="divide-y divide-gray-100 border-t border-gray-100 rounded-b-3xl overflow-hidden">
             {menuItems.map((item, index) => (
               <Link
@@ -353,10 +356,8 @@ export default function ProfilePage() {
               </Link>
             ))}
           </div>
-
         </div>
 
-        {/* 🔹 4. TOMBOL LOGOUT */}
         <button
           onClick={handleLogout}
           disabled={isLoading}
@@ -372,7 +373,6 @@ export default function ProfilePage() {
           </div>
           <FiChevronRight size={18} className="text-red-300" />
         </button>
-
       </div>
     </div>
   );

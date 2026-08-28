@@ -11,12 +11,17 @@ export function resolveImageUrl(image, updatedAt = null) {
     return cleanImage;
   }
 
-  // 2. Protocol-relative URLs
+  // 2. [PERBAIKAN UTAMA] Bersihkan domain lokal / localhost:3000 di awal agar tidak error SSL
+  cleanImage = cleanImage.replace(/^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?/gi, "");
+
+  // 3. Protocol-relative URLs
   if (cleanImage.startsWith("//")) {
     cleanImage = `https:${cleanImage}`;
   }
 
-  // 3. Local public static assets in Next.js public directory (/images/, /icons/, /logo/, etc.)
+  const baseUrl = (process.env.NEXT_PUBLIC_API_URL || "https://citra.faaruq.com").replace(/\/+$/, "");
+
+  // 4. Local public static assets
   const normalizedPath = cleanImage.startsWith("/") ? cleanImage : `/${cleanImage}`;
   if (
     normalizedPath.startsWith("/images/") ||
@@ -28,19 +33,14 @@ export function resolveImageUrl(image, updatedAt = null) {
     return normalizedPath;
   }
 
-  const baseUrl = (process.env.NEXT_PUBLIC_API_URL || "https://citra.faaruq.com").replace(/\/+$/, "");
-
-  // 4. Handle full URLs (HTTP / HTTPS)
+  // 5. Handle full URLs (HTTP / HTTPS eksternal yang valid)
   if (cleanImage.startsWith("http://") || cleanImage.startsWith("https://")) {
-    // Check if URL points to local storage or backend base URL
-    const isLocalHost = cleanImage.includes("localhost") || cleanImage.includes("127.0.0.1");
     const isBaseUrl = cleanImage.includes(baseUrl);
 
     if (cleanImage.includes("/storage/")) {
       const storageIdx = cleanImage.indexOf("/storage/");
       const pathAfterStorage = cleanImage.substring(storageIdx + "/storage/".length);
 
-      // If the path after storage is actually a local asset
       if (pathAfterStorage.startsWith("images/") || pathAfterStorage.startsWith("/images/")) {
         return pathAfterStorage.startsWith("/") ? pathAfterStorage : `/${pathAfterStorage}`;
       }
@@ -48,18 +48,16 @@ export function resolveImageUrl(image, updatedAt = null) {
       return `${baseUrl}/storage/${pathAfterStorage.replace(/^\/+/, "")}`;
     }
 
-    // Third-party external image URL (e.g. iStockphoto, Unsplash, etc.)
-    if (!isLocalHost && !isBaseUrl) {
+    if (!isBaseUrl) {
       return cleanImage;
     }
   }
 
-  // 5. Backend uploaded files in storage (e.g. artikel/123.jpg, layanan/abc.png)
+  // 6. Backend uploaded files in storage (e.g. avatars/xxx.png atau /storage/avatars/xxx.png)
   let storagePath = cleanImage
-    .replace(/^https?:\/\/[^/]+/gi, "") // strip domain
-    .replace(/^(?:\/?storage\/+|\/+)+/gi, ""); // strip /storage/
+    .replace(/^https?:\/\/[^/]+/gi, "") // strip domain jika masih ada
+    .replace(/^(?:\/?storage\/+|\/+)+/gi, ""); // strip /storage/ atau slash berlebih
 
-  // If path actually points to local public images
   if (storagePath.startsWith("images/") || storagePath.startsWith("icons/") || storagePath.startsWith("logo/")) {
     return `/${storagePath}`;
   }

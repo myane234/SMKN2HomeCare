@@ -4,7 +4,6 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import dynamic from 'next/dynamic';
-import axios from 'axios';
 import { 
   FiArrowLeft, 
   FiEdit2, 
@@ -27,8 +26,7 @@ import {
   FiTrash2,
   FiCheck
 } from 'react-icons/fi';
-import { getProfileFromCookies, fetchAndStoreProfile } from '@/services/profileService';
-import api from '@/services/api';
+import { getProfileFromCookies, updatePasienProfile } from "@/services/profileService";
 
 const MapPicker = dynamic(() => import('@/components/MapPicker'), { ssr: false });
 
@@ -38,35 +36,22 @@ const JENIS_KELAMIN = [
   { value: 'P', label: 'Perempuan' },
 ];
 
-/**
- * Helper untuk meratakan URL Avatar agar aman diakses dari backend Laravel / Storage
- */
 const getFullAvatarUrl = (rawAvatar) => {
   if (!rawAvatar) return null;
-
-  if (typeof rawAvatar === 'object') {
-    return window.URL.createObjectURL(rawAvatar);
-  }
-
-  if (rawAvatar.startsWith('blob:')) {
-    return rawAvatar;
-  }
+  if (typeof rawAvatar === 'object') return window.URL.createObjectURL(rawAvatar);
+  if (rawAvatar.startsWith('blob:') || rawAvatar.startsWith('data:image/')) return rawAvatar;
   
-  if (rawAvatar.startsWith('data:image/') || rawAvatar.startsWith('http://') || rawAvatar.startsWith('https://')) {
+  const backendUrl = 'https://citra.faaruq.com';
+  
+  // Jika URL dari backend sudah lengkap tapi pakai http, ubah ke https atau langsung kembalikan
+  if (rawAvatar.startsWith('http://') || rawAvatar.startsWith('https://')) {
     if (rawAvatar.includes('googleusercontent.com')) return null;
-    
-    let secureUrl = rawAvatar;
-    if (secureUrl.includes('localhost:8000') || secureUrl.includes('127.0.0.1:8000')) {
-      secureUrl = secureUrl.replace(/^https:\/\//, 'http://');
-    }
-    return secureUrl;
+    // Ganti domain localhost atau salah jika nyasar
+    return rawAvatar.replace(/^https?:\/\/[^\/]+\//, `${backendUrl}/`);
   }
   
-  // Jika menggunakan proxy Next.js / backend Laravel secara relatif atau port 8000
-  const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8000';
   const cleanPath = rawAvatar.startsWith('/') ? rawAvatar.slice(1) : rawAvatar;
   const finalPath = cleanPath.startsWith('storage/') ? cleanPath : `storage/${cleanPath}`;
-  
   return `${backendUrl}/${finalPath}`;
 };
 
@@ -84,12 +69,11 @@ export default function EditProfilePage() {
   const [isSearching, setIsSearching] = useState(false);
   const [showSearchResults, setShowSearchResults] = useState(false);
 
-  const [avatarFile, setAvatarFile] = useState(null);
   const [avatarPreview, setAvatarPreview] = useState(null);
+  const [avatarFile, setAvatarFile] = useState(null);
   const [showPhotoMenu, setShowPhotoMenu] = useState(false);
   const [showViewModal, setShowViewModal] = useState(false);
   const [showCameraModal, setShowCameraModal] = useState(false);
-  const [isAvatarDeleted, setIsAvatarDeleted] = useState(false);
 
   const [form, setForm] = useState({
     nama_lengkap: '',
@@ -161,15 +145,13 @@ export default function EditProfilePage() {
       }
       setAvatarFile(file);
       setAvatarPreview(window.URL.createObjectURL(file));
-      setIsAvatarDeleted(false);
       setShowPhotoMenu(false);
     }
   };
 
   const handleDeletePhoto = () => {
-    setAvatarFile(null);
+    setAvatarFile('DELETE');
     setAvatarPreview(null);
-    setIsAvatarDeleted(true);
     setShowPhotoMenu(false);
   };
 
@@ -184,7 +166,7 @@ export default function EditProfilePage() {
       }
     } catch (err) {
       console.error('Gagal mengakses kamera:', err);
-      alert('Tidak dapat mengakses kamera perangkat. Pastikan izin kamera diaktifkan.');
+      alert('Tidak dapat mengakses kamera perangkat.');
       setShowCameraModal(false);
     }
   };
@@ -207,7 +189,6 @@ export default function EditProfilePage() {
           }
           setAvatarFile(file);
           setAvatarPreview(window.URL.createObjectURL(file));
-          setIsAvatarDeleted(false);
         }
       }, 'image/jpeg', 0.9);
 
@@ -228,10 +209,7 @@ export default function EditProfilePage() {
 
     if (!isEditing) return;
 
-    if (mapDebounceTimer.current) {
-      clearTimeout(mapDebounceTimer.current);
-    }
-
+    if (mapDebounceTimer.current) clearTimeout(mapDebounceTimer.current);
     setIsFetchingAddress(true);
 
     mapDebounceTimer.current = setTimeout(async () => {
@@ -263,10 +241,7 @@ export default function EditProfilePage() {
       return;
     }
 
-    if (searchDebounceTimer.current) {
-      clearTimeout(searchDebounceTimer.current);
-    }
-
+    if (searchDebounceTimer.current) clearTimeout(searchDebounceTimer.current);
     setIsSearching(true);
     setShowSearchResults(true);
 
@@ -318,38 +293,31 @@ export default function EditProfilePage() {
       (error) => {
         console.error('Gagal mengambil posisi GPS:', error);
         setIsFetchingAddress(false);
-        alert('Gagal mengambil lokasi GPS Anda. Pastikan izin lokasi aktif.');
+        alert('Gagal mengambil lokasi GPS Anda.');
       }
     );
   };
 
   const toggleEdit = () => {
-    if (isEditing) {
-      if (profile?.pasien) {
-        let rawAvatar = profile.pasien.avatar;
-        if (rawAvatar && rawAvatar.includes('googleusercontent.com')) rawAvatar = null;
+    if (isEditing && profile?.pasien) {
+      let rawAvatar = profile.pasien.avatar;
+      if (rawAvatar && rawAvatar.includes('googleusercontent.com')) rawAvatar = null;
 
-        setForm({
-          nama_lengkap: profile.pasien.nama_lengkap || '',
-          no_hp: profile.pasien.no_hp || '',
-          nik: profile.pasien.nik || '',
-          golongan_darah: profile.pasien.golongan_darah || '',
-          jenis_kelamin: profile.pasien.jenis_kelamin || '',
-          alamat_utama: profile.pasien.alamat_utama || '',
-          latitude: profile.pasien.latitude ? parseFloat(profile.pasien.latitude) : -6.2088,
-          longitude: profile.pasien.longitude ? parseFloat(profile.pasien.longitude) : 106.8456,
-        });
-
-        setAvatarPreview(getFullAvatarUrl(rawAvatar));
-      }
+      setForm({
+        nama_lengkap: profile.pasien.nama_lengkap || '',
+        no_hp: profile.pasien.no_hp || '',
+        nik: profile.pasien.nik || '',
+        golongan_darah: profile.pasien.golongan_darah || '',
+        jenis_kelamin: profile.pasien.jenis_kelamin || '',
+        alamat_utama: profile.pasien.alamat_utama || '',
+        latitude: profile.pasien.latitude ? parseFloat(profile.pasien.latitude) : -6.2088,
+        longitude: profile.pasien.longitude ? parseFloat(profile.pasien.longitude) : 106.8456,
+      });
       setAvatarFile(null);
-      setIsAvatarDeleted(false);
-      setMessage(null);
-      setSearchQuery('');
-      setShowSearchResults(false);
-      setShowPhotoMenu(false);
+      setAvatarPreview(getFullAvatarUrl(rawAvatar));
     }
     setIsEditing(!isEditing);
+    setMessage(null);
   };
 
   const handleSave = async () => {
@@ -363,61 +331,37 @@ export default function EditProfilePage() {
     }
 
     try {
-      const formData = new FormData();
-      formData.append('nama_lengkap', form.nama_lengkap);
-      formData.append('nik', form.nik || '');
-      formData.append('golongan_darah', form.golongan_darah || '');
-      formData.append('no_hp', form.no_hp || '');
-      formData.append('jenis_kelamin', form.jenis_kelamin || '');
-      formData.append('alamat_utama', form.alamat_utama || '');
-      formData.append('latitude', form.latitude);
-      formData.append('longitude', form.longitude);
+      const payload = {
+        nama_lengkap: form.nama_lengkap,
+        nik: form.nik || '',
+        golongan_darah: form.golongan_darah || '',
+        no_hp: form.no_hp || '',
+        jenis_kelamin: form.jenis_kelamin || '',
+        alamat_utama: form.alamat_utama || '',
+        latitude: form.latitude,
+        longitude: form.longitude,
+        avatar: avatarFile,
+      };
 
-      if (avatarFile) {
-        formData.append('avatar', avatarFile);
-      } else if (isAvatarDeleted) {
-        formData.append('avatar', 'remove');
+      const result = await updatePasienProfile(payload);
+
+      if (result.success) {
+        setMessage({ type: 'success', text: 'Profil berhasil diperbarui!' });
+        setIsEditing(false);
+        
+        setTimeout(() => {
+          window.location.reload();
+        }, 1000);
+      } else {
+        setMessage({ type: 'error', text: result.message || 'Gagal memperbarui profil.' });
       }
-
-      formData.append('_method', 'PUT');
-
-      // Menggunakan instance 'api' yang terhubung dengan interceptor & baseURL
-      await api.post('/api/pasien', formData, {
-        headers: {
-          "Content-Type": "multipart/form-data",
-          "Accept": "application/json",
-        },
-      });
-
-      await fetchAndStoreProfile();
-
-      setMessage({ type: 'success', text: 'Profil berhasil diperbarui!' });
-      setIsEditing(false);
-      setAvatarFile(null);
-      setIsAvatarDeleted(false);
-      
-      setTimeout(() => {
-        window.location.reload();
-      }, 1000);
 
     } catch (err) {
-      if (axios.isAxiosError(err)) {
-        const status = err.response?.status;
-        const data = err.response?.data;
-
-        if (status === 422) {
-          const firstError = data?.errors 
-            ? Object.values(data.errors)[0][0] 
-            : data?.message;
-          setMessage({ type: 'error', text: firstError || "Validasi gagal. Periksa kembali data Anda." });
-          setIsSaving(false);
-          return;
-        }
-
-        setMessage({ type: 'error', text: data?.message || `Gagal memperbarui profil (Status: ${status})` });
-      } else {
-        setMessage({ type: 'error', text: "Terjadi kesalahan saat menyimpan profil." });
-      }
+      console.error("Detail Error Update:", err.response?.data || err);
+      setMessage({ 
+        type: 'error', 
+        text: err.response?.data?.message || err.message || "Terjadi kesalahan saat menyimpan profil."
+      });
     } finally {
       setIsSaving(false);
     }
@@ -433,7 +377,7 @@ export default function EditProfilePage() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-gray-50 font-sans antialiased flex items-center justify-center">
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="animate-pulse text-gray-400">Memuat data...</div>
       </div>
     );
@@ -442,18 +386,13 @@ export default function EditProfilePage() {
   const userInitial = form.nama_lengkap ? form.nama_lengkap.charAt(0).toUpperCase() : 'U';
 
   return (
-    <div className="min-h-screen bg-gray-50 font-sans antialiased pb-24">
+    <div className="min-h-screen bg-gray-50 pb-24 font-sans">
       <div className="bg-blue-600 h-36 w-full pt-6 px-5 text-white">
         <div className="max-w-5xl mx-auto flex items-center gap-3">
-          <Link 
-            href="/profile" 
-            className="p-2 rounded-full hover:bg-white/10 transition"
-          >
+          <Link href="/profile" className="p-2 rounded-full hover:bg-white/10 transition">
             <FiArrowLeft size={22} />
           </Link>
-          <h1 className="font-semibold text-xl md:text-2xl">
-            Edit Profil
-          </h1>
+          <h1 className="font-semibold text-xl md:text-2xl">Edit Profil</h1>
         </div>
       </div>
 
@@ -464,11 +403,7 @@ export default function EditProfilePage() {
               ? 'bg-green-50 border border-green-200 text-green-700' 
               : 'bg-red-50 border border-red-200 text-red-600'
           }`}>
-            {message.type === 'success' ? (
-              <FiCheckCircle size={18} className="shrink-0" />
-            ) : (
-              <FiX size={18} className="shrink-0" />
-            )}
+            {message.type === 'success' ? <FiCheckCircle size={18} /> : <FiX size={18} />}
             {message.text}
           </div>
         )}
@@ -476,18 +411,14 @@ export default function EditProfilePage() {
         <div className="bg-white rounded-3xl border border-gray-100 shadow-sm mb-4 overflow-hidden">
           <div className="flex items-center justify-between px-5 pt-5 pb-3 border-b border-gray-100">
             <div className="flex items-center gap-3">
-              <div className="p-2 bg-blue-50 text-blue-600 rounded-xl">
-                <FiUser size={20} />
-              </div>
+              <div className="p-2 bg-blue-50 text-blue-600 rounded-xl"><FiUser size={20} /></div>
               <h2 className="font-bold text-gray-800">Data Diri</h2>
             </div>
             <button
               onClick={isEditing ? handleSave : toggleEdit}
               disabled={isSaving}
               className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition active:scale-95 disabled:opacity-50 ${
-                isEditing 
-                  ? 'bg-green-500 hover:bg-green-600 text-white' 
-                  : 'bg-blue-50 hover:bg-blue-100 text-blue-600'
+                isEditing ? 'bg-green-500 hover:bg-green-600 text-white' : 'bg-blue-50 hover:bg-blue-100 text-blue-600'
               }`}
             >
               {isEditing ? (
@@ -500,34 +431,26 @@ export default function EditProfilePage() {
 
           <div className="p-5 space-y-5">
             <div className="pb-3 border-b border-gray-100">
-              <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">
-                Foto Profil
-              </label>
-              
+              <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">Foto Profil</label>
               <div className="flex items-center gap-4 relative" ref={photoMenuRef}>
                 <div className="relative shrink-0">
-                 <div className="w-20 h-20 rounded-full border-2 border-gray-200 overflow-hidden flex items-center justify-center bg-blue-600 text-white font-bold text-2xl shadow-sm">
+                  <div className="w-20 h-20 rounded-full border-2 border-gray-200 overflow-hidden flex items-center justify-center bg-blue-600 text-white font-bold text-2xl shadow-sm">
                     {avatarPreview ? (
-                      <img
-                        src={avatarPreview}
-                        alt="Avatar Preview"
-                        className="w-full h-full object-cover"
+                      <img 
+                        src={avatarPreview} 
+                        alt="Avatar" 
+                        className="w-full h-full object-cover" 
                         onError={(e) => {
+                          console.error("GAGAL MEMUAT GAMBAR DARI URL:", avatarPreview);
                           e.target.style.display = 'none';
-                        }}
+                        }} 
                       />
                     ) : (
                       <span>{userInitial}</span>
                     )}
                   </div>
-
                   {isEditing && (
-                    <button
-                      type="button"
-                      onClick={() => setShowPhotoMenu(!showPhotoMenu)}
-                      className="absolute bottom-0 right-0 p-2 bg-blue-600 hover:bg-blue-700 text-white rounded-full border-2 border-white shadow transition active:scale-95"
-                      title="Ubah Foto Profil"
-                    >
+                    <button type="button" onClick={() => setShowPhotoMenu(!showPhotoMenu)} className="absolute bottom-0 right-0 p-2 bg-blue-600 text-white rounded-full border-2 border-white shadow">
                       <FiCamera size={13} />
                     </button>
                   )}
@@ -536,229 +459,114 @@ export default function EditProfilePage() {
                 <div className="flex flex-col justify-center">
                   {isEditing ? (
                     <div>
-                      <button
-                        type="button"
-                        onClick={() => setShowPhotoMenu(!showPhotoMenu)}
-                        className="px-4 py-2.5 bg-blue-50 hover:bg-blue-100 text-blue-600 rounded-xl text-xs font-semibold transition active:scale-95 flex items-center gap-2 border border-blue-200 shadow-sm"
-                      >
+                      <button type="button" onClick={() => setShowPhotoMenu(!showPhotoMenu)} className="px-4 py-2.5 bg-blue-50 hover:bg-blue-100 text-blue-600 rounded-xl text-xs font-semibold border border-blue-200 flex items-center gap-2">
                         <FiCamera size={14} /> Ubah Foto Profil
                       </button>
-                      <p className="text-[11px] text-gray-400 mt-1.5">Klik untuk lihat, ambil, unggah, atau hapus foto</p>
                     </div>
                   ) : (
                     <div>
                       <p className="text-sm font-medium text-gray-700">{form.nama_lengkap || 'Pengguna'}</p>
-                      {avatarPreview ? (
-                        <button
-                          type="button"
-                          onClick={() => setShowViewModal(true)}
-                          className="text-xs text-blue-600 hover:underline mt-0.5 flex items-center gap-1 font-medium"
-                        >
+                      {avatarPreview && (
+                        <button type="button" onClick={() => setShowViewModal(true)} className="text-xs text-blue-600 hover:underline mt-0.5 flex items-center gap-1 font-medium">
                           <FiEye size={13} /> Lihat Foto Penuh
                         </button>
-                      ) : (
-                        <p className="text-xs text-gray-400 mt-0.5">Belum ada foto profil.</p>
                       )}
                     </div>
                   )}
                 </div>
 
                 {showPhotoMenu && isEditing && (
-                  <div className="absolute left-0 top-24 w-56 bg-gray-900 text-white rounded-2xl shadow-2xl border border-gray-700 py-2 z-50 animate-in fade-in zoom-in-95 duration-150">
+                  <div className="absolute left-0 top-24 w-56 bg-gray-900 text-white rounded-2xl shadow-2xl border border-gray-700 py-2 z-50">
                     {avatarPreview && (
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setShowViewModal(true);
-                          setShowPhotoMenu(false);
-                        }}
-                        className="w-full px-4 py-2.5 text-left text-xs font-medium flex items-center gap-3 hover:bg-gray-800 transition text-gray-200"
-                      >
+                      <button type="button" onClick={() => { setShowViewModal(true); setShowPhotoMenu(false); }} className="w-full px-4 py-2.5 text-left text-xs flex items-center gap-3 hover:bg-gray-800">
                         <FiEye size={16} className="text-blue-400" /> Lihat foto
                       </button>
                     )}
-
-                    <button
-                      type="button"
-                      onClick={handleOpenCameraController}
-                      className="w-full px-4 py-2.5 text-left text-xs font-medium flex items-center gap-3 hover:bg-gray-800 transition text-gray-200"
-                    >
+                    <button type="button" onClick={handleOpenCameraController} className="w-full px-4 py-2.5 text-left text-xs flex items-center gap-3 hover:bg-gray-800">
                       <FiCamera size={16} className="text-blue-400" /> Ambil foto
                     </button>
-
-                    <button
-                      type="button"
-                      onClick={() => {
-                        fileInputRef.current?.click();
-                        setShowPhotoMenu(false);
-                      }}
-                      className="w-full px-4 py-2.5 text-left text-xs font-medium flex items-center gap-3 hover:bg-gray-800 transition text-gray-200"
-                    >
+                    <button type="button" onClick={() => { fileInputRef.current?.click(); setShowPhotoMenu(false); }} className="w-full px-4 py-2.5 text-left text-xs flex items-center gap-3 hover:bg-gray-800">
                       <FiUpload size={16} className="text-blue-400" /> Unggah foto
                     </button>
-
                     {avatarPreview && (
-                      <>
-                        <div className="my-1 border-t border-gray-700"></div>
-                        <button
-                          type="button"
-                          onClick={handleDeletePhoto}
-                          className="w-full px-4 py-2.5 text-left text-xs font-medium flex items-center gap-3 hover:bg-red-950/40 transition text-red-400"
-                        >
-                          <FiTrash2 size={16} /> Hapus foto
-                        </button>
-                      </>
+                      <button type="button" onClick={handleDeletePhoto} className="w-full px-4 py-2.5 text-left text-xs flex items-center gap-3 hover:bg-red-950 text-red-400">
+                        <FiTrash2 size={16} /> Hapus foto
+                      </button>
                     )}
                   </div>
                 )}
-
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  accept="image/*"
-                  onChange={handleFileUpload}
-                  className="hidden"
-                />
+                <input ref={fileInputRef} type="file" accept="image/*" onChange={handleFileUpload} className="hidden" />
               </div>
             </div>
 
             <div>
-              <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">
-                <FiMail size={14} className="inline mr-1" /> Email
-              </label>
-              <div className={fieldClasses(false, true)}>
-                {profile?.user?.email || '-'}
-              </div>
+              <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2"><FiMail size={14} className="inline mr-1" /> Email</label>
+              <div className={fieldClasses(false, true)}>{profile?.user?.email || '-'}</div>
             </div>
 
             <div>
-              <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">
-                <FiUser size={14} className="inline mr-1" /> Nama Lengkap
-              </label>
+              <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2"><FiUser size={14} className="inline mr-1" /> Nama Lengkap</label>
               {isEditing ? (
-                <input
-                  type="text"
-                  value={form.nama_lengkap}
-                  onChange={(e) => handleChange('nama_lengkap', e.target.value)}
-                  className={fieldClasses(true)}
-                  placeholder="Masukkan nama lengkap"
-                />
+                <input type="text" value={form.nama_lengkap} onChange={(e) => handleChange('nama_lengkap', e.target.value)} className={fieldClasses(true)} placeholder="Nama lengkap" />
               ) : (
-                <div className={fieldClasses(false)}>
-                  {form.nama_lengkap || '-'}
-                </div>
+                <div className={fieldClasses(false)}>{form.nama_lengkap || '-'}</div>
               )}
             </div>
 
             <div>
-              <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">
-                <FiPhone size={14} className="inline mr-1" /> No. Handphone
-              </label>
+              <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2"><FiPhone size={14} className="inline mr-1" /> No. Handphone</label>
               {isEditing ? (
-                <input
-                  type="tel"
-                  value={form.no_hp}
-                  onChange={(e) => handleChange('no_hp', e.target.value)}
-                  className={fieldClasses(true)}
-                  placeholder="Masukkan nomor handphone"
-                />
+                <input type="tel" value={form.no_hp} onChange={(e) => handleChange('no_hp', e.target.value)} className={fieldClasses(true)} placeholder="No HP" />
               ) : (
-                <div className={fieldClasses(false)}>
-                  {form.no_hp || '-'}
-                </div>
+                <div className={fieldClasses(false)}>{form.no_hp || '-'}</div>
               )}
             </div>
 
             <div>
-              <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">
-                <FiShield size={14} className="inline mr-1" /> NIK
-              </label>
-              <div className={fieldClasses(false, true)}>
-                {form.nik || '-'}
-              </div>
-              <p className="text-[10px] text-gray-400 mt-1">NIK tidak dapat diubah</p>
+              <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2"><FiShield size={14} className="inline mr-1" /> NIK</label>
+              <div className={fieldClasses(false, true)}>{form.nik || '-'}</div>
             </div>
 
             <div>
-              <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">
-                <FiDroplet size={14} className="inline mr-1" /> Golongan Darah
-              </label>
+              <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2"><FiDroplet size={14} className="inline mr-1" /> Golongan Darah</label>
               {isEditing ? (
-                <select
-                  value={form.golongan_darah}
-                  onChange={(e) => handleChange('golongan_darah', e.target.value)}
-                  className={fieldClasses(true)}
-                >
+                <select value={form.golongan_darah} onChange={(e) => handleChange('golongan_darah', e.target.value)} className={fieldClasses(true)}>
                   <option value="">Pilih golongan darah</option>
-                  {GOLONGAN_DARAH.map((g) => (
-                    <option key={g} value={g}>{g}</option>
-                  ))}
+                  {GOLONGAN_DARAH.map((g) => (<option key={g} value={g}>{g}</option>))}
                 </select>
               ) : (
-                <div className={fieldClasses(false)}>
-                  {form.golongan_darah || '-'}
-                </div>
+                <div className={fieldClasses(false)}>{form.golongan_darah || '-'}</div>
               )}
             </div>
 
             <div>
-              <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">
-                Jenis Kelamin
-              </label>
+              <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Jenis Kelamin</label>
               {isEditing ? (
                 <div className="flex gap-3">
                   {JENIS_KELAMIN.map((jk) => (
-                    <button
-                      key={jk.value}
-                      type="button"
-                      onClick={() => handleChange('jenis_kelamin', jk.value)}
-                      className={`flex-1 rounded-xl border-2 py-3 text-sm font-semibold transition ${
-                        form.jenis_kelamin === jk.value
-                          ? 'border-blue-500 bg-blue-50 text-blue-600'
-                          : 'border-gray-200 bg-gray-50 text-gray-500 hover:border-gray-300'
-                      }`}
-                    >
+                    <button key={jk.value} type="button" onClick={() => handleChange('jenis_kelamin', jk.value)} className={`flex-1 rounded-xl border-2 py-3 text-sm font-semibold ${form.jenis_kelamin === jk.value ? 'border-blue-500 bg-blue-50 text-blue-600' : 'border-gray-200 bg-gray-50 text-gray-500'}`}>
                       {jk.label}
                     </button>
                   ))}
                 </div>
               ) : (
-                <div className={fieldClasses(false)}>
-                  {form.jenis_kelamin === 'L' ? 'Laki-laki' : form.jenis_kelamin === 'P' ? 'Perempuan' : '-'}
-                </div>
+                <div className={fieldClasses(false)}>{form.jenis_kelamin === 'L' ? 'Laki-laki' : form.jenis_kelamin === 'P' ? 'Perempuan' : '-'}</div>
               )}
             </div>
 
             {isEditing && (
               <div className="relative z-30">
-                <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">
-                  <FiSearch size={14} className="inline mr-1" /> Cari Alamat / Tempat
-                </label>
+                <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2"><FiSearch size={14} className="inline mr-1" /> Cari Alamat</label>
                 <div className="relative">
-                  <input
-                    type="text"
-                    value={searchQuery}
-                    onChange={handleSearchAddressChange}
-                    placeholder="Ketik jalan, gedung, atau kelurahan..."
-                    className="w-full rounded-xl border border-blue-300 bg-white px-4 py-3 pl-10 text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
+                  <input type="text" value={searchQuery} onChange={handleSearchAddressChange} placeholder="Ketik lokasi..." className="w-full rounded-xl border border-blue-300 bg-white px-4 py-3 pl-10 text-sm" />
                   <FiSearch size={18} className="absolute left-3 top-3.5 text-gray-400" />
-                  {isSearching && (
-                    <FiLoader size={18} className="absolute right-3 top-3.5 text-blue-600 animate-spin" />
-                  )}
+                  {isSearching && <FiLoader size={18} className="absolute right-3 top-3.5 text-blue-600 animate-spin" />}
                 </div>
-
                 {showSearchResults && searchResults.length > 0 && (
                   <div className="absolute w-full mt-1 bg-white border border-gray-200 rounded-xl shadow-lg max-h-60 overflow-y-auto z-50">
                     {searchResults.map((item, index) => (
-                      <button
-                        key={index}
-                        type="button"
-                        onClick={() => handleSelectSearchResult(item)}
-                        className="w-full text-left px-4 py-3 hover:bg-blue-50 border-b border-gray-100 last:border-0 transition"
-                      >
+                      <button key={index} type="button" onClick={() => handleSelectSearchResult(item)} className="w-full text-left px-4 py-3 hover:bg-blue-50 border-b border-gray-100">
                         <p className="text-xs font-semibold text-gray-800 truncate">{item.display_name.split(',')[0]}</p>
-                        <p className="text-[11px] text-gray-500 truncate">{item.display_name}</p>
                       </button>
                     ))}
                   </div>
@@ -768,157 +576,53 @@ export default function EditProfilePage() {
 
             <div>
               <div className="flex items-center justify-between mb-2">
-                <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider">
-                  <FiMapPin size={14} className="inline mr-1" /> Alamat Utama
-                </label>
-                {isFetchingAddress && (
-                  <span className="text-xs text-blue-600 flex items-center gap-1 animate-pulse font-medium">
-                    <FiLoader className="animate-spin" size={12} /> Mengambil nama alamat...
-                  </span>
-                )}
+                <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider"><FiMapPin size={14} className="inline mr-1" /> Alamat Utama</label>
+                {isFetchingAddress && <span className="text-xs text-blue-600 animate-pulse">Mengambil alamat...</span>}
               </div>
               {isEditing ? (
-                <textarea
-                  value={form.alamat_utama}
-                  onChange={(e) => handleChange('alamat_utama', e.target.value)}
-                  className={`${fieldClasses(true)} min-h-[90px] resize-y`}
-                  placeholder="Ketik alamat lengkap atau pilih lokasi di peta"
-                  rows={3}
-                />
+                <textarea value={form.alamat_utama} onChange={(e) => handleChange('alamat_utama', e.target.value)} className={`${fieldClasses(true)} min-h-[90px]`} rows={3} />
               ) : (
-                <div className={`${fieldClasses(false)} min-h-[60px] whitespace-pre-line`}>
-                  {form.alamat_utama || '-'}
-                </div>
+                <div className={`${fieldClasses(false)} min-h-[60px] whitespace-pre-line`}>{form.alamat_utama || '-'}</div>
               )}
             </div>
 
             <div>
               <div className="flex items-center justify-between mb-2">
-                <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider">
-                  <FiNavigation size={14} className="inline mr-1" /> Lokasi di Peta
-                </label>
-
+                <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider"><FiNavigation size={14} className="inline mr-1" /> Lokasi di Peta</label>
                 {isEditing && (
-                  <button
-                    type="button"
-                    onClick={handleGetCurrentLocation}
-                    className="text-xs text-blue-600 hover:text-blue-700 font-medium flex items-center gap-1 bg-blue-50 px-2.5 py-1.5 rounded-lg transition active:scale-95"
-                  >
+                  <button type="button" onClick={handleGetCurrentLocation} className="text-xs text-blue-600 font-medium flex items-center gap-1 bg-blue-50 px-2.5 py-1.5 rounded-lg">
                     <FiCrosshair size={13} /> Gunakan Lokasi Saya
                   </button>
                 )}
               </div>
-
-              {isEditing && (
-                <p className="text-[10px] text-gray-400 mb-2">
-                  Geser pin peta untuk memperbarui titik koordinat dan alamat secara otomatis.
-                </p>
-              )}
-
-              <MapPicker
-                lat={form.latitude}
-                lng={form.longitude}
-                onChange={handleMapChange}
-                draggable={isEditing}
-              />
-              <div className="mt-2 flex gap-3 text-xs text-gray-500 font-mono">
-                <span>Lat: {form.latitude?.toFixed?.(6) ?? '-'}</span>
-                <span>Lng: {form.longitude?.toFixed?.(6) ?? '-'}</span>
-              </div>
+              <MapPicker lat={form.latitude} lng={form.longitude} onChange={handleMapChange} draggable={isEditing} />
             </div>
           </div>
-
-          {isEditing && (
-            <div className="px-5 pb-5 pt-2 border-t border-gray-100">
-              <div className="flex gap-3">
-                <button
-                  onClick={toggleEdit}
-                  disabled={isSaving}
-                  className="flex-1 rounded-xl border-2 border-gray-200 py-3 text-sm font-semibold text-gray-600 hover:bg-gray-50 transition active:scale-[0.98] disabled:opacity-50"
-                >
-                  Batal
-                </button>
-                <button
-                  onClick={handleSave}
-                  disabled={isSaving || isFetchingAddress}
-                  className="flex-1 rounded-xl bg-blue-600 py-3 text-sm font-semibold text-white hover:bg-blue-700 transition active:scale-[0.98] disabled:opacity-50 flex items-center justify-center gap-2"
-                >
-                  {isSaving ? (
-                    'Menyimpan...'
-                  ) : (
-                    <>Simpan <FiSave size={16} /></>
-                  )}
-                </button>
-              </div>
-            </div>
-          )}
         </div>
       </div>
 
-      {showViewModal && avatarPreview && (
-        <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4">
-          <div className="relative max-w-lg w-full bg-white rounded-3xl overflow-hidden shadow-2xl flex flex-col">
-            <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
-              <h3 className="font-bold text-gray-800 text-sm">Foto Profil Penuh</h3>
-              <button 
-                onClick={() => setShowViewModal(false)}
-                className="p-2 rounded-full hover:bg-gray-100 text-gray-500 transition"
-              >
-                <FiX size={18} />
-              </button>
+      {showCameraModal && (
+        <div className="fixed inset-0 bg-black/80 z-50 flex flex-col items-center justify-center p-4">
+          <div className="bg-white rounded-2xl overflow-hidden max-w-md w-full p-4 flex flex-col items-center">
+            <h3 className="text-gray-800 font-semibold mb-3">Ambil Foto Kamera</h3>
+            <div className="w-full bg-black rounded-lg overflow-hidden aspect-video flex items-center justify-center mb-4">
+              <video ref={videoRef} autoPlay playsInline className="w-full h-full object-cover"></video>
             </div>
-            <div className="p-6 flex items-center justify-center bg-gray-900">
-              <img 
-                src={avatarPreview} 
-                alt="Full Avatar" 
-                className="max-h-[70vh] max-w-full object-contain rounded-xl"
-              />
+            <div className="flex gap-3 w-full">
+              <button type="button" onClick={handleCloseCameraModal} className="flex-1 py-2.5 bg-gray-200 text-gray-800 rounded-xl font-semibold text-sm">Batal</button>
+              <button type="button" onClick={handleCapturePhoto} className="flex-1 py-2.5 bg-blue-600 text-white rounded-xl font-semibold text-sm flex items-center justify-center gap-2"><FiCheck /> Jepret</button>
             </div>
           </div>
         </div>
       )}
 
-      {showCameraModal && (
-        <div className="fixed inset-0 bg-black/85 z-50 flex items-center justify-center p-4">
-          <div className="relative max-w-md w-full bg-gray-900 rounded-3xl overflow-hidden shadow-2xl flex flex-col border border-gray-800">
-            <div className="flex items-center justify-between px-5 py-4 border-b border-gray-800 text-white">
-              <h3 className="font-bold text-sm flex items-center gap-2">
-                <FiCamera className="text-blue-400" /> Ambil Foto Kamera
-              </h3>
-              <button 
-                onClick={handleCloseCameraModal}
-                className="p-2 rounded-full hover:bg-gray-800 text-gray-400 transition"
-              >
-                <FiX size={18} />
-              </button>
-            </div>
-            
-            <div className="relative bg-black aspect-square flex items-center justify-center overflow-hidden">
-              <video 
-                ref={videoRef} 
-                autoPlay 
-                playsInline 
-                muted 
-                className="w-full h-full object-cover transform -scale-x-100"
-              />
-            </div>
-
-            <div className="p-5 flex items-center justify-center gap-4 bg-gray-900">
-              <button
-                type="button"
-                onClick={handleCloseCameraModal}
-                className="px-5 py-2.5 rounded-xl border border-gray-700 text-sm font-semibold text-gray-300 hover:bg-gray-800 transition"
-              >
-                Batal
-              </button>
-              <button
-                type="button"
-                onClick={handleCapturePhoto}
-                className="px-6 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-sm font-semibold text-white transition flex items-center gap-2 shadow-lg"
-              >
-                <FiCheck size={16} /> Jepret Foto
-              </button>
-            </div>
+      {showViewModal && avatarPreview && (
+        <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4" onClick={() => setShowViewModal(false)}>
+          <div className="relative max-w-lg w-full flex items-center justify-center" onClick={(e) => e.stopPropagation()}>
+            <button type="button" onClick={() => setShowViewModal(false)} className="absolute -top-12 right-0 text-white p-2">
+              <FiX size={24} />
+            </button>
+            <img src={avatarPreview} alt="Full Avatar" className="max-h-[80vh] max-w-full rounded-2xl object-contain shadow-2xl" />
           </div>
         </div>
       )}

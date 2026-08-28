@@ -1,11 +1,8 @@
-import api from './api'; // PERBAIKAN 1: Path import diperbaiki
+import api from './api';
 
-/**
- * Fetch profile data directly from API
- */
 export const getProfileMe = async () => {
   try {
-    const response = await api.get('/api/profile/me'); // PERBAIKAN 2: Ditambahkan /api
+    const response = await api.get('/api/profile/me');
     return response.data;
   } catch (error) {
     console.error("Gagal mengambil profil:", error);
@@ -13,9 +10,22 @@ export const getProfileMe = async () => {
   }
 };
 
-/**
- * Fetch profile data from /api/profile/me and store in cookies.
- */
+// PENGAMANAN EKSTRIM: Paksa ubah path apa pun menjadi URL absolut yang benar
+const formatAvatarUrl = (avatar) => {
+  if (!avatar) return null;
+  if (avatar.includes('googleusercontent.com')) return null;
+  if (avatar.startsWith('http://') || avatar.startsWith('https://')) return avatar;
+
+  // Ambil nama file atau path terakhirnya saja, abaikan direktori sampah dari backend jika ada
+  const cleaned = avatar.replace(/\\/g, '/').replace(/^\/+/, '');
+  const filename = cleaned.split('/').pop(); // Ambil nama file terakhir (misal: "abc.jpg")
+  
+  if (!filename) return null;
+
+  // Tembak langsung ke struktur path standar Laravel storage
+  return `https://citra.faaruq.com/storage/avatars/${filename}`;
+};
+
 export async function fetchAndStoreProfile() {
   try {
     const response = await api.get('/api/profile/me');
@@ -24,11 +34,19 @@ export async function fetchAndStoreProfile() {
     if (data?.success && data?.data) {
       const profile = data.data;
 
+      if (profile.pasien?.avatar) {
+        profile.pasien.avatar = formatAvatarUrl(profile.pasien.avatar);
+      }
+
       document.cookie = `user_profile=${encodeURIComponent(JSON.stringify(profile))}; path=/; max-age=604800; SameSite=Lax`;
 
       if (profile.user?.email) {
         document.cookie = `profile_email=${encodeURIComponent(profile.user.email)}; path=/; max-age=604800; SameSite=Lax`;
       }
+
+      if (profile.pasien?.avatar) {
+        document.cookie = `profile_avatar=${encodeURIComponent(profile.pasien.avatar)}; path=/; max-age=604800; SameSite=Lax`;
+      } 
 
       if (profile.user?.id_user) {
         document.cookie = `profile_id_user=${profile.user.id_user}; path=/; max-age=604800; SameSite=Lax`;
@@ -65,7 +83,6 @@ export async function fetchAndStoreProfile() {
         document.cookie = `tenaga_medis=${encodeURIComponent(JSON.stringify(profile.tenaga_medis))}; path=/; max-age=604800; SameSite=Lax`;
       }
 
-      console.log('[Profile] Data profile berhasil disimpan ke cookies');
       return profile;
     }
 
@@ -76,9 +93,6 @@ export async function fetchAndStoreProfile() {
   }
 }
 
-/**
- * Get profile data from cookies (client-side).
- */
 export function getProfileFromCookies() {
   const getCookie = (name) => {
     const match = document.cookie.match(new RegExp(`(^| )${name}=([^;]+)`));
@@ -89,18 +103,42 @@ export function getProfileFromCookies() {
   if (!profileStr) return null;
 
   try {
-    return JSON.parse(profileStr);
+    const profileData = JSON.parse(profileStr);
+
+    if (profileData && profileData.pasien && profileData.pasien.avatar) {
+      profileData.pasien.avatar = formatAvatarUrl(profileData.pasien.avatar);
+    }
+
+    return profileData;
   } catch {
     return null;
   }
 }
 
-/**
- * Update pasien profile via PUT /api/pasien
- */
 export async function updatePasienProfile(payload) {
   try {
-    const response = await api.put('/api/pasien', payload);
+    const formData = new FormData();
+    
+    Object.keys(payload).forEach((key) => {
+      if (key !== 'avatar' && payload[key] !== null && payload[key] !== undefined) {
+        formData.append(key, payload[key]);
+      }
+    });
+
+    if (payload.avatar instanceof File) {
+      formData.append('avatar', payload.avatar);
+    } else if (payload.avatar === 'DELETE') {
+      formData.append('avatar', '');
+    }
+
+    formData.append('_method', 'PUT');
+
+    const response = await api.post('/api/pasien', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    });
+
     const data = response.data;
 
     if (data?.success) {
@@ -110,7 +148,7 @@ export async function updatePasienProfile(payload) {
 
     return { success: false, message: data?.message || 'Gagal memperbarui profil' };
   } catch (error) {
-    console.error('[Profile] Gagal update profil:', error?.response?.data?.message || error.message);
+    console.error('[Profile] Gagal update profil:', error?.response?.data || error.message);
     
     const errData = error?.response?.data;
     if (errData?.errors) {
@@ -126,22 +164,11 @@ export async function updatePasienProfile(payload) {
   }
 }
 
-/**
- * Clear all profile cookies.
- */
 export function clearProfileCookies() {
   const profileCookies = [
-    'user_profile',
-    'profile_email',
-    'profile_id_user',
-    'profile_roles',
-    'is_profile_complete',
-    'profile_nama',
-    'profile_nik',
-    'profile_golongan_darah',
-    'profile_jenis_kelamin',
-    'profile_alamat',
-    'tenaga_medis',
+    'user_profile', 'profile_avatar', 'profile_email', 'profile_id_user', 
+    'profile_roles', 'is_profile_complete', 'profile_nama', 'profile_nik', 
+    'profile_golongan_darah', 'profile_jenis_kelamin', 'profile_alamat', 'tenaga_medis',
   ];
 
   profileCookies.forEach((name) => {
