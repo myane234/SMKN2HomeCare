@@ -4,6 +4,8 @@ import { useRouter } from "next/navigation";
 import { FiEye, FiEyeOff, FiSearch, FiCamera, FiX, FiUpload, FiTrash2 } from "react-icons/fi";
 import axios from "axios";
 import api from "@/services/api";
+import { getProfileMe, updatePasienProfile } from "@/services/profileService";
+import { resolveImageUrl } from "@/services/resolveImage";
 
 // Import CSS Leaflet agar peta tampil dengan benar
 import "leaflet/dist/leaflet.css";
@@ -44,8 +46,29 @@ export default function CompleteProfilePage() {
   const mapContainerRef = useRef(null);
   const fileInputRef = useRef(null);
 
+  const formatAvatarUrl = (avatarPath) => {
+    if (!avatarPath) return null;
+    return resolveImageUrl(avatarPath);
+  };
+
   useEffect(() => {
-    checkMissingFields();
+    const loadInitialData = async () => {
+      await checkMissingFields();
+      
+      try {
+        const profileRes = await getProfileMe();
+        const pasienData = profileRes?.data || profileRes;
+        const avatarPath = pasienData?.avatar || pasienData?.pasien?.avatar;
+        
+        if (avatarPath) {
+          setAvatarPreview(formatAvatarUrl(avatarPath));
+        }
+      } catch (err) {
+        console.error("Gagal memuat detail profil untuk avatar:", err);
+      }
+    };
+
+    loadInitialData();
   }, []);
 
   // Tutup dropdown menu saat klik di luar
@@ -259,13 +282,12 @@ export default function CompleteProfilePage() {
       const reader = new FileReader();
       reader.onloadend = () => {
         setAvatarPreview(reader.result);
+        setFormData((current) => ({
+          ...current,
+          avatar: reader.result, 
+        }));
       };
       reader.readAsDataURL(file);
-
-      setFormData((current) => ({
-        ...current,
-        avatar: file,
-      }));
     }
   };
 
@@ -319,83 +341,48 @@ export default function CompleteProfilePage() {
       const base64String = canvas.toDataURL("image/jpeg", 0.9);
       setAvatarPreview(base64String);
       
-      canvas.toBlob((blob) => {
-        if (blob) {
-          const file = new File([blob], "selfie.jpg", { type: "image/jpeg" });
-          
-          if (file.size > 2 * 1024 * 1024) {
-            setErrorMsg("Hasil foto kamera terlalu besar (maksimal 2MB).");
-            return;
-          }
-
-          setFormData((current) => ({
-            ...current,
-            avatar: file,
-          }));
-        }
-      }, "image/jpeg", 0.9);
+      setFormData((current) => ({
+        ...current,
+        avatar: base64String, 
+      }));
 
       stopCamera();
     }
   };
-const handleSubmit = async (e) => {
-  e.preventDefault();
-  setErrorMsg("");
-  setSuccessMsg("");
 
-  if (missingFields.includes("password") && (formData.password || "").length < 6) {
-    setErrorMsg("Password harus minimal 6 karakter.");
-    return;
-  }
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setErrorMsg("");
+    setSuccessMsg("");
 
-  setSubmitting(true);
-
-  try {
-    // Buat payload objek biasa sesuai format cURL PUT lu
-    const payload = { ...formData };
-
-    // Jika avatar berupa File/Blob (hasil upload lokal/kamera), 
-    // pastikan backend lu support base64 atau ubah logika ini jika backend butuh string URL.
-    // Jika avatarPreview sudah berupa base64 (string), kita bisa kirim payload.avatar = avatarPreview
-    if (avatarPreview && (payload.avatar instanceof File || payload.avatar instanceof Blob)) {
-      payload.avatar = avatarPreview; // Mengirim string base64 preview ke backend
+    if (missingFields.includes("password") && (formData.password || "").length < 6) {
+      setErrorMsg("Password harus minimal 6 karakter.");
+      return;
     }
 
-    // Kirim menggunakan api.put dengan JSON (sesuai endpoint backend /api/pasien)
-    await api.put(API_UPDATE_URL, payload, {
-      headers: {
-        "Content-Type": "application/json",
-        "Accept": "application/json",
-      },
-    });
+    setSubmitting(true);
 
-    setSuccessMsg("Profil berhasil dilengkapi! Mengalihkan halaman...");
-    
-    setTimeout(() => {
-      window.location.href = "/"; // atau ke halaman profil
-    }, 1000);
+    try {
+      const result = await updatePasienProfile(formData);
 
-  } catch (err) {
-    if (axios.isAxiosError(err)) {
-      const status = err.response?.status;
-      const data = err.response?.data;
-
-      if (status === 422) {
-        const firstError = data?.errors 
-          ? Object.values(data.errors)[0][0] 
-          : data?.message;
-        setErrorMsg(firstError || "Validasi gagal. Periksa kembali data Anda.");
+      if (!result.success) {
+        setErrorMsg(result.message || "Gagal melengkapi profil.");
         return;
       }
 
-      setErrorMsg(data?.message || "Gagal melengkapi profil.");
-    } else {
+      setSuccessMsg("Profil berhasil dilengkapi! Mengalihkan halaman...");
+      
+      setTimeout(() => {
+        window.location.href = "/";
+      }, 1000);
+
+    } catch (err) {
       setErrorMsg("Terjadi kesalahan saat menyimpan profil.");
+    } finally {
+      setSubmitting(false);
     }
-  } finally {
-    setSubmitting(false);
-  }
-};
+  };
+
   if (loading) {
     return (
       <div className="flex h-screen items-center justify-center bg-white">
@@ -444,7 +431,15 @@ const handleSubmit = async (e) => {
                 <div className="relative">
                   <div className="w-20 h-20 rounded-full ring-4 ring-gray-100 bg-gray-50 flex items-center justify-center overflow-hidden shadow-sm transition group-hover:opacity-90 border border-gray-200">
                     {avatarPreview ? (
-                      <img src={avatarPreview} alt="Avatar Preview" className="w-full h-full object-cover" />
+                      <img 
+                        src={avatarPreview} 
+                        alt="Avatar Preview" 
+                        className="w-full h-full object-cover" 
+                        onError={(e) => {
+                          console.error("Gagal memuat gambar avatar:", avatarPreview);
+                          e.target.style.display = 'none';
+                        }}
+                      />
                     ) : (
                       <div className="flex flex-col items-center text-gray-400">
                         <FiCamera size={24} />

@@ -23,6 +23,7 @@ export default function DataBarang() {
   // Form State
   const [formNama, setFormNama] = useState('');
   const [formHarga, setFormHarga] = useState('');
+  const [formTipe, setFormTipe] = useState('satuan');
   const [formMarginTipe, setFormMarginTipe] = useState('persen');
   const [formMarginNilai, setFormMarginNilai] = useState('');
   const [isMarginOpen, setIsMarginOpen] = useState(false);
@@ -53,6 +54,7 @@ export default function DataBarang() {
     setSelectedBarang(null);
     setFormNama('');
     setFormHarga('');
+    setFormTipe('satuan');
     setFormMarginTipe('persen');
     setFormMarginNilai('');
     setIsModalOpen(true);
@@ -62,6 +64,7 @@ export default function DataBarang() {
     setSelectedBarang(item);
     setFormNama(item.nama_bhp || '');
     setFormHarga(item.harga_modal || '');
+    setFormTipe(item.tipe_bhp || 'satuan');
     setFormMarginTipe(item.tipe_margin || 'persen');
     setFormMarginNilai(item.nilai_margin ?? '');
     setIsModalOpen(true);
@@ -78,6 +81,7 @@ export default function DataBarang() {
 
     const payload = {
       nama_bhp: formNama,
+      tipe_bhp: formTipe,
       harga_modal: parseFloat(formHarga),
       tipe_margin: formMarginTipe,
       nilai_margin: parseFloat(formMarginNilai) || 0,
@@ -259,7 +263,7 @@ export default function DataBarang() {
                             </div>
                             <div>
                               <div className="font-semibold text-slate-900">{item.nama_bhp}</div>
-                              {/* <div className="text-xs text-slate-400">ID: #{item.id_bhp}</div> */}
+                              <div className="text-xs text-slate-400">ID: #{item.id_bhp}</div>
                             </div>
                           </div>
                         </td>
@@ -343,7 +347,10 @@ export default function DataBarang() {
                   />
                 </div>
 
-
+                <div>
+                  <label className="form-label">Tipe BHP</label>
+                  <select className="form-input" value={formTipe} onChange={(e) => setFormTipe(e.target.value)}><option value="satuan">Satuan</option><option value="paket">Paket</option></select>
+                </div>
 
                 <div>
                   <label className="form-label">Harga Modal (Rp)</label>

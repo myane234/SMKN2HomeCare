@@ -11,12 +11,18 @@ export function resolveImageUrl(image, updatedAt = null) {
     return cleanImage;
   }
 
-  // 2. Protocol-relative URLs
+  // 2. Bersihkan domain lokal / localhost di awal agar tidak error SSL
+  cleanImage = cleanImage.replace(/^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?/gi, "");
+
+  // 3. Protocol-relative URLs
   if (cleanImage.startsWith("//")) {
     cleanImage = `https:${cleanImage}`;
   }
 
-  // 3. Local public static assets in Next.js public directory (/images/, /icons/, /logo/, etc.)
+  const baseUrl = (process.env.NEXT_PUBLIC_API_URL || "https://citra.faaruq.com").replace(/\/+$/, "");
+  const apiEnv = (process.env.NEXT_PUBLIC_API_URL || "").replace(/\/+$/, "");
+
+  // 4. Local public static assets
   const normalizedPath = cleanImage.startsWith("/") ? cleanImage : `/${cleanImage}`;
   if (
     normalizedPath.startsWith("/images/") ||
@@ -28,7 +34,7 @@ export function resolveImageUrl(image, updatedAt = null) {
     return normalizedPath;
   }
 
-  // 4. Clean up nested malformed URLs (e.g. "https://citra.faaruq.com/storage/http://localhost/storage/layanan/abc.jpg")
+  // 5. Clean up nested malformed URLs
   const lastHttp = cleanImage.lastIndexOf("http://");
   const lastHttps = cleanImage.lastIndexOf("https://");
   const lastUrlIndex = Math.max(lastHttp, lastHttps);
@@ -36,16 +42,15 @@ export function resolveImageUrl(image, updatedAt = null) {
     cleanImage = cleanImage.substring(lastUrlIndex);
   }
 
-  const apiEnv = (process.env.NEXT_PUBLIC_API_URL || "").replace(/\/+$/, "");
-
-  // 5. Handle HTTP / HTTPS URLs
+  // 6. Handle HTTP / HTTPS URLs
   if (cleanImage.startsWith("http://") || cleanImage.startsWith("https://")) {
     const isLocalHost = cleanImage.includes("localhost") || cleanImage.includes("127.0.0.1");
     const isApiHost = apiEnv ? cleanImage.includes(apiEnv) : false;
+    const isBaseUrl = cleanImage.includes(baseUrl);
 
     if (cleanImage.includes("/storage/")) {
       const storageIdx = cleanImage.indexOf("/storage/");
-      const storagePath = cleanImage.substring(storageIdx); // e.g. "/storage/layanan/xxx.png"
+      const storagePath = cleanImage.substring(storageIdx);
 
       if (storagePath.startsWith("/storage/images/")) {
         return storagePath.replace("/storage/images/", "/images/");
@@ -55,17 +60,15 @@ export function resolveImageUrl(image, updatedAt = null) {
         return `${apiEnv}${storagePath}`;
       }
 
-      // Relative /storage/... uses Next.js rewrite proxy in next.config.mjs to proxy backend images
       return storagePath;
     }
 
-    // Third-party external image URL (e.g. Unsplash, placehold.co, etc.)
-    if (!isLocalHost && !isApiHost) {
+    if (!isLocalHost && !isApiHost && !isBaseUrl) {
       return cleanImage;
     }
   }
 
-  // 6. Relative backend paths (e.g. "layanan/123.jpg" or "storage/layanan/123.jpg")
+  // 7. Backend uploaded files in storage
   let storagePath = cleanImage
     .replace(/^https?:\/\/[^/]+/gi, "")
     .replace(/^(?:\/?storage\/+|\/+)+/gi, "");

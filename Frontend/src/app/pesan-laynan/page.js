@@ -5,11 +5,9 @@ import { getLayanan } from "@/services/layananService";
 import { getArtikel } from "@/services/artikelService";
 import { useRouter, useSearchParams } from "next/navigation";
 import LoginRequiredModal from "@/components/LoginRequiredModal";
-import Pagination from "@/components/Pagination";
 import { showToast } from "@/components/Toast";
 import Link from "next/link";
 import { resolveImageUrl } from "@/services/resolveImage";
-import { generatePromoSlug } from "@/services/promoService";
 import api from "@/services/api";
 
 const CART_STORAGE_KEY = "smarthomecare_cart";
@@ -18,7 +16,17 @@ const FONT_STACK = '"Poppins", "Inter", "Segoe UI", sans-serif';
 /**
  * ===================== HERO BANNER CONFIG =====================
  */
-const HERO_SLIDES = [];
+const HERO_SLIDES = [
+  {
+    id: "hero-homecare",
+    eyebrow: "SMARTHOMECARE",
+    title: "Perawat Home Care Siap Membantu di Rumah Anda",
+    description: "Pesan layanan perawat profesional dengan mudah, aman, dan nyaman langsung dari rumah Anda.",
+    ctaLabel: "Pesan Sekarang",
+    ctaHref: "/pesan-laynan",
+    image: "https://perawatlansia.id/wp-content/uploads/2024/01/resize_nurse-or-doctor-who-work-as-homecare-staff-help-to-2023-11-27-04-56-33-utc-768x512.jpg",
+  },
+];
 
 /**
  * ===================== DESKRIPSI KATEGORI =====================
@@ -37,74 +45,6 @@ const CATEGORY_META = {
 
 function getCategoryMeta(category) {
   return CATEGORY_META[(category || "").toLowerCase()] || CATEGORY_META.default;
-}
-
-function normalizeCategoryName(str) {
-  if (!str) return "";
-  return String(str)
-    .toLowerCase()
-    .trim()
-    .replace(/&/g, "dan")
-    .replace(/\s+/g, " ")
-    .replace(/[^a-z0-9]/g, "");
-}
-
-function isServiceInCategory(service, targetCategory, rawCategoryList = []) {
-  if (!targetCategory) return true;
-  if (!service) return false;
-
-  const targetNorm = normalizeCategoryName(targetCategory);
-
-  let serviceCatId = String(
-    service.id_kategori_layanan ??
-    service.id_kategori ??
-    service.kategori_id ??
-    (typeof service.kategori === "object" ? (service.kategori?.id_kategori_layanan ?? service.kategori?.id) : "") ??
-    ""
-  ).trim();
-
-  let serviceCatName = "";
-  if (typeof service.kategori === "object" && service.kategori !== null) {
-    serviceCatName = service.kategori.nama_kategori || service.kategori.nama || service.kategori.kategori || "";
-  } else if (typeof service.kategori === "string") {
-    serviceCatName = service.kategori;
-  }
-  if (!serviceCatName) {
-    serviceCatName = service.kategori_layanan || service.nama_kategori || service.category || "";
-  }
-
-  const serviceCatNameNorm = normalizeCategoryName(serviceCatName);
-
-  if (serviceCatId && String(targetCategory).trim() === serviceCatId) {
-    return true;
-  }
-
-  if (targetNorm && serviceCatNameNorm && targetNorm === serviceCatNameNorm) {
-    return true;
-  }
-
-  if (Array.isArray(rawCategoryList) && rawCategoryList.length > 0) {
-    const matchedCat = rawCategoryList.find((c) => {
-      const cId = String(c.id_kategori_layanan ?? c.id ?? "").trim();
-      const cName = typeof c === "string" ? c : (c.nama_kategori || c.nama || c.kategori || "");
-      const cNameNorm = normalizeCategoryName(cName);
-      return (cId && String(targetCategory).trim() === cId) || (cNameNorm && (cNameNorm === targetNorm || cNameNorm.includes(targetNorm) || targetNorm.includes(cNameNorm)));
-    });
-
-    if (matchedCat) {
-      const matchedId = String(matchedCat.id_kategori_layanan ?? matchedCat.id ?? "").trim();
-      const matchedNameNorm = normalizeCategoryName(typeof matchedCat === "string" ? matchedCat : (matchedCat.nama_kategori || matchedCat.nama || ""));
-
-      if (matchedId && serviceCatId && matchedId === serviceCatId) {
-        return true;
-      }
-      if (matchedNameNorm && serviceCatNameNorm && (matchedNameNorm === serviceCatNameNorm || matchedNameNorm.includes(serviceCatNameNorm) || serviceCatNameNorm.includes(matchedNameNorm))) {
-        return true;
-      }
-    }
-  }
-
-  return false;
 }
 
 const CATEGORY_IMAGE = {
@@ -365,10 +305,6 @@ function LayananPageContent() {
   const [allServices, setAllServices] = useState([]);
   const [filteredServices, setFilteredServices] = useState([]);
   const [categories, setCategories] = useState([]);
-  const [rawCategories, setRawCategories] = useState([]);
-  const [currentPage, setCurrentPage] = useState(1);
-  const ITEMS_PER_PAGE = 10;
-
   const [loading, setLoading] = useState(true);
   const [selectedService, setSelectedService] = useState(null);
   const [modalVisible, setModalVisible] = useState(false);
@@ -378,7 +314,7 @@ function LayananPageContent() {
   const [addedServiceId, setAddedServiceId] = useState(null);
   const [heroSlide, setHeroSlide] = useState(0);
   const [heroPaused, setHeroPaused] = useState(false);
-  const [heroSlides, setHeroSlides] = useState([]);
+  const [heroSlides, setHeroSlides] = useState(HERO_SLIDES);
   const [isScrolled, setIsScrolled] = useState(false);
   const [cartBump, setCartBump] = useState(false);
   const [pressedServiceId, setPressedServiceId] = useState(null);
@@ -411,7 +347,7 @@ function LayananPageContent() {
           const title = data[textKey] || "";
           const description = data[descKey] || "";
 
-          if (image) {
+          if (image || title || description) {
             loadedSlides.push({
               id: `hero-cms-${i}`,
               eyebrow: "SMARTHOMECARE",
@@ -419,14 +355,16 @@ function LayananPageContent() {
               description: description || "Pesan layanan perawat profesional dengan mudah, aman, dan nyaman langsung dari rumah Anda.",
               ctaLabel: "Pesan Sekarang",
               ctaHref: "/pesan-laynan",
-              image,
+              image: image || HERO_SLIDES[0].image,
             });
           }
         }
 
-        setHeroSlides(loadedSlides);
+        if (loadedSlides.length > 0) {
+          setHeroSlides(loadedSlides);
+        }
       } catch (err) {
-        if (isMounted) setHeroSlides([]);
+        // Silently retain default slides
       }
     }
 
@@ -518,30 +456,30 @@ function LayananPageContent() {
     async function loadServices() {
       try {
         setLoading(true);
-        setCurrentPage(1);
-
         const [servicesRes, categoriesRes] = await Promise.allSettled([
-          getLayanan(),
+          getLayanan(currentCategory ? { kategori: currentCategory } : undefined),
           api.get("/api/layanan/kategori"),
         ]);
 
         if (!isMounted) return;
 
         const items = servicesRes.status === "fulfilled" ? extractServices(servicesRes.value) : [];
-        setAllServices(items);
+        if (currentCategory) {
+          setFilteredServices(items);
+        } else {
+          setAllServices(items);
+          setFilteredServices(items);
+        }
 
-        let rawCatList = [];
-        let catNameList = [];
+        let catList = [];
         if (categoriesRes.status === "fulfilled") {
           const catResponseData = categoriesRes.value.data?.data || categoriesRes.value.data;
           if (Array.isArray(catResponseData)) {
-            rawCatList = catResponseData;
-            catNameList = catResponseData
+            catList = catResponseData
               .map((c) => (typeof c === "string" ? c : getTextValue(c, ["nama_kategori", "nama", "kategori", "category"])))
               .filter(Boolean);
           }
         }
-        setRawCategories(rawCatList);
 
         const uniqueFromItems = Array.from(
           new Set(
@@ -551,16 +489,9 @@ function LayananPageContent() {
           )
         );
 
-        const mergedCategories = Array.from(new Set([...catNameList, ...uniqueFromItems]))
+        const mergedCategories = Array.from(new Set([...catList, ...uniqueFromItems]))
           .filter((c) => c && c.toLowerCase() !== "home care" && c.toLowerCase() !== "homecare");
         setCategories(mergedCategories);
-
-        if (currentCategory) {
-          const filtered = items.filter((item) => isServiceInCategory(item, currentCategory, rawCatList));
-          setFilteredServices(filtered);
-        } else {
-          setFilteredServices(items);
-        }
       } catch (error) {
         console.error("Gagal memuat data layanan", error);
       } finally {
@@ -587,18 +518,13 @@ function LayananPageContent() {
 
   const categoryCounts = useMemo(() => {
     const counts = {};
-    categoryOptions.forEach((catName) => {
-      counts[catName] = allServices.filter((service) => isServiceInCategory(service, catName, rawCategories)).length;
+    allServices.forEach((service) => {
+      const cat = getTextValue(service, ["kategori_layanan", "kategori", "category", "nama_kategori"]);
+      if (!cat) return;
+      counts[cat] = (counts[cat] || 0) + 1;
     });
     return counts;
-  }, [allServices, categoryOptions, rawCategories]);
-
-  const totalPages = Math.ceil(filteredServices.length / ITEMS_PER_PAGE);
-
-  const displayedServices = useMemo(() => {
-    const start = (currentPage - 1) * ITEMS_PER_PAGE;
-    return filteredServices.slice(start, start + ITEMS_PER_PAGE);
-  }, [filteredServices, currentPage]);
+  }, [allServices]);
 
   const handleCategorySelect = (value) => {
     if (value) {
@@ -804,107 +730,96 @@ function LayananPageContent() {
                   </button>
                 </div>
               ) : (
-                <>
-                  <div className="divide-y divide-slate-100 overflow-hidden rounded-xl border border-slate-200 bg-white">
-                    {displayedServices.map((service, index) => {
-                      const title = getTextValue(service, ["nama_layanan", "nama", "title"]);
-                      const description = getTextValue(service, ["deskripsi_layanan", "deskripsi", "keterangan", "description"]);
-                      const imageUrl = resolveImageUrl(getTextValue(service, ["foto_layanan", "gambar", "foto", "image", "foto_layanan_url", "gambar_url", "foto_url", "image_url"]));
-                      const category = getTextValue(service, ["kategori_layanan", "kategori", "category", "nama_kategori"]);
-                      const price = getTextValue(service, ["harga", "price"]);
-                      const duration = getTextValue(service, ["durasi_menit", "durasi", "duration"]);
-                      const serviceId = getServiceId(service);
-                      const justAdded = addedServiceId === serviceId;
-                      const isPressed = pressedServiceId === serviceId;
-                      const transportIncluded = isTransportIncluded(service);
+                <div className="divide-y divide-slate-100 overflow-hidden rounded-xl border border-slate-200 bg-white">
+                  {filteredServices.map((service, index) => {
+                    const title = getTextValue(service, ["nama_layanan", "nama", "title"]);
+                    const description = getTextValue(service, ["deskripsi_layanan", "deskripsi", "keterangan", "description"]);
+                    const imageUrl = resolveImageUrl(getTextValue(service, ["foto_layanan", "foto", "image"]));
+                    const category = getTextValue(service, ["kategori_layanan", "kategori", "category", "nama_kategori"]);
+                    const price = getTextValue(service, ["harga", "price"]);
+                    const duration = getTextValue(service, ["durasi_menit", "durasi", "duration"]);
+                    const serviceId = getServiceId(service);
+                    const justAdded = addedServiceId === serviceId;
+                    const isPressed = pressedServiceId === serviceId;
+                    const transportIncluded = isTransportIncluded(service);
 
-                      return (
-                        <article
-                          key={`${title}-${index}`}
-                          role="article"
-                          tabIndex={0}
-                          onClick={() => setSelectedService(service)}
-                          onKeyDown={(event) => {
-                            if (event.key === "Enter" || event.key === " ") {
-                              event.preventDefault();
-                              setSelectedService(service);
-                            }
-                          }}
-                          onPointerDown={() => setPressedServiceId(serviceId)}
-                          onPointerUp={() => setPressedServiceId(null)}
-                          onPointerLeave={() => setPressedServiceId(null)}
-                          className={`group flex cursor-pointer gap-3 p-3 transition-all duration-150 hover:bg-slate-50 focus-visible:bg-slate-50 focus-visible:outline-none sm:gap-4 sm:p-4 ${
-                            isPressed ? "scale-[0.99] bg-slate-50" : ""
-                          }`}
-                        >
-                          <div className="relative h-20 w-20 shrink-0 overflow-hidden rounded-lg bg-slate-100 sm:h-24 sm:w-24">
-                            <img
-                              src={imageUrl}
-                              alt={title || "Layanan"}
-                              loading="lazy"
-                              className="h-full w-full object-cover transition duration-300 group-hover:scale-105"
-                            />
-                          </div>
+                    return (
+                      <article
+                        key={`${title}-${index}`}
+                        role="article"
+                        tabIndex={0}
+                        onClick={() => setSelectedService(service)}
+                        onKeyDown={(event) => {
+                          if (event.key === "Enter" || event.key === " ") {
+                            event.preventDefault();
+                            setSelectedService(service);
+                          }
+                        }}
+                        onPointerDown={() => setPressedServiceId(serviceId)}
+                        onPointerUp={() => setPressedServiceId(null)}
+                        onPointerLeave={() => setPressedServiceId(null)}
+                        className={`group flex cursor-pointer gap-3 p-3 transition-all duration-150 hover:bg-slate-50 focus-visible:bg-slate-50 focus-visible:outline-none sm:gap-4 sm:p-4 ${
+                          isPressed ? "scale-[0.99] bg-slate-50" : ""
+                        }`}
+                      >
+                        <div className="relative h-20 w-20 shrink-0 overflow-hidden rounded-lg bg-slate-100 sm:h-24 sm:w-24">
+                          <img
+                            src={imageUrl}
+                            alt={title || "Layanan"}
+                            loading="lazy"
+                            className="h-full w-full object-cover transition duration-300 group-hover:scale-105"
+                          />
+                        </div>
 
-                          <div className="flex min-w-0 flex-1 flex-col justify-center">
-                            <div className="flex items-start justify-between gap-2">
-                              <div className="min-w-0">
-                                <div className="flex items-center gap-1.5 text-[11px] font-medium text-blue-600">
-                                  <CategoryIcon name={category} className="h-3.5 w-3.5" />
-                                  <span className="truncate">{category || "Layanan"}</span>
-                                </div>
-                                <h2 className="mt-0.5 truncate text-sm font-semibold text-slate-900 sm:text-base">
-                                  {title || "Layanan"}
-                                </h2>
+                        <div className="flex min-w-0 flex-1 flex-col justify-center">
+                          <div className="flex items-start justify-between gap-2">
+                            <div className="min-w-0">
+                              <div className="flex items-center gap-1.5 text-[11px] font-medium text-blue-600">
+                                <CategoryIcon name={category} className="h-3.5 w-3.5" />
+                                <span className="truncate">{category || "Layanan"}</span>
                               </div>
-                              <ChevronRightIcon className="mt-1 hidden h-4 w-4 shrink-0 text-slate-300 transition-transform duration-200 group-hover:translate-x-0.5 group-hover:text-blue-400 sm:block" />
+                              <h2 className="mt-0.5 truncate text-sm font-semibold text-slate-900 sm:text-base">
+                                {title || "Layanan"}
+                              </h2>
                             </div>
-
-                            {description ? (
-                              <p className="mt-1 line-clamp-1 text-xs text-slate-500 sm:text-sm">{description}</p>
-                            ) : null}
-
-                            <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-slate-500 sm:text-xs">
-                              {duration ? (
-                                <span className="flex items-center gap-1">
-                                  <ClockIcon className="h-3.5 w-3.5" />
-                                  {formatDuration(duration)}
-                                </span>
-                              ) : null}
-                              <span className="flex items-center gap-1">
-                                <TruckIcon className="h-3.5 w-3.5" />
-                                {transportIncluded ? "Transport termasuk" : "Transport terpisah"}
-                              </span>
-                            </div>
-
-                            <div className="mt-2 flex items-center justify-between">
-                              <span className="text-sm font-bold text-slate-900 sm:text-base">{formatCurrency(price)}</span>
-                              <button
-                                type="button"
-                                onClick={(event) => handleAddToCart(event, service)}
-                                aria-label="Tambah ke keranjang"
-                                className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-white transition-all duration-200 active:scale-90 sm:h-9 sm:w-9 ${
-                                  justAdded ? "scale-110 bg-emerald-600" : "bg-blue-600 hover:scale-105 hover:bg-blue-700"
-                                }`}
-                              >
-                                {justAdded ? <CheckIcon className="h-4 w-4" /> : <PlusIcon className="h-4 w-4" />}
-                              </button>
-                            </div>
+                            <ChevronRightIcon className="mt-1 hidden h-4 w-4 shrink-0 text-slate-300 transition-transform duration-200 group-hover:translate-x-0.5 group-hover:text-blue-400 sm:block" />
                           </div>
-                        </article>
-                      );
-                    })}
-                  </div>
 
-                  <Pagination
-                    currentPage={currentPage}
-                    totalPages={totalPages}
-                    onPageChange={(page) => {
-                      setCurrentPage(page);
-                      window.scrollTo({ top: 0, behavior: 'smooth' });
-                    }}
-                  />
-                </>
+                          {description ? (
+                            <p className="mt-1 line-clamp-1 text-xs text-slate-500 sm:text-sm">{description}</p>
+                          ) : null}
+
+                          <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-slate-500 sm:text-xs">
+                            {duration ? (
+                              <span className="flex items-center gap-1">
+                                <ClockIcon className="h-3.5 w-3.5" />
+                                {formatDuration(duration)}
+                              </span>
+                            ) : null}
+                            <span className="flex items-center gap-1">
+                              <TruckIcon className="h-3.5 w-3.5" />
+                              {transportIncluded ? "Transport termasuk" : "Transport terpisah"}
+                            </span>
+                          </div>
+
+                          <div className="mt-2 flex items-center justify-between">
+                            <span className="text-sm font-bold text-slate-900 sm:text-base">{formatCurrency(price)}</span>
+                            <button
+                              type="button"
+                              onClick={(event) => handleAddToCart(event, service)}
+                              aria-label="Tambah ke keranjang"
+                              className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-white transition-all duration-200 active:scale-90 sm:h-9 sm:w-9 ${
+                                justAdded ? "scale-110 bg-emerald-600" : "bg-blue-600 hover:scale-105 hover:bg-blue-700"
+                              }`}
+                            >
+                              {justAdded ? <CheckIcon className="h-4 w-4" /> : <PlusIcon className="h-4 w-4" />}
+                            </button>
+                          </div>
+                        </div>
+                      </article>
+                    );
+                  })}
+                </div>
               )}
             </>
           ) : (
@@ -979,53 +894,30 @@ function LayananPageContent() {
                   <div className="-mx-4 flex snap-x snap-mandatory gap-3 overflow-x-auto px-4 pb-1 md:mx-0 md:px-0 md:grid md:grid-cols-3 md:overflow-visible [&::-webkit-scrollbar]:hidden">
                     {promos.map((promo, index) => {
                       const promoId = promo.id_promo || promo.id || index;
-                      const title = getTextValue(promo, ["nama_paket", "nama", "title", "judul"]);
+                      const title = getTextValue(promo, ["nama_paket", "nama", "title"]);
                       const desc = getTextValue(promo, ["deskripsi", "description"]);
                       const disc = promo.diskon_persen;
-                      const rawImage = getTextValue(promo, ["gambar_promo", "gambar", "image", "foto"]);
-                      const image = resolveImageUrl(rawImage);
-                      const slug = generatePromoSlug(title);
 
                       return (
                         <div
                           key={promoId}
-                          className="group flex min-w-[70vw] max-w-[70vw] shrink-0 snap-start flex-col justify-between overflow-hidden rounded-xl border border-slate-200 bg-white transition-all duration-200 hover:-translate-y-0.5 hover:border-blue-200 hover:shadow-md sm:min-w-[240px] sm:max-w-[240px] md:min-w-0 md:max-w-none md:w-full"
+                          className="flex min-w-[70vw] max-w-[70vw] shrink-0 snap-start flex-col justify-between rounded-xl border border-slate-200 bg-white p-4 transition-all duration-200 hover:-translate-y-0.5 hover:border-blue-200 hover:shadow-md sm:min-w-[240px] sm:max-w-[240px] md:min-w-0 md:max-w-none md:w-full"
                         >
-                          <Link href={`/promo/${slug || promoId}`}>
-                            <div className="relative h-32 w-full overflow-hidden bg-slate-100">
-                              <img
-                                src={image}
-                                alt={title || "Promo"}
-                                loading="lazy"
-                                className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
-                              />
-                              {disc ? (
-                                <div className="absolute left-3 top-3 rounded-lg bg-blue-600 px-2 py-0.5 text-[11px] font-bold text-white shadow-md">
-                                  Diskon {Number(disc)}%
-                                </div>
-                              ) : null}
-                            </div>
-                          </Link>
-
-                          <div className="flex flex-1 flex-col justify-between p-3.5">
-                            <div>
-                              <Link href={`/promo/${slug || promoId}`}>
-                                <h3 className="line-clamp-2 text-sm font-semibold leading-snug text-slate-900 transition-colors group-hover:text-blue-600">
-                                  {title || "Nama Paket Promo"}
-                                </h3>
-                              </Link>
-                              {desc ? (
-                                <p className="mt-1 line-clamp-2 text-xs leading-relaxed text-slate-500">{desc}</p>
-                              ) : null}
-                            </div>
-                            <Link
-                              href={`/promo/${slug || promoId}`}
-                              className="group/btn mt-3 inline-flex items-center text-xs font-semibold text-blue-600 hover:underline"
-                            >
-                              Lihat Paket
-                              <span className="ml-1 transition-transform duration-200 group-hover/btn:translate-x-0.5">→</span>
-                            </Link>
+                          <div>
+                            <span className="inline-flex items-center gap-1 rounded-full bg-blue-50 px-2 py-0.5 text-[10px] font-semibold text-blue-600">
+                              <TagIcon className="h-3 w-3" />
+                              {disc ? `Diskon ${disc}%` : "Promo"}
+                            </span>
+                            <h3 className="mt-2 text-sm font-semibold leading-snug text-slate-900">{title}</h3>
+                            <p className="mt-1 text-xs leading-relaxed text-slate-500">{desc}</p>
                           </div>
+                          <Link
+                            href="/promo"
+                            className="group mt-3 inline-flex items-center text-xs font-semibold text-blue-600 hover:underline"
+                          >
+                            Lihat Paket
+                            <span className="ml-1 transition-transform duration-200 group-hover:translate-x-0.5">→</span>
+                          </Link>
                         </div>
                       );
                     })}
@@ -1146,7 +1038,7 @@ function LayananPageContent() {
 
             <div className="relative h-56 w-full sm:h-64">
               <img
-                src={resolveImageUrl(getTextValue(selectedService, ["foto_layanan", "gambar", "foto", "image", "foto_layanan_url", "gambar_url", "foto_url", "image_url"]))}
+                src={resolveImageUrl(getTextValue(selectedService, ["foto_layanan", "foto", "image"]))}
                 alt={getTextValue(selectedService, ["nama_layanan", "nama", "title"]) || "Layanan"}
                 className="h-full w-full object-cover"
               />
