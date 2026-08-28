@@ -11,7 +11,7 @@ export function resolveImageUrl(image, updatedAt = null) {
     return cleanImage;
   }
 
-  // 2. [PERBAIKAN UTAMA] Bersihkan domain lokal / localhost:3000 di awal agar tidak error SSL
+  // 2. Bersihkan domain lokal / localhost di awal agar tidak error SSL
   cleanImage = cleanImage.replace(/^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?/gi, "");
 
   // 3. Protocol-relative URLs
@@ -20,6 +20,7 @@ export function resolveImageUrl(image, updatedAt = null) {
   }
 
   const baseUrl = (process.env.NEXT_PUBLIC_API_URL || "https://citra.faaruq.com").replace(/\/+$/, "");
+  const apiEnv = (process.env.NEXT_PUBLIC_API_URL || "").replace(/\/+$/, "");
 
   // 4. Local public static assets
   const normalizedPath = cleanImage.startsWith("/") ? cleanImage : `/${cleanImage}`;
@@ -33,34 +34,52 @@ export function resolveImageUrl(image, updatedAt = null) {
     return normalizedPath;
   }
 
-  // 5. Handle full URLs (HTTP / HTTPS eksternal yang valid)
+  // 5. Clean up nested malformed URLs
+  const lastHttp = cleanImage.lastIndexOf("http://");
+  const lastHttps = cleanImage.lastIndexOf("https://");
+  const lastUrlIndex = Math.max(lastHttp, lastHttps);
+  if (lastUrlIndex > 0) {
+    cleanImage = cleanImage.substring(lastUrlIndex);
+  }
+
+  // 6. Handle HTTP / HTTPS URLs
   if (cleanImage.startsWith("http://") || cleanImage.startsWith("https://")) {
+    const isLocalHost = cleanImage.includes("localhost") || cleanImage.includes("127.0.0.1");
+    const isApiHost = apiEnv ? cleanImage.includes(apiEnv) : false;
     const isBaseUrl = cleanImage.includes(baseUrl);
 
     if (cleanImage.includes("/storage/")) {
       const storageIdx = cleanImage.indexOf("/storage/");
-      const pathAfterStorage = cleanImage.substring(storageIdx + "/storage/".length);
+      const storagePath = cleanImage.substring(storageIdx);
 
-      if (pathAfterStorage.startsWith("images/") || pathAfterStorage.startsWith("/images/")) {
-        return pathAfterStorage.startsWith("/") ? pathAfterStorage : `/${pathAfterStorage}`;
+      if (storagePath.startsWith("/storage/images/")) {
+        return storagePath.replace("/storage/images/", "/images/");
       }
 
-      return `${baseUrl}/storage/${pathAfterStorage.replace(/^\/+/, "")}`;
+      if (apiEnv) {
+        return `${apiEnv}${storagePath}`;
+      }
+
+      return storagePath;
     }
 
-    if (!isBaseUrl) {
+    if (!isLocalHost && !isApiHost && !isBaseUrl) {
       return cleanImage;
     }
   }
 
-  // 6. Backend uploaded files in storage (e.g. avatars/xxx.png atau /storage/avatars/xxx.png)
+  // 7. Backend uploaded files in storage
   let storagePath = cleanImage
-    .replace(/^https?:\/\/[^/]+/gi, "") // strip domain jika masih ada
-    .replace(/^(?:\/?storage\/+|\/+)+/gi, ""); // strip /storage/ atau slash berlebih
+    .replace(/^https?:\/\/[^/]+/gi, "")
+    .replace(/^(?:\/?storage\/+|\/+)+/gi, "");
 
   if (storagePath.startsWith("images/") || storagePath.startsWith("icons/") || storagePath.startsWith("logo/")) {
     return `/${storagePath}`;
   }
 
-  return `${baseUrl}/storage/${storagePath}`;
+  if (apiEnv) {
+    return `${apiEnv}/storage/${storagePath}`;
+  }
+
+  return `/storage/${storagePath}`;
 }
