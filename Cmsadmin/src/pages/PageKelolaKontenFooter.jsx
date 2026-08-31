@@ -13,6 +13,7 @@ export default function PageKelolaKontenFooter() {
   const [footerEmail, setFooterEmail] = useState('');
   const [footerAddress, setFooterAddress] = useState('');
   const [footerSocials, setFooterSocials] = useState([]);
+  const [footerLinks, setFooterLinks] = useState([]);
 
   useEffect(() => {
     fetchData();
@@ -29,6 +30,7 @@ export default function PageKelolaKontenFooter() {
         setFooterEmail(f.footer_email || '');
         setFooterAddress(f.footer_address || '');
         setFooterSocials(Array.isArray(f.footer_socials) ? f.footer_socials : []);
+        setFooterLinks(Array.isArray(f.footer_links) ? f.footer_links : []);
       }
     } catch (err) {
       console.error(err);
@@ -50,6 +52,7 @@ export default function PageKelolaKontenFooter() {
         footer_email: footerEmail,
         footer_address: footerAddress,
         footer_socials: footerSocials,
+        footer_links: footerLinks,
       };
 
       const res = await updateFooterContent(payload);
@@ -75,6 +78,47 @@ export default function PageKelolaKontenFooter() {
     setFooterSocials(updated);
   };
 
+  const handleAddLinkGroup = () => {
+    setFooterLinks([...footerLinks, { title: 'Kelompok Menu Baru', links: [{ label: 'Nama Menu', url: '/' }] }]);
+  };
+
+  const handleRemoveLinkGroup = (groupIndex) => {
+    setFooterLinks(footerLinks.filter((_, i) => i !== groupIndex));
+  };
+
+  const handleGroupTitleChange = (groupIndex, value) => {
+    const updated = [...footerLinks];
+    updated[groupIndex] = { ...updated[groupIndex], title: value };
+    setFooterLinks(updated);
+  };
+
+  const handleAddLinkToGroup = (groupIndex) => {
+    const updated = [...footerLinks];
+    const groupLinks = Array.isArray(updated[groupIndex].links) ? updated[groupIndex].links : [];
+    updated[groupIndex] = {
+      ...updated[groupIndex],
+      links: [...groupLinks, { label: '', url: '' }]
+    };
+    setFooterLinks(updated);
+  };
+
+  const handleRemoveLinkFromGroup = (groupIndex, linkIndex) => {
+    const updated = [...footerLinks];
+    updated[groupIndex] = {
+      ...updated[groupIndex],
+      links: updated[groupIndex].links.filter((_, i) => i !== linkIndex)
+    };
+    setFooterLinks(updated);
+  };
+
+  const handleLinkItemChange = (groupIndex, linkIndex, field, value) => {
+    const updated = [...footerLinks];
+    const groupLinks = [...(updated[groupIndex].links || [])];
+    groupLinks[linkIndex] = { ...groupLinks[linkIndex], [field]: value };
+    updated[groupIndex] = { ...updated[groupIndex], links: groupLinks };
+    setFooterLinks(updated);
+  };
+
   if (loading) {
     return (
       <div className="flex h-64 items-center justify-center">
@@ -91,11 +135,10 @@ export default function PageKelolaKontenFooter() {
           <h1 className="text-xl sm:text-2xl font-bold text-slate-900 flex items-center gap-2.5">
             <FaGlobe className="text-primary" /> Footer
           </h1>
-          <p className="text-xs sm:text-sm text-slate-500 mt-1">Pengaturan informasi kontak, alamat kantor, deskripsi singkat, dan tautan media sosial</p>
+          <p className="text-xs sm:text-sm text-slate-500 mt-1">Pengaturan informasi kontak, alamat kantor, deskripsi singkat, tautan medsos, dan kelompok menu footer</p>
         </div>
       </div>
 
-      {/* Alert Notification */}
       {message.text && (
         <div
           className={`p-4 rounded-xl text-sm font-medium border ${
@@ -157,6 +200,88 @@ export default function PageKelolaKontenFooter() {
               className="form-input resize-none"
             />
           </div>
+        </div>
+
+        {/* Dynamic Link Groups Editor */}
+        <div className="p-4 sm:p-6 rounded-xl border border-slate-200 bg-slate-50/60 space-y-4">
+          <div className="flex items-center justify-between border-b border-slate-200 pb-2.5">
+            <div>
+              <span className="font-semibold text-slate-800 text-sm">Kelompok Tautan Menu Footer (footer_links)</span>
+              <p className="text-xs text-slate-500">Kelola kelompok tautan menu kolom footer secara dinamis</p>
+            </div>
+            <button
+              type="button"
+              onClick={handleAddLinkGroup}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg bg-sky-600 text-white hover:bg-sky-700 transition shadow-sm"
+            >
+              <FaPlus size={12} /> Tambah Kelompok Menu
+            </button>
+          </div>
+
+          {footerLinks.length === 0 ? (
+            <p className="text-sm text-slate-400 italic py-2">Belum ada kelompok menu footer ditambahkan.</p>
+          ) : (
+            <div className="space-y-4">
+              {footerLinks.map((group, groupIdx) => (
+                <div key={groupIdx} className="p-4 bg-white border border-slate-200 rounded-xl space-y-3">
+                  <div className="flex items-center justify-between gap-3 border-b border-slate-100 pb-2">
+                    <input
+                      type="text"
+                      value={group.title || ''}
+                      onChange={(e) => handleGroupTitleChange(groupIdx, e.target.value)}
+                      placeholder="Judul Kelompok Menu (misal: Layanan Kami)"
+                      className="form-input font-bold text-xs max-w-sm"
+                    />
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => handleAddLinkToGroup(groupIdx)}
+                        className="px-2.5 py-1 text-[11px] font-semibold text-sky-700 bg-sky-50 rounded-md border border-sky-200 hover:bg-sky-100 transition"
+                      >
+                        + Sub Link
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveLinkGroup(groupIdx)}
+                        className="p-1.5 text-rose-600 hover:bg-rose-50 rounded-md transition"
+                        title="Hapus Kelompok Ini"
+                      >
+                        <FaTrash size={13} />
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="pl-3 space-y-2">
+                    {(group.links || []).map((linkItem, linkIdx) => (
+                      <div key={linkIdx} className="flex items-center gap-2">
+                        <input
+                          type="text"
+                          value={linkItem.label || ''}
+                          onChange={(e) => handleLinkItemChange(groupIdx, linkIdx, 'label', e.target.value)}
+                          placeholder="Label (misal: Perawat Lansia)"
+                          className="form-input text-xs flex-1"
+                        />
+                        <input
+                          type="text"
+                          value={linkItem.url || ''}
+                          onChange={(e) => handleLinkItemChange(groupIdx, linkIdx, 'url', e.target.value)}
+                          placeholder="URL (misal: /layanan/perawat-lansia)"
+                          className="form-input text-xs flex-1"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveLinkFromGroup(groupIdx, linkIdx)}
+                          className="p-1.5 text-slate-400 hover:text-rose-600 transition"
+                        >
+                          ✕
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
 
         {/* Social Media Links Editor */}

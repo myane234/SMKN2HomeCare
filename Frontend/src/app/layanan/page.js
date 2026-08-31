@@ -3,14 +3,11 @@
 import { useEffect, useState, Suspense } from "react";
 import { getLayanan } from "@/services/layananService";
 import { useRouter, useSearchParams } from "next/navigation";
-import LoginRequiredModal from "@/components/LoginRequiredModal";
-import { showToast } from "@/components/Toast";
 import Link from "next/link";
 import { resolveImageUrl } from "@/services/resolveImage";
+import { FiCheckCircle, FiClock, FiArrowRight, FiInfo } from "react-icons/fi";
 
 export const KATEGORI_LAYANAN_OPTIONS = ["Fisioterapi", "Home Care", "Perawatan Luka", "Kesehatan"];
-
-const CART_STORAGE_KEY = "smarthomecare_cart";
 
 function getTextValue(item, keys) {
   for (const key of keys) {
@@ -24,9 +21,8 @@ function getTextValue(item, keys) {
 
 function formatCurrency(value) {
   const numericValue = Number(value);
-
-  if (Number.isNaN(numericValue)) {
-    return "Harga belum tersedia";
+  if (Number.isNaN(numericValue) || numericValue === 0) {
+    return "Hubungi Kami";
   }
 
   return new Intl.NumberFormat("id-ID", {
@@ -37,15 +33,8 @@ function formatCurrency(value) {
 }
 
 function formatDuration(value) {
-  if (!value) {
-    return "Durasi belum tersedia";
-  }
-
+  if (!value) return null;
   return `${value} menit`;
-}
-
-function slugify(text) {
-  return text?.toLowerCase().replace(/&/g, "dan").replace(/\s+/g, "-").replace(/(^-|-$)/g, "") || "";
 }
 
 function isTransportIncluded(service) {
@@ -62,36 +51,10 @@ function extractServices(payload) {
 
 function filterServicesByCategory(services, category) {
   if (!category) return services;
-
   return services.filter((service) => {
     const serviceCategory = getTextValue(service, ["kategori_layanan", "kategori", "category", "nama_kategori"]);
     return serviceCategory.toLowerCase() === category.toLowerCase();
   });
-}
-
-function getServiceId(service) {
-  return getTextValue(service, ["id", "id_layanan", "uuid"]) || getTextValue(service, ["nama_layanan", "nama", "title"]);
-}
-
-function loadCartFromStorage() {
-  if (typeof window === "undefined") return [];
-  try {
-    const raw = window.localStorage.getItem(CART_STORAGE_KEY);
-    const parsed = raw ? JSON.parse(raw) : [];
-    return Array.isArray(parsed) ? parsed : [];
-  } catch (error) {
-    console.error("Gagal membaca keranjang", error);
-    return [];
-  }
-}
-
-function saveCartToStorage(cart) {
-  if (typeof window === "undefined") return;
-  try {
-    window.localStorage.setItem(CART_STORAGE_KEY, JSON.stringify(cart));
-  } catch (error) {
-    console.error("Gagal menyimpan keranjang", error);
-  }
 }
 
 function LayananPageContent() {
@@ -103,21 +66,11 @@ function LayananPageContent() {
   const [categories, setCategories] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedService, setSelectedService] = useState(null);
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
-  const [showLoginModal, setShowLoginModal] = useState(false);
-  const [cart, setCart] = useState([]);
-  const [addedServiceId, setAddedServiceId] = useState(null);
-
-  useEffect(() => {
-    setIsLoggedIn(document.cookie.includes("is_logged_in=true"));
-    setCart(loadCartFromStorage());
-  }, []);
 
   const currentCategory = searchParams.get("kategori") || "";
 
   useEffect(() => {
     let isMounted = true;
-
     async function loadServices() {
       try {
         setLoading(true);
@@ -134,7 +87,6 @@ function LayananPageContent() {
               .filter(Boolean)
           )
         );
-
         setCategories(uniqueCategories);
       } catch (error) {
         console.error("Gagal memuat data layanan", error);
@@ -142,12 +94,8 @@ function LayananPageContent() {
         if (isMounted) setLoading(false);
       }
     }
-
     loadServices();
-
-    return () => {
-      isMounted = false;
-    };
+    return () => { isMounted = false; };
   }, []);
 
   useEffect(() => {
@@ -165,111 +113,72 @@ function LayananPageContent() {
     }
   };
 
-  const handleAddToCart = (event, service) => {
-    event.stopPropagation();
-
-    if (!isLoggedIn) {
-      setShowLoginModal(true);
-      return;
-    }
-
-    const serviceId = getServiceId(service);
-
-    setCart((prevCart) => {
-      const existing = prevCart.find((item) => getServiceId(item.service) === serviceId);
-      let nextCart;
-
-      if (existing) {
-        nextCart = prevCart.map((item) =>
-          getServiceId(item.service) === serviceId ? { ...item, qty: item.qty + 1 } : item
-        );
-      } else {
-        nextCart = [...prevCart, { service, qty: 1 }];
-      }
-
-      saveCartToStorage(nextCart);
-      return nextCart;
-    });
-
-    setAddedServiceId(serviceId);
-    window.setTimeout(() => setAddedServiceId(null), 1200);
-
-    const title = getTextValue(service, ["nama_layanan", "nama", "title"]);
-    showToast(`${title} berhasil ditambahkan ke keranjang`, "success");
-  };
-
-  const cartItemCount = cart.reduce((total, item) => total + item.qty, 0);
-
-  const handleGoToCart = () => {
-    router.push("/keranjang");
-  };
-
   return (
-    <>
-      <main
-        className="mx-auto max-w-7xl px-4 py-8 sm:py-14 md:px-6 overflow-hidden"
-        style={{ fontFamily: '"Poppins", "Inter", "Segoe UI", sans-serif' }}
-      >
-        <div className="mb-12 text-center">
-          <span className="inline-flex rounded-full bg-sky-100 px-5 py-2 text-xs font-bold tracking-[0.2em] text-sky-700">
-            KATALOG LAYANAN
+    <div className="min-h-screen bg-slate-50 font-sans text-slate-800 py-10 px-4 sm:px-6 lg:px-8">
+      <div className="max-w-6xl mx-auto space-y-8">
+        
+        {/* Header Section */}
+        <div className="text-center max-w-3xl mx-auto space-y-3">
+          <span className="inline-flex rounded-full bg-sky-100 px-4 py-1.5 text-xs font-bold tracking-widest text-sky-700 uppercase">
+            KATALOG LAYANAN MEDIS
           </span>
-          <h1 className="mt-4 text-3xl font-semibold tracking-tight text-sky-800 sm:text-5xl" style={{ fontFamily: '"Poppins", "Inter", "Segoe UI", sans-serif' }}>
-            Layanan SmartHomeCare
+          <h1 className="text-3xl sm:text-4xl font-bold tracking-tight text-slate-900">
+            Informasi Layanan SmartHomeCare
           </h1>
-          <p className="mt-3 mx-auto max-w-3xl text-base leading-7 text-slate-600" style={{ fontFamily: '"Poppins", "Inter", "Segoe UI", sans-serif' }}>
-            Temukan layanan kesehatan yang sesuai dengan kebutuhan Anda, dengan pendekatan yang lebih personal dan profesional.
+          <p className="text-sm sm:text-base text-slate-500 leading-relaxed">
+            Daftar lengkap paket layanan kesehatan profesional langsung di rumah Anda. Pilih layanan dan klik untuk pesan sekarang.
           </p>
-          <div className="mt-6 flex justify-center gap-3">
+          <div className="pt-2 flex justify-center">
             <Link
               href="/pesan-laynan"
-              className="inline-flex items-center justify-center rounded-full bg-sky-600 px-6 py-3 text-sm font-semibold text-white shadow-md hover:bg-sky-700 transition"
+              className="inline-flex items-center gap-2 rounded-xl bg-sky-600 px-6 py-3 text-sm font-bold text-white shadow-md hover:bg-sky-700 transition active:scale-95 cursor-pointer"
             >
-              Pesan Layanan Langsung →
+              Pesan Layanan Sekarang <FiArrowRight />
             </Link>
           </div>
         </div>
 
-        {/* Filter Kategori */}
-        <div className="mb-8 rounded-[32px] border border-slate-200 bg-slate-50/80 p-4 shadow-sm sm:p-5">
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <div>
-              <p className="text-xs font-semibold uppercase tracking-[0.3em] text-sky-700">Filter Kategori</p>
-              <h2 className="mt-2 text-xl font-semibold text-slate-900">Temukan layanan sesuai kebutuhan</h2>
-            </div>
-            <div className="text-sm text-slate-600">
-              {filteredServices.length} layanan tersedia
-            </div>
-          </div>
-
-          <div className="mt-4 flex w-full flex-wrap items-center gap-2">
+        {/* Filter Section */}
+        <div className="bg-white rounded-2xl border border-slate-200 p-4 sm:p-5 shadow-2xs flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          <div className="flex items-center gap-2">
+            <label htmlFor="kategori-select" className="text-xs font-semibold text-slate-500">
+              Filter Kategori:
+            </label>
             <select
+              id="kategori-select"
               value={currentCategory}
               onChange={(e) => handleCategorySelect(e.target.value)}
-              className="w-full sm:w-auto rounded-xl border-2 border-slate-200 bg-white px-4 py-2.5 text-sm font-medium text-slate-700 transition-all duration-300 hover:border-sky-400 focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-200"
+              className="rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-xs font-medium text-slate-700 focus:border-sky-500 focus:outline-none cursor-pointer"
             >
               <option value="">Semua Kategori</option>
-              {categoryOptions.map((category) => (
-                <option key={category} value={category}>
-                  {category}
-                </option>
+              {categoryOptions.map((cat) => (
+                <option key={cat} value={cat}>{cat}</option>
               ))}
             </select>
           </div>
+
+          <span className="text-xs text-slate-500 font-medium">
+            Menampilkan <strong className="text-slate-800">{filteredServices.length}</strong> pilihan layanan
+          </span>
         </div>
 
+        {/* Services List Grid */}
         {loading ? (
-          <div className="rounded-3xl border border-slate-200 bg-white p-8 text-center text-slate-500 shadow-sm" style={{ fontFamily: '"Poppins", "Inter", "Segoe UI", sans-serif' }}>
-            Memuat data layanan...
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {[1, 2, 3, 4, 5, 6].map(n => (
+              <div key={n} className="h-64 rounded-2xl bg-slate-200 animate-pulse" />
+            ))}
           </div>
         ) : filteredServices.length === 0 ? (
-          <div className="rounded-3xl border border-slate-200 bg-white p-8 text-center text-slate-500 shadow-sm" style={{ fontFamily: '"Poppins", "Inter", "Segoe UI", sans-serif' }}>
-            {currentCategory
-              ? `Tidak ada layanan dengan kategori "${currentCategory}"`
-              : "Belum ada data layanan yang tersedia."}
+          <div className="rounded-2xl border border-slate-200 bg-white p-12 text-center text-slate-500 space-y-2">
+            <FiInfo className="mx-auto text-4xl text-slate-300" />
+            <h3 className="text-base font-bold text-slate-800">Layanan Tidak Ditemukan</h3>
+            <p className="text-xs text-slate-500">
+              {currentCategory ? `Belum ada layanan untuk kategori "${currentCategory}".` : "Belum ada data layanan."}
+            </p>
           </div>
         ) : (
-          <div className="grid gap-6 lg:grid-cols-2 xl:grid-cols-3">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {filteredServices.map((service, index) => {
               const title = getTextValue(service, ["nama_layanan", "nama", "title"]);
               const description = getTextValue(service, ["deskripsi_layanan", "deskripsi", "keterangan", "description"]);
@@ -277,225 +186,171 @@ function LayananPageContent() {
               const category = getTextValue(service, ["kategori_layanan", "kategori", "category", "nama_kategori"]);
               const price = getTextValue(service, ["harga", "price"]);
               const duration = getTextValue(service, ["durasi_menit", "durasi", "duration"]);
-              const serviceId = getServiceId(service);
-              const justAdded = addedServiceId === serviceId;
 
               return (
                 <article
                   key={`${title}-${index}`}
-                  role="article"
-                  tabIndex={0}
-                  onClick={() => setSelectedService(service)}
-                  className="group flex flex-row cursor-pointer gap-4 overflow-hidden rounded-[28px] border border-sky-100 bg-white/90 p-4 shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-lg"
+                  className="group bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-2xs hover:shadow-md transition-all duration-300 flex flex-col justify-between"
                 >
-                  {/* KONTAINER GAMBAR DI SEBELAH KIRI (DENGAN shrink-0) */}
-                  <div className="relative shrink-0 overflow-hidden rounded-2xl bg-slate-100 w-36 sm:w-44 md:w-48 h-auto min-h-[160px]">
-                    <img
-                      src={imageUrl}
-                      alt={title || "Layanan"}
-                      className="h-full w-full object-cover transition duration-500 group-hover:scale-105"
-                    />
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent" />
-                    
-                    {/* Badge Kategori */}
-                    <div className="absolute left-2 top-2 rounded-full bg-white/90 px-2 py-0.5 text-[10px] sm:text-xs font-semibold uppercase tracking-wider text-sky-700 shadow-sm">
-                      {category || "Layanan"}
+                  <div>
+                    {/* Thumbnail Image */}
+                    <div className="relative h-48 w-full overflow-hidden bg-slate-100">
+                      <img
+                        src={imageUrl}
+                        alt={title || "Layanan"}
+                        onError={(e) => {
+                          e.target.onerror = null;
+                          e.target.src = "/images/layanan/pijat-bayi.png";
+                        }}
+                        className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
+                      />
+                      <span className="absolute top-3 left-3 bg-white/90 backdrop-blur-xs px-2.5 py-1 rounded-md text-[11px] font-bold text-sky-700 uppercase tracking-wider shadow-2xs">
+                        {category || "Layanan Medis"}
+                      </span>
+                      <div className="absolute bottom-3 right-3 bg-sky-600 text-white px-3 py-1 rounded-lg text-xs font-bold shadow-md">
+                        {formatCurrency(price)}
+                      </div>
                     </div>
 
-                    {/* Badge Harga */}
-                    <div className="absolute bottom-2 left-2 rounded-full bg-sky-600/95 px-2.5 py-0.5 text-[11px] sm:text-xs font-semibold text-white shadow-sm">
-                      {formatCurrency(price)}
+                    {/* Details Body */}
+                    <div className="p-5 space-y-3">
+                      <h2 className="text-base font-bold text-slate-900 group-hover:text-sky-600 transition line-clamp-1">
+                        {title || "Layanan HomeCare"}
+                      </h2>
+
+                      {description && (
+                        <p className="text-xs text-slate-600 leading-relaxed line-clamp-3">
+                          {description}
+                        </p>
+                      )}
+
+                      {/* Specs Badges */}
+                      <div className="flex flex-wrap items-center gap-2 pt-1 text-[11px]">
+                        {duration && (
+                          <span className="inline-flex items-center gap-1 bg-slate-100 text-slate-700 px-2 py-0.5 rounded-md font-medium">
+                            <FiClock size={12} /> {formatDuration(duration)}
+                          </span>
+                        )}
+                        <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md font-medium ${
+                          isTransportIncluded(service) ? "bg-emerald-50 text-emerald-700" : "bg-slate-100 text-slate-600"
+                        }`}>
+                          <FiCheckCircle size={12} /> {isTransportIncluded(service) ? "Transport Termasuk" : "Transport Terpisah"}
+                        </span>
+                      </div>
                     </div>
                   </div>
 
-                  {/* DETAIL TEKS DI SEBELAH KANAN */}
-                  <div className="flex min-w-0 grow flex-col justify-between py-1">
-                    <div>
-                      <h2 className="text-base sm:text-lg font-semibold tracking-tight text-sky-800 line-clamp-2" style={{ fontFamily: '"Poppins", "Inter", "Segoe UI", sans-serif' }}>
-                        {title || "Layanan"}
-                      </h2>
-                      {description ? (
-                        <p className="mt-1.5 line-clamp-2 text-xs sm:text-sm leading-relaxed text-slate-600" style={{ fontFamily: '"Poppins", "Inter", "Segoe UI", sans-serif' }}>
-                          {description}
-                        </p>
-                      ) : null}
-                    </div>
+                  {/* Card Actions */}
+                  <div className="p-5 pt-0 flex items-center justify-between gap-2 border-t border-slate-100 pt-3 mt-3">
+                    <button
+                      type="button"
+                      onClick={() => setSelectedService(service)}
+                      className="text-xs font-semibold text-slate-600 hover:text-slate-900 underline cursor-pointer"
+                    >
+                      Detail Info
+                    </button>
 
-                    <div className="mt-3 flex flex-col gap-2">
-                      <div className="flex flex-wrap items-center gap-1.5">
-                        <span className="rounded-full bg-sky-50 px-2.5 py-0.5 text-[11px] font-medium text-sky-700">
-                          {isTransportIncluded(service) ? "Transport Termasuk" : "Transport Tidak Termasuk"}
-                        </span>
-                        {duration ? (
-                          <span className="rounded-full bg-emerald-50 px-2.5 py-0.5 text-[11px] font-medium text-emerald-700">
-                            {formatDuration(duration)}
-                          </span>
-                        ) : null}
-                      </div>
-
-                      <div className="flex items-center justify-between pt-1">
-                        <button
-                          type="button"
-                          onClick={(event) => {
-                            event.stopPropagation();
-                            const kategoriSlug = slugify(service.kategori_layanan || service.kategori || service.category || "");
-                            const layananSlug = slugify(service.nama_layanan || service.nama || service.title || "");
-                            router.push(`/layanan/${kategoriSlug}/${layananSlug}`);
-                          }}
-                          className="text-xs font-semibold text-sky-600 hover:text-sky-700 hover:underline whitespace-nowrap"
-                        >
-                          Lihat Detail →
-                        </button>
-                        <button
-                          type="button"
-                          onClick={(event) => handleAddToCart(event, service)}
-                          aria-label="Tambah ke keranjang"
-                          className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-base font-bold text-white shadow-sm transition ${
-                            justAdded ? "bg-emerald-600" : "bg-sky-600 hover:bg-sky-700"
-                          }`}
-                        >
-                          {justAdded ? "✓" : "+"}
-                        </button>
-                      </div>
-                    </div>
+                    <Link
+                      href="/pesan-laynan"
+                      className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold text-white bg-sky-600 hover:bg-sky-700 shadow-xs transition active:scale-95"
+                    >
+                      Pesan Layanan <FiArrowRight size={13} />
+                    </Link>
                   </div>
                 </article>
               );
             })}
           </div>
         )}
-      </main>
 
-      {/* Floating cart button */}
-      <button
-        type="button"
-        onClick={handleGoToCart}
-        aria-label="Buka keranjang"
-        className="fixed bottom-24 right-4 sm:right-6 z-40 flex h-14 w-14 sm:h-16 sm:w-16 items-center justify-center rounded-full bg-emerald-500 text-white shadow-xl transition hover:bg-emerald-600 hover:scale-105"
-      >
-        <svg
-          xmlns="http://www.w3.org/2000/svg"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="2"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          className="h-7 w-7"
-        >
-          <circle cx="9" cy="21" r="1" />
-          <circle cx="20" cy="21" r="1" />
-          <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6" />
-        </svg>
-        {cartItemCount > 0 ? (
-          <span className="absolute -right-1 -top-1 flex h-6 min-w-6 items-center justify-center rounded-full bg-rose-500 px-1 text-xs font-bold text-white">
-            {cartItemCount}
-          </span>
-        ) : null}
-      </button>
-
-      {/* Modal Detail Layanan */}
-      {selectedService ? (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 px-4 py-6"
-          onClick={() => setSelectedService(null)}
-        >
+        {/* Modal Detail Info Layanan */}
+        {selectedService && (
           <div
-            className="relative max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-3xl bg-white shadow-2xl"
-            onClick={(event) => event.stopPropagation()}
+            className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-xs p-4"
+            onClick={() => setSelectedService(null)}
           >
-            <button
-              type="button"
-              onClick={() => setSelectedService(null)}
-              className="absolute right-4 top-4 z-10 rounded-full bg-white/90 px-3 py-2 text-sm font-semibold text-slate-700 shadow-sm cursor-pointer hover:bg-slate-100"
+            <div
+              className="relative max-h-[90vh] w-full max-w-xl overflow-y-auto rounded-3xl bg-white p-6 shadow-2xl space-y-4 animate-in fade-in zoom-in duration-200"
+              onClick={(e) => e.stopPropagation()}
             >
-              Tutup
-            </button>
-
-            <div className="relative h-64 w-full">
-              <img
-                src={resolveImageUrl(getTextValue(selectedService, ["foto_layanan", "foto", "image"]))}
-                alt={getTextValue(selectedService, ["nama_layanan", "nama", "title"]) || "Layanan"}
-                className="h-full w-full object-cover"
-              />
-              <div className="absolute inset-0 bg-gradient-to-t from-emerald-500/30 via-emerald-300/10 to-transparent" />
-            </div>
-
-            <div className="p-6 sm:p-8">
-              <div className="flex flex-wrap items-center gap-2">
-                <span className="rounded-full bg-sky-50 px-3 py-1 text-xs font-semibold uppercase tracking-[0.2em] text-sky-700" style={{ fontFamily: '"Poppins", "Inter", "Segoe UI", sans-serif' }}>
+              <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+                <span className="text-xs font-bold uppercase tracking-wider text-sky-700 bg-sky-50 px-2.5 py-1 rounded-md">
                   {getTextValue(selectedService, ["kategori_layanan", "kategori", "category", "nama_kategori"]) || "Layanan"}
                 </span>
+                <button
+                  type="button"
+                  onClick={() => setSelectedService(null)}
+                  className="text-slate-400 hover:text-slate-600 text-lg font-bold p-1 cursor-pointer"
+                >
+                  ✕
+                </button>
               </div>
 
-              <h2 className="mt-4 text-2xl font-bold text-slate-900" style={{ fontFamily: '"Poppins", "Inter", "Segoe UI", sans-serif' }}>
-                {getTextValue(selectedService, ["nama_layanan", "nama", "title"]) || "Layanan"}
-              </h2>
+              <div className="h-52 w-full rounded-2xl overflow-hidden bg-slate-100">
+                <img
+                  src={resolveImageUrl(getTextValue(selectedService, ["foto_layanan", "foto", "image"]))}
+                  alt={getTextValue(selectedService, ["nama_layanan", "nama", "title"]) || "Layanan"}
+                  onError={(e) => {
+                    e.target.onerror = null;
+                    e.target.src = "/images/layanan/pijat-bayi.png";
+                  }}
+                  className="h-full w-full object-cover"
+                />
+              </div>
 
-              <p className="mt-4 leading-7 text-slate-600" style={{ fontFamily: '"Poppins", "Inter", "Segoe UI", sans-serif' }}>
-                {getTextValue(selectedService, ["deskripsi_layanan", "deskripsi", "keterangan", "description"]) || "Deskripsi layanan belum tersedia."}
-              </p>
+              <div>
+                <h2 className="text-xl font-bold text-slate-900">
+                  {getTextValue(selectedService, ["nama_layanan", "nama", "title"]) || "Layanan"}
+                </h2>
+                <p className="mt-2 text-xs sm:text-sm text-slate-600 leading-relaxed">
+                  {getTextValue(selectedService, ["deskripsi_layanan", "deskripsi", "keterangan", "description"]) || "Deskripsi lengkap layanan kesehatan."}
+                </p>
+              </div>
 
-              <div className="mt-6 space-y-3 rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-600">
-                <div className="flex items-center justify-between">
-                  <span className="font-medium text-slate-700">Harga</span>
-                  <span className="font-semibold text-sky-700">{formatCurrency(getTextValue(selectedService, ["harga", "price"]))}</span>
+              <div className="bg-slate-50 p-4 rounded-xl border border-slate-100 space-y-2 text-xs">
+                <div className="flex justify-between items-center">
+                  <span className="text-slate-500 font-medium">Estimasi Biaya:</span>
+                  <span className="font-bold text-sky-700 text-sm">
+                    {formatCurrency(getTextValue(selectedService, ["harga", "price"]))}
+                  </span>
                 </div>
-                {getTextValue(selectedService, ["tipe_layanan"]) === "durasi" ? (
-                  <div className="flex items-center justify-between">
-                    <span className="font-medium text-slate-700">Durasi</span>
-                    <span>{formatDuration(getTextValue(selectedService, ["durasi_menit", "durasi", "duration"]))}</span>
-                  </div>
-                ) : (
-                  <div className="flex items-center justify-between">
-                    <span className="font-medium text-slate-700">Tipe Layanan</span>
-                    <span className="font-semibold text-emerald-600">Per Tindakan</span>
+                {getTextValue(selectedService, ["durasi_menit", "durasi", "duration"]) && (
+                  <div className="flex justify-between items-center">
+                    <span className="text-slate-500 font-medium">Durasi Pelayanan:</span>
+                    <span className="font-semibold text-slate-700">
+                      {formatDuration(getTextValue(selectedService, ["durasi_menit", "durasi", "duration"]))}
+                    </span>
                   </div>
                 )}
-                <div className="flex items-center justify-between">
-                  <span className="font-medium text-slate-700">Transport</span>
-                  <span className={isTransportIncluded(selectedService) ? "font-semibold text-emerald-600" : "text-slate-500"}>
-                    {isTransportIncluded(selectedService) ? "Include" : "Tidak termasuk"}
+                <div className="flex justify-between items-center">
+                  <span className="text-slate-500 font-medium">Biaya Transportasi Nakes:</span>
+                  <span className={isTransportIncluded(selectedService) ? "font-bold text-emerald-600" : "text-slate-600"}>
+                    {isTransportIncluded(selectedService) ? "Sudah Termasuk" : "Tidak Termasuk"}
                   </span>
                 </div>
               </div>
 
-              <div className="mt-6 flex flex-wrap gap-3">
-                <Link
-                  href="/booking"
-                  className="inline-flex items-center justify-center rounded-full bg-sky-600 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-sky-700"
-                  style={{ fontFamily: '"Poppins", "Inter", "Segoe UI", sans-serif' }}
-                >
-                  Booking Sekarang
-                </Link>
-                <button
-                  type="button"
-                  onClick={(event) => handleAddToCart(event, selectedService)}
-                  className="inline-flex items-center justify-center rounded-full bg-emerald-500 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-emerald-600 cursor-pointer"
-                  style={{ fontFamily: '"Poppins", "Inter", "Segoe UI", sans-serif' }}
-                >
-                  Tambah ke Keranjang
-                </button>
+              <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-100">
                 <button
                   type="button"
                   onClick={() => setSelectedService(null)}
-                  className="inline-flex items-center justify-center rounded-full border border-slate-200 px-5 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-100 cursor-pointer"
-                  style={{ fontFamily: '"Poppins", "Inter", "Segoe UI", sans-serif' }}
+                  className="px-4 py-2 rounded-xl text-xs font-semibold text-slate-600 border border-slate-200 hover:bg-slate-50 cursor-pointer"
                 >
                   Tutup
                 </button>
+                <Link
+                  href="/pesan-laynan"
+                  className="inline-flex items-center gap-1.5 px-5 py-2 rounded-xl text-xs font-bold text-white bg-sky-600 hover:bg-sky-700 shadow-md transition active:scale-95"
+                >
+                  Pesan Layanan Ini <FiArrowRight />
+                </Link>
               </div>
             </div>
           </div>
-        </div>
-      ) : null}
+        )}
 
-      <LoginRequiredModal
-        isOpen={showLoginModal}
-        onClose={() => setShowLoginModal(false)}
-        message="Anda perlu login untuk melakukan booking layanan HomeCare."
-      />
-    </>
+      </div>
+    </div>
   );
 }
 

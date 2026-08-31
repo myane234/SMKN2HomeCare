@@ -59,7 +59,7 @@ const rawMenuItems = [
         label: "Promo",
         icon: <FaGift />,
         children: [
-          { to: "/promo", label: "Daftar Promo", icon: <FaGift /> },
+          { to: "/promo", label: "Daftar Promo", icon: <FaGift />, end: true },
           { to: "/promo/tambah", label: "Tambah Promo", icon: <FaPlus /> },
         ],
       },
@@ -68,7 +68,7 @@ const rawMenuItems = [
         label: "Layanan",
         icon: <FaStethoscope />,
         children: [
-          { to: "/layanan", label: "Daftar Layanan", icon: <FaStethoscope /> },
+          { to: "/layanan", label: "Daftar Layanan", icon: <FaStethoscope />, end: true },
           { to: "/layanan/tambah", label: "Tambah Layanan", icon: <FaPlus /> },
         ],
       },
@@ -77,7 +77,7 @@ const rawMenuItems = [
         label: "Artikel",
         icon: <FaRegFileAlt />,
         children: [
-          { to: "/artikel", label: "Daftar Artikel", icon: <FaRegFileAlt /> },
+          { to: "/artikel", label: "Daftar Artikel", icon: <FaRegFileAlt />, end: true },
           { to: "/artikel/tambah", label: "Tambah Artikel", icon: <FaPlus /> },
           {
             to: "/statistik-artikel",
@@ -97,6 +97,8 @@ const rawMenuItems = [
             icon: <FaHandshake />,
           },
           { to: "/kelola-konten/footer", label: "Footer", icon: <FaGlobe /> },
+          { to: "/ulasan", label: "Ulasan Pasien", icon: <FaRegFileAlt /> },
+          { to: "/hubungi-kami", label: "Hubungi Kami", icon: <FaRegFileAlt /> },
         ],
       },
     ],

@@ -155,7 +155,19 @@ export default function Footer() {
               <Link href="/promo">Promo</Link>
             </li>
             <li>
+              <Link href="/layanan">Layanan</Link>
+            </li>
+            <li>
+              <Link href="/pesan-laynan">Pesan Layanan</Link>
+            </li>
+            <li>
               <Link href="/artikel">Artikel</Link>
+            </li>
+            <li>
+              <Link href="/ulasan">Ulasan</Link>
+            </li>
+            <li>
+              <Link href="/hubungi-kami">Hubungi Kami</Link>
             </li>
           </ul>
         </div>
