@@ -14,9 +14,9 @@ export default function PaymentQRPage() {
   const router = useRouter();
   
   const [orderId, setOrderId] = useState('');
-  const [amount, setAmount] = useState(175000);
-  const [bookingId, setBookingId] = useState('45');
-  const [metode, setMetode] = useState('qris');
+  const [amount, setAmount] = useState(0);
+  const [bookingId, setBookingId] = useState('');
+  const [metode, setMetode] = useState('');
   
   const [paymentData, setPaymentData] = useState(null);
   const [isLoadingApi, setIsLoadingApi] = useState(true);
@@ -28,25 +28,28 @@ export default function PaymentQRPage() {
   const [copiedVA, setCopiedVA] = useState(false);
   const [copiedOrderId, setCopiedOrderId] = useState(false);
 
-  // Ambil parameter langsung dari URL browser (Aman dari masalah Suspense Next.js)
   useEffect(() => {
     if (typeof window === 'undefined') return;
 
     const params = new URLSearchParams(window.location.search);
-    const metodeParam = params.get('metode') || 'qris';
-    const bookingParam = params.get('booking_id') || '45';
-    const totalParam = parseInt(params.get('total')) || 175000;
+    const metodeParam = params.get('metode') || '';
+    const bookingParam = params.get('booking_id') || params.get('id') || '';
+    const totalParam = parseFloat(params.get('total') || params.get('price') || 0);
     
     setMetode(metodeParam);
     setBookingId(bookingParam);
     setAmount(totalParam);
 
+    if (!bookingParam) {
+      setIsLoadingApi(false);
+      setApiError('Parameter booking_id tidak ditemukan pada URL.');
+      return;
+    }
+
     const fetchPaymentInfo = async () => {
       try {
         setIsLoadingApi(true);
         setApiError('');
-
-        console.log("MENGIRIM REQUEST KE BACKEND DENGAN ID:", bookingParam);
 
         const response = await api.post('/api/booking/charge', {
           id_booking: bookingParam,
@@ -60,8 +63,6 @@ export default function PaymentQRPage() {
           }
         });
         
-        console.log("ISI RESPON BACKEND:", response.data);
-
         const resData = response.data.data || response.data;
         setPaymentData(resData);
         
@@ -81,8 +82,8 @@ export default function PaymentQRPage() {
         const currentOrderId = resData.order_id || `INV-${bookingParam}-${Date.now().toString().slice(-6)}`;
         setOrderId(currentOrderId);
 
-        if (resData.gross_amount || resData.jumlah_total) {
-          setAmount(parseFloat(resData.gross_amount || resData.jumlah_total));
+        if (resData.gross_amount || resData.jumlah_total || resData.total) {
+          setAmount(parseFloat(resData.gross_amount || resData.jumlah_total || resData.total));
         }
         
         const expiryTime = resData.expiry_time || resData.expired_at ? new Date(resData.expiry_time || resData.expired_at) : new Date(Date.now() + 15 * 60 * 1000);
@@ -99,7 +100,6 @@ export default function PaymentQRPage() {
     fetchPaymentInfo();
   }, []);
 
-  // Timer Countdown Mundur
   useEffect(() => {
     if (!expiredAt) return;
     
@@ -119,7 +119,6 @@ export default function PaymentQRPage() {
     return () => clearInterval(timer);
   }, [expiredAt, orderId, router]);
 
-  // Polling berkala untuk cek status pembayaran ke backend (Success / Pending)
   useEffect(() => {
     if (!orderId) return;
 
@@ -134,7 +133,7 @@ export default function PaymentQRPage() {
           transactionStatus === 'success' || 
           transactionStatus === 'paid'
         ) {
-          router.push(`/pembayaran/payment-confirmation/success?order_id=${orderId}`);
+          router.push(`/pembayaran/payment-confirmation/success?booking_id=${bookingId}&order_id=${orderId}&total=${amount}`);
         } else if (
           transactionStatus === 'expire' || 
           transactionStatus === 'cancelled' ||
@@ -157,21 +156,21 @@ export default function PaymentQRPage() {
     dana: { name: 'DANA', isQr: true },
     shopeepay: { name: 'ShopeePay', isQr: true },
     bca_va: { name: 'BCA Virtual Account', isQr: false },
-    bri_va: { name: 'BRI Virtual Account', isQr: false }
+    bri_va: { name: 'BRI Virtual Account', isQr: false },
+    bni_va: { name: 'BNI Virtual Account', isQr: false },
+    mandiri_bill: { name: 'Mandiri Bill / VA', isQr: false }
   };
 
-  const method = methods[metode] || methods.qris;
+  const method = methods[metode] || { name: metode ? metode.toUpperCase() : 'Pembayaran', isQr: true };
   
   const qrString = 
     paymentData?.qr_string || 
     paymentData?.uri || 
     paymentData?.actions?.[0]?.qr_string ||
-    orderId || 
-    bookingId || 
-    'SmartHomeCare';
+    '';
   
-  const qrImageUrl = fixedQrUrl || `https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(qrString)}`;
-  const virtualAccountNumber = paymentData?.payment_details?.virtual_account?.va_number || paymentData?.virtual_number || '';
+  const qrImageUrl = fixedQrUrl || (qrString ? `https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(qrString)}` : '');
+  const virtualAccountNumber = paymentData?.payment_details?.virtual_account?.va_number || paymentData?.virtual_number || paymentData?.va_number || '';
 
   const formatRupiah = (value) => {
     return new Intl.NumberFormat('id-ID', {
@@ -189,6 +188,7 @@ export default function PaymentQRPage() {
   };
 
   const handleCopyVA = async () => {
+    if (!virtualAccountNumber) return;
     try {
       await navigator.clipboard.writeText(virtualAccountNumber);
       setCopiedVA(true);
@@ -199,6 +199,7 @@ export default function PaymentQRPage() {
   };
 
   const handleCopyOrderId = async () => {
+    if (!orderId) return;
     try {
       await navigator.clipboard.writeText(orderId);
       setCopiedOrderId(true);
@@ -252,16 +253,20 @@ export default function PaymentQRPage() {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           <div className="md:col-span-2 space-y-6">
             <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 md:p-8">
-              <h2 className="text-lg font-semibold text-gray-800 mb-6">QR / VA Payment</h2>
+              <h2 className="text-lg font-semibold text-gray-800 mb-6">{method.name} Payment</h2>
               
               {method.isQr ? (
                 <div className="flex flex-col items-center">
                   <div className="w-56 h-56 bg-white rounded-xl flex items-center justify-center border-2 border-dashed border-gray-300 p-2 shadow-inner">
-                    <img 
-                      src={qrImageUrl} 
-                      alt="QR Code Pembayaran" 
-                      className="w-full h-full object-contain" 
-                    />
+                    {qrImageUrl ? (
+                      <img 
+                        src={qrImageUrl} 
+                        alt="QR Code Pembayaran" 
+                        className="w-full h-full object-contain" 
+                      />
+                    ) : (
+                      <span className="text-xs text-slate-400 text-center">QR Code belum tersedia dari respon server</span>
+                    )}
                   </div>
                   <p className="text-sm text-gray-500 mt-4 flex items-center gap-2">
                     <FiCreditCard className="w-4 h-4" /> Scan QR Code untuk membayar
@@ -274,14 +279,16 @@ export default function PaymentQRPage() {
                     <code className="text-xl md:text-2xl font-mono font-bold text-blue-700 tracking-wider">
                       {virtualAccountNumber || 'Nomor VA tidak tersedia'}
                     </code>
-                    <button
-                      onClick={handleCopyVA}
-                      className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-all ${
-                        copiedVA ? 'bg-green-100 text-green-700' : 'bg-blue-100 text-blue-700 hover:bg-blue-200'
-                      }`}
-                    >
-                      {copiedVA ? <><FiCheckCircle className="w-4 h-4" /><span>Disalin</span></> : <><FiCopy className="w-4 h-4" /><span>Salin</span></>}
-                    </button>
+                    {virtualAccountNumber && (
+                      <button
+                        onClick={handleCopyVA}
+                        className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-all ${
+                          copiedVA ? 'bg-green-100 text-green-700' : 'bg-blue-100 text-blue-700 hover:bg-blue-200'
+                        }`}
+                      >
+                        {copiedVA ? <><FiCheckCircle className="w-4 h-4" /><span>Disalin</span></> : <><FiCopy className="w-4 h-4" /><span>Salin</span></>}
+                      </button>
+                    )}
                   </div>
                 </div>
               )}
@@ -293,8 +300,10 @@ export default function PaymentQRPage() {
                     onClick={handleCopyOrderId}
                     className="group flex items-center gap-1.5 font-mono text-gray-800 hover:text-blue-600 transition-colors"
                   >
-                    <span>{orderId}</span>
-                    {copiedOrderId ? <FiCheckCircle className="w-3.5 h-3.5 text-green-600" /> : <FiCopy className="w-3.5 h-3.5 text-gray-400 opacity-0 group-hover:opacity-100" />}
+                    <span>{orderId || '-'}</span>
+                    {orderId && (
+                      copiedOrderId ? <FiCheckCircle className="w-3.5 h-3.5 text-green-600" /> : <FiCopy className="w-3.5 h-3.5 text-gray-400 opacity-0 group-hover:opacity-100" />
+                    )}
                   </button>
                 </div>
                 <div className="flex justify-between items-center">

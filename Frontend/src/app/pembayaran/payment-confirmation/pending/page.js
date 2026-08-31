@@ -7,16 +7,29 @@ import PaymentConfirmationCard from "../PaymentConfirmationCard";
 function PendingPaymentContent() {
   const searchParams = useSearchParams();
 
+  const metodeParam = searchParams.get("metode") || searchParams.get("payment_type") || "";
+  
+  const formatMethodName = (m) => {
+    if (!m) return "";
+    const lower = m.toLowerCase();
+    if (lower.includes("bca")) return "BCA Virtual Account";
+    if (lower.includes("bri")) return "BRI Virtual Account";
+    if (lower.includes("qris")) return "QRIS";
+    return m.toUpperCase();
+  };
+
+  const orderIdParam = searchParams.get("order_id") || searchParams.get("orderId") || "";
+
   const data = {
-    orderId: searchParams.get("order_id") || searchParams.get("orderId") || "HKC-20260803-94821",
-    serviceName: searchParams.get("service") || "Perawatan Medis Home Care Specialist",
-    paymentMethod: searchParams.get("payment_type") || searchParams.get("method") || "BCA Virtual Account",
-    virtualAccount: searchParams.get("va") || "880129384712049",
-    paymentTime: searchParams.get("time") || "3 Agustus 2026, 09:47 WIB",
-    accountOwner: searchParams.get("owner") || "a.n. PT CSK Home Care Medika",
-    price: searchParams.get("price") ? Number(searchParams.get("price")) : 1200000,
-    charge: searchParams.get("charge") ? Number(searchParams.get("charge")) : 25000,
-    fees: searchParams.get("fees") ? Number(searchParams.get("fees")) : 24000,
+    orderId: orderIdParam,
+    serviceName: searchParams.get("service") || searchParams.get("serviceName") || "",
+    paymentMethod: formatMethodName(metodeParam),
+    virtualAccount: searchParams.get("va") || searchParams.get("virtual_account") || "",
+    paymentTime: searchParams.get("time") || searchParams.get("paymentTime") || "",
+    accountOwner: searchParams.get("owner") || searchParams.get("accountOwner") || "",
+    price: searchParams.get("price") ? Number(searchParams.get("price")) : 0,
+    charge: searchParams.get("charge") ? Number(searchParams.get("charge")) : 0,
+    fees: searchParams.get("fees") ? Number(searchParams.get("fees")) : 0,
   };
 
   return <PaymentConfirmationCard status="pending" data={data} />;
