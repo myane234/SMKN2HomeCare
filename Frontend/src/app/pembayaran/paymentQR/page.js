@@ -45,14 +45,19 @@ function PaymentQRContent() {
     setBookingId(bookingParam);
     setAmount(totalParam);
 
-    const fetchPaymentInfo = async () => {
+   const fetchPaymentInfo = async () => {
       try {
         setIsLoadingApi(true);
         setApiError('');
 
-        const response = await api.post('/api/booking/charge', {
+        // Cek apakah metode yang dipilih adalah Virtual Account (mengandung kata 'va')
+        const isBankTransfer = metodeParam.includes('va');
+        const bankName = metodeParam.replace('_va', ''); // misal: "bca_va" diubah jadi "bca"
+
+        // Susun payload agar dinamis sesuai permintaan Faruq
+        const payload = {
           id_booking: bookingParam,
-          payment_type: metodeParam,
+          payment_type: isBankTransfer ? 'bank_transfer' : metodeParam,
           total: totalParam,
           amount: totalParam,
           gross_amount: totalParam,
@@ -60,9 +65,19 @@ function PaymentQRContent() {
             gross_amount: totalParam,
             order_id: `INV-${bookingParam}-${Date.now().toString().slice(-6)}`
           }
-        });
+        };
+
+        // Jika pakai bank transfer, tambahkan objek bank_transfer sesuai instruksi Faruq
+        if (isBankTransfer) {
+          payload.bank_transfer = {
+            bank: bankName
+          };
+        }
+
+        const response = await api.post('/api/booking/charge', payload);
         
         console.log("ISI RESPON BACKEND:", response.data);
+       
 
         const resData = response.data.data || response.data;
         setPaymentData(resData);
@@ -140,13 +155,14 @@ function PaymentQRContent() {
         console.log("Status transaksi saat ini:", statusTransaksi);
 
         // Cek kondisi status lunas/sukses
-        if (
+       if (
           lowerStatus.includes('sudah bayar') || 
           lowerStatus.includes('success') || 
           lowerStatus.includes('paid') ||
-          lowerStatus.includes('settlement')
+          lowerStatus.includes('settlement') ||
+          lowerStatus.includes('lunas')
         ) {
-          router.push(`/pembayaran/payment-confirmation/success?order_id=${orderId}`);
+          router.push(`/pembayaran/payment-confirmation/success-sementara?order_id=${orderId}`);
         }
       } catch (err) {
         console.error('Gagal mengecek status pembayaran:', err);
