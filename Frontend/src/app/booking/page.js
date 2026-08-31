@@ -7,7 +7,7 @@ const MapPicker = dynamic(() => import("@/components/MapPicker"), {
   ssr: false,
 });
 
-import { createBooking, confirmPayment } from "@/services/bookingService";
+import { createBooking } from "@/services/bookingService";
 import { fetchAndStoreProfile } from "@/services/profileService";
 import { resolveImageUrl } from "@/services/resolveImage";
 import { useRouter } from "next/navigation";
@@ -17,13 +17,6 @@ import {
   PenSquare,
   ShoppingBag,
 } from "lucide-react";
-
-const MIDTRANS_CLIENT_KEY =
-  process.env.NEXT_PUBLIC_MIDTRANS_CLIENT_KEY ||
-  "Mid-client-wAKHrOkP75pcO3UM";
-
-const MIDTRANS_SCRIPT_SRC =
-  "https://app.sandbox.midtrans.com/snap/snap.js";
 
 const CHECKOUT_STORAGE_KEY = "smarthomecare_checkout";
 
@@ -150,7 +143,6 @@ export default function BookingPage() {
      SCHEDULE
   ========================================================= */
 
-  // true = user sudah memilih tanggal/jam sendiri
   const [isScheduleManuallyChanged, setIsScheduleManuallyChanged] =
     useState(false);
 
@@ -160,8 +152,6 @@ export default function BookingPage() {
 
   useEffect(() => {
     const updateCurrentDateTime = () => {
-      // Kalau user sudah memilih jadwal manual,
-      // jangan timpa pilihan user.
       if (isScheduleManuallyChanged) {
         return;
       }
@@ -184,10 +174,8 @@ export default function BookingPage() {
       });
     };
 
-    // Jalankan langsung ketika halaman dibuka
     updateCurrentDateTime();
 
-    // Cek setiap detik supaya pergantian menit langsung terdeteksi
     const interval = setInterval(
       updateCurrentDateTime,
       1000
@@ -245,10 +233,6 @@ export default function BookingPage() {
       setIsLoadingAddress(true);
 
       try {
-        /*
-         * PRIORITAS 1:
-         * Ambil data terbaru dari API profile.
-         */
         const profile =
           await fetchAndStoreProfile();
 
@@ -296,12 +280,6 @@ export default function BookingPage() {
           return;
         }
 
-        /*
-         * PRIORITAS 2:
-         * Kalau API gagal / profile tidak tersedia,
-         * gunakan alamat yang terakhir tersimpan
-         * di cookie.
-         */
         const savedAddress =
           getCookie("profile_alamat");
 
@@ -324,9 +302,6 @@ export default function BookingPage() {
           return;
         }
 
-        /*
-         * Tidak ada API maupun cookie.
-         */
         setAddressData(null);
 
         setErrorMessage(
@@ -338,10 +313,6 @@ export default function BookingPage() {
           error
         );
 
-        /*
-         * Fallback cookie ketika request API
-         * gagal, misalnya karena 530.
-         */
         const savedAddress =
           getCookie("profile_alamat");
 
@@ -456,62 +427,6 @@ export default function BookingPage() {
   }, [checkoutItems]);
 
   /* =========================================================
-     MIDTRANS
-  ========================================================= */
-
-  const loadMidtransScript = () => {
-    return new Promise(
-      (resolve, reject) => {
-        if (
-          typeof window === "undefined"
-        ) {
-          reject(
-            new Error(
-              "Midtrans hanya dapat dijalankan di browser."
-            )
-          );
-
-          return;
-        }
-
-        if (window.snap) {
-          resolve(window);
-          return;
-        }
-
-        const script =
-          document.createElement(
-            "script"
-          );
-
-        script.src =
-          MIDTRANS_SCRIPT_SRC;
-
-        script.setAttribute(
-          "data-client-key",
-          MIDTRANS_CLIENT_KEY
-        );
-
-        script.async = true;
-
-        script.onload = () =>
-          resolve(window);
-
-        script.onerror = () =>
-          reject(
-            new Error(
-              "Gagal memuat Midtrans Snap script."
-            )
-          );
-
-        document.body.appendChild(
-          script
-        );
-      }
-    );
-  };
-
-  /* =========================================================
      HANDLE INPUT
   ========================================================= */
 
@@ -520,10 +435,6 @@ export default function BookingPage() {
       const value =
         event.target.value;
 
-      /*
-       * Begitu user mengubah tanggal atau jam,
-       * jadwal dianggap manual.
-       */
       if (
         field === "date" ||
         field === "time"
@@ -550,7 +461,7 @@ export default function BookingPage() {
     form.time.trim() !== "";
 
   /* =========================================================
-     SUBMIT BOOKING
+     SUBMIT BOOKING (DIARAHKAN KE PILIH METODE)
   ========================================================= */
 
   const handleSubmit = async (
@@ -566,9 +477,6 @@ export default function BookingPage() {
     setIsSubmitting(true);
 
     try {
-      /*
-       * Ambil semua ID layanan.
-       */
       const rawIds = checkoutItems
         .map((item) =>
           Number(
@@ -579,10 +487,6 @@ export default function BookingPage() {
           (id) => !Number.isNaN(id)
         );
 
-      /*
-       * Pertahankan format payload
-       * yang sebelumnya sudah digunakan.
-       */
       const idLayananPayload =
         rawIds.length > 1
           ? rawIds
@@ -618,113 +522,25 @@ export default function BookingPage() {
         response?.data ??
         {};
 
-      const snapToken =
-        payload?.snap_token;
-
-      const redirectUrl =
-        payload?.redirect_url;
-
-      const orderId =
-        payload?.order_id;
-
       const bookingId =
-        payload?.booking?.id_booking;
+        payload?.booking?.id_booking || payload?.id_booking || payload?.id;
 
-      if (
-        !orderId ||
-        !bookingId
-      ) {
+      if (!bookingId) {
         throw new Error(
-          "Booking tidak tersimpan dengan benar di server."
+          "ID Booking tidak ditemukan dari respons server."
         );
       }
 
-      /*
-       * Checkout hanya dibersihkan
-       * setelah booking berhasil.
-       */
+      // Bersihkan keranjang setelah booking berhasil dibuat
       localStorage.removeItem(
         CHECKOUT_STORAGE_KEY
       );
 
-      if (redirectUrl) {
-        window.location.assign(
-          redirectUrl
-        );
-
-        return;
-      }
-
-      if (!snapToken) {
-        throw new Error(
-          "Tidak menerima token pembayaran dari server."
-        );
-      }
-
-      await loadMidtransScript();
-
-      window.snap?.pay(
-        snapToken,
-        {
-          onSuccess:
-            async () => {
-              try {
-                await confirmPayment({
-                  id_booking:
-                    bookingId,
-
-                  order_id:
-                    orderId,
-                });
-
-                alert(
-                  "Pembayaran berhasil. Booking tersimpan."
-                );
-
-                router.push(
-                  "/profile"
-                );
-              } catch (
-                confirmError
-              ) {
-                console.error(
-                  confirmError
-                );
-
-                alert(
-                  "Pembayaran berhasil, tetapi konfirmasi gagal. Silakan cek riwayat booking."
-                );
-              }
-            },
-
-          onPending: () => {
-            alert(
-              "Pembayaran tertunda. Silakan selesaikan pembayaran di halaman Midtrans."
-            );
-          },
-
-          onError: (err) => {
-            console.error(
-              "Midtrans error:",
-              err
-            );
-
-            setErrorMessage(
-              "Pembayaran gagal. Silakan coba lagi."
-            );
-
-            setIsSubmitting(false);
-          },
-
-          onClose: () => {
-            setErrorMessage(
-              "Pembayaran dibatalkan. Silakan coba lagi jika ingin menyelesaikan booking."
-            );
-
-            setIsSubmitting(false);
-          },
-        }
+      // Langsung arahkan ke halaman pilih metode pembayaran dengan parameter
+      router.push(
+        `/pembayaran/pilih-metode?booking_id=${bookingId}&total=${totalPrice}`
       );
+
     } catch (error) {
       console.error(
         "Booking error:",
@@ -732,7 +548,7 @@ export default function BookingPage() {
       );
 
       setErrorMessage(
-        "Gagal membuat booking atau memproses pembayaran."
+        error?.response?.data?.message || "Gagal membuat booking. Silakan coba lagi."
       );
 
       setIsSubmitting(false);
@@ -948,8 +764,6 @@ export default function BookingPage() {
                   )}
 
               </div>
-
-              {/* LOADING ADDRESS */}
 
               {isLoadingAddress ? (
                 <div className="space-y-2">
@@ -1197,11 +1011,11 @@ export default function BookingPage() {
 
                 </svg>
 
-                Memproses Pembayaran...
+                Memproses Booking...
 
               </span>
             ) : (
-              `Lanjut Pembayaran (${formatCurrency(
+              `Pilih Metode Pembayaran (${formatCurrency(
                 totalPrice
               )})`
             )}
