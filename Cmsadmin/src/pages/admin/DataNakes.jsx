@@ -1,8 +1,9 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { FaSearch, FaEdit } from 'react-icons/fa';
 import Pagination from '../../components/pagination';
 import { getAllActiveNakes, getKategoriLayanan, updateNakesData, deleteNakesData } from '../../data/nakesData';
-import { getImageUrl } from '../../data/imageHelper';
+import { BASE_URL } from '../../utils/apiClient';
+import { resolveImageUrl } from '../../utils/resolveImage';
 import Swal from 'sweetalert2';
 
 const wilayahOptions = [
@@ -36,7 +37,7 @@ export default function DataNakes() {
   const [formWilayah, setFormWilayah] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const fetchData = () => {
+  const fetchData = useCallback(() => {
     setLoading(true);
     setErrorMsg('');
     Promise.all([getAllActiveNakes(), getKategoriLayanan()])
@@ -91,7 +92,7 @@ export default function DataNakes() {
       .finally(() => {
         setLoading(false);
       });
-  };
+  }, []);
 
   useEffect(() => {
     fetchData();
@@ -182,6 +183,11 @@ export default function DataNakes() {
   const startIndex = (currentPage - 1) * itemsPerPage;
   const paginatedData = filteredNakes.slice(startIndex, startIndex + itemsPerPage);
 
+  const getAvatarUrl = (foto) => {
+    if (!foto || foto === '/nakesgambar.jpg') return '/nakesgambar.jpg';
+    return resolveImageUrl(foto) || '/nakesgambar.jpg';
+  };
+
   return (
     <div>
       <div className="mb-6">
@@ -267,7 +273,7 @@ export default function DataNakes() {
                         <td className="border-b border-slate-200 px-4 py-3.5 text-sm">
                           <div className="flex items-center gap-3">
                             <img 
-                              src={getImageUrl(item.foto)} 
+                              src={getAvatarUrl(item.foto)} 
                               alt={item.nama} 
                               className="h-10 w-10 rounded-full object-cover bg-slate-200" 
                               onError={(e) => e.target.src = '/nakesgambar.jpg'} 
