@@ -121,7 +121,7 @@ function PaymentQRContent() {
         const currentOrderId = resData.order_id || `INV-${bookingParam}-${Date.now().toString().slice(-6)}`;
         setOrderId(currentOrderId);
         
-        const expiryTime = resData.expiry_time || resData.expired_at ? new Date(resData.expiry_time || resData.expired_at) : new Date(Date.now() + 15 * 60 * 1000);
+        const expiryTime = resData.expiry_time || resData.expired_at ? new Date(resData.expiry_time || resData.expired_at) : new Date(Date.now() + 5 * 60 * 1000);
         setExpiredAt(expiryTime);
 
       } catch (err) {
@@ -249,9 +249,12 @@ function PaymentQRContent() {
     router.push(`/pembayaran/pilih-metode?booking_id=${bookingId}&total=${amount}`);
   };
 
-  // Navigasi langsung ke keranjang sesuai struktur folder project Anda (`/keranjang`)
   const handleBackToCart = () => {
     router.push('/keranjang');
+  };
+
+  const handlePesanLayanan = () => {
+    router.push('/pesan-layanan');
   };
 
   if (isLoadingApi) {
@@ -303,14 +306,22 @@ function PaymentQRContent() {
                   </div>
                   <h3 className="text-xl font-bold text-gray-900 mb-2">Waktu Pembayaran Telah Habis</h3>
                   <p className="text-sm text-gray-600 max-w-md mb-6">
-                    Batas waktu pembayaran untuk pesanan ini telah kedaluwarsa. Silakan kembali ke keranjang untuk melakukan pemesanan ulang.
+                    Batas waktu pembayaran untuk pesanan ini telah kedaluwarsa. Silakan pilih opsi di bawah untuk membuat pesanan baru.
                   </p>
-                  <button
-                    onClick={handleBackToCart}
-                    className="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-xl shadow-md transition"
-                  >
-                    Kembali ke Keranjang
-                  </button>
+                  <div className="flex flex-col sm:flex-row gap-3 w-full max-w-xs">
+                    <button
+                      onClick={handleBackToCart}
+                      className="flex-1 px-4 py-3 bg-gray-100 hover:bg-gray-200 text-gray-700 font-medium rounded-xl transition"
+                    >
+                      Ke Keranjang
+                    </button>
+                    <button
+                      onClick={handlePesanLayanan}
+                      className="flex-1 px-4 py-3 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-xl shadow-md transition"
+                    >
+                      Pesan Layanan
+                    </button>
+                  </div>
                 </div>
               )}
 
