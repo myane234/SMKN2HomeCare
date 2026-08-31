@@ -26,7 +26,6 @@ const METODE_PEMBAYARAN = [
     keterangan: 'Pembayaran instan via aplikasi DANA',
     logo: '/images/payment/dana.png',
   },
-  
   {
     id: 'shopeepay',
     nama: 'ShopeePay',
@@ -55,7 +54,7 @@ function PilihMetodePembayaranContent() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
 
-  const bookingId = searchParams.get('booking_id') || 'BR-20260803001';
+  const bookingId = searchParams.get('booking_id') || '45';
   const totalAmount = searchParams.get('total') || '150000';
 
   const handlePilihMetode = (metodeId) => {
@@ -63,7 +62,7 @@ function PilihMetodePembayaranContent() {
     setError('');
   };
 
-  const handleLanjutkanPembayaran = async () => {
+  const handleLanjutkanPembayaran = () => {
     if (!selectedMetode) {
       setError('Silakan pilih metode pembayaran terlebih dahulu.');
       return;
@@ -73,16 +72,12 @@ function PilihMetodePembayaranContent() {
     setError('');
 
     try {
-      await new Promise(resolve => setTimeout(resolve, 1200));
-      
-      // Mengarahkan langsung ke folder paymentQR
+      // Langsung arahkan ke halaman paymentQR dengan membawa parameter yang dibutuhkan
       router.push(
         `/pembayaran/paymentQR?metode=${selectedMetode}&booking_id=${bookingId}&total=${totalAmount}`
       );
-      
     } catch (err) {
-      setError(err.response?.data?.message || 'Gagal memproses pembayaran. Silakan coba lagi.');
-    } finally {
+      setError('Gagal memproses pembayaran. Silakan coba lagi.');
       setIsLoading(false);
     }
   };
@@ -115,14 +110,12 @@ function PilihMetodePembayaranContent() {
 
       {/* Main Container */}
       <div className="max-w-5xl mx-auto px-4 py-6 lg:py-10">
-        
-        {/* Layout Responsive: Kolom Kiri & Kanan di Desktop, Atas Bawah di Mobile */}
         <div className="flex flex-col lg:flex-row gap-8 lg:gap-12 items-start">
           
           {/* ================= BAGIAN KIRI ================= */}
           <div className="w-full lg:flex-1">
             
-            {/* Card Total Pembayaran (Khusus MOBILE) - Warna Biru Muda */}
+            {/* Card Total Pembayaran (Khusus MOBILE) */}
             <div className="bg-gradient-to-r from-sky-400 to-blue-500 rounded-2xl px-6 py-10 mb-8 shadow-md text-white flex flex-col justify-center lg:hidden">
               <p className="text-xs sm:text-sm text-sky-50 font-medium tracking-wide">
                 Total Pembayaran
@@ -152,7 +145,6 @@ function PilihMetodePembayaranContent() {
                         : 'bg-white border-slate-200 hover:border-slate-300 hover:bg-slate-50/50'
                     }`}
                   >
-                    {/* Kontainer Logo & Keterangan */}
                     <div className="flex items-center gap-4 min-w-0">
                       <div className="w-16 h-10 relative flex-shrink-0 flex items-center justify-center">
                         <img
@@ -174,7 +166,6 @@ function PilihMetodePembayaranContent() {
                       </div>
                     </div>
                     
-                    {/* Custom Radio Circle */}
                     <div className="flex-shrink-0 ml-3">
                       <div className={`w-5 h-5 rounded-full border flex items-center justify-center transition-all ${
                         isSelected
@@ -191,12 +182,11 @@ function PilihMetodePembayaranContent() {
               })}
             </div>
           </div>
-          {/* ================= END BAGIAN KIRI ================= */}
 
           {/* ================= BAGIAN KANAN ================= */}
           <div className="w-full lg:w-[380px] shrink-0 lg:sticky lg:top-28">
             
-            {/* Card Total Pembayaran (Khusus DESKTOP) - Warna Biru Muda */}
+            {/* Card Total Pembayaran (Khusus DESKTOP) */}
             <div className="bg-gradient-to-r from-sky-400 to-blue-500 rounded-2xl px-6 py-10 mb-6 shadow-md text-white hidden lg:flex flex-col justify-center">
               <p className="text-xs sm:text-sm text-sky-50 font-medium tracking-wide">
                 Total Pembayaran
@@ -227,22 +217,14 @@ function PilihMetodePembayaranContent() {
             >
               {isLoading ? (
                 <>
-                  <span className="animate-spin"></span> Memproses...
+                  <span className="animate-spin w-4 h-4 border-2 border-white border-t-transparent rounded-full"></span> Memproses...
                 </>
               ) : (
                 'Bayar'
               )}
             </button>
 
-            {/* Info Keamanan */}
-            <div className="mt-6 text-center">
-              <p className="text-xs text-slate-400 flex items-center justify-center gap-1">
-               
-              </p>
-            </div>
-
           </div>
-        
 
         </div>
       </div>
