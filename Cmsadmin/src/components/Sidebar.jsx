@@ -150,6 +150,7 @@ const rawSuperAdminMenus = [
       },
       { to: "/nakes", label: "Nakes", icon: <FaUserMd />, end: true },
       { to: "/nakes/requests", label: "Registrasi Nakes", icon: <FaUserPlus /> },
+      { to: "/operasional-nakes", label: "Operasional Nakes", icon: <FaCalendarCheck /> },
     ],
   },
   { to: "/booking", label: "Booking", icon: <FaCalendarCheck /> },
