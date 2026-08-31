@@ -45,29 +45,3 @@ export const getKategoriLayanan = async () => {
     throw error;
   }
 };
-
-/**
- * Update Data Operasional Nakes
- */
-export const updateDataOperasional = async (payload) => {
-  try {
-    const response = await api.post('/api/nakes/data-operasional', payload);
-    return response.data;
-  } catch (error) {
-    console.error('Gagal memperbarui data operasional:', error);
-    throw error;
-  }
-};
-
-/**
- * Get Data Operasional Nakes
- */
-export const getDataOperasional = async () => {
-  try {
-    const response = await api.get('/api/nakes/data-operasional');
-    return response.data;
-  } catch (error) {
-    console.error('Gagal mengambil data operasional:', error);
-    throw error;
-  }
-};

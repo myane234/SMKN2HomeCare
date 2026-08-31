@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import PaymentConfirmationCard from "./PaymentConfirmationCard";
 
@@ -9,19 +9,42 @@ function PaymentConfirmationMainContent() {
   const rawStatus = searchParams.get("status");
   const status = rawStatus === "pending" ? "pending" : "success";
 
-  const data = {
-    orderId: searchParams.get("order_id") || searchParams.get("orderId") || "HKC-20260803-94821",
-    serviceName: searchParams.get("service") || "Perawatan Medis Home Care Specialist",
-    paymentMethod: searchParams.get("payment_type") || searchParams.get("method") || "BCA Virtual Account",
-    virtualAccount: searchParams.get("va") || "880129384712049",
-    paymentTime: searchParams.get("time") || "3 Agustus 2026, 09:47 WIB",
-    accountOwner: searchParams.get("owner") || "a.n. PT CSK Home Care Medika",
-    price: searchParams.get("price") ? Number(searchParams.get("price")) : 1200000,
-    charge: searchParams.get("charge") ? Number(searchParams.get("charge")) : 25000,
-    fees: searchParams.get("fees") ? Number(searchParams.get("fees")) : 24000,
-  };
+  const orderId = searchParams.get("order_id") || searchParams.get("orderId") || "";
+  const [dynamicData, setDynamicData] = useState({
+    orderId: orderId,
+    serviceName: searchParams.get("service") || searchParams.get("serviceName") || "",
+    paymentMethod: searchParams.get("payment_type") || searchParams.get("method") || "",
+    virtualAccount: searchParams.get("va") || searchParams.get("virtualAccount") || null,
+    paymentTime: searchParams.get("time") || searchParams.get("paymentTime") || "",
+    accountOwner: searchParams.get("owner") || searchParams.get("accountOwner") || "",
+    price: searchParams.get("price") ? Number(searchParams.get("price")) : 0,
+    charge: searchParams.get("charge") ? Number(searchParams.get("charge")) : 0,
+    fees: searchParams.get("fees") ? Number(searchParams.get("fees")) : 0,
+  });
 
-  return <PaymentConfirmationCard status={status} data={data} />;
+  useEffect(() => {
+    // Jika parameter URL tidak membawa nilai price, ambil data dari localStorage berdasarkan orderId atau booking terakhir
+    const hasPriceInUrl = searchParams.get("price");
+    if (!hasPriceInUrl) {
+      try {
+        // Cek penyimpanan lokal yang biasa dipakai untuk menyimpan data booking/transaksi aktif
+        const savedBooking = localStorage.getItem("last_booking") || localStorage.getItem("pending_order") || localStorage.getItem("cart_checkout");
+        if (savedBooking) {
+          const parsed = JSON.parse(savedBooking);
+          setDynamicData((prev) => ({
+            ...prev,
+            price: Number(parsed.price || parsed.total || parsed.amount || prev.price),
+            serviceName: prev.serviceName || parsed.serviceName || parsed.title || parsed.service || "",
+            orderId: prev.orderId || parsed.orderId || parsed.id || ""
+          }));
+        }
+      } catch (err) {
+        console.error("Gagal memuat data booking dari storage:", err);
+      }
+    }
+  }, [searchParams]);
+
+  return <PaymentConfirmationCard status={status} data={dynamicData} />;
 }
 
 export default function PaymentConfirmationPage() {

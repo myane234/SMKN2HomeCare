@@ -1,11 +1,9 @@
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { URL } from "../../utils/getUrl";
+import { BASE_URL } from "../../utils/apiClient";
 import { getAuthHeaders } from "../../utils/auth";
 import Pagination from "../../components/pagination";
 
-
-const BASE_URL = URL;
 // ==========================================
 // UTILS & HELPER FUNCTIONS
 // ==========================================
@@ -92,7 +90,7 @@ export default function PageBooking() {
       try {
         setLoading(true);
         setErrorMsg("");
-        const res = await fetch(`${URL}/admin/bookings`, {
+        const res = await fetch(`${BASE_URL}/admin/bookings`, {
           headers: getAuthHeaders({ Accept: "application/json" }),
         });
         const data = await res.json();
@@ -313,7 +311,7 @@ export function PageBookingDetail() {
       setLoading(true);
       setErrorMsg("");
 
-      const res = await fetch(`${URL}/booking/${id}`, {
+      const res = await fetch(`${BASE_URL}/booking/${id}`, {
         headers: getAuthHeaders({ Accept: "application/json" }),
       });
 
