@@ -18,6 +18,7 @@ import PageKelolaKontenMitra from "./pages/PageKelolaKontenMitra";
 import PageKelolaKontenFooter from "./pages/PageKelolaKontenFooter";
 import PageNakesRequest from "./pages/admin/RegisterNakes/PageNakesRequest";
 import PageNakesRequestDetail from "./pages/admin/RegisterNakes/PageNakesRequestDetail";
+import PageOperasionalNakes from "./pages/admin/PageOperasionalNakes";
 import PageBooking, { PageBookingDetail } from "./pages/admin/PageBooking";
 import AdminLayout from "./components/AdminLayout";
 import ProtectedRoute from "./components/ProtectedRoute";
@@ -217,6 +218,14 @@ function App() {
           element={
             <ProtectedRoute requiredPath="/nakes/requests">
               <PageNakesRequestDetail />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/operasional-nakes"
+          element={
+            <ProtectedRoute requiredPath="/operasional-nakes">
+              <PageOperasionalNakes />
             </ProtectedRoute>
           }
         />
