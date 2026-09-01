@@ -2,7 +2,6 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { motion, AnimatePresence } from "framer-motion";
 import {
   Clock,
   MapPin,
@@ -14,12 +13,6 @@ import {
   AlertCircle,
   Loader2,
   Hourglass,
-  Phone,
-  Home,
-  ArrowLeft,
-  ChevronUp,
-  ChevronDown,
-  User,
 } from "lucide-react";
 
 import api from "@/services/api";
@@ -42,17 +35,7 @@ const LIST_HARI = [
 ];
 
 export default function DashboardPage() {
-  const router = useRouter();
-
-  const [isEditModalOpen, setIsEditModalOpen] =
-    useState(false);
-  const [isMobileSheetOpen, setIsMobileSheetOpen] =
-    useState(false);
-  const [isDesktopCardOpen, setIsDesktopCardOpen] =
-    useState(true);
-
-  const touchStartRef = useRef(null);
-
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] =
     useState(false);
@@ -1305,41 +1288,6 @@ for (
       : nakesProfile.registeredWilayahName ||
         "-";
 
-  const scheduleDisplay =
-    activeSchedule?.hours || "-";
-
-  // =========================================================
-  // AUTOMATIC ONLINE/OFFLINE STATUS HELPER
-  // =========================================================
-  const checkIsOnlineStatus = () => {
-    const waktuLayanan = activeSchedule?.waktu_layanan;
-    if (!waktuLayanan || !Array.isArray(waktuLayanan) || waktuLayanan.length === 0) {
-      return false;
-    }
-
-    const now = new Date();
-    const daysMap = ["Minggu", "Senin", "Selasa", "Rabu", "Kamis", "Jumat", "Sabtu"];
-    const currentDayName = daysMap[now.getDay()];
-    const currentMinutes = now.getHours() * 60 + now.getMinutes();
-
-    return waktuLayanan.some((item) => {
-      if (!item || !item.hari || !item.jam_mulai || !item.jam_selesai) return false;
-      if (item.hari !== currentDayName) return false;
-
-      const [startH, startM] = String(item.jam_mulai).split(":").map(Number);
-      const [endH, endM] = String(item.jam_selesai).split(":").map(Number);
-
-      if (isNaN(startH) || isNaN(startM) || isNaN(endH) || isNaN(endM)) return false;
-
-      const startMinutes = startH * 60 + startM;
-      const endMinutes = endH * 60 + endM;
-
-      return currentMinutes >= startMinutes && currentMinutes <= endMinutes;
-    });
-  };
-
-  const isOnlineStatus = checkIsOnlineStatus();
-
   // =========================================================
   // RENDER
   // =========================================================
@@ -1388,12 +1336,16 @@ for (
 
             <div className="flex justify-end mt-5">
               <button
-                type="button"
-                onClick={() => setApprovalPopup(null)}
-                className={`w-full py-2.5 text-xs font-semibold text-white rounded-xl shadow-sm transition ${
-                  approvalPopup.type === "approved"
-                    ? "bg-emerald-600 hover:bg-emerald-700 active:scale-[0.98]"
-                    : "bg-rose-600 hover:bg-rose-700 active:scale-[0.98]"
+                onClick={() =>
+                  setApprovalPopup(
+                    null
+                  )
+                }
+                className={`px-4 py-2 text-xs font-semibold text-white rounded-xl ${
+                  approvalPopup.type ===
+                  "approved"
+                    ? "bg-emerald-600 hover:bg-emerald-700"
+                    : "bg-rose-600 hover:bg-rose-700"
                 }`}
               >
                 Mengerti
@@ -1403,294 +1355,281 @@ for (
         </div>
       )}
 
-      {/* =====================================================
-          TOAST NOTIFICATION
-          ===================================================== */}
-      {toastMessage && (
-        <div
-          className={`fixed top-20 right-4 sm:right-6 z-[90] max-w-md text-white px-4 py-3 rounded-2xl shadow-xl flex items-center gap-3 backdrop-blur-md animate-in slide-in-from-top-4 duration-300 ${
-            toastMessage.type === "error"
-              ? "bg-rose-600/95 border border-rose-500"
-              : "bg-emerald-600/95 border border-emerald-500"
-          }`}
-        >
-          {toastMessage.type === "error" ? (
-            <AlertCircle className="w-5 h-5 shrink-0" />
-          ) : (
-            <CheckCircle2 className="w-5 h-5 shrink-0" />
-          )}
+      <div className="min-h-screen bg-slate-50/50 px-4 py-6 sm:px-6 lg:px-8">
+        <div className="max-w-7xl mx-auto space-y-6">
+
+          {/* TOAST HASIL SUBMIT */}
+          {toastMessage && (
+            <div
+              className={`fixed top-5 right-5 z-50 max-w-md ${
+                toastMessage.type ===
+                "error"
+                  ? "bg-rose-600"
+                  : "bg-emerald-600"
+              } text-white p-4 rounded-2xl shadow-xl flex items-center gap-3`}
+            >
+              {toastMessage.type ===
+              "error" ? (
+                <AlertCircle className="h-5 w-5" />
+              ) : (
+                <CheckCircle2 className="h-5 w-5" />
+              )}
 
           <p className="text-xs font-medium pr-2">{toastMessage.text}</p>
 
-          <button
-            type="button"
-            onClick={() => setToastMessage(null)}
-            className="ml-auto p-1 hover:bg-white/20 rounded-lg transition"
-          >
-            <X className="w-4 h-4" />
-          </button>
-        </div>
-      )}
+              <button
+                onClick={() =>
+                  setToastMessage(
+                    null
+                  )
+                }
+                className="ml-auto"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+          )}
 
-      <div className="min-h-screen bg-slate-50/80 pb-24 sm:pb-12">
-        {/* =====================================================
-            1. HEADER TOP BAR (Sticky Top)
-            ===================================================== */}
-        <header className="sticky top-0 z-40 bg-white/90 backdrop-blur-md border-b border-slate-200/80 shadow-sm transition-all">
-          <div className="max-w-6xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between gap-4">
-            {/* Sisi Kiri: Tombol [← Beranda] */}
-            <button
-              type="button"
-              onClick={() => router.push("/")}
-              className="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200/80 text-slate-700 text-xs font-medium transition active:scale-95"
-              title="Kembali ke Beranda"
-            >
-              <ArrowLeft className="w-4 h-4" />
-            </button>
+          {/* HEADER */}
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="text-2xl font-bold text-slate-900">
+                Dashboard
+              </h1>
 
-            {/* Tengah: Judul "Dashboard Nakes" */}
-            <h1 className="text-base sm:text-lg font-bold text-slate-900 truncate tracking-tight text-center">
-              Dashboard Nakes
-            </h1>
+              <p className="text-sm text-slate-500">
+                Menunggu Pesanan Pasien
+              </p>
+            </div>
 
-            {/* Sisi Kanan: Ikon [🔔 Notif] */}
-            <button
-              type="button"
-              className="relative p-2 rounded-xl bg-slate-100 hover:bg-slate-200/80 text-slate-700 transition active:scale-95"
-              title="Notifikasi"
-            >
-              <Bell className="w-5 h-5" />
+            <button className="relative p-2.5 rounded-2xl bg-white shadow-sm border border-slate-200/60">
+              <Bell className="h-5 w-5 text-slate-600" />
+
               {pendingRequest && (
-                <span className="absolute top-1.5 right-1.5 w-2.5 h-2.5 rounded-full bg-rose-500 ring-2 ring-white animate-pulse" />
+                <span className="absolute top-1.5 right-1.5 h-2.5 w-2.5 rounded-full bg-red-500 ring-2 ring-white" />
               )}
             </button>
           </div>
-        </header>
 
-        {/* MAIN CONTAINER */}
-        <main className="max-w-6xl mx-auto px-4 sm:px-6 pt-3 sm:pt-6 pb-28 sm:pb-6 space-y-4 sm:space-y-6">
-          {/* =====================================================
-              2. NOTIFICATION & PENDING REQUEST ALERT
-              Diposisikan tepat di bawah Top Bar / di atas Hero Banner
-              ===================================================== */}
+          {/* PENDING */}
           {pendingRequest && (
-            <div className="rounded-2xl bg-amber-50/90 border border-amber-200/90 p-4 sm:p-5 shadow-sm animate-in fade-in duration-300">
-              <div className="flex items-start gap-3.5">
-                <div className="w-10 h-10 rounded-xl bg-amber-100 text-amber-700 flex items-center justify-center shrink-0 shadow-inner">
-                  <Hourglass className="w-5 h-5" />
-                </div>
+            <div className="p-5 rounded-3xl border shadow-xs bg-amber-50/60 border-amber-200 text-amber-800">
+              <div className="flex items-start gap-3">
 
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-2">
-                    <span className="px-2 py-0.5 rounded-md bg-amber-200/80 text-amber-900 text-[10px] font-bold uppercase tracking-wider">
-                      Pending Approval
-                    </span>
-                  </div>
-                  <h3 className="font-bold text-sm text-amber-950 mt-1">
+                <Hourglass className="h-6 w-6 text-amber-600 flex-shrink-0 mt-0.5" />
+
+                <div>
+                  <h4 className="font-bold text-sm">
                     Pengajuan Operasional Menunggu Persetujuan
                   </h3>
 
-                  <p className="text-xs text-amber-800/90 mt-1 leading-relaxed">
-                    Data operasional aktif Anda tetap digunakan hingga perubahan ini disetujui oleh admin.
+                  <p className="text-xs mt-1 text-slate-600">
+                    Perubahan operasional sedang diproses admin. Data aktif tetap digunakan.
                   </p>
 
-                  <div className="mt-3 bg-white/80 backdrop-blur-sm rounded-xl p-3 border border-amber-100/60 space-y-1.5 text-xs text-slate-700">
+                  <div className="mt-2 p-2.5 bg-white/70 rounded-xl text-xs space-y-1">
+
                     <div>
-                      <span className="font-semibold text-slate-900">
-                        Wilayah Layanan:
+                      <span className="font-semibold">
+                        Wilayah Diajukan:
                       </span>{" "}
-                      {pendingRequest.location || "-"}
+                      {
+                        pendingRequest.location
+                      }
                     </div>
                     <div>
-                      <span className="font-semibold text-slate-900">
-                        Jadwal Operasional:
+                      <span className="font-semibold">
+                        Jadwal Diajukan:
                       </span>{" "}
-                      {pendingRequest.hours || "-"}
+                      {
+                        pendingRequest.hours
+                      }
                     </div>
-                    <div>
-                      <span className="font-semibold text-slate-900">
-                        Kategori Layanan:
-                      </span>{" "}
-                      {pendingRequest.kategoriNames?.join(", ") || "-"}
-                    </div>
+
+                    {pendingRequest
+                      .kategoriNames
+                      ?.length >
+                      0 && (
+                      <div>
+                        <span className="font-semibold">
+                          Kategori Diajukan:
+                        </span>{" "}
+                        {
+                          pendingRequest.kategoriNames.join(
+                            ", "
+                          )
+                        }
+                      </div>
+                    )}
+
                   </div>
+
                 </div>
               </div>
             </div>
           )}
 
-          {/* =====================================================
-              3. HERO BANNER STATUS (Dinamis Sesuai Jam Operasional)
-              ===================================================== */}
-          <div className="relative overflow-hidden rounded-3xl bg-gradient-to-r from-blue-600 via-indigo-600 to-blue-700 text-white p-5 sm:p-8 shadow-lg shadow-blue-500/10 mt-8 sm:mt-0 my-1 sm:my-0">
-            {/* Background Decorative Element */}
-            <div className="absolute -right-10 -bottom-10 w-60 h-60 rounded-full bg-white/10 blur-2xl pointer-events-none" />
+          {/* REJECTED */}
+          {previousStatusRef.current ===
+            "rejected" &&
+            adminNotes && (
+              <div className="p-5 rounded-3xl border bg-rose-50/60 border-rose-200 text-rose-800">
 
-            <div className="relative flex flex-col sm:flex-row items-center justify-between gap-5 sm:gap-6">
-              <div className="text-center sm:text-left z-10">
-                <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/15 border border-white/20 text-xs font-semibold backdrop-blur-md mb-2.5 sm:mb-3">
-                  {isOnlineStatus ? (
-                    <>
-                      <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse shadow-sm shadow-emerald-400/50" />
-                      <span>Status: Online 🟢</span>
-                    </>
-                  ) : (
-                    <>
-                      <span className="w-2.5 h-2.5 rounded-full bg-rose-400 shadow-sm shadow-rose-400/50" />
-                      <span>Status: Offline 🔴</span>
-                    </>
-                  )}
-                </div>
+                <div className="flex items-start gap-3">
 
-                <h2 className="text-xl sm:text-3xl font-extrabold tracking-tight">
-                  Menunggu Pesanan
-                </h2>
+                  <AlertCircle className="h-6 w-6 text-rose-600 flex-shrink-0" />
 
-                <p className="mt-1.5 sm:mt-2 max-w-md text-xs sm:text-sm text-blue-100 leading-relaxed">
-                  {isOnlineStatus
-                    ? "Sistem aktif dan siap menerima panggilan layanan. Pesanan pasien akan otomatis tampil secara real-time di dashboard ini."
-                    : "Anda sedang di luar jam operasional. Sistem tidak menerima pesanan saat ini."}
-                </p>
-              </div>
+                  <div>
 
-              <div className="shrink-0 z-10">
-                <img
-                  src="/images/dashboard/nurse-hero.png"
-                  alt="Status Nakes"
-                  className="w-32 sm:w-48 md:w-56 object-contain drop-shadow-md"
-                />
-              </div>
-            </div>
-          </div>
+                    <h4 className="font-bold text-sm">
+                      Pengajuan Ditolak
+                    </h4>
 
-          {/* =====================================================
-              1. TAMPILAN DESKTOP (`sm:` ke atas)
-              1 Card Tunggal (Collapsible)
-              ===================================================== */}
-          <div className="hidden sm:block">
-            {loading ? (
-              <div className="rounded-3xl bg-white border border-slate-200/80 p-12 text-center text-slate-400 text-sm flex items-center justify-center gap-2">
-                <Loader2 className="w-5 h-5 animate-spin text-blue-600" />
-                Memuat data profil nakes...
-              </div>
-            ) : (
-              <div className="rounded-3xl bg-white border border-slate-200/80 shadow-sm overflow-hidden transition-all duration-300">
-                {/* Header Card: Judul "Profil Operasional" + Tombol Toggle "Sembunyikan/Tampilkan" */}
-                <div
-                  onClick={() => setIsDesktopCardOpen((prev) => !prev)}
-                  className="p-6 flex items-center justify-between cursor-pointer select-none border-b border-slate-100 hover:bg-slate-50/60 transition"
-                >
-                  <div className="flex items-center gap-3">
-                    <div className="p-2.5 rounded-2xl bg-blue-50 text-blue-600">
-                      <Stethoscope className="w-5 h-5" />
+                    <p className="text-xs mt-1 text-slate-600">
+                      Data operasional aktif sebelumnya tetap berlaku.
+                    </p>
+
+                    <div className="mt-2 p-2 bg-white/60 rounded-xl text-xs">
+
+                      <span className="font-semibold">
+                        Catatan Admin:
+                      </span>{" "}
+
+                      {adminNotes}
+
                     </div>
-                    <div>
-                      <h3 className="font-bold text-slate-900 text-base sm:text-lg">
-                        Profil Operasional
-                      </h3>
-                      <p className="text-xs text-slate-500">
-                        Kelola data pribadi, wilayah, jadwal, dan kategori layanan
-                      </p>
-                    </div>
+
                   </div>
 
-                  {/* Tombol Toggle "Sembunyikan/Tampilkan" */}
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setIsDesktopCardOpen((prev) => !prev);
-                    }}
-                    className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl bg-slate-100 hover:bg-slate-200/80 text-slate-700 text-xs font-semibold transition"
-                  >
-                    <span>{isDesktopCardOpen ? "Sembunyikan" : "Tampilkan"}</span>
-                    {isDesktopCardOpen ? (
-                      <ChevronUp className="w-4 h-4" />
-                    ) : (
-                      <ChevronDown className="w-4 h-4" />
-                    )}
-                  </button>
                 </div>
 
-                {/* Isi Card (Saat Terbuka) */}
-                {isDesktopCardOpen && (
-                  <div className="p-6 space-y-6 divide-y divide-slate-100 animate-in fade-in duration-200">
-                    {/* Section Atas: Foto Nakes, Nama Lengkap, No. Telepon, Alamat Utama, dan Tombol Action [Edit Operasional] */}
-                    <div className="space-y-5">
-                      <div className="flex flex-col sm:flex-row items-center sm:items-start gap-6">
-                        {/* Foto Nakes (rasio 3x4) */}
-                        <div className="w-32 h-40 rounded-2xl overflow-hidden bg-slate-100 border border-slate-200 shadow-sm shrink-0 flex items-center justify-center">
-                          {nakesProfile.photo ? (
-                            <img
-                              src={nakesProfile.photo}
-                              alt="Pas Foto Nakes"
-                              className="w-full h-full object-cover"
-                              onError={(e) => {
-                                e.currentTarget.style.display = "none";
-                              }}
-                            />
-                          ) : (
-                            <div className="w-full h-full flex flex-col items-center justify-center text-slate-400 p-2 text-center">
-                              <User className="w-10 h-10 mb-1 opacity-40" />
-                              <span className="text-[10px]">Belum ada foto</span>
-                            </div>
-                          )}
-                        </div>
+              </div>
+            )}
 
-                        {/* Nama, No HP, Alamat */}
-                        <div className="flex-1 space-y-4 text-center sm:text-left w-full min-w-0">
-                          <div>
-                            <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
-                              Nama Lengkap
-                            </p>
-                            <p className="mt-0.5 text-lg font-extrabold text-slate-900 truncate">
-                              {nakesProfile.name}
-                            </p>
-                          </div>
+          {/* HERO + PROFILE */}
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
 
-                          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                            <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-100 flex items-start gap-3">
-                              <div className="p-2 rounded-xl bg-blue-50 text-blue-600 shrink-0 mt-0.5">
-                                <Phone className="w-4 h-4" />
-                              </div>
-                              <div className="min-w-0 flex-1">
-                                <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">
-                                  No. Telepon
-                                </p>
-                                <p className="text-xs font-semibold text-slate-800 break-words mt-0.5">
-                                  {nakesProfile.phone}
-                                </p>
-                              </div>
-                            </div>
+            {/* HERO */}
+            <div className="lg:col-span-7 relative overflow-hidden rounded-3xl bg-gradient-to-br from-blue-600 via-blue-500 to-indigo-600 p-6 sm:p-8 text-white shadow-xl">
 
-                            <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-100 flex items-start gap-3">
-                              <div className="p-2 rounded-xl bg-blue-50 text-blue-600 shrink-0 mt-0.5">
-                                <Home className="w-4 h-4" />
-                              </div>
-                              <div className="min-w-0 flex-1">
-                                <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">
-                                  Alamat Utama
-                                </p>
-                                <p className="text-xs font-medium text-slate-700 leading-relaxed break-words mt-0.5">
-                                  {nakesProfile.address}
-                                </p>
-                              </div>
-                            </div>
-                          </div>
+              <div className="relative flex flex-col-reverse sm:flex-row items-center justify-between gap-6">
 
-                          {/* Tombol Action [Edit Operasional] (setelah Alamat) */}
-                          <div className="flex justify-end pt-1">
-                            <button
-                              type="button"
-                              onClick={() => setIsEditModalOpen(true)}
-                              className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold shadow-sm transition active:scale-95"
-                            >
-                              <Edit3 className="w-4 h-4" />
-                              <span>Edit Operasional</span>
-                            </button>
-                          </div>
-                        </div>
-                      </div>
+                <div className="flex-1 text-center sm:text-left">
+
+                  <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/15 text-xs font-semibold backdrop-blur-md mb-4 border border-white/20">
+
+                    <span className="h-2 w-2 rounded-full bg-emerald-400 animate-pulse" />
+
+                    Siap Menerima Pesanan
+                  </div>
+
+                  <h2 className="text-2xl sm:text-3xl font-extrabold">
+                    Menunggu Pesanan
+                  </h2>
+
+                  <p className="mt-2 text-sm text-blue-100 leading-relaxed max-w-sm">
+                    Pesanan akan otomatis muncul di halaman ini saat pasien terdekat membutuhkan layanan Anda.
+                  </p>
+
+                </div>
+
+                <div className="relative flex-shrink-0">
+
+                  <div className="w-28 h-28 sm:w-36 sm:h-36 rounded-2xl overflow-hidden bg-white/10 border border-white/20 p-2 backdrop-blur-sm">
+
+                    <img
+                      src="/images/dashboard/nurse-hero.png"
+                      alt="Nurse"
+                      className="w-full h-full object-contain"
+                    />
+
+                  </div>
+
+                </div>
+              </div>
+            </div>
+
+            {/* PROFIL OPERASIONAL */}
+            <div className="lg:col-span-5 rounded-3xl bg-white shadow-sm border border-slate-200/80 p-6">
+
+              <div className="flex items-center justify-between pb-4 border-b border-slate-100">
+
+                <div className="flex items-center gap-2">
+
+                  <Stethoscope className="h-5 w-5 text-blue-600" />
+
+                  <h3 className="font-bold text-slate-900">
+                    Profil Operasional
+                  </h3>
+
+                </div>
+
+                <button
+                  onClick={() =>
+                    setIsEditModalOpen(
+                      true
+                    )
+                  }
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-blue-600 bg-blue-50 hover:bg-blue-100 rounded-xl"
+                >
+                  <Edit3 className="h-3.5 w-3.5" />
+                  Edit
+                </button>
+
+              </div>
+
+              {loading ? (
+                <div className="py-8 flex justify-center items-center gap-2 text-slate-400 text-xs">
+
+                  <Loader2 className="h-5 w-5 animate-spin" />
+
+                  Memuat data...
+
+                </div>
+              ) : (
+                <>
+
+                  <div className="mt-5 flex items-center gap-4">
+
+                    <div className="relative flex-shrink-0">
+
+                      <img
+                        src={
+                          nakesProfile.photo
+                        }
+                        alt={
+                          nakesProfile.name
+                        }
+                        className="h-16 w-16 rounded-2xl object-cover ring-2 ring-blue-100"
+                      />
+
+                      <span className="absolute -bottom-1 -right-1 h-4 w-4 rounded-full bg-emerald-500 ring-2 ring-white flex items-center justify-center">
+
+                        <CheckCircle2 className="h-3 w-3 text-white" />
+
+                      </span>
+
+                    </div>
+
+                    <div className="min-w-0 flex-1">
+
+                      <h4 className="font-bold text-slate-900 text-base truncate">
+                        {
+                          nakesProfile.name
+                        }
+                      </h4>
+
+                      <p
+                        className="text-xs font-semibold text-blue-600"
+                        title={
+                          nakesProfile.service
+                        }
+                      >
+                        {
+                          nakesProfile.service
+                        }
+                      </p>
+
                     </div>
 
                     {/* Section Bawah: Menampilkan Kategori Layanan, Wilayah Layanan, dan Jadwal Operasional */}
@@ -1712,143 +1651,59 @@ for (
                         </div>
                       </div>
 
-                      {/* Wilayah Layanan */}
-                      <div className="p-4 rounded-2xl bg-slate-50 border border-slate-100 flex items-start gap-3">
-                        <div className="p-2 rounded-xl bg-blue-50 text-blue-600 shrink-0 mt-0.5">
-                          <MapPin className="w-4 h-4" />
-                        </div>
-                        <div className="min-w-0 flex-1">
-                          <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
-                            Wilayah Layanan
-                          </p>
-                          <p className="mt-1 text-xs font-semibold text-slate-800">
-                            {wilayahDisplay}
-                          </p>
-                        </div>
+                  <div className="mt-5 space-y-3">
+
+                    {/* WILAYAH */}
+                    <div className="flex items-start gap-3 p-3 rounded-2xl bg-slate-50">
+
+                      <MapPin className="h-4 w-4 text-slate-400 mt-0.5 flex-shrink-0" />
+
+                      <div className="min-w-0">
+
+                        <p className="text-[10px] font-semibold text-slate-400 uppercase">
+                          Wilayah Layanan
+                        </p>
+
+                        <p className="text-xs font-semibold text-slate-800 truncate">
+                          {
+                            displayWilayahName
+                          }
+                        </p>
+
                       </div>
 
-                      {/* Jadwal Operasional */}
-                      <div className="p-4 rounded-2xl bg-slate-50 border border-slate-100 flex items-start gap-3">
-                        <div className="p-2 rounded-xl bg-blue-50 text-blue-600 shrink-0 mt-0.5">
-                          <Clock className="w-4 h-4" />
-                        </div>
-                        <div className="min-w-0 flex-1">
-                          <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                    </div>
+
+                    {/* JADWAL */}
+                    <div className="flex items-start gap-3 p-3 rounded-2xl bg-slate-50">
+
+                      <Clock className="h-4 w-4 text-slate-400 mt-0.5 flex-shrink-0" />
+
+                      <div className="min-w-0 flex-1">
+
+                        <div className="flex items-center justify-between">
+
+                          <p className="text-[10px] font-semibold text-slate-400 uppercase">
                             Jadwal Operasional
                           </p>
-                          <p className="mt-1 text-xs font-semibold text-slate-800">
-                            {scheduleDisplay}
-                          </p>
+
+                          {pendingRequest && (
+                            <span className="inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 font-bold">
+                              <Hourglass className="h-3 w-3" />
+                              Menunggu Approval
+                            </span>
+                          )}
+
                         </div>
+
+                        <p className="text-xs font-semibold text-slate-800">
+                          {
+                            activeSchedule?.hours ||
+                            "-"
+                          }
+                        </p>
+
                       </div>
-                    </div>
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
-        </main>
-
-        {/* =====================================================
-            2. TAMPILAN MOBILE (`< sm`)
-            Bottom Sheet Fixed Bottom (Framer Motion Touch Gesture)
-            ===================================================== */}
-        <div className="block sm:hidden">
-          {/* Backdrop Blur saat Bottom Sheet terbuka */}
-          {isMobileSheetOpen && (
-            <div
-              className="fixed inset-0 z-40 bg-slate-900/40 backdrop-blur-xs transition-opacity"
-              onClick={() => setIsMobileSheetOpen(false)}
-            />
-          )}
-
-          {/* Fixed Bottom Sheet Container */}
-          <motion.div
-            drag="y"
-            dragConstraints={{ top: 0, bottom: 0 }}
-            dragElastic={0.15}
-            onDragEnd={(event, info) => {
-              // Swipe up (offset.y < -30 atau velocity.y < -200) -> Buka sheet
-              if (info.offset.y < -30 || info.velocity.y < -200) {
-                setIsMobileSheetOpen(true);
-              }
-              // Swipe down (offset.y > 30 atau velocity.y > 200) -> Tutup sheet
-              else if (info.offset.y > 30 || info.velocity.y > 200) {
-                setIsMobileSheetOpen(false);
-              }
-            }}
-            className={`fixed bottom-0 left-0 right-0 z-50 bg-white rounded-t-3xl shadow-2xl border-t border-slate-200 transition-all duration-300 ease-out flex flex-col h-auto ${
-              isMobileSheetOpen ? "max-h-[85vh]" : "max-h-none"
-            }`}
-          >
-            {/* Header / Drag Handle Clickable & Touch Area */}
-            <div
-              onClick={() => setIsMobileSheetOpen((prev) => !prev)}
-              className="px-5 pt-3 pb-4 cursor-pointer select-none bg-white rounded-t-3xl border-b border-slate-100 touch-none"
-            >
-              {/* Drag Handle Indicator */}
-              <div className="w-full pb-3 flex justify-center">
-                <div className="w-12 h-1.5 rounded-full bg-slate-300 hover:bg-slate-400 transition" />
-              </div>
-
-              {/* Kondisi Collapsed: Foto Profil, Nama, No HP, Alamat Lengkap Utuh */}
-              <div className="flex items-start gap-3.5">
-                {/* Foto Profil (kiri) */}
-                <div className="w-14 h-14 rounded-2xl overflow-hidden bg-slate-100 border border-slate-200 shrink-0 flex items-center justify-center mt-0.5 shadow-xs">
-                  {nakesProfile.photo ? (
-                    <img
-                      src={nakesProfile.photo}
-                      alt="Foto Nakes"
-                      className="w-full h-full object-cover"
-                      onError={(e) => {
-                        e.currentTarget.style.display = "none";
-                      }}
-                    />
-                  ) : (
-                    <User className="w-7 h-7 text-slate-400" />
-                  )}
-                </div>
-
-                {/* Nama, No. Telepon, Alamat Lengkap Utuh */}
-                <div className="min-w-0 flex-1 space-y-1">
-                  <h4 className="font-extrabold text-slate-900 text-sm sm:text-base leading-tight">
-                    {nakesProfile.name}
-                  </h4>
-                  <p className="text-xs font-semibold text-blue-600 flex items-center gap-1.5">
-                    <Phone className="w-3.5 h-3.5 shrink-0" />
-                    <span>{nakesProfile.phone}</span>
-                  </p>
-                  <p className="text-xs text-slate-600 text-blue-600 leading-relaxed flex items-start gap-1.5 pt-0.5">
-                    <Home className="w-3.5 h-3.5 text-slate-400 shrink-0 mt-0.5" />
-                    <span className="break-words font-medium">
-                      {nakesProfile.address}
-                    </span>
-                  </p>
-                </div>
-              </div>
-            </div>
-
-            {/* Kondisi Terbuka / Expanded (Swipe Up):
-                Informasi tanpa redundansi alamat.
-                Urutan: 1. Kategori Layanan (Badges), 2. Wilayah Layanan, 3. Jadwal Operasional, 4. Tombol [Edit Operasional] */}
-            {isMobileSheetOpen && (
-              <div className="p-5 overflow-y-auto space-y-4 text-xs flex-1 animate-in fade-in duration-200">
-                {/* 1. Kategori Layanan (Badges) */}
-                <div className="space-y-1.5">
-                  <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
-                    Kategori Layanan
-                  </p>
-                  <div className="flex flex-wrap gap-1.5">
-                    {categoryDisplay.map((category, index) => (
-                      <span
-                        key={`mob-exp-${category}-${index}`}
-                        className="inline-flex items-center px-3 py-1.5 rounded-xl bg-blue-50 border border-blue-100 text-blue-700 text-xs font-semibold"
-                      >
-                        {category}
-                      </span>
-                    ))}
-                  </div>
-                </div>
 
                 {/* 2. Wilayah Layanan */}
                 <div className="space-y-1.5">
@@ -1872,273 +1727,369 @@ for (
                   </div>
                 </div>
 
-                {/* 4. Tombol [Edit Operasional] full-width di paling bawah */}
-                <div className="pt-2">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setIsEditModalOpen(true);
-                      setIsMobileSheetOpen(false);
-                    }}
-                    className="w-full py-3.5 rounded-xl bg-blue-600 hover:bg-blue-700 active:scale-[0.98] text-white font-semibold text-xs flex items-center justify-center gap-2 shadow-sm transition"
-                  >
-                    <Edit3 className="w-4 h-4" />
-                    <span>Edit Operasional</span>
-                  </button>
-                </div>
-              </div>
-            )}
-          </motion.div>
-        </div>
-      </div>
+                </>
+              )}
 
-      {/* =====================================================
-          6. MODAL EDIT OPERASIONAL
-          Form pop-up dengan header sticky, pilihan checkbox kategori,
-          select wilayah, time picker jam kerja, serta action buttons.
-          ===================================================== */}
-      {isEditModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-xs p-4">
-          <div className="w-full max-w-lg bg-white rounded-3xl shadow-2xl max-h-[90vh] flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-200">
-            {/* Header Sticky Modal */}
-            <div className="sticky top-0 z-10 bg-white flex items-center justify-between p-5 border-b border-slate-100">
-              <div>
-                <h3 className="text-base sm:text-lg font-bold text-slate-900">
-                  Edit Profil Operasional
-                </h3>
-                <p className="text-xs text-slate-500 mt-0.5">
-                  Perubahan kategori, wilayah, dan jadwal akan diajukan ke admin.
-                </p>
-              </div>
-
-              <button
-                type="button"
-                onClick={() => setIsEditModalOpen(false)}
-                className="w-9 h-9 rounded-xl bg-slate-100 hover:bg-slate-200 flex items-center justify-center text-slate-500 transition"
-              >
-                <X className="w-4 h-4" />
-              </button>
             </div>
-
-            {/* Form Body (Scrollable) */}
-            <form
-              onSubmit={handleSubmitOperasional}
-              className="p-5 sm:p-6 space-y-5 overflow-y-auto flex-1"
-            >
-              {/* Checkbox Kategori */}
-              <div>
-                <label className="block text-xs font-bold text-slate-700 mb-2">
-                  Kategori Layanan
-                </label>
-
-                <div className="border border-slate-200/90 rounded-2xl p-3 space-y-2 max-h-48 overflow-y-auto bg-slate-50/50">
-                  {listCategories.length > 0 ? (
-                    listCategories.map((category) => {
-                      const categoryId = Number(
-                        category.id ??
-                          category.id_kategori_layanan ??
-                          category.id_kategori
-                      );
-
-                      const categoryName =
-                        category.nama_kategori ||
-                        category.nama_layanan ||
-                        category.nama ||
-                        category.label ||
-                        `Kategori #${categoryId}`;
-
-                      const checked =
-                        formData.kategori_layanan.includes(categoryId);
-
-                      return (
-                        <label
-                          key={categoryId}
-                          className={`flex items-center gap-3 p-3 rounded-xl cursor-pointer border transition ${
-                            checked
-                              ? "bg-blue-50/90 border-blue-200 text-blue-900 shadow-xs"
-                              : "bg-white border-slate-200/60 hover:bg-slate-100/80 text-slate-700"
-                          }`}
-                        >
-                          <input
-                            type="checkbox"
-                            checked={checked}
-                            onChange={() => handleCategoryToggle(categoryId)}
-                            className="w-4 h-4 text-blue-600 rounded border-slate-300 focus:ring-blue-500 cursor-pointer"
-                          />
-                          <span className="text-xs font-medium">
-                            {categoryName}
-                          </span>
-                        </label>
-                      );
-                    })
-                  ) : (
-                    <p className="text-xs text-slate-400 p-2 text-center">
-                      Data kategori belum tersedia.
-                    </p>
-                  )}
-                </div>
-              </div>
-
-              {/* Select Wilayah */}
-              <div>
-                <label className="block text-xs font-bold text-slate-700 mb-2">
-                  Wilayah Layanan
-                </label>
-
-                <select
-                  value={formData.id_wilayah_layanan}
-                  onChange={(e) =>
-                    setFormData((prev) => ({
-                      ...prev,
-                      id_wilayah_layanan: e.target.value,
-                    }))
-                  }
-                  className="w-full px-4 py-3 rounded-xl border border-slate-200 bg-white text-xs font-medium text-slate-800 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100 transition"
-                  required
-                >
-                  <option value="">Pilih wilayah layanan</option>
-                  {listWilayah.map((wilayah) => {
-                    const id =
-                      wilayah.id_provinsi ??
-                      wilayah.id_wilayah_layanan ??
-                      wilayah.id;
-
-                    const name =
-                      wilayah.nama_provinsi ||
-                      wilayah.nama_wilayah ||
-                      wilayah.nama;
-
-                    return (
-                      <option key={id} value={id}>
-                        {name}
-                      </option>
-                    );
-                  })}
-                </select>
-              </div>
-
-              {/* Select Hari Operasional */}
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-2">
-                    Hari Mulai
-                  </label>
-                  <select
-                    value={formData.hari_mulai}
-                    onChange={(e) =>
-                      setFormData((prev) => ({
-                        ...prev,
-                        hari_mulai: e.target.value,
-                      }))
-                    }
-                    className="w-full px-3.5 py-3 rounded-xl border border-slate-200 bg-white text-xs font-medium text-slate-800 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100 transition"
-                    required
-                  >
-                    <option value="">Pilih hari</option>
-                    {LIST_HARI.map((hari) => (
-                      <option key={hari} value={hari}>
-                        {hari}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-2">
-                    Hari Selesai
-                  </label>
-                  <select
-                    value={formData.hari_selesai}
-                    onChange={(e) =>
-                      setFormData((prev) => ({
-                        ...prev,
-                        hari_selesai: e.target.value,
-                      }))
-                    }
-                    className="w-full px-3.5 py-3 rounded-xl border border-slate-200 bg-white text-xs font-medium text-slate-800 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100 transition"
-                    required
-                  >
-                    <option value="">Pilih hari</option>
-                    {LIST_HARI.map((hari) => (
-                      <option key={hari} value={hari}>
-                        {hari}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-
-              {/* Time Picker Jam Kerja */}
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-2">
-                    Jam Mulai
-                  </label>
-                  <input
-                    type="time"
-                    value={formData.jam_mulai}
-                    onChange={(e) =>
-                      setFormData((prev) => ({
-                        ...prev,
-                        jam_mulai: e.target.value,
-                      }))
-                    }
-                    className="w-full px-3.5 py-3 rounded-xl border border-slate-200 bg-white text-xs font-medium text-slate-800 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100 transition"
-                    required
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-2">
-                    Jam Selesai
-                  </label>
-                  <input
-                    type="time"
-                    value={formData.jam_selesai}
-                    onChange={(e) =>
-                      setFormData((prev) => ({
-                        ...prev,
-                        jam_selesai: e.target.value,
-                      }))
-                    }
-                    className="w-full px-3.5 py-3 rounded-xl border border-slate-200 bg-white text-xs font-medium text-slate-800 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100 transition"
-                    required
-                  />
-                </div>
-              </div>
-
-              {/* Info Pengajuan */}
-              <div className="rounded-2xl bg-amber-50/80 border border-amber-200/80 p-3.5 flex items-start gap-3">
-                <Hourglass className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
-                <p className="text-xs text-amber-800 leading-relaxed">
-                  Perubahan kategori, wilayah, dan jadwal akan menjadi pengajuan baru dan tidak langsung mengubah data aktif sebelum disetujui admin.
-                </p>
-              </div>
-
-              {/* Action Buttons di Bagian Bawah Modal */}
-              <div className="flex gap-3 pt-2">
-                <button
-                  type="button"
-                  onClick={() => setIsEditModalOpen(false)}
-                  disabled={submitting}
-                  className="flex-1 px-4 py-3 rounded-xl border border-slate-200 text-xs font-semibold text-slate-600 hover:bg-slate-50 transition active:scale-95"
-                >
-                  Batal
-                </button>
-
-                <button
-                  type="submit"
-                  disabled={submitting}
-                  className="flex-1 px-4 py-3 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold flex items-center justify-center gap-2 disabled:opacity-50 transition active:scale-95 shadow-sm"
-                >
-                  {submitting && <Loader2 className="w-4 h-4 animate-spin" />}
-                  {submitting ? "Mengirim..." : "Kirim ke Admin"}
-                </button>
-              </div>
-            </form>
           </div>
         </div>
-      )}
+
+        {/* ===================================================
+            MODAL EDIT
+            =================================================== */}
+
+        {isEditModalOpen && (
+          <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-slate-900/40 backdrop-blur-xs">
+
+            <div className="w-full sm:max-w-md bg-white rounded-t-3xl sm:rounded-3xl shadow-2xl p-6 max-h-[90vh] overflow-y-auto">
+
+              <div className="flex items-center justify-between pb-4 border-b border-slate-100">
+
+                <h3 className="text-lg font-bold text-slate-900">
+                  Edit Jam & Operasional
+                </h3>
+
+                <button
+                  onClick={() =>
+                    setIsEditModalOpen(
+                      false
+                    )
+                  }
+                  className="p-1.5 rounded-xl text-slate-400 hover:bg-slate-100"
+                >
+                  <X className="h-5 w-5" />
+                </button>
+
+              </div>
+
+              <form
+                onSubmit={
+                  handleSubmitOperasional
+                }
+                className="mt-4 space-y-4"
+              >
+
+                {/* WILAYAH */}
+                <div>
+
+                  <label className="text-xs font-semibold text-slate-700">
+                    Wilayah Layanan
+                  </label>
+
+                  <select
+                    value={
+                      formData.id_wilayah_layanan
+                    }
+                    onChange={(e) =>
+                      setFormData({
+                        ...formData,
+                        id_wilayah_layanan:
+                          e.target.value,
+                      })
+                    }
+                    className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2.5 text-xs font-medium outline-none focus:border-blue-500"
+                    required
+                  >
+
+                    <option value="">
+                      Pilih Wilayah Layanan
+                    </option>
+
+                    {listWilayah.map(
+                      (wil) => {
+
+                        const idVal =
+                          wil.id ??
+                          wil.id_wilayah_layanan ??
+                          wil.id_provinsi;
+
+                        const nameVal =
+                          wil.nama_provinsi ||
+                          wil.nama_wilayah ||
+                          wil.nama ||
+                          `Wilayah #${idVal}`;
+
+                        return (
+                          <option
+                            key={
+                              idVal
+                            }
+                            value={
+                              idVal
+                            }
+                          >
+                            {
+                              nameVal
+                            }
+                          </option>
+                        );
+                      }
+                    )}
+
+                  </select>
+
+                </div>
+
+                {/* KATEGORI */}
+                <div>
+
+                  <label className="text-xs font-semibold text-slate-700 block mb-1">
+                    Kategori Layanan
+                  </label>
+
+                  <div className="space-y-1.5 max-h-36 overflow-y-auto border border-slate-200 rounded-xl p-3 bg-slate-50/50">
+
+                    {listCategories.length >
+                    0 ? (
+                      listCategories.map(
+                        (cat) => {
+
+                          const catId =
+                            Number(
+                              cat.id ??
+                                cat.id_kategori_layanan
+                            );
+
+                          const catName =
+                            cat.nama_kategori ||
+                            cat.nama ||
+                            `Kategori #${catId}`;
+
+                          const checked =
+                            formData.kategori_layanan.includes(
+                              catId
+                            );
+
+                          return (
+                            <label
+                              key={
+                                catId
+                              }
+                              className="flex items-center gap-2.5 text-xs text-slate-700 cursor-pointer py-1"
+                            >
+
+                              <input
+                                type="checkbox"
+                                checked={
+                                  checked
+                                }
+                                onChange={() =>
+                                  handleCategoryToggle(
+                                    catId
+                                  )
+                                }
+                                className="rounded border-slate-300 text-blue-600 h-4 w-4"
+                              />
+
+                              <span>
+                                {
+                                  catName
+                                }
+                              </span>
+
+                            </label>
+                          );
+                        }
+                      )
+                    ) : (
+                      <p className="text-xs text-slate-400">
+                        Tidak ada data kategori layanan
+                      </p>
+                    )}
+
+                  </div>
+
+                </div>
+
+                {/* HARI */}
+                <div className="grid grid-cols-2 gap-3">
+
+                  <div>
+
+                    <label className="text-xs font-semibold text-slate-700">
+                      Hari Mulai
+                    </label>
+
+                    <select
+                      value={
+                        formData.hari_mulai
+                      }
+                      onChange={(e) =>
+                        setFormData({
+                          ...formData,
+                          hari_mulai:
+                            e.target.value,
+                        })
+                      }
+                      className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2.5 text-xs font-medium"
+                      required
+                    >
+
+                      <option value="">
+                        Pilih Hari
+                      </option>
+
+                      {LIST_HARI.map(
+                        (day) => (
+                          <option
+                            key={day}
+                            value={day}
+                          >
+                            {day}
+                          </option>
+                        )
+                      )}
+
+                    </select>
+
+                  </div>
+
+                  <div>
+
+                    <label className="text-xs font-semibold text-slate-700">
+                      Hari Selesai
+                    </label>
+
+                    <select
+                      value={
+                        formData.hari_selesai
+                      }
+                      onChange={(e) =>
+                        setFormData({
+                          ...formData,
+                          hari_selesai:
+                            e.target.value,
+                        })
+                      }
+                      className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2.5 text-xs font-medium"
+                      required
+                    >
+
+                      <option value="">
+                        Pilih Hari
+                      </option>
+
+                      {LIST_HARI.map(
+                        (day) => (
+                          <option
+                            key={day}
+                            value={day}
+                          >
+                            {day}
+                          </option>
+                        )
+                      )}
+
+                    </select>
+
+                  </div>
+
+                </div>
+
+                {/* JAM */}
+                <div className="grid grid-cols-2 gap-3">
+
+                  <div>
+
+                    <label className="text-xs font-semibold text-slate-700">
+                      Jam Mulai
+                    </label>
+
+                    <input
+                      type="time"
+                      value={
+                        formData.jam_mulai
+                      }
+                      onChange={(e) =>
+                        setFormData({
+                          ...formData,
+                          jam_mulai:
+                            e.target.value,
+                        })
+                      }
+                      className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-xs font-medium"
+                      required
+                    />
+
+                  </div>
+
+                  <div>
+
+                    <label className="text-xs font-semibold text-slate-700">
+                      Jam Selesai
+                    </label>
+
+                    <input
+                      type="time"
+                      value={
+                        formData.jam_selesai
+                      }
+                      onChange={(e) =>
+                        setFormData({
+                          ...formData,
+                          jam_selesai:
+                            e.target.value,
+                        })
+                      }
+                      className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-xs font-medium"
+                      required
+                    />
+
+                  </div>
+
+                </div>
+
+                <div className="rounded-xl bg-amber-50 p-3 border border-amber-200/60">
+
+                  <p className="text-[11px] font-medium text-amber-800">
+                    Perubahan jadwal & operasional akan diajukan ke admin untuk proses persetujuan.
+                  </p>
+
+                </div>
+
+                <div className="flex gap-2 pt-2">
+
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setIsEditModalOpen(
+                        false
+                      )
+                    }
+                    disabled={
+                      submitting
+                    }
+                    className="flex-1 py-2.5 rounded-xl border border-slate-200 text-xs font-semibold text-slate-600"
+                  >
+                    Batal
+                  </button>
+
+                  <button
+                    type="submit"
+                    disabled={
+                      submitting
+                    }
+                    className="flex-1 py-2.5 rounded-xl bg-blue-600 text-xs font-semibold text-white flex items-center justify-center gap-2"
+                  >
+
+                    {submitting && (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    )}
+
+                    {submitting
+                      ? "Mengirim..."
+                      : "Kirim ke Admin"}
+
+                  </button>
+
+                </div>
+
+              </form>
+            </div>
+          </div>
+        )}
+
+      </div>
     </>
   );
 }
