@@ -23,7 +23,7 @@ const HERO_SLIDES = [
     title: "Perawat Home Care Siap Membantu di Rumah Anda",
     description: "Pesan layanan perawat profesional dengan mudah, aman, dan nyaman langsung dari rumah Anda.",
     ctaLabel: "Pesan Sekarang",
-    ctaHref: "/pesan-laynan",
+    ctaHref: "/pesan-layanan",
     image: "https://perawatlansia.id/wp-content/uploads/2024/01/resize_nurse-or-doctor-who-work-as-homecare-staff-help-to-2023-11-27-04-56-33-utc-768x512.jpg",
   },
 ];
@@ -363,7 +363,7 @@ function LayananPageContent() {
               title: title || "Perawat Home Care Siap Membantu di Rumah Anda",
               description: description || "Pesan layanan perawat profesional dengan mudah, aman, dan nyaman langsung dari rumah Anda.",
               ctaLabel: "Pesan Sekarang",
-              ctaHref: "/pesan-laynan",
+              ctaHref: "/pesan-layanan",
               image: image || HERO_SLIDES[0].image,
             });
           }
@@ -554,9 +554,9 @@ function LayananPageContent() {
 
   const handleCategorySelect = (value) => {
     if (value) {
-      router.push(`/pesan-laynan?kategori=${encodeURIComponent(value)}`);
+      router.push(`/pesan-layanan?kategori=${encodeURIComponent(value)}`);
     } else {
-      router.push("/pesan-laynan");
+      router.push("/pesan-layanan");
     }
   };
 

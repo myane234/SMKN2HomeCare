@@ -222,7 +222,7 @@ function LayananPageContent() {
           </p>
           <div className="mt-6 flex justify-center gap-3">
             <Link
-              href="/pesan-laynan"
+              href="/pesan-layanan"
               className="inline-flex items-center justify-center rounded-full bg-sky-600 px-6 py-3 text-sm font-semibold text-white shadow-md hover:bg-sky-700 transition"
             >
               Pesan Layanan Langsung →

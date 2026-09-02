@@ -34,7 +34,12 @@ export default function Navbar() {
     const originalNavRef = useRef(null);
 
     useEffect(() => {
-        setIsLoggedIn(document.cookie.includes("is_logged_in=true"));
+        const checkAuth = () => {
+            const cookies = document.cookie.split('; ');
+            const hasToken = cookies.some(row => row.startsWith('auth_token=') || row.startsWith('smarthomecare-session='));
+            setIsLoggedIn(hasToken);
+        };
+        checkAuth();
 
         const handleScroll = () => {
             if (originalNavRef.current) {
@@ -58,6 +63,9 @@ export default function Navbar() {
     useEffect(() => {
         setIsMobileMenuOpen(false);
         setIsSearchOpen(false);
+        const cookies = document.cookie.split('; ');
+        const hasToken = cookies.some(row => row.startsWith('auth_token=') || row.startsWith('smarthomecare-session='));
+        setIsLoggedIn(hasToken);
     }, [pathname]);
 
     useEffect(() => {
@@ -180,15 +188,15 @@ export default function Navbar() {
                 </li>
                 <li>
                     <Link 
-                        href="/pesan-laynan" 
+                        href="/pesan-layanan" 
                         className={`relative px-4 py-2 rounded-lg text-sm transition-all duration-300 ease-in-out hover:bg-gray-50 ${
-                            pathname.startsWith("/pesan-laynan") 
+                            pathname.startsWith("/pesan-layanan") 
                                 ? "text-green-600 font-semibold" 
                                 : "text-gray-600 hover:text-green-600"
                         }`}
                     >
                         Pesan Layanan
-                        {pathname.startsWith("/pesan-laynan") && (
+                        {pathname.startsWith("/pesan-layanan") && (
                             <span className="absolute bottom-0 left-1/2 -translate-x-1/2 w-5 h-0.5 bg-green-500 rounded-full" />
                         )}
                     </Link>
@@ -356,10 +364,10 @@ export default function Navbar() {
                             </li>
                             <li>
                                 <Link 
-                                    href="/pesan-laynan" 
+                                    href="/pesan-layanan" 
                                     onClick={() => setIsMobileMenuOpen(false)}
                                     className={`flex items-center gap-3 px-3 py-3 rounded-lg transition-all duration-300 ease-in-out ${
-                                        pathname.startsWith("/pesan-laynan") 
+                                        pathname.startsWith("/pesan-layanan") 
                                             ? "bg-green-50 text-green-600" 
                                             : "text-gray-700 hover:bg-gray-50 hover:text-green-600"
                                     }`}
@@ -470,20 +478,20 @@ export default function Navbar() {
                 </Link>
 
                 <Link 
-                    href="/pesan-laynan" 
+                    href="/pesan-layanan" 
                     className={`flex flex-col items-center gap-1 text-[11px] sm:text-xs transition-all duration-300 ease-in-out group ${
-                        pathname.startsWith("/pesan-laynan") 
+                        pathname.startsWith("/pesan-layanan") 
                             ? "text-green-600 font-bold" 
                             : "hover:text-green-600"
                     }`}
                 >
                     <div className={`p-1.5 rounded-lg transition-all duration-300 ease-in-out ${
-                        pathname.startsWith("/pesan-laynan") 
+                        pathname.startsWith("/pesan-layanan") 
                             ? "bg-green-50" 
                             : "group-hover:bg-green-50/50"
                     }`}>
                         <FiCalendar className={`w-5 h-5 sm:w-5.5 sm:h-5.5 transition-all duration-300 ${
-                            pathname.startsWith("/pesan-laynan") ? "stroke-[2.5]" : "stroke-2"
+                            pathname.startsWith("/pesan-layanan") ? "stroke-[2.5]" : "stroke-2"
                         }`} />
                     </div>
                     <span className="transition-colors duration-300">Pesan</span>
