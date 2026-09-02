@@ -47,6 +47,12 @@ function getCategoryMeta(category) {
   return CATEGORY_META[(category || "").toLowerCase()] || CATEGORY_META.default;
 }
 
+/**
+ * ===================== FOTO KATEGORI (fallback) =====================
+ * Fallback statis kalau backend belum mengirim photo_kategori untuk
+ * kategori tertentu. Prioritas utama tetap dari API /api/layanan/kategori
+ * (field photo_kategori) — lihat categoryPhotos di bawah.
+ */
 const CATEGORY_IMAGE = {
   "fisioterapi": "",
   "home care": "",
@@ -305,6 +311,9 @@ function LayananPageContent() {
   const [allServices, setAllServices] = useState([]);
   const [filteredServices, setFilteredServices] = useState([]);
   const [categories, setCategories] = useState([]);
+  const [categoryPhotos, setCategoryPhotos] = useState({});
+  const [brokenCategoryPhotos, setBrokenCategoryPhotos] = useState({});
+  const [brokenPromoPhotos, setBrokenPromoPhotos] = useState({});
   const [loading, setLoading] = useState(true);
   const [selectedService, setSelectedService] = useState(null);
   const [modalVisible, setModalVisible] = useState(false);
@@ -472,12 +481,28 @@ function LayananPageContent() {
         }
 
         let catList = [];
+        const photoMap = {};
         if (categoriesRes.status === "fulfilled") {
           const catResponseData = categoriesRes.value.data?.data || categoriesRes.value.data;
           if (Array.isArray(catResponseData)) {
-            catList = catResponseData
-              .map((c) => (typeof c === "string" ? c : getTextValue(c, ["nama_kategori", "nama", "kategori", "category"])))
-              .filter(Boolean);
+            catResponseData.forEach((c) => {
+              if (typeof c === "string") {
+                catList.push(c);
+                return;
+              }
+              const name = getTextValue(c, ["nama_kategori", "nama", "kategori", "category"]);
+              if (!name) return;
+              catList.push(name);
+
+              const rawPhoto =
+                c.photo_kategori_url || c.foto_kategori_url ||
+                c.photo_kategori || c.foto_kategori || c.image_kategori || c.image || c.photo;
+              if (rawPhoto) {
+                photoMap[name.toLowerCase()] = /^https?:\/\//i.test(rawPhoto)
+                  ? rawPhoto
+                  : resolveImageUrl(rawPhoto);
+              }
+            });
           }
         }
 
@@ -492,6 +517,7 @@ function LayananPageContent() {
         const mergedCategories = Array.from(new Set([...catList, ...uniqueFromItems]))
           .filter((c) => c && c.toLowerCase() !== "home care" && c.toLowerCase() !== "homecare");
         setCategories(mergedCategories);
+        setCategoryPhotos(photoMap);
       } catch (error) {
         console.error("Gagal memuat data layanan", error);
       } finally {
@@ -840,7 +866,8 @@ function LayananPageContent() {
               ) : (
                 <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
                   {categoryOptions.map((category) => {
-                    const photo = getCategoryImage(category);
+                    const photo = categoryPhotos[category.toLowerCase()] || getCategoryImage(category);
+                    const photoFailed = brokenCategoryPhotos[category.toLowerCase()];
                     return (
                       <button
                         key={category}
@@ -849,14 +876,21 @@ function LayananPageContent() {
                         className="group flex flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white text-left transition-all duration-200 hover:-translate-y-0.5 hover:border-blue-300 hover:shadow-lg active:scale-[0.99]"
                       >
                         <div className="aspect-[4/3] w-full overflow-hidden bg-slate-100">
-                          {photo ? (
+                          {photo && !photoFailed ? (
                             <img
                               src={photo}
                               alt={category}
                               loading="lazy"
+                              onError={() =>
+                                setBrokenCategoryPhotos((prev) => ({ ...prev, [category.toLowerCase()]: true }))
+                              }
                               className="h-full w-full object-cover transition duration-300 group-hover:scale-105"
                             />
-                          ) : null}
+                          ) : (
+                            <div className="flex h-full w-full items-center justify-center text-slate-300">
+                              <CategoryIcon name={category} className="h-8 w-8" />
+                            </div>
+                          )}
                         </div>
 
                         <div className="flex flex-1 flex-col p-4 sm:p-5">
@@ -897,27 +931,54 @@ function LayananPageContent() {
                       const title = getTextValue(promo, ["nama_paket", "nama", "title"]);
                       const desc = getTextValue(promo, ["deskripsi", "description"]);
                       const disc = promo.diskon_persen;
+                      const rawImage = promo.gambar_promo_url || promo.gambar_promo || promo.image;
+                      const image = rawImage
+                        ? /^https?:\/\//i.test(rawImage)
+                          ? rawImage
+                          : resolveImageUrl(rawImage)
+                        : "";
+                      const imageFailed = brokenPromoPhotos[promoId];
 
                       return (
                         <div
                           key={promoId}
-                          className="flex min-w-[70vw] max-w-[70vw] shrink-0 snap-start flex-col justify-between rounded-xl border border-slate-200 bg-white p-4 transition-all duration-200 hover:-translate-y-0.5 hover:border-blue-200 hover:shadow-md sm:min-w-[240px] sm:max-w-[240px] md:min-w-0 md:max-w-none md:w-full"
+                          className="flex min-w-[70vw] max-w-[70vw] shrink-0 snap-start flex-col overflow-hidden rounded-xl border border-slate-200 bg-white transition-all duration-200 hover:-translate-y-0.5 hover:border-blue-200 hover:shadow-md sm:min-w-[240px] sm:max-w-[240px] md:min-w-0 md:max-w-none md:w-full"
                         >
-                          <div>
-                            <span className="inline-flex items-center gap-1 rounded-full bg-blue-50 px-2 py-0.5 text-[10px] font-semibold text-blue-600">
-                              <TagIcon className="h-3 w-3" />
-                              {disc ? `Diskon ${disc}%` : "Promo"}
-                            </span>
-                            <h3 className="mt-2 text-sm font-semibold leading-snug text-slate-900">{title}</h3>
-                            <p className="mt-1 text-xs leading-relaxed text-slate-500">{desc}</p>
+                          <div className="relative h-32 w-full overflow-hidden bg-slate-100">
+                            {image && !imageFailed ? (
+                              <img
+                                src={image}
+                                alt={title || "Promo"}
+                                loading="lazy"
+                                onError={() =>
+                                  setBrokenPromoPhotos((prev) => ({ ...prev, [promoId]: true }))
+                                }
+                                className="h-full w-full object-cover transition duration-300"
+                              />
+                            ) : (
+                              <div className="flex h-full w-full items-center justify-center text-slate-300">
+                                <TagIcon className="h-8 w-8" />
+                              </div>
+                            )}
+                            {disc ? (
+                              <span className="absolute left-2 top-2 inline-flex items-center gap-1 rounded-full bg-blue-600 px-2 py-0.5 text-[10px] font-bold text-white shadow-sm">
+                                <TagIcon className="h-3 w-3" />
+                                Diskon {Number(disc)}%
+                              </span>
+                            ) : null}
                           </div>
-                          <Link
-                            href="/promo"
-                            className="group mt-3 inline-flex items-center text-xs font-semibold text-blue-600 hover:underline"
-                          >
-                            Lihat Paket
-                            <span className="ml-1 transition-transform duration-200 group-hover:translate-x-0.5">→</span>
-                          </Link>
+
+                          <div className="flex flex-1 flex-col p-4">
+                            <h3 className="text-sm font-semibold leading-snug text-slate-900">{title}</h3>
+                            <p className="mt-1 line-clamp-2 text-xs leading-relaxed text-slate-500">{desc}</p>
+                            <Link
+                              href="/promo"
+                              className="group mt-3 inline-flex items-center text-xs font-semibold text-blue-600 hover:underline"
+                            >
+                              Lihat Paket
+                              <span className="ml-1 transition-transform duration-200 group-hover:translate-x-0.5">→</span>
+                            </Link>
+                          </div>
                         </div>
                       );
                     })}
