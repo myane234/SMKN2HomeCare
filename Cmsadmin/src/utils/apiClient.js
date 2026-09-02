@@ -22,14 +22,23 @@ async function handleResponse(res) {
   return body;
 }
 
+function resolveUrl(path) {
+  if (path.startsWith("http")) return path;
+  const cleanPath = path.startsWith("/") ? path : `/${path}`;
+  if (BASE_URL.endsWith("/api") && cleanPath.startsWith("/api/")) {
+    return cleanPath;
+  }
+  return `${BASE_URL}${cleanPath}`;
+}
+
 export async function apiGet(path) {
-  const fullUrl = path.startsWith("http") ? path : `${BASE_URL}${path.startsWith("/") ? "" : "/"}${path}`;
+  const fullUrl = resolveUrl(path);
   const res = await fetch(fullUrl, { headers: getAuthHeaders() });
   return handleResponse(res);
 }
 
 export async function apiPost(path, data) {
-  const fullUrl = path.startsWith("http") ? path : `${BASE_URL}${path.startsWith("/") ? "" : "/"}${path}`;
+  const fullUrl = resolveUrl(path);
   const isFormData = typeof FormData !== "undefined" && data instanceof FormData;
   const res = await fetch(fullUrl, {
     method: 'POST',
@@ -40,7 +49,7 @@ export async function apiPost(path, data) {
 }
 
 export async function apiPut(path, data) {
-  const fullUrl = path.startsWith("http") ? path : `${BASE_URL}${path.startsWith("/") ? "" : "/"}${path}`;
+  const fullUrl = resolveUrl(path);
   const isFormData = typeof FormData !== "undefined" && data instanceof FormData;
   const res = await fetch(fullUrl, {
     method: 'PUT',
@@ -51,7 +60,7 @@ export async function apiPut(path, data) {
 }
 
 export async function apiDelete(path) {
-  const fullUrl = path.startsWith("http") ? path : `${BASE_URL}${path.startsWith("/") ? "" : "/"}${path}`;
+  const fullUrl = resolveUrl(path);
   const res = await fetch(fullUrl, {
     method: 'DELETE',
     headers: getAuthHeaders(),

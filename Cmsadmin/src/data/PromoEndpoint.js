@@ -62,7 +62,6 @@ function normalizePromo(raw) {
   };
 }
 
-// ini buat update terakhir
 export async function getAllPromo() {
   const res = await fetch(`${URL}/promo/`, { method: 'GET', headers: buildHeaders() });
   const json = await parseJsonResponse(res);

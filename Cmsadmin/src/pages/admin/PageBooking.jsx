@@ -94,10 +94,11 @@ export default function PageBooking() {
           headers: getAuthHeaders({ Accept: "application/json" }),
         });
         const data = await res.json();
-        if (!res.ok || !data.success) {
-          throw new Error(data.message || "Gagal mengambil data booking");
+        if (!res.ok) {
+          throw new Error(data?.message || "Gagal mengambil data booking");
         }
-        setBookings(data.data || []);
+        const list = Array.isArray(data?.data) ? data.data : (Array.isArray(data) ? data : []);
+        setBookings(list);
       } catch (err) {
         console.error("Gagal mengambil data booking", err);
         setErrorMsg(err.message || "Gagal mengambil data booking");
