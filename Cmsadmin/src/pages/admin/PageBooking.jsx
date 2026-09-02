@@ -1,8 +1,11 @@
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { BASE_URL } from "../../utils/apiClient";
+// import { BASE_URL } from "../../utils/apiClient";
+import { URL } from "../../utils/getUrl";
 import { getAuthHeaders } from "../../utils/auth";
 import Pagination from "../../components/pagination";
+
+const BASE_URL = URL; 
 
 // ==========================================
 // UTILS & HELPER FUNCTIONS

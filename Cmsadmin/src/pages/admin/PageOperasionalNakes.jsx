@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import {
   getAllOperasionalNakes,
+  getOperasionalNakesById,
   approveOperasionalNakes,
   rejectOperasionalNakes,
 } from '../../data/nakesOperasionalData';
@@ -13,59 +14,51 @@ export default function PageOperasionalNakes() {
   const [loading, setLoading] = useState(true);
   const [errorMsg, setErrorMsg] = useState('');
 
-  // Master data
   const [masterKategoriMap, setMasterKategoriMap] = useState({});
   const [listKategori, setListKategori] = useState([]);
   const [masterWilayahMap, setMasterWilayahMap] = useState({});
   const [listWilayah, setListWilayah] = useState([]);
 
-  // Filters
   const [search, setSearch] = useState('');
   const [kategoriFilter, setKategoriFilter] = useState('all');
   const [wilayahFilter, setWilayahFilter] = useState('all');
 
-  // Pagination
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
 
-  // Modal / action
   const [detailTarget, setDetailTarget] = useState(null);
   const [rejectTarget, setRejectTarget] = useState(null);
   const [approveTarget, setApproveTarget] = useState(null);
+
   const [adminNotes, setAdminNotes] = useState('');
   const [processing, setProcessing] = useState(false);
+  const [detailLoading, setDetailLoading] = useState(false);
+  const [photoMap, setPhotoMap] = useState({});
 
-  // Success popup
   const [successMessage, setSuccessMessage] = useState('');
-
-  // =========================================================
-  // LOAD DATA
-  // =========================================================
 
   async function loadData() {
     setLoading(true);
     setErrorMsg('');
 
     try {
-      const [
-        opData,
-        katData,
-        wilData,
-      ] = await Promise.all([
-        getAllOperasionalNakes(),
-        getKategoriLayanan().catch(() => []),
-        getAllWilayahLayanan().catch(() => []),
-      ]);
+      const [opData, katData, wilData] =
+        await Promise.all([
+          getAllOperasionalNakes(),
+          getKategoriLayanan().catch(() => []),
+          getAllWilayahLayanan().catch(() => []),
+        ]);
 
-      const operationalList = Array.isArray(opData)
-        ? opData
-        : opData?.data || [];
+      const operationalList =
+        Array.isArray(opData)
+          ? opData
+          : opData?.data || [];
 
-      setRequests(operationalList);
-
-      // -----------------------------------------------------
-      // MASTER KATEGORI
-      // -----------------------------------------------------
+      setRequests(
+        Array.isArray(operationalList)
+          ? operationalList
+          : []
+      );
 
       const kategoriMap = {};
       const kategoriNames = [];
@@ -86,6 +79,7 @@ export default function PageOperasionalNakes() {
             name
           ) {
             kategoriMap[id] = name;
+            kategoriMap[String(id)] = name;
           }
 
           if (name) {
@@ -94,14 +88,15 @@ export default function PageOperasionalNakes() {
         });
       }
 
-      setMasterKategoriMap(kategoriMap);
-      setListKategori(
-        Array.from(new Set(kategoriNames))
+      setMasterKategoriMap(
+        kategoriMap
       );
 
-      // -----------------------------------------------------
-      // MASTER WILAYAH
-      // -----------------------------------------------------
+      setListKategori(
+        Array.from(
+          new Set(kategoriNames)
+        )
+      );
 
       const wilayahMap = {};
       const wilayahNames = [];
@@ -124,6 +119,8 @@ export default function PageOperasionalNakes() {
             name
           ) {
             wilayahMap[id] = name;
+            wilayahMap[String(id)] =
+              name;
           }
 
           if (name) {
@@ -132,9 +129,14 @@ export default function PageOperasionalNakes() {
         });
       }
 
-      setMasterWilayahMap(wilayahMap);
+      setMasterWilayahMap(
+        wilayahMap
+      );
+
       setListWilayah(
-        Array.from(new Set(wilayahNames))
+        Array.from(
+          new Set(wilayahNames)
+        )
       );
     } catch (error) {
       setErrorMsg(
@@ -158,16 +160,29 @@ export default function PageOperasionalNakes() {
     wilayahFilter,
   ]);
 
-  // =========================================================
-  // HELPERS
-  // =========================================================
-
   const resolveCategoryNames = (raw) => {
     if (!raw) return [];
 
-    const list = Array.isArray(raw)
+    let list = Array.isArray(raw)
       ? raw
       : [raw];
+
+    if (
+      typeof raw === 'string'
+    ) {
+      try {
+        const parsed =
+          JSON.parse(raw);
+
+        list = Array.isArray(
+          parsed
+        )
+          ? parsed
+          : [raw];
+      } catch {
+        list = [raw];
+      }
+    }
 
     return list
       .map((item) => {
@@ -176,15 +191,18 @@ export default function PageOperasionalNakes() {
           item !== null
         ) {
           return (
-            item?.nama_kategori ||
-            item?.nama ||
+            item?.nama_kategori ??
+            item?.nama_kategori_layanan ??
+            item?.nama ??
             ''
           );
         }
 
         return (
-          masterKategoriMap[item] ||
-          masterKategoriMap[String(item)] ||
+          masterKategoriMap[item] ??
+          masterKategoriMap[
+            String(item)
+          ] ??
           ''
         );
       })
@@ -196,14 +214,20 @@ export default function PageOperasionalNakes() {
 
     const wilayahId =
       item?.id_wilayah_layanan ??
-      item?.id_wilayah;
+      item?.id_wilayah ??
+      item?.wilayah_layanan
+        ?.id_wilayah_layanan ??
+      item?.wilayah_layanan
+        ?.id_provinsi;
 
     if (
       wilayahId !== undefined &&
       wilayahId !== null
     ) {
       const mapped =
-        masterWilayahMap[wilayahId] ??
+        masterWilayahMap[
+          wilayahId
+        ] ??
         masterWilayahMap[
           String(wilayahId)
         ];
@@ -219,18 +243,20 @@ export default function PageOperasionalNakes() {
 
     if (
       wilayahObject &&
-      typeof wilayahObject === 'object'
+      typeof wilayahObject ===
+        'object'
     ) {
       return (
-        wilayahObject?.nama_provinsi ||
-        wilayahObject?.nama_wilayah ||
-        wilayahObject?.nama ||
+        wilayahObject?.nama_provinsi ??
+        wilayahObject?.nama_wilayah ??
+        wilayahObject?.nama ??
         '-'
       );
     }
 
     if (
-      typeof wilayahObject === 'string' &&
+      typeof wilayahObject ===
+        'string' &&
       wilayahObject.trim()
     ) {
       return wilayahObject;
@@ -239,12 +265,16 @@ export default function PageOperasionalNakes() {
     return '-';
   };
 
-  const normalizeSchedule = (value) => {
+  const normalizeSchedule = (
+    value
+  ) => {
     if (!value) return [];
 
     let result = value;
 
-    if (typeof result === 'string') {
+    if (
+      typeof result === 'string'
+    ) {
       try {
         result = JSON.parse(result);
       } catch {
@@ -263,12 +293,24 @@ export default function PageOperasionalNakes() {
       : [];
   };
 
-  const formatSchedule = (value) => {
+  const formatSchedule = (
+    value
+  ) => {
     const waktu =
       normalizeSchedule(value);
 
     if (waktu.length === 0) {
       return '-';
+    }
+
+    if (waktu.length === 1) {
+      const first = waktu[0];
+
+      return `${first.hari}, ${String(
+        first.jam_mulai
+      ).slice(0, 5)} - ${String(
+        first.jam_selesai
+      ).slice(0, 5)}`;
     }
 
     const first = waktu[0];
@@ -283,21 +325,12 @@ export default function PageOperasionalNakes() {
       first?.jam_selesai || ''
     ).slice(0, 5);
 
-    if (
-      first?.hari ===
-      last?.hari
-    ) {
-      return `${first.hari}, ${jamMulai} - ${jamSelesai}`;
-    }
-
     return `${first.hari} - ${last.hari}, ${jamMulai} - ${jamSelesai}`;
   };
 
-  /**
-   * Identitas nakes untuk mencari
-   * data approved milik nakes yang sama.
-   */
-  const getNakesKey = (item) => {
+  const getNakesKey = (
+    item
+  ) => {
     if (!item) return '';
 
     const tenagaMedisId =
@@ -329,20 +362,27 @@ export default function PageOperasionalNakes() {
     const str =
       item?.tenaga_medis
         ?.nomor_str ??
-      item?.tenaga_medis?.no_str ??
+      item?.tenaga_medis
+        ?.no_str ??
       item?.no_str ??
       item?.str ??
       item?.nakes?.no_str ??
       '';
 
-    return `name:${String(nama)
+    return `name:${String(
+      nama
+    )
       .trim()
-      .toLowerCase()}|str:${String(str)
+      .toLowerCase()}|str:${String(
+      str
+    )
       .trim()
       .toLowerCase()}`;
   };
 
-  const findActiveRecord = (item) => {
+  const findActiveRecord = (
+    item
+  ) => {
     if (!item) return null;
 
     if (
@@ -373,43 +413,72 @@ export default function PageOperasionalNakes() {
           );
         })
         .sort((a, b) => {
-          const dateA = new Date(
-            a?.updated_at ||
-              a?.created_at ||
-              0
-          ).getTime();
+          const dateA =
+            new Date(
+              a?.updated_at ||
+                a?.created_at ||
+                0
+            ).getTime();
 
-          const dateB = new Date(
-            b?.updated_at ||
-              b?.created_at ||
-              0
-          ).getTime();
+          const dateB =
+            new Date(
+              b?.updated_at ||
+                b?.created_at ||
+                0
+            ).getTime();
 
           return dateB - dateA;
         });
 
-    return approved[0] || null;
+    return (
+      approved[0] || null
+    );
   };
 
-  // =========================================================
-  // FILTER
-  // =========================================================
+  const getItemId = (item) =>
+    item?.id_operasional_nakes ??
+    item?.id_tenaga_medis ??
+    item?.id;
+
+  const getNakesPhoto = (
+    item
+  ) => {
+    if (!item) return null;
+
+    return (
+      item?.tenaga_medis?.pas_foto ??
+      item?.tenaga_medis?.foto_profile ??
+      item?.tenaga_medis?.foto_profil ??
+      item?.tenaga_medis?.foto ??
+      item?.tenaga_medis?.avatar ??
+      item?.nakes?.pas_foto ??
+      item?.nakes?.foto_profile ??
+      item?.nakes?.foto ??
+      item?.pas_foto ??
+      item?.foto_profile ??
+      item?.foto_profil ??
+      item?.foto ??
+      item?.avatar ??
+      null
+    );
+  };
 
   const filtered = requests.filter(
     (item) => {
       const status =
-        String(item?.status || '').toLowerCase();
+        String(
+          item?.status || ''
+        ).toLowerCase();
 
       if (
         status === 'approved' ||
         status === 'rejected'
       ) {
         return false;
-      } 
+      }
 
-      const query = search
-        .trim()
-        .toLowerCase();
+      const query =
+        search.trim().toLowerCase();
 
       const nama = String(
         item?.tenaga_medis
@@ -425,8 +494,7 @@ export default function PageOperasionalNakes() {
       const str = String(
         item?.tenaga_medis
           ?.nomor_str ??
-          item?.tenaga_medis
-            ?.no_str ??
+          item?.tenaga_medis?.no_str ??
           item?.no_str ??
           item?.str ??
           item?.nakes?.no_str ??
@@ -475,7 +543,16 @@ export default function PageOperasionalNakes() {
       return (
         nama.includes(query) ||
         str.includes(query) ||
-        jenis.includes(query)
+        jenis.includes(query) ||
+        wilayah
+          .toLowerCase()
+          .includes(query) ||
+        kategoriList.some(
+          (item) =>
+            item
+              .toLowerCase()
+              .includes(query)
+        )
       );
     }
   );
@@ -496,29 +573,99 @@ export default function PageOperasionalNakes() {
         itemsPerPage
     );
 
-  // =========================================================
-  // SUCCESS POPUP
-  // =========================================================
-
-  const showSuccess = (message) => {
-    setSuccessMessage(message);
+  const showSuccess = (
+    message
+  ) => {
+    setSuccessMessage(
+      message
+    );
 
     setTimeout(() => {
       setSuccessMessage('');
     }, 3000);
   };
 
-  // =========================================================
-  // APPROVE
-  // =========================================================
-
-  async function handleConfirmApprove() {
-    if (!approveTarget) return;
+  async function openDetail(
+    item
+  ) {
+    setDetailTarget(item);
 
     const targetId =
-      approveTarget?.id_operasional_nakes ??
-      approveTarget?.id_tenaga_medis ??
-      approveTarget?.id;
+      getItemId(item);
+
+    if (!targetId) {
+      return;
+    }
+
+    setDetailLoading(true);
+
+    try {
+      const detail =
+        await getOperasionalNakesById(
+          targetId
+        );
+
+      const detailData =
+        detail?.data ??
+        detail;
+
+      if (
+        detailData &&
+        typeof detailData ===
+          'object'
+      ) {
+        setDetailTarget(
+          (current) => ({
+            ...(current || {}),
+            ...detailData,
+            data_aktif:
+              detailData?.data_aktif ??
+              current?.data_aktif,
+          })
+        );
+
+        const photo =
+          getNakesPhoto(
+            detailData
+          );
+
+        if (photo) {
+          setPhotoMap(
+            (prev) => ({
+              ...prev,
+              [String(
+                targetId
+              )]: photo,
+            })
+          );
+        }
+      }
+    } catch (error) {
+      console.warn(
+        'Gagal mengambil detail operasional:',
+        error?.message ||
+          error
+      );
+    } finally {
+      setDetailLoading(false);
+    }
+  }
+
+  async function handleConfirmApprove() {
+    if (!approveTarget)
+      return;
+
+    const targetId =
+      getItemId(
+        approveTarget
+      );
+
+    if (!targetId) {
+      alert(
+        'ID operasional tidak ditemukan.'
+      );
+      return;
+    }
 
     setProcessing(true);
 
@@ -545,24 +692,37 @@ export default function PageOperasionalNakes() {
     }
   }
 
-  // =========================================================
-  // REJECT
-  // =========================================================
-
   async function handleConfirmReject() {
-    if (!rejectTarget) return;
+    if (!rejectTarget)
+      return;
 
     const targetId =
-      rejectTarget?.id_operasional_nakes ??
-      rejectTarget?.id_tenaga_medis ??
-      rejectTarget?.id;
+      getItemId(
+        rejectTarget
+      );
+
+    if (!targetId) {
+      alert(
+        'ID operasional tidak ditemukan.'
+      );
+      return;
+    }
+
+    if (
+      !adminNotes.trim()
+    ) {
+      alert(
+        'Catatan admin wajib diisi saat menolak pengajuan.'
+      );
+      return;
+    }
 
     setProcessing(true);
 
     try {
       await rejectOperasionalNakes(
         targetId,
-        adminNotes
+        adminNotes.trim()
       );
 
       setRejectTarget(null);
@@ -584,21 +744,12 @@ export default function PageOperasionalNakes() {
     }
   }
 
-  // =========================================================
-  // RENDER
-  // =========================================================
-
   return (
     <div className="space-y-6">
-
-      {/* =====================================================
-          SUCCESS POPUP - CENTER
-          ===================================================== */}
-
+      {/* SUCCESS POPUP */}
       {successMessage && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/30 p-4">
           <div className="w-full max-w-sm rounded-2xl bg-white shadow-2xl border border-slate-100 p-6 text-center">
-
             <div className="mx-auto mb-4 h-14 w-14 rounded-full bg-emerald-50 flex items-center justify-center">
               <svg
                 className="h-7 w-7 text-emerald-600"
@@ -622,15 +773,11 @@ export default function PageOperasionalNakes() {
             <p className="mt-2 text-sm text-slate-500">
               {successMessage}
             </p>
-
           </div>
         </div>
       )}
 
-      {/* =====================================================
-          HEADER
-          ===================================================== */}
-
+      {/* HEADER */}
       <div>
         <h1 className="text-2xl font-bold text-slate-900">
           Operasional Nakes
@@ -641,14 +788,9 @@ export default function PageOperasionalNakes() {
         </p>
       </div>
 
-      {/* =====================================================
-          FILTER
-          ===================================================== */}
-
+      {/* FILTER */}
       <div className="bg-white rounded-2xl p-4 shadow-sm border border-slate-100 flex flex-col md:flex-row gap-4 items-center justify-between">
-
         <div className="relative w-full md:w-[360px]">
-
           <span className="absolute inset-y-0 left-0 flex items-center pl-3.5 pointer-events-none text-slate-400">
             <svg
               className="w-4 h-4"
@@ -679,7 +821,6 @@ export default function PageOperasionalNakes() {
         </div>
 
         <div className="flex flex-wrap w-full md:w-auto gap-3 items-center">
-
           <select
             value={kategoriFilter}
             onChange={(e) =>
@@ -694,9 +835,12 @@ export default function PageOperasionalNakes() {
             </option>
 
             {listKategori.map(
-              (kategori, index) => (
+              (
+                kategori,
+                index
+              ) => (
                 <option
-                  key={index}
+                  key={`${kategori}-${index}`}
                   value={kategori}
                 >
                   {kategori}
@@ -719,9 +863,12 @@ export default function PageOperasionalNakes() {
             </option>
 
             {listWilayah.map(
-              (wilayah, index) => (
+              (
+                wilayah,
+                index
+              ) => (
                 <option
-                  key={index}
+                  key={`${wilayah}-${index}`}
                   value={wilayah}
                 >
                   {wilayah}
@@ -729,26 +876,18 @@ export default function PageOperasionalNakes() {
               )
             )}
           </select>
-
         </div>
       </div>
 
-      {/* =====================================================
-          ERROR
-          ===================================================== */}
-
+      {/* ERROR */}
       {errorMsg && (
         <div className="rounded-xl bg-red-50 p-4 text-sm text-red-600 border border-red-100">
           {errorMsg}
         </div>
       )}
 
-      {/* =====================================================
-          TABLE
-          ===================================================== */}
-
+      {/* TABLE */}
       <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
-
         {loading ? (
           <div className="p-10 text-center text-sm text-slate-500">
             Memuat data operasional nakes...
@@ -756,12 +895,9 @@ export default function PageOperasionalNakes() {
         ) : (
           <>
             <div className="overflow-x-auto">
-
               <table className="w-full text-left border-collapse">
-
                 <thead>
                   <tr className="border-b border-slate-100 bg-slate-50/50">
-
                     <th className="py-4 px-6 text-xs font-semibold text-slate-400 uppercase tracking-wider">
                       NO
                     </th>
@@ -789,23 +925,24 @@ export default function PageOperasionalNakes() {
                     <th className="py-4 px-6 text-xs font-semibold text-slate-400 uppercase tracking-wider text-right">
                       AKSI
                     </th>
-
                   </tr>
                 </thead>
 
                 <tbody className="divide-y divide-slate-100">
-
                   {paginatedData.length > 0 ? (
                     paginatedData.map(
-                      (item, index) => {
-
+                      (
+                        item,
+                        index
+                      ) => {
                         const reqId =
-                          item?.id_operasional_nakes ??
-                          item?.id_tenaga_medis ??
-                          item?.id;
+                          getItemId(
+                            item
+                          );
 
                         const itemNumber =
-                          (currentPage - 1) *
+                          (currentPage -
+                            1) *
                             itemsPerPage +
                           index +
                           1;
@@ -831,17 +968,21 @@ export default function PageOperasionalNakes() {
                             ?.no_str ??
                           '-';
 
-                        const foto =
-                          item?.tenaga_medis
-                            ?.foto_profile ??
-                          item?.foto_profile ??
-                          item?.foto ??
-                          item?.avatar;
+                        const photo =
+                          getNakesPhoto(
+                            item
+                          ) ||
+                          photoMap[
+                            String(
+                              reqId
+                            )
+                          ] ||
+                          null;
 
-                        const resolvedFoto =
-                          foto
+                        const resolvedPhoto =
+                          photo
                             ? resolveImageUrl(
-                                foto
+                                photo
                               )
                             : null;
 
@@ -851,7 +992,6 @@ export default function PageOperasionalNakes() {
                               'pending'
                           ).toLowerCase();
 
-                        // DATA YANG DIAJUKAN
                         const kategoriList =
                           resolveCategoryNames(
                             item?.kategori_layanan ??
@@ -869,7 +1009,9 @@ export default function PageOperasionalNakes() {
 
                         const schedule =
                           formatSchedule(
-                            item?.waktu_layanan
+                            item?.waktu_layanan ??
+                              item?.jadwal_operasional ??
+                              item?.jadwal
                           );
 
                         return (
@@ -880,27 +1022,25 @@ export default function PageOperasionalNakes() {
                             }
                             className="hover:bg-slate-50/60 transition-colors"
                           >
-
                             <td className="py-4 px-6 text-sm font-medium text-slate-400">
                               {itemNumber}
                             </td>
 
                             <td className="py-4 px-6">
                               <div className="flex items-center gap-3">
-
-                                {resolvedFoto ? (
+                                {resolvedPhoto ? (
                                   <img
                                     src={
-                                      resolvedFoto
+                                      resolvedPhoto
                                     }
                                     alt={
                                       nama
                                     }
                                     className="w-10 h-10 rounded-full object-cover bg-slate-100"
                                     onError={(
-                                      e
+                                      event
                                     ) => {
-                                      e.currentTarget.src =
+                                      event.currentTarget.src =
                                         '/nakesgambar.jpg';
                                     }}
                                   />
@@ -922,17 +1062,15 @@ export default function PageOperasionalNakes() {
                                   </div>
 
                                   <div className="text-xs text-slate-400">
-                                    STR:{" "}
+                                    STR:{' '}
                                     {str}
                                   </div>
                                 </div>
-
                               </div>
                             </td>
 
                             <td className="py-4 px-6">
                               <div className="flex flex-wrap gap-1.5 max-w-xs">
-
                                 {kategoriList.length >
                                 0 ? (
                                   kategoriList.map(
@@ -941,9 +1079,7 @@ export default function PageOperasionalNakes() {
                                       katIndex
                                     ) => (
                                       <span
-                                        key={
-                                          katIndex
-                                        }
+                                        key={`${kategori}-${katIndex}`}
                                         className="inline-block px-2.5 py-1 text-xs font-medium rounded-lg bg-blue-50 text-blue-700 border border-blue-100"
                                       >
                                         {
@@ -957,24 +1093,18 @@ export default function PageOperasionalNakes() {
                                     -
                                   </span>
                                 )}
-
                               </div>
                             </td>
 
                             <td className="py-4 px-6 text-sm font-medium text-slate-700">
-                              {
-                                wilayah
-                              }
+                              {wilayah}
                             </td>
 
                             <td className="py-4 px-6 text-sm font-medium text-slate-700">
-                              {
-                                schedule
-                              }
+                              {schedule}
                             </td>
 
                             <td className="py-4 px-6 text-sm">
-
                               <span
                                 className={`inline-block px-2.5 py-1 text-xs font-semibold rounded-lg ${
                                   status ===
@@ -985,16 +1115,14 @@ export default function PageOperasionalNakes() {
                               >
                                 {status.toUpperCase()}
                               </span>
-
                             </td>
 
                             <td className="py-4 px-6 text-right">
-
                               <div className="flex items-center justify-end gap-2">
-
                                 <button
+                                  type="button"
                                   onClick={() =>
-                                    setDetailTarget(
+                                    openDetail(
                                       item
                                     )
                                   }
@@ -1010,6 +1138,7 @@ export default function PageOperasionalNakes() {
                                   'pending' && (
                                   <>
                                     <button
+                                      type="button"
                                       onClick={() =>
                                         setApproveTarget(
                                           item
@@ -1021,6 +1150,7 @@ export default function PageOperasionalNakes() {
                                     </button>
 
                                     <button
+                                      type="button"
                                       onClick={() => {
                                         setRejectTarget(
                                           item
@@ -1035,11 +1165,8 @@ export default function PageOperasionalNakes() {
                                     </button>
                                   </>
                                 )}
-
                               </div>
-
                             </td>
-
                           </tr>
                         );
                       }
@@ -1051,7 +1178,6 @@ export default function PageOperasionalNakes() {
                         className="py-14 px-6 text-center"
                       >
                         <div className="flex flex-col items-center justify-center">
-
                           <div className="w-12 h-12 rounded-full bg-slate-100 flex items-center justify-center mb-3">
                             <svg
                               className="w-6 h-6 text-slate-400"
@@ -1075,36 +1201,29 @@ export default function PageOperasionalNakes() {
                           <p className="text-xs text-slate-400 mt-1">
                             Semua pengajuan sudah selesai diproses atau belum ada data baru.
                           </p>
-
                         </div>
                       </td>
                     </tr>
                   )}
-
                 </tbody>
               </table>
             </div>
 
-            {/* =================================================
-                PAGINATION
-                ================================================= */}
-
             <div className="px-6 py-4 border-t border-slate-100 flex flex-col sm:flex-row items-center justify-between gap-4">
-
               <div className="text-xs text-slate-500">
-                Halaman{" "}
+                Halaman{' '}
                 <span className="font-medium text-slate-800">
                   {currentPage}
-                </span>{" "}
-                dari{" "}
+                </span>{' '}
+                dari{' '}
                 <span className="font-medium text-slate-800">
                   {totalPages}
                 </span>
               </div>
 
               <div className="flex items-center gap-1.5">
-
                 <button
+                  type="button"
                   onClick={() =>
                     setCurrentPage(
                       (prev) =>
@@ -1123,39 +1242,41 @@ export default function PageOperasionalNakes() {
                   ← Sebelumnya
                 </button>
 
-                {Array.from(
-                  {
-                    length:
-                      totalPages,
-                  },
-                  (_, index) =>
-                    index + 1
-                ).map(
-                  (pageNum) => (
-                    <button
-                      key={
-                        pageNum
-                      }
-                      onClick={() =>
-                        setCurrentPage(
+                {Array.from({
+                  length: totalPages,
+                }).map(
+                  (_, index) => {
+                    const pageNum =
+                      index + 1;
+
+                    return (
+                      <button
+                        type="button"
+                        key={
                           pageNum
-                        )
-                      }
-                      className={`w-7 h-7 flex items-center justify-center rounded-lg text-xs font-medium transition-colors ${
-                        pageNum ===
-                        currentPage
-                          ? 'bg-emerald-600 text-white'
-                          : 'text-slate-600 hover:bg-slate-100'
-                      }`}
-                    >
-                      {
-                        pageNum
-                      }
-                    </button>
-                  )
+                        }
+                        onClick={() =>
+                          setCurrentPage(
+                            pageNum
+                          )
+                        }
+                        className={`w-7 h-7 flex items-center justify-center rounded-lg text-xs font-medium transition-colors ${
+                          pageNum ===
+                          currentPage
+                            ? 'bg-emerald-600 text-white'
+                            : 'text-slate-600 hover:bg-slate-100'
+                        }`}
+                      >
+                        {
+                          pageNum
+                        }
+                      </button>
+                    );
+                  }
                 )}
 
                 <button
+                  type="button"
                   onClick={() =>
                     setCurrentPage(
                       (prev) =>
@@ -1173,25 +1294,17 @@ export default function PageOperasionalNakes() {
                 >
                   Selanjutnya →
                 </button>
-
               </div>
             </div>
           </>
         )}
-
       </div>
 
-      {/* =====================================================
-          MODAL REVIEW / DETAIL
-          ===================================================== */}
-
+      {/* DETAIL / REVIEW MODAL */}
       {detailTarget && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4">
-
           <div className="w-full max-w-2xl bg-white rounded-2xl p-6 shadow-xl space-y-4 max-h-[90vh] overflow-y-auto">
-
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-
               <div>
                 <h3 className="text-lg font-bold text-slate-900">
                   {String(
@@ -1203,18 +1316,21 @@ export default function PageOperasionalNakes() {
                     : 'Detail Operasional'}
                 </h3>
 
-                <p className="text-xs text-slate-500">
-                  {detailTarget
-                    ?.tenaga_medis
-                    ?.nama_lengkap ??
-                    detailTarget
-                      ?.nama_lengkap ??
-                    detailTarget?.nama ??
-                    '-'}
+                <p className="text-xs text-slate-500 mt-1">
+                  {detailLoading
+                    ? 'Memuat detail terbaru...'
+                    : detailTarget
+                        ?.tenaga_medis
+                        ?.nama_lengkap ??
+                      detailTarget
+                        ?.nama_lengkap ??
+                      detailTarget?.nama ??
+                      '-'}
                 </p>
               </div>
 
               <button
+                type="button"
                 onClick={() =>
                   setDetailTarget(
                     null
@@ -1224,323 +1340,450 @@ export default function PageOperasionalNakes() {
               >
                 ✕
               </button>
-
             </div>
 
-            {(() => {
+            {detailLoading ? (
+              <div className="py-12 flex flex-col items-center justify-center text-slate-400">
+                <div className="w-8 h-8 rounded-full border-2 border-slate-200 border-t-emerald-500 animate-spin" />
+                <p className="text-sm mt-3">
+                  Memuat detail...
+                </p>
+              </div>
+            ) : (
+              (() => {
+                const status =
+                  String(
+                    detailTarget?.status ||
+                      'pending'
+                  ).toLowerCase();
 
-              const status =
-                String(
-                  detailTarget?.status ||
-                    'pending'
-                ).toLowerCase();
+                const activeObj =
+                  status === 'pending'
+                    ? findActiveRecord(
+                        detailTarget
+                      )
+                    : null;
 
-              const activeObj =
-                status === 'pending'
-                  ? findActiveRecord(
-                      detailTarget
-                    )
-                  : null;
+                const activeWil =
+                  activeObj
+                    ? getWilayahText(
+                        activeObj
+                      )
+                    : detailTarget
+                        ?.data_aktif
+                        ? getWilayahText(
+                            detailTarget.data_aktif
+                          )
+                        : '-';
 
-              const activeWil =
-                activeObj
-                  ? getWilayahText(
-                      activeObj
-                    )
-                  : '-';
+                const proposedWil =
+                  getWilayahText(
+                    detailTarget
+                  );
 
-              const proposedWil =
-                getWilayahText(
-                  detailTarget
-                );
+                const activeKat =
+                  activeObj
+                    ? resolveCategoryNames(
+                        activeObj?.kategori_layanan ??
+                          activeObj?.layanan ??
+                          activeObj?.kategori ??
+                          []
+                      ).join(', ') ||
+                      '-'
+                    : detailTarget
+                        ?.data_aktif
+                        ? resolveCategoryNames(
+                            detailTarget
+                              .data_aktif
+                              ?.kategori_layanan ??
+                              []
+                          ).join(', ') ||
+                          '-'
+                        : '-';
 
-              const activeKat =
-                activeObj
-                  ? resolveCategoryNames(
-                      activeObj?.kategori_layanan ??
-                        []
-                    ).join(', ') ||
-                    '-'
-                  : '-';
+                const proposedKat =
+                  resolveCategoryNames(
+                    detailTarget?.kategori_layanan ??
+                      detailTarget?.layanan ??
+                      detailTarget?.kategori ??
+                      []
+                  ).join(', ') ||
+                  '-';
 
-              const proposedKat =
-                resolveCategoryNames(
-                  detailTarget?.kategori_layanan ??
-                    []
-                ).join(', ') ||
-                '-';
+                const activeSchedule =
+                  activeObj
+                    ? formatSchedule(
+                        activeObj?.waktu_layanan ??
+                          activeObj?.jadwal_operasional ??
+                          activeObj?.jadwal
+                      )
+                    : detailTarget
+                        ?.data_aktif
+                        ? formatSchedule(
+                            detailTarget
+                              .data_aktif
+                              ?.waktu_layanan
+                          )
+                        : '-';
 
-              const activeSchedule =
-                activeObj
-                  ? formatSchedule(
-                      activeObj?.waktu_layanan
-                    )
-                  : '-';
+                const proposedSchedule =
+                  formatSchedule(
+                    detailTarget?.waktu_layanan ??
+                      detailTarget?.jadwal_operasional ??
+                      detailTarget?.jadwal
+                  );
 
-              const proposedSchedule =
-                formatSchedule(
-                  detailTarget?.waktu_layanan
-                );
+                const wilChanged =
+                  activeWil !==
+                  proposedWil;
 
-              const wilChanged =
-                activeWil !==
-                proposedWil;
+                const katChanged =
+                  activeKat !==
+                  proposedKat;
 
-              const katChanged =
-                activeKat !==
-                proposedKat;
+                const scheduleChanged =
+                  activeSchedule !==
+                  proposedSchedule;
 
-              const scheduleChanged =
-                activeSchedule !==
-                proposedSchedule;
+                return (
+                  <div className="space-y-4">
+                    {/* PHOTO */}
+                    <div className="flex items-center gap-3 pb-2">
+                      {(() => {
+                        const targetId =
+                          getItemId(
+                            detailTarget
+                          );
 
-              return (
-                <div className="space-y-4">
+                        const photo =
+                          getNakesPhoto(
+                            detailTarget
+                          ) ||
+                          photoMap[
+                            String(
+                              targetId
+                            )
+                          ];
 
-                  {status ===
-                  'pending' ? (
+                        const resolved =
+                          photo
+                            ? resolveImageUrl(
+                                photo
+                              )
+                            : null;
 
-                    <div className="p-4 bg-amber-50/70 border border-amber-200 rounded-xl space-y-4">
+                        return resolved ? (
+                          <img
+                            src={
+                              resolved
+                            }
+                            alt="Foto Nakes"
+                            className="w-12 h-12 rounded-full object-cover border border-slate-200"
+                            onError={(
+                              event
+                            ) => {
+                              event.currentTarget.src =
+                                '/nakesgambar.jpg';
+                            }}
+                          />
+                        ) : (
+                          <div className="w-12 h-12 rounded-full bg-slate-100 flex items-center justify-center text-sm font-bold text-slate-400">
+                            {(detailTarget
+                              ?.tenaga_medis
+                              ?.nama_lengkap ??
+                              detailTarget?.nama_lengkap ??
+                              detailTarget?.nama ??
+                              'N'
+                            )
+                              .charAt(0)
+                              .toUpperCase()}
+                          </div>
+                        );
+                      })()}
 
-                      <h4 className="text-xs font-bold text-amber-800 uppercase tracking-wider">
-                        Perubahan yang Diajukan
-                      </h4>
+                      <div>
+                        <p className="text-[11px] font-semibold text-slate-400 uppercase">
+                          Nakes
+                        </p>
+                        <p className="text-sm font-semibold text-slate-800">
+                          {detailTarget
+                            ?.tenaga_medis
+                            ?.nama_lengkap ??
+                            detailTarget?.nama_lengkap ??
+                            detailTarget?.nama ??
+                            '-'}
+                        </p>
+                      </div>
+                    </div>
 
-                      {wilChanged && (
-                        <div className="border-b border-amber-200/40 pb-3">
+                    {status ===
+                    'pending' ? (
+                      <div className="space-y-4">
+                        {/* ACTIVE */}
+                        <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+                          <h4 className="text-xs font-bold text-slate-500 uppercase tracking-wider">
+                            Data Saat Ini
+                            (Aktif)
+                          </h4>
 
-                          <p className="text-[11px] font-semibold text-amber-700 uppercase">
-                            Wilayah Layanan
-                          </p>
+                          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mt-4">
+                            <div>
+                              <p className="text-[11px] font-semibold text-slate-400 uppercase">
+                                Wilayah
+                              </p>
+                              <p className="text-sm font-semibold text-slate-800 mt-1">
+                                {
+                                  activeWil
+                                }
+                              </p>
+                            </div>
 
-                          <div className="flex items-center gap-2 mt-1 flex-wrap">
+                            <div>
+                              <p className="text-[11px] font-semibold text-slate-400 uppercase">
+                                Kategori
+                              </p>
+                              <p className="text-sm font-semibold text-slate-800 mt-1 break-words">
+                                {
+                                  activeKat
+                                }
+                              </p>
+                            </div>
 
-                            <span className="text-xs font-medium text-slate-500 line-through">
-                              {
-                                activeWil
-                              }
-                            </span>
+                            <div>
+                              <p className="text-[11px] font-semibold text-slate-400 uppercase">
+                                Jadwal
+                              </p>
+                              <p className="text-sm font-semibold text-slate-800 mt-1">
+                                {
+                                  activeSchedule
+                                }
+                              </p>
+                            </div>
+                          </div>
+                        </div>
 
-                            <span className="text-xs text-slate-400">
-                              →
-                            </span>
+                        {/* REQUEST */}
+                        <div className="rounded-xl bg-amber-50/70 border border-amber-200 p-4">
+                          <h4 className="text-xs font-bold text-amber-800 uppercase tracking-wider">
+                            Pengajuan Baru
+                          </h4>
 
-                            <span className="text-xs font-bold text-amber-900">
+                          <div className="space-y-4 mt-4">
+                            {wilChanged && (
+                              <div className="border-b border-amber-200/60 pb-3">
+                                <p className="text-[11px] font-semibold text-amber-700 uppercase">
+                                  Wilayah Layanan
+                                </p>
+
+                                <div className="flex items-center gap-2 mt-1 flex-wrap">
+                                  <span className="text-xs font-medium text-slate-500 line-through">
+                                    {
+                                      activeWil
+                                    }
+                                  </span>
+
+                                  <span className="text-xs text-slate-400">
+                                    →
+                                  </span>
+
+                                  <span className="text-xs font-bold text-amber-900">
+                                    {
+                                      proposedWil
+                                    }
+                                  </span>
+                                </div>
+                              </div>
+                            )}
+
+                            {katChanged && (
+                              <div className="border-b border-amber-200/60 pb-3">
+                                <p className="text-[11px] font-semibold text-amber-700 uppercase">
+                                  Kategori Layanan
+                                </p>
+
+                                <div className="flex items-center gap-2 mt-1 flex-wrap">
+                                  <span className="text-xs font-medium text-slate-500 line-through">
+                                    {
+                                      activeKat
+                                    }
+                                  </span>
+
+                                  <span className="text-xs text-slate-400">
+                                    →
+                                  </span>
+
+                                  <span className="text-xs font-bold text-amber-900">
+                                    {
+                                      proposedKat
+                                    }
+                                  </span>
+                                </div>
+                              </div>
+                            )}
+
+                            {scheduleChanged && (
+                              <div>
+                                <p className="text-[11px] font-semibold text-amber-700 uppercase">
+                                  Jadwal Operasional
+                                </p>
+
+                                <div className="flex items-center gap-2 mt-1 flex-wrap">
+                                  <span className="text-xs font-medium text-slate-500 line-through">
+                                    {
+                                      activeSchedule
+                                    }
+                                  </span>
+
+                                  <span className="text-xs text-slate-400">
+                                    →
+                                  </span>
+
+                                  <span className="text-xs font-bold text-amber-900">
+                                    {
+                                      proposedSchedule
+                                    }
+                                  </span>
+                                </div>
+                              </div>
+                            )}
+
+                            {!wilChanged &&
+                              !katChanged &&
+                              !scheduleChanged && (
+                                <p className="text-xs text-slate-500">
+                                  Tidak ada perubahan data operasional.
+                                </p>
+                              )}
+                          </div>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="p-4 bg-slate-50 border border-slate-200 rounded-xl space-y-4">
+                        <h4 className="text-xs font-bold text-slate-500 uppercase tracking-wider">
+                          Data Pengajuan
+                        </h4>
+
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                          <div>
+                            <p className="text-[11px] font-semibold text-slate-400 uppercase">
+                              Wilayah
+                            </p>
+
+                            <p className="text-xs font-semibold text-slate-800 mt-1">
                               {
                                 proposedWil
                               }
-                            </span>
-
+                            </p>
                           </div>
-                        </div>
-                      )}
 
-                      {katChanged && (
-                        <div className="border-b border-amber-200/40 pb-3">
+                          <div>
+                            <p className="text-[11px] font-semibold text-slate-400 uppercase">
+                              Kategori
+                            </p>
 
-                          <p className="text-[11px] font-semibold text-amber-700 uppercase">
-                            Kategori Layanan
-                          </p>
-
-                          <div className="flex items-start gap-2 mt-1 flex-wrap">
-
-                            <span className="text-xs font-medium text-slate-500 line-through">
-                              {
-                                activeKat
-                              }
-                            </span>
-
-                            <span className="text-xs text-slate-400">
-                              →
-                            </span>
-
-                            <span className="text-xs font-bold text-amber-900">
+                            <p className="text-xs font-semibold text-slate-800 mt-1">
                               {
                                 proposedKat
                               }
-                            </span>
-
+                            </p>
                           </div>
-                        </div>
-                      )}
 
-                      {scheduleChanged && (
-                        <div>
+                          <div>
+                            <p className="text-[11px] font-semibold text-slate-400 uppercase">
+                              Jadwal
+                            </p>
 
-                          <p className="text-[11px] font-semibold text-amber-700 uppercase">
-                            Jadwal Operasional
-                          </p>
-
-                          <div className="flex items-center gap-2 mt-1 flex-wrap">
-
-                            <span className="text-xs font-medium text-slate-500 line-through">
-                              {
-                                activeSchedule
-                              }
-                            </span>
-
-                            <span className="text-xs text-slate-400">
-                              →
-                            </span>
-
-                            <span className="text-xs font-bold text-amber-900">
+                            <p className="text-xs font-semibold text-slate-800 mt-1">
                               {
                                 proposedSchedule
                               }
-                            </span>
-
+                            </p>
                           </div>
                         </div>
-                      )}
 
-                      {!wilChanged &&
-                        !katChanged &&
-                        !scheduleChanged && (
-                          <p className="text-xs text-slate-500">
-                            Tidak ada perubahan data operasional.
-                          </p>
-                        )}
-
-                    </div>
-
-                  ) : (
-
-                    <div className="p-4 bg-slate-50 border border-slate-200 rounded-xl space-y-3">
-
-                      <h4 className="text-xs font-bold text-slate-500 uppercase tracking-wider">
-                        Data Pengajuan
-                      </h4>
-
-                      <div>
-                        <p className="text-[11px] font-semibold text-slate-500">
-                          Wilayah Layanan
-                        </p>
-
-                        <p className="text-xs font-semibold text-slate-800">
-                          {
-                            proposedWil
-                          }
-                        </p>
-                      </div>
-
-                      <div>
-                        <p className="text-[11px] font-semibold text-slate-500">
-                          Kategori Layanan
-                        </p>
-
-                        <p className="text-xs font-semibold text-slate-800">
-                          {
-                            proposedKat
-                          }
-                        </p>
-                      </div>
-
-                      <div>
-                        <p className="text-[11px] font-semibold text-slate-500">
-                          Jadwal Operasional
-                        </p>
-
-                        <p className="text-xs font-semibold text-slate-800">
-                          {
-                            proposedSchedule
-                          }
-                        </p>
-                      </div>
-
-                      {/* ADMIN NOTES */}
-                      {detailTarget?.admin_notes && (
-                        <div className="pt-3 border-t border-slate-200">
-
-                          <p className="text-[11px] font-semibold text-rose-700 uppercase">
-                            Catatan Admin
-                          </p>
-
-                          <div className="mt-1 rounded-xl bg-rose-50 border border-rose-100 p-3">
-
-                            <p className="text-xs font-medium text-rose-800 whitespace-pre-wrap">
-                              {
-                                detailTarget.admin_notes
-                              }
+                        {detailTarget?.admin_notes && (
+                          <div className="pt-3 border-t border-slate-200">
+                            <p className="text-[11px] font-semibold text-rose-700 uppercase">
+                              Catatan Admin
                             </p>
 
+                            <div className="mt-1 rounded-xl bg-rose-50 border border-rose-100 p-3">
+                              <p className="text-xs font-medium text-rose-800 whitespace-pre-wrap">
+                                {
+                                  detailTarget.admin_notes
+                                }
+                              </p>
+                            </div>
                           </div>
-
-                        </div>
-                      )}
-
-                    </div>
-
-                  )}
-
-                  {/* ACTION */}
-                  <div className="flex justify-end gap-2 pt-2 border-t border-slate-100">
-
-                    <button
-                      onClick={() =>
-                        setDetailTarget(
-                          null
-                        )
-                      }
-                      className="px-4 py-2 text-xs font-medium border border-slate-200 rounded-xl text-slate-600 hover:bg-slate-50"
-                    >
-                      Tutup
-                    </button>
-
-                    {status ===
-                      'pending' && (
-                      <>
-                        <button
-                          onClick={() => {
-                            setRejectTarget(
-                              detailTarget
-                            );
-                            setAdminNotes(
-                              ''
-                            );
-                          }}
-                          className="px-4 py-2 text-xs font-medium bg-rose-600 text-white rounded-xl hover:bg-rose-700"
-                        >
-                          Tolak
-                        </button>
-
-                        <button
-                          onClick={() =>
-                            setApproveTarget(
-                              detailTarget
-                            )
-                          }
-                          className="px-4 py-2 text-xs font-medium bg-emerald-600 text-white rounded-xl hover:bg-emerald-700"
-                        >
-                          Setujui
-                        </button>
-                      </>
+                        )}
+                      </div>
                     )}
 
+                    <div className="flex justify-end gap-2 pt-2 border-t border-slate-100">
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setDetailTarget(
+                            null
+                          )
+                        }
+                        className="px-4 py-2 text-xs font-medium border border-slate-200 rounded-xl text-slate-600 hover:bg-slate-50"
+                      >
+                        Tutup
+                      </button>
+
+                      {status ===
+                        'pending' && (
+                        <>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setRejectTarget(
+                                detailTarget
+                              );
+                              setAdminNotes(
+                                ''
+                              );
+                            }}
+                            className="px-4 py-2 text-xs font-medium bg-rose-600 text-white rounded-xl hover:bg-rose-700"
+                          >
+                            Tolak
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setApproveTarget(
+                                detailTarget
+                              )
+                            }
+                            className="px-4 py-2 text-xs font-medium bg-emerald-600 text-white rounded-xl hover:bg-emerald-700"
+                          >
+                            Setujui
+                          </button>
+                        </>
+                      )}
+                    </div>
                   </div>
-
-                </div>
-              );
-            })()}
-
+                );
+              })()
+            )}
           </div>
         </div>
       )}
 
-      {/* =====================================================
-          APPROVE CONFIRMATION
-          ===================================================== */}
-
+      {/* APPROVE CONFIRMATION */}
       {approveTarget && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center bg-slate-900/40 p-4">
-
           <div className="w-full max-w-md bg-white rounded-2xl p-6 shadow-xl">
-
             <h3 className="text-lg font-bold text-slate-900 mb-2">
               Setujui Pengajuan?
             </h3>
 
             <p className="text-sm text-slate-500 mb-4">
-              Apakah Anda yakin ingin menyetujui pengajuan operasional nakes untuk{" "}
+              Apakah Anda yakin ingin
+              menyetujui pengajuan
+              operasional nakes untuk{" "}
               <strong>
                 {approveTarget
                   ?.tenaga_medis
@@ -1554,8 +1797,8 @@ export default function PageOperasionalNakes() {
             </p>
 
             <div className="flex justify-end gap-2">
-
               <button
+                type="button"
                 onClick={() =>
                   setApproveTarget(
                     null
@@ -1568,6 +1811,7 @@ export default function PageOperasionalNakes() {
               </button>
 
               <button
+                type="button"
                 onClick={
                   handleConfirmApprove
                 }
@@ -1578,28 +1822,23 @@ export default function PageOperasionalNakes() {
                   ? 'Memproses...'
                   : 'Ya, Setujui'}
               </button>
-
             </div>
-
           </div>
         </div>
       )}
 
-      {/* =====================================================
-          REJECT MODAL
-          ===================================================== */}
-
+      {/* REJECT MODAL */}
       {rejectTarget && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center bg-slate-900/40 p-4">
-
           <div className="w-full max-w-md bg-white rounded-2xl p-6 shadow-xl">
-
             <h3 className="text-lg font-bold text-slate-900 mb-2">
               Tolak Pengajuan?
             </h3>
 
             <p className="text-sm text-slate-500 mb-4">
-              Aksi ini akan menolak pengajuan operasional nakes untuk{" "}
+              Aksi ini akan menolak
+              pengajuan operasional
+              nakes untuk{" "}
               <strong>
                 {rejectTarget
                   ?.tenaga_medis
@@ -1613,15 +1852,12 @@ export default function PageOperasionalNakes() {
             </p>
 
             <div className="mb-4">
-
               <label className="block text-xs font-semibold text-slate-700 mb-1">
                 Catatan Admin
               </label>
 
               <textarea
-                value={
-                  adminNotes
-                }
+                value={adminNotes}
                 onChange={(e) =>
                   setAdminNotes(
                     e.target.value
@@ -1636,12 +1872,11 @@ export default function PageOperasionalNakes() {
               <div className="mt-1 text-right text-[10px] text-slate-400">
                 {adminNotes.length}/1000
               </div>
-
             </div>
 
             <div className="flex justify-end gap-2">
-
               <button
+                type="button"
                 onClick={() =>
                   setRejectTarget(
                     null
@@ -1654,6 +1889,7 @@ export default function PageOperasionalNakes() {
               </button>
 
               <button
+                type="button"
                 onClick={
                   handleConfirmReject
                 }
@@ -1664,13 +1900,10 @@ export default function PageOperasionalNakes() {
                   ? 'Memproses...'
                   : 'Ya, Tolak'}
               </button>
-
             </div>
-
           </div>
         </div>
       )}
-
     </div>
   );
 }
