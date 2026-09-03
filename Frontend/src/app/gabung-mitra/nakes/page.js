@@ -139,20 +139,14 @@ export default function RegisterNakesPage() {
     const delayDebounce = setTimeout(async () => {
       setIsSearchingUniv(true);
       try {
-        const res = await fetch(
-          `http://universities.hipolabs.com/search?country=Indonesia&name=${encodeURIComponent(query)}`
-        );
-        if (res.ok) {
-          const data = await res.json();
-          const names = data.map((item) => item.name);
-          setApiUniversitas(names);
-        }
+        const names = await getUniversitas(query);
+        setApiUniversitas(names || []);
       } catch (err) {
-        console.error('Gagal mengambil data universitas dari API:', err);
+        console.error('Gagal mengambil data universitas:', err);
       } finally {
         setIsSearchingUniv(false);
       }
-    }, 450);
+    }, 300);
 
     return () => clearTimeout(delayDebounce);
   }, [pendidikan.nama_universitas]);

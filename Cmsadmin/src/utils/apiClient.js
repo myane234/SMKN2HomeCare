@@ -1,11 +1,14 @@
 // Generic fetch wrapper for the Laravel API.
-// Change VITE_API_BASE_URL in your .env file to match your backend
-// (e.g. http://localhost:8000 for `php artisan serve`, or http://localhost
-// if you're using Laravel Herd/Valet on port 80).
+import { URL as BASE_URL } from "./getUrl.js";
+import { getAuthHeaders, handleUnauthorized } from "./auth.js";
 
-export const BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://citra.faaruq.com';
+export { BASE_URL };
 
 async function handleResponse(res) {
+  if (res.status === 401) {
+    handleUnauthorized();
+    throw new Error('Sesi anda telah berakhir');
+  }
   const isJson = res.headers.get('content-type')?.includes('application/json');
   const body = isJson ? await res.json().catch(() => null) : null;
 
@@ -19,31 +22,69 @@ async function handleResponse(res) {
   return body;
 }
 
+function resolveUrl(path) {
+  if (path.startsWith("http")) return path;
+  const cleanPath = path.startsWith("/") ? path : `/${path}`;
+  if (BASE_URL.endsWith("/api") && cleanPath.startsWith("/api/")) {
+    return cleanPath;
+  }
+  return `${BASE_URL}${cleanPath}`;
+}
+
 export async function apiGet(path) {
-  const res = await fetch(`${BASE_URL}${path}`);
+  const fullUrl = resolveUrl(path);
+  const res = await fetch(fullUrl, { headers: getAuthHeaders() });
   return handleResponse(res);
 }
 
-export async function apiPostForm(path, formData) {
-  const res = await fetch(`${BASE_URL}${path}`, {
+export async function apiPost(path, data) {
+  const fullUrl = resolveUrl(path);
+  const isFormData = typeof FormData !== "undefined" && data instanceof FormData;
+  const res = await fetch(fullUrl, {
     method: 'POST',
-    body: formData,
+    headers: getAuthHeaders(isFormData ? {} : { 'Content-Type': 'application/json' }),
+    body: isFormData ? data : JSON.stringify(data),
   });
   return handleResponse(res);
 }
 
-export async function apiPutForm(path, formData) {
-  // Laravel workaround: multipart PUT/PATCH requests don't populate $_FILES
-  // properly in PHP, so we POST with a `_method` override field instead.
-  formData.append('_method', 'PUT');
-  const res = await fetch(`${BASE_URL}${path}`, {
-    method: 'POST',
-    body: formData,
+export async function apiPut(path, data) {
+  const fullUrl = resolveUrl(path);
+  const isFormData = typeof FormData !== "undefined" && data instanceof FormData;
+  const res = await fetch(fullUrl, {
+    method: 'PUT',
+    headers: getAuthHeaders(isFormData ? {} : { 'Content-Type': 'application/json' }),
+    body: isFormData ? data : JSON.stringify(data),
+  });
+  return handleResponse(res);
+}
+
+export async function apiPatch(path, data = {}) {
+  const fullUrl = resolveUrl(path);
+  const isFormData = typeof FormData !== "undefined" && data instanceof FormData;
+  const res = await fetch(fullUrl, {
+    method: 'PATCH',
+    headers: getAuthHeaders(isFormData ? {} : { 'Content-Type': 'application/json' }),
+    body: isFormData ? data : JSON.stringify(data),
   });
   return handleResponse(res);
 }
 
 export async function apiDelete(path) {
-  const res = await fetch(`${BASE_URL}${path}`, { method: 'DELETE' });
+  const fullUrl = resolveUrl(path);
+  const res = await fetch(fullUrl, {
+    method: 'DELETE',
+    headers: getAuthHeaders(),
+  });
   return handleResponse(res);
 }
+
+const api = {
+  get: (path) => apiGet(path),
+  post: (path, data) => apiPost(path, data),
+  put: (path, data) => apiPut(path, data),
+  patch: (path, data) => apiPatch(path, data),
+  delete: (path) => apiDelete(path),
+};
+
+export default api;
