@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { 
@@ -19,6 +19,7 @@ import {
   RefreshCw
 } from "lucide-react";
 import { showToast } from "@/components/Toast";
+import api from "@/services/api";
 
 export default function PaymentConfirmationCard({ 
   status = "success", 
@@ -30,11 +31,57 @@ export default function PaymentConfirmationCard({
   const [showReceiptModal, setShowReceiptModal] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
 
+  useEffect(() => {
+    const confirmPaymentOnBackend = async () => {
+      const bId = searchParams.get("booking_id");
+      let oId = searchParams.get("order_id");
+      
+      // Ambil order_id asli dari localStorage jika dari URL bernilai kosong atau format INV
+      if (!oId || oId.startsWith('INV')) {
+        try {
+          const savedBooking = localStorage.getItem('last_booking') || localStorage.getItem('pending_order');
+          if (savedBooking) {
+            const parsed = JSON.parse(savedBooking);
+            if (parsed.order_id) oId = parsed.order_id;
+          }
+        } catch (e) {
+          console.error("Gagal parse localStorage order_id:", e);
+        }
+      }
+
+      if (bId && oId) {
+        try {
+          await api.post('/transaksi/confirm', {
+            id_booking: Number(bId),
+            order_id: oId
+          });
+        } catch (err) {
+          console.error("Gagal sinkronisasi status konfirmasi pembayaran:", err);
+        }
+      }
+    };
+
+    confirmPaymentOnBackend();
+  }, [searchParams]);
+
   const isSuccess = status === "success";
 
-  // Ambil fallback langsung dari URL query parameter jika data props kosong/tidak ada
+  // Ambil fallback langsung dari URL query parameter atau localStorage jika data props kosong
   const urlTotal = Number(searchParams.get("total") || 0);
-  const urlOrderId = searchParams.get("order_id") || searchParams.get("booking_id") ? `INV-${searchParams.get("booking_id")}` : "-";
+  
+  let initialUrlOrderId = searchParams.get("order_id");
+  if (!initialUrlOrderId || initialUrlOrderId.startsWith('INV')) {
+    try {
+      const savedBooking = localStorage.getItem('last_booking') || localStorage.getItem('pending_order');
+      if (savedBooking) {
+        const parsed = JSON.parse(savedBooking);
+        if (parsed.order_id) initialUrlOrderId = parsed.order_id;
+      }
+    } catch (e) {
+      console.error(e);
+    }
+  }
+  const urlOrderId = initialUrlOrderId || (searchParams.get("booking_id") ? `BOOKING-${searchParams.get("booking_id")}` : "-");
   const urlMetode = searchParams.get("metode") || "QRIS / Transfer";
 
   const orderData = {
@@ -50,7 +97,7 @@ export default function PaymentConfirmationCard({
       minute: "2-digit"
     }),
     accountOwner: data.accountOwner || "",
-    price: Number(data.price ?? urlTotal), // Otomatis baca dari URL jika props data.price tidak ada
+    price: Number(data.price ?? urlTotal),
     charge: Number(data.charge || 0),
     fees: Number(data.fees || 0),
   };

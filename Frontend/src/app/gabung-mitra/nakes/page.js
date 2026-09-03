@@ -17,7 +17,7 @@ import {
 import api from '@/services/api';
 import { DAFTAR_UNIVERSITAS } from '@/services/dataUniversitas';
 import { getProfileMe } from '@/services/profileService';
-import { registerNakes, getWilayahLayanan, getKategoriLayanan } from '@/services/nakesService';
+import { registerNakes, getProvinsi, getKategoriLayanan } from '@/services/nakesService';
 
 // Dynamic import MapPicker
 const MapPicker = dynamic(() => import('@/components/MapPicker'), {
@@ -337,34 +337,67 @@ export default function RegisterNakesPage() {
     }
   };
 
-  // Initial Fetch Data
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-        const wilayahRes = await getWilayahLayanan();
-        const wilayahData = wilayahRes?.data || [];
-        setListProvinsi(wilayahData.filter((w) => w.is_active));
+// Initial Fetch Data
+useEffect(() => {
+  const fetchData = async () => {
+    // Ambil data provinsi
+    try {
+      const wilayahRes = await getProvinsi();
+      const wilayahData = wilayahRes?.data || [];
 
-        const kategoriRes = await getKategoriLayanan();
-        const kategoriData = kategoriRes?.data || [];
-        setListKategori(kategoriData);
+      setListProvinsi(
+        wilayahData.filter((w) => w.is_active)
+      );
+    } catch (error) {
+      console.error(
+        'Gagal mengambil data provinsi:',
+        error
+      );
+    }
 
-        const profileRes = await getProfileMe();
-        if (profileRes?.success && profileRes?.data?.user?.email) {
-          setFormData((prev) => ({
-            ...prev,
-            email: profileRes.data.user.email,
-          }));
-        }
+    // Ambil data kategori layanan
+    try {
+      const kategoriRes = await getKategoriLayanan();
+      const kategoriData = kategoriRes?.data || [];
 
-        handleGetCurrentLocation();
-      } catch (error) {
-        console.error('Gagal mengambil data:', error);
+      setListKategori(kategoriData);
+    } catch (error) {
+      console.error(
+        'Gagal mengambil kategori layanan:',
+        error
+      );
+    }
+
+    // Profile hanya digunakan untuk mengambil email
+    // Jika /api/profile/me gagal 401, jangan hentikan form
+    try {
+      const profileRes = await getProfileMe();
+
+      if (
+        profileRes?.success &&
+        profileRes?.data?.user?.email
+      ) {
+        setFormData((prev) => ({
+          ...prev,
+          email: profileRes.data.user.email,
+        }));
       }
-    };
+    } catch (profileError) {
+      console.warn(
+        'Profile/email belum dapat diambil:',
+        profileError?.response?.status ||
+          profileError?.message
+      );
+    }
 
-    fetchData();
-  }, []);
+    // Tetap jalankan GPS walaupun profile gagal
+    handleGetCurrentLocation();
+    
+  };
+
+  fetchData();
+}, []);
+
 
   const handleGetCurrentLocation = () => {
     if (!navigator.geolocation) {

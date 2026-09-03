@@ -23,6 +23,29 @@ function SuccessPaymentContent() {
       try {
         setLoading(true);
         
+        // 1. Ambil order_id asli dari localStorage jika orderId dari URL berupa INV
+        let validOrderId = orderId;
+        if (!validOrderId || validOrderId.startsWith('INV')) {
+          try {
+            const savedBooking = localStorage.getItem('last_booking') || localStorage.getItem('pending_order');
+            if (savedBooking) {
+              const parsed = JSON.parse(savedBooking);
+              if (parsed.order_id) validOrderId = parsed.order_id;
+            }
+          } catch (e) {
+            console.error("Gagal parse localstorage order_id:", e);
+          }
+        }
+
+        // Panggil endpoint confirm ke backend agar status database berubah jadi 'Diproses' / 'Lunas'
+        if (bookingId && validOrderId) {
+          await api.post('/transaksi/confirm', {
+            id_booking: Number(bookingId),
+            order_id: validOrderId
+          });
+        }
+
+        // 2. Lanjut ambil detail pembayaran
         const response = await api.get(`/api/booking/${bookingId}/payment-details`);
         const resData = response.data.data || response.data;
 
@@ -31,7 +54,7 @@ function SuccessPaymentContent() {
         const finalPrice = dbPrice > 0 ? dbPrice : (totalParam > 0 ? totalParam : 20000);
 
         setPaymentData({
-          orderId: resData.order_id || orderId,
+          orderId: resData.order_id || validOrderId,
           serviceName: resData.nama_layanan || resData.service_name || "",
           paymentMethod: resData.metode_pembayaran || resData.payment_method || "",
           virtualAccount: resData.virtual_account || resData.va || null,
