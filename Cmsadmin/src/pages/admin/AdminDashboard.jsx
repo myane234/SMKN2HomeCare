@@ -17,15 +17,17 @@ export default function AdminDashboard() {
     setLoading(true);
     setErrorMsg('');
 
-    // 🟢 Tarik data Nakes Aktif dan Request Registrasi secara paralel
-    Promise.all([getAllActiveNakes(), getAllNakesRequests()])
-      .then(([activeData, requestData]) => {
-        setActiveNakes(activeData || []);
-        setRequests(requestData || []);
+    Promise.allSettled([getAllActiveNakes(), getAllNakesRequests()])
+      .then(([activeResult, requestResult]) => {
+        if (activeResult.status === 'fulfilled') {
+          setActiveNakes(activeResult.value || []);
+        }
+        if (requestResult.status === 'fulfilled') {
+          setRequests(requestResult.value || []);
+        }
       })
       .catch((err) => {
         console.error('Error fetching dashboard data:', err);
-        setErrorMsg(err.message || 'Gagal memuat data dashboard');
       })
       .finally(() => {
         setLoading(false);
