@@ -39,6 +39,8 @@ import {
   FaChevronRight,
   FaChevronDown,
   FaPlus,
+  FaStar,
+  FaEnvelope,
 } from "react-icons/fa";
 
 const rawMenuItems = [
@@ -86,6 +88,8 @@ const rawMenuItems = [
           },
         ],
       },
+      { to: "/ulasan", label: "Ulasan Pasien", icon: <FaStar /> },
+      { to: "/hubungi-kami", label: "Hubungi Kami", icon: <FaEnvelope /> },
       {
         type: "subgroup",
         label: "Konten Tambahan",
@@ -97,8 +101,6 @@ const rawMenuItems = [
             icon: <FaHandshake />,
           },
           { to: "/kelola-konten/footer", label: "Footer", icon: <FaGlobe /> },
-          { to: "/ulasan", label: "Ulasan Pasien", icon: <FaRegFileAlt /> },
-          { to: "/hubungi-kami", label: "Hubungi Kami", icon: <FaRegFileAlt /> },
         ],
       },
     ],

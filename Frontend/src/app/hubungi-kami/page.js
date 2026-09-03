@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { createHubungiKami } from "@/services/hubungiKamiService";
+import { createHubungiKami, getHubungiKamiInfo } from "@/services/hubungiKamiService";
 import { getGlobalConfig } from "@/services/configService";
 import { FiMail, FiPhone, FiMapPin, FiSend, FiMessageSquare } from "react-icons/fi";
 import { FaWhatsapp } from "react-icons/fa";
@@ -23,8 +23,21 @@ export default function HubungiKamiPage() {
   useEffect(() => {
     async function loadConfig() {
       try {
-        const data = await getGlobalConfig();
-        setConfig(data || {});
+        const hubungiData = await getHubungiKamiInfo();
+        if (hubungiData) {
+          setConfig({
+            telepon: hubungiData.hubungi_phone,
+            email: hubungiData.hubungi_email,
+            whatsapp: hubungiData.hubungi_whatsapp,
+            alamat: hubungiData.hubungi_address,
+            jam_operasional: hubungiData.hubungi_jam_operasional,
+            heading: hubungiData.hubungi_heading,
+            description: hubungiData.hubungi_description,
+          });
+        } else {
+          const data = await getGlobalConfig();
+          setConfig(data || {});
+        }
       } catch (err) {
         console.error("Gagal memuat konfigurasi kontak:", err);
       }
@@ -54,10 +67,10 @@ export default function HubungiKamiPage() {
     }
   };
 
-  const phone = config.telepon || config.phone || "0812-3456-7890";
-  const email = config.email || "kontak@smarthomecare.id";
-  const address = config.alamat || "Jl. Kesehatan Medis No. 123, Jakarta";
-  const whatsapp = config.whatsapp || "6281234567890";
+  const phone = config.telepon || config.hubungi_phone || config.phone || "0812-3456-7890";
+  const email = config.email || config.hubungi_email || "kontak@smarthomecare.id";
+  const address = config.alamat || config.hubungi_address || "Jl. Kesehatan Medis No. 123, Jakarta";
+  const whatsapp = config.whatsapp || config.hubungi_whatsapp || "0812-3456-7890";
 
   return (
     <div className="min-h-screen bg-slate-50 font-sans text-slate-800 py-10 px-4 sm:px-6 lg:px-8">
@@ -102,9 +115,10 @@ export default function HubungiKamiPage() {
                     href={`https://wa.me/${whatsapp.replace(/[^0-9]/g, "")}`}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="text-xs font-semibold text-emerald-600 hover:underline"
+                    className="text-xs text-slate-600 hover:text-emerald-600 font-medium hover:underline mt-0.5 inline-block"
+                    title="Klik untuk menghubungi via WhatsApp"
                   >
-                    Chat Sekarang →
+                    {whatsapp}
                   </a>
                 </div>
               </div>

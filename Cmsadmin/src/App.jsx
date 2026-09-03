@@ -200,7 +200,7 @@ function App() {
         <Route
           path="/ulasan"
           element={
-            <ProtectedRoute>
+            <ProtectedRoute requiredPath="/ulasan">
               <PageUlasan />
             </ProtectedRoute>
           }
@@ -208,7 +208,7 @@ function App() {
         <Route
           path="/hubungi-kami"
           element={
-            <ProtectedRoute>
+            <ProtectedRoute requiredPath="/hubungi-kami">
               <PageHubungiKami />
             </ProtectedRoute>
           }

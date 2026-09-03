@@ -59,6 +59,17 @@ export async function apiPut(path, data) {
   return handleResponse(res);
 }
 
+export async function apiPatch(path, data = {}) {
+  const fullUrl = resolveUrl(path);
+  const isFormData = typeof FormData !== "undefined" && data instanceof FormData;
+  const res = await fetch(fullUrl, {
+    method: 'PATCH',
+    headers: getAuthHeaders(isFormData ? {} : { 'Content-Type': 'application/json' }),
+    body: isFormData ? data : JSON.stringify(data),
+  });
+  return handleResponse(res);
+}
+
 export async function apiDelete(path) {
   const fullUrl = resolveUrl(path);
   const res = await fetch(fullUrl, {
@@ -72,6 +83,7 @@ const api = {
   get: (path) => apiGet(path),
   post: (path, data) => apiPost(path, data),
   put: (path, data) => apiPut(path, data),
+  patch: (path, data) => apiPatch(path, data),
   delete: (path) => apiDelete(path),
 };
 
