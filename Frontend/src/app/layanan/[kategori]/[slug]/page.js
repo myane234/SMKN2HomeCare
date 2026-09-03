@@ -131,7 +131,7 @@ export default async function DetailLayanan({ params, searchParams }) {
                   Pesan Sekarang
                 </button>
               </Link>
-              <Link href="/pesan-laynan" className="flex-1">
+              <Link href="/pesan-layanan" className="flex-1">
                 <button className="w-full rounded-xl border border-sky-600 py-4 text-lg font-semibold text-sky-600 hover:bg-sky-50 cursor-pointer transition">
                   Katalog Pesan Layanan
                 </button>

@@ -49,10 +49,21 @@ const getFullAvatarUrl = (rawAvatar) => {
 export default function ProfilePage() {
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(false);
+  const [isCheckingAuth, setIsCheckingAuth] = useState(true);
   const [profile, setProfile] = useState(null);
   const [activeRole, setActiveRole] = useState('pasien');
 
   useEffect(() => {
+    // 1. Strict client-side check: pastikan ada token login
+    const cookies = document.cookie.split('; ');
+    const hasToken = cookies.some(row => row.startsWith('auth_token=') || row.startsWith('smarthomecare-session='));
+
+    if (!hasToken) {
+      clearProfileCookies();
+      router.replace('/login?redirect=/profile');
+      return;
+    }
+
     const profileData = getProfileFromCookies();
     if (profileData) {
       setProfile(profileData);
@@ -84,10 +95,22 @@ export default function ProfilePage() {
         } else if (freshProfile.roles?.length > 0) {
           setActiveRole(freshProfile.roles[0]);
         }
+        setIsCheckingAuth(false);
+      } else {
+        // Jika API profile gagal (401 / unauthenticated), redirect ke login
+        const currentCookies = document.cookie.split('; ');
+        const stillHasToken = currentCookies.some(row => row.startsWith('auth_token=') || row.startsWith('smarthomecare-session='));
+        if (!stillHasToken || !profileData) {
+          clearProfileCookies();
+          router.replace('/login?redirect=/profile');
+        } else {
+          setIsCheckingAuth(false);
+        }
       }
     };
+    
     refreshProfile();
-  }, []);
+  }, [router]);
 
   const userName = profile?.pasien?.nama_lengkap || 
                    profile?.tenaga_medis?.nama_lengkap || 
@@ -113,13 +136,18 @@ export default function ProfilePage() {
     setIsLoading(true);
     try {
       await logoutUser();
-      localStorage.removeItem('token'); 
-      router.push('/login');
-      router.refresh?.();
     } catch (error) {
-      console.error("Logout gagal:", error);
-      alert("Gagal logout, silakan coba lagi.");
+      console.warn("Logout API warning:", error);
     } finally {
+      clearProfileCookies();
+      document.cookie = 'auth_token=; path=/; max-age=0';
+      document.cookie = 'smarthomecare-session=; path=/; max-age=0';
+      document.cookie = 'is_logged_in=; path=/; max-age=0';
+      document.cookie = 'active_role=; path=/; max-age=0';
+      document.cookie = 'user_roles=; path=/; max-age=0';
+      document.cookie = 'user_nama=; path=/; max-age=0';
+      localStorage.removeItem('token'); 
+      router.replace('/login');
       setIsLoading(false);
     }
   };
@@ -273,6 +301,17 @@ export default function ProfilePage() {
 
     return null;
   };
+
+  if (isCheckingAuth) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center font-sans">
+        <div className="flex flex-col items-center gap-3">
+          <div className="w-8 h-8 border-3 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+          <p className="text-xs text-gray-500 font-medium">Memverifikasi sesi akun...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gray-50 font-sans antialiased pb-24">

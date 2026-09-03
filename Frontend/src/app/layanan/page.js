@@ -130,8 +130,8 @@ function LayananPageContent() {
           </p>
           <div className="pt-2 flex justify-center">
             <Link
-              href="/pesan-laynan"
-              className="inline-flex items-center gap-2 rounded-xl bg-sky-600 px-6 py-3 text-sm font-bold text-white shadow-md hover:bg-sky-700 transition active:scale-95 cursor-pointer"
+              href="/pesan-layanan"
+              className="inline-flex items-center justify-center rounded-full bg-sky-600 px-6 py-3 text-sm font-semibold text-white shadow-md hover:bg-sky-700 transition"
             >
               Pesan Layanan Sekarang <FiArrowRight />
             </Link>
