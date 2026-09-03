@@ -71,3 +71,36 @@ export const getDataOperasional = async () => {
     throw error;
   }
 };
+
+/** Get bookings assigned to the authenticated nakes. */
+export const getNakesOrders = async () => {
+  const response = await api.get('/api/nakes/orders');
+  return response.data;
+};
+
+/** Get bookings already accepted or completed by the authenticated nakes. */
+export const getNakesBookings = async () => {
+  const response = await api.get('/api/nakes/booking');
+  return response.data;
+};
+
+// src/services/nakesService.js
+
+/** Get one booking detail. */
+export const getNakesOrderDetail = async (bookingId) => {
+  const response = await api.get(`/api/nakes/order/${encodeURIComponent(bookingId)}`);
+  return response.data;
+};
+
+/** Accept one booking. */
+/** Accept one booking with optional payload (GPS coordinates). */
+export const acceptNakesBooking = async (bookingId, payload = {}) => {
+  const response = await api.post(`/api/nakes/booking/${encodeURIComponent(bookingId)}/terima`, payload);
+  return response.data;
+};
+
+/** Reject one booking. */
+export const rejectNakesBooking = async (bookingId) => {
+  const response = await api.post(`/api/nakes/booking/${encodeURIComponent(bookingId)}/tolak`);
+  return response.data;
+};
