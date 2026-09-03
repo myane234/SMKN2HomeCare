@@ -130,7 +130,7 @@ export default function ProfilePage() {
       icon: <FiUser size={20} />, 
       href: '/profile/edit' 
     },
-    { label: 'Riwayat', icon: <FiFileText size={20} />, href: '/transactions' },
+    { label: 'Riwayat', icon: <FiFileText size={20} />, href: '/transaksi' },
     { label: 'Bantuan', icon: <FiHelpCircle size={20} />, href: '/help' },
     { label: 'TOS Web', icon: <FiFile size={20} />, href: '/tos' },
     { label: 'Pengaturan', icon: <FiSettings size={20} />, href: '/settings' },

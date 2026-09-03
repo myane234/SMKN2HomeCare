@@ -1,228 +1,141 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import React, { useState, useEffect, Suspense } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { 
   FiArrowLeft, 
-  FiCopy, 
-  FiCheckCircle,
-  FiCreditCard
+  FiAlertCircle
 } from 'react-icons/fi';
-import api from '@/services/api';
+import api from "@/services/api";
 
-export default function PaymentQRPage() {
+const METODE_PEMBAYARAN = [
+  {
+    id: 'qris',
+    nama: 'QRIS',
+    keterangan: 'Scan QR pakai GoPay, OVO, ShopeePay, BCA, dll',
+    logo: '/images/payment/qris.png',
+  },
+  {
+    id: 'gopay',
+    nama: 'GoPay',
+    keterangan: 'Pembayaran instan via aplikasi GoPay',
+    logo: '/images/payment/gopay.png',
+  },
+  {
+    id: 'dana',
+    nama: 'DANA',
+    keterangan: 'Pembayaran instan via aplikasi DANA',
+    logo: '/images/payment/dana.png',
+  },
+  {
+    id: 'shopeepay',
+    nama: 'ShopeePay',
+    keterangan: 'Pembayaran instan via aplikasi ShopeePay',
+    logo: '/images/payment/shopeepay.png',
+  },
+  {
+    id: 'bri_va',
+    nama: 'BRI Virtual Account',
+    keterangan: 'Transfer via m-BRI atau ATM BRI',
+    logo: '/images/payment/bri.png',
+  },
+  {
+    id: 'bca_va',
+    nama: 'BCA Virtual Account',
+    keterangan: 'Transfer via m-BCA atau ATM BCA',
+    logo: '/images/payment/bca.png',
+  },
+];
+
+function PilihMetodePembayaranContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   
-  const [orderId, setOrderId] = useState('');
-  const [amount, setAmount] = useState(0);
-  const [bookingId, setBookingId] = useState('');
-  const [metode, setMetode] = useState('');
-  
-  const [paymentData, setPaymentData] = useState(null);
-  const [isLoadingApi, setIsLoadingApi] = useState(true);
-  const [apiError, setApiError] = useState('');
-  const [fixedQrUrl, setFixedQrUrl] = useState('');
+  const [selectedMetode, setSelectedMetode] = useState(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const [isFetchingData, setIsFetchingData] = useState(true);
+  const [error, setError] = useState('');
 
-  const [expiredAt, setExpiredAt] = useState(null);
-  const [timeLeft, setTimeLeft] = useState(0);
-  const [copiedVA, setCopiedVA] = useState(false);
-  const [copiedOrderId, setCopiedOrderId] = useState(false);
+  const [bookingId, setBookingId] = useState('');
+  const [totalAmount, setTotalAmount] = useState('');
 
   useEffect(() => {
-    if (typeof window === 'undefined') return;
+    const fetchRealData = async () => {
+      setIsFetchingData(true);
+      try {
+        let validBookingId = searchParams.get('booking_id');
+        let validTotalAmount = searchParams.get('total');
 
-    const params = new URLSearchParams(window.location.search);
-    const metodeParam = params.get('metode') || '';
-    const bookingParam = params.get('booking_id') || params.get('id') || '';
-    const totalParam = parseFloat(params.get('total') || params.get('price') || 0);
-    
-    setMetode(metodeParam);
-    setBookingId(bookingParam);
-    setAmount(totalParam);
+        if (!validBookingId || !validTotalAmount) {
+          const savedBooking = localStorage.getItem('last_booking') || localStorage.getItem('pending_order');
+          if (savedBooking) {
+            const parsed = JSON.parse(savedBooking);
+            if (!validBookingId) validBookingId = parsed.booking_id || parsed.id || '';
+            if (!validTotalAmount) validTotalAmount = parsed.total || parsed.price || parsed.amount || '';
+          }
+        }
 
-    if (!bookingParam) {
-      setIsLoadingApi(false);
-      setApiError('Parameter booking_id tidak ditemukan pada URL.');
+        if (validBookingId && !validTotalAmount) {
+          try {
+            const response = await api.get(`/api/booking/${validBookingId}/payment-details`);
+            const resData = response.data.data || response.data;
+            validTotalAmount = resData.total_harga || resData.price || resData.total || '';
+          } catch (err) {
+            console.error("Gagal mengambil data harga dari API:", err);
+          }
+        }
+
+        setBookingId(validBookingId);
+        setTotalAmount(validTotalAmount);
+
+        if (!validBookingId || !validTotalAmount) {
+          setError("Data pesanan tidak ditemukan atau tidak lengkap. Silakan ulangi proses dari awal.");
+        }
+      } catch (e) {
+        console.error("Gagal memuat data pembayaran:", e);
+        setError("Terjadi kesalahan sistem saat memuat data pesanan.");
+      } finally {
+        setIsFetchingData(false);
+      }
+    };
+
+    fetchRealData();
+  }, [searchParams]);
+
+  const handlePilihMetode = (metodeId) => {
+    setSelectedMetode(metodeId);
+    setError('');
+  };
+
+  const handleLanjutkanPembayaran = () => {
+    if (!selectedMetode) {
+      setError('Silakan pilih metode pembayaran terlebih dahulu.');
       return;
     }
 
-    const fetchPaymentInfo = async () => {
-      try {
-        setIsLoadingApi(true);
-        setApiError('');
+    if (!bookingId || !totalAmount) {
+      setError('Data pesanan tidak valid. Tidak dapat melanjutkan pembayaran.');
+      return;
+    }
 
-        const response = await api.post('/api/booking/charge', {
-          id_booking: bookingParam,
-          payment_type: metodeParam,
-          total: totalParam,
-          amount: totalParam,
-          gross_amount: totalParam,
-          transaction_details: {
-            gross_amount: totalParam,
-            order_id: `INV-${bookingParam}-${Date.now().toString().slice(-6)}`
-          }
-        });
-        
-        const resData = response.data.data || response.data;
-        setPaymentData(resData);
-        
-        const extractedUrl = 
-          resData?.actions?.[0]?.url || 
-          resData?.qr_url || 
-          resData?.payment_details?.qris?.qr_url || 
-          resData?.qris_url ||
-          resData?.url || 
-          resData?.actions?.[0]?.qr_image_url ||
-          '';
+    setIsLoading(true);
+    setError('');
 
-        if (extractedUrl) {
-          setFixedQrUrl(extractedUrl);
-        }
-        
-        const currentOrderId = resData.order_id || `INV-${bookingParam}-${Date.now().toString().slice(-6)}`;
-        setOrderId(currentOrderId);
-
-        if (resData.gross_amount || resData.jumlah_total || resData.total) {
-          setAmount(parseFloat(resData.gross_amount || resData.jumlah_total || resData.total));
-        }
-        
-        const expiryTime = resData.expiry_time || resData.expired_at ? new Date(resData.expiry_time || resData.expired_at) : new Date(Date.now() + 15 * 60 * 1000);
-        setExpiredAt(expiryTime);
-
-      } catch (err) {
-        console.error('Gagal mengambil data dari server:', err);
-        setApiError('Gagal memproses pembayaran ke server: ' + (err.response?.data?.message || err.message));
-      } finally {
-        setIsLoadingApi(false);
-      }
-    };
-
-    fetchPaymentInfo();
-  }, []);
-
-  useEffect(() => {
-    if (!expiredAt) return;
-    
-    const calculateTimeLeft = () => {
-      const now = new Date().getTime();
-      const expiry = new Date(expiredAt).getTime();
-      const diff = Math.max(0, Math.floor((expiry - now) / 1000));
-      setTimeLeft(diff);
-      
-      if (diff === 0 && orderId) {
-        router.push(`/pembayaran/payment-confirmation/pending?order_id=${orderId}&status=expired`);
-      }
-    };
-
-    calculateTimeLeft();
-    const timer = setInterval(calculateTimeLeft, 1000);
-    return () => clearInterval(timer);
-  }, [expiredAt, orderId, router]);
-
-  useEffect(() => {
-    if (!orderId) return;
-
-    const checkPaymentStatus = async () => {
-      try {
-        const res = await api.get(`/api/booking/status?order_id=${orderId}`);
-        const statusData = res.data.data || res.data;
-        const transactionStatus = statusData.transaction_status || statusData.status;
-
-        if (
-          transactionStatus === 'settlement' || 
-          transactionStatus === 'success' || 
-          transactionStatus === 'paid'
-        ) {
-          router.push(`/pembayaran/payment-confirmation/success?booking_id=${bookingId}&order_id=${orderId}&total=${amount}`);
-        } else if (
-          transactionStatus === 'expire' || 
-          transactionStatus === 'cancelled' ||
-          transactionStatus === 'failure'
-        ) {
-          router.push(`/pembayaran/payment-confirmation/pending?order_id=${orderId}&status=expired`);
-        }
-      } catch (err) {
-        console.error('Gagal mengecek status pembayaran:', err);
-      }
-    };
-
-    const statusInterval = setInterval(checkPaymentStatus, 5000);
-    return () => clearInterval(statusInterval);
-  }, [orderId, router]);
-
-  const methods = {
-    qris: { name: 'QRIS', isQr: true },
-    gopay: { name: 'GoPay', isQr: true },
-    dana: { name: 'DANA', isQr: true },
-    shopeepay: { name: 'ShopeePay', isQr: true },
-    bca_va: { name: 'BCA Virtual Account', isQr: false },
-    bri_va: { name: 'BRI Virtual Account', isQr: false },
-    bni_va: { name: 'BNI Virtual Account', isQr: false },
-    mandiri_bill: { name: 'Mandiri Bill / VA', isQr: false }
-  };
-
-  const method = methods[metode] || { name: metode ? metode.toUpperCase() : 'Pembayaran', isQr: true };
-  
-  const qrString = 
-    paymentData?.qr_string || 
-    paymentData?.uri || 
-    paymentData?.actions?.[0]?.qr_string ||
-    '';
-  
-  const qrImageUrl = fixedQrUrl || (qrString ? `https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(qrString)}` : '');
-  const virtualAccountNumber = paymentData?.payment_details?.virtual_account?.va_number || paymentData?.virtual_number || paymentData?.va_number || '';
-
-  const formatRupiah = (value) => {
-    return new Intl.NumberFormat('id-ID', {
-      style: 'currency',
-      currency: 'IDR',
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 0,
-    }).format(value);
-  };
-
-  const formatCountdown = (seconds) => {
-    const mins = Math.floor(seconds / 60);
-    const secs = seconds % 60;
-    return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
-  };
-
-  const handleCopyVA = async () => {
-    if (!virtualAccountNumber) return;
     try {
-      await navigator.clipboard.writeText(virtualAccountNumber);
-      setCopiedVA(true);
-      setTimeout(() => setCopiedVA(false), 2000);
+      router.push(
+        `/pembayaran/paymentQR?metode=${selectedMetode}&booking_id=${bookingId}&total=${totalAmount}`
+      );
     } catch (err) {
-      console.error('Gagal copy:', err);
+      setError('Gagal memproses pembayaran. Silakan coba lagi.');
+      setIsLoading(false);
     }
   };
 
-  const handleCopyOrderId = async () => {
-    if (!orderId) return;
-    try {
-      await navigator.clipboard.writeText(orderId);
-      setCopiedOrderId(true);
-      setTimeout(() => setCopiedOrderId(false), 2000);
-    } catch (err) {
-      console.error('Gagal copy:', err);
-    }
+  const formatCurrency = (value) => {
+    const num = parseInt(value);
+    if (isNaN(num)) return 'Rp 0';
+    return `Rp ${num.toLocaleString('id-ID')}`;
   };
-
-  const handleBack = () => {
-    router.push(`/pembayaran/pilih-metode?booking_id=${bookingId}&total=${amount}`);
-  };
-
-  if (isLoadingApi) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-slate-50">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
-          <p className="mt-4 text-gray-600">Memuat detail pembayaran dari server...</p>
-        </div>
-      </div>
-    );
-  }
 
   return (
     <div className="min-h-screen bg-slate-50 font-sans text-slate-800">
@@ -231,110 +144,145 @@ export default function PaymentQRPage() {
           <div className="flex items-center gap-3">
             <button
               type="button"
-              onClick={handleBack}
+              onClick={() => router.back()}
               className="p-2 hover:bg-slate-100 rounded-full transition"
             >
               <FiArrowLeft className="w-5 h-5 text-slate-600" />
             </button>
-            <h1 className="text-lg font-bold text-slate-800">Detail Pembayaran</h1>
+            <h1 className="text-lg font-bold text-slate-800">
+              Pilih Metode Pembayaran
+            </h1>
           </div>
         </div>
       </div>
 
-      {apiError && (
-        <div className="max-w-5xl mx-auto px-4 mt-4">
-          <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-xl text-sm">
-            {apiError}
-          </div>
-        </div>
-      )}
+      <div className="max-w-5xl mx-auto px-4 py-6 lg:py-10">
+        <div className="flex flex-col lg:flex-row gap-8 lg:gap-12 items-start">
+          
+          <div className="w-full lg:flex-1">
+            <div className="bg-gradient-to-r from-sky-400 to-blue-500 rounded-2xl px-6 py-10 mb-8 shadow-md text-white flex flex-col justify-center lg:hidden">
+              <p className="text-xs sm:text-sm text-sky-50 font-medium tracking-wide">
+                Total Pembayaran
+              </p>
+              <p className="text-xl sm:text-2xl font-bold mt-1">
+                {isFetchingData ? "Memuat..." : formatCurrency(totalAmount)}
+              </p>
+            </div>
 
-      <div className="max-w-5xl mx-auto px-4 md:px-12 py-8">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <div className="md:col-span-2 space-y-6">
-            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 md:p-8">
-              <h2 className="text-lg font-semibold text-gray-800 mb-6">{method.name} Payment</h2>
+            <div className="space-y-3 mb-8 lg:mb-0">
+              <p className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-4">
+                Pilih Pembayaran
+              </p>
               
-              {method.isQr ? (
-                <div className="flex flex-col items-center">
-                  <div className="w-56 h-56 bg-white rounded-xl flex items-center justify-center border-2 border-dashed border-gray-300 p-2 shadow-inner">
-                    {qrImageUrl ? (
-                      <img 
-                        src={qrImageUrl} 
-                        alt="QR Code Pembayaran" 
-                        className="w-full h-full object-contain" 
-                      />
-                    ) : (
-                      <span className="text-xs text-slate-400 text-center">QR Code belum tersedia dari respon server</span>
-                    )}
-                  </div>
-                  <p className="text-sm text-gray-500 mt-4 flex items-center gap-2">
-                    <FiCreditCard className="w-4 h-4" /> Scan QR Code untuk membayar
-                  </p>
-                </div>
-              ) : (
-                <div className="bg-blue-50 rounded-xl p-6 border border-blue-200">
-                  <p className="text-sm text-gray-600 mb-2">Nomor Virtual Account</p>
-                  <div className="flex items-center justify-between gap-4">
-                    <code className="text-xl md:text-2xl font-mono font-bold text-blue-700 tracking-wider">
-                      {virtualAccountNumber || 'Nomor VA tidak tersedia'}
-                    </code>
-                    {virtualAccountNumber && (
-                      <button
-                        onClick={handleCopyVA}
-                        className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-all ${
-                          copiedVA ? 'bg-green-100 text-green-700' : 'bg-blue-100 text-blue-700 hover:bg-blue-200'
-                        }`}
-                      >
-                        {copiedVA ? <><FiCheckCircle className="w-4 h-4" /><span>Disalin</span></> : <><FiCopy className="w-4 h-4" /><span>Salin</span></>}
-                      </button>
-                    )}
-                  </div>
-                </div>
-              )}
+              {METODE_PEMBAYARAN.map((metode) => {
+                const isSelected = selectedMetode === metode.id;
 
-              <div className="mt-8 pt-6 border-t border-gray-100 space-y-2">
-                <div className="flex justify-between text-sm">
-                  <span className="text-gray-500">Order ID</span>
+                return (
                   <button
-                    onClick={handleCopyOrderId}
-                    className="group flex items-center gap-1.5 font-mono text-gray-800 hover:text-blue-600 transition-colors"
+                    key={metode.id}
+                    type="button"
+                    onClick={() => handlePilihMetode(metode.id)}
+                    className={`w-full flex items-center justify-between p-4 rounded-xl border transition-all duration-200 ${
+                      isSelected
+                        ? 'border-sky-500 bg-sky-50/60 shadow-sm ring-1 ring-sky-500'
+                        : 'bg-white border-slate-200 hover:border-slate-300 hover:bg-slate-50/50'
+                    }`}
                   >
-                    <span>{orderId || '-'}</span>
-                    {orderId && (
-                      copiedOrderId ? <FiCheckCircle className="w-3.5 h-3.5 text-green-600" /> : <FiCopy className="w-3.5 h-3.5 text-gray-400 opacity-0 group-hover:opacity-100" />
-                    )}
+                    <div className="flex items-center gap-4 min-w-0">
+                      <div className="w-16 h-10 relative flex-shrink-0 flex items-center justify-center">
+                        <img
+                          src={metode.logo}
+                          alt={metode.nama || metode.id}
+                          className="max-w-full max-h-full object-contain object-center"
+                        />
+                      </div>
+
+                      <div className="text-left min-w-0">
+                        <p className="text-sm font-bold text-slate-800 leading-snug">
+                          {metode.nama}
+                        </p>
+                        {metode.keterangan && (
+                          <p className="text-[11px] text-slate-400 truncate mt-0.5">
+                            {metode.keterangan}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                    
+                    <div className="flex-shrink-0 ml-3">
+                      <div className={`w-5 h-5 rounded-full border flex items-center justify-center transition-all ${
+                        isSelected
+                          ? 'border-sky-500 bg-sky-500 shadow-sm'
+                          : 'border-slate-300 bg-white'
+                      }`}>
+                        {isSelected && (
+                          <div className="w-2 h-2 rounded-full bg-white" />
+                        )}
+                      </div>
+                    </div>
                   </button>
-                </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-sm text-gray-500">Total Pembayaran</span>
-                  <span className="text-xl font-bold text-gray-900">{formatRupiah(amount)}</span>
-                </div>
-              </div>
+                );
+              })}
             </div>
           </div>
 
-          <div className="space-y-6">
-            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-              <h3 className="font-semibold text-gray-800 mb-4">Status Pembayaran</h3>
-              <div className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <span className="text-sm text-gray-500">Status</span>
-                  <span className="text-sm font-medium text-blue-600">Menunggu Pembayaran</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-sm text-gray-500">Metode</span>
-                  <span className="text-sm font-medium text-gray-800">{method.name}</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-sm text-gray-500">Expired</span>
-                  <span className="text-sm font-mono font-medium text-red-500">{formatCountdown(timeLeft)}</span>
-                </div>
-              </div>
+          <div className="w-full lg:w-[380px] shrink-0 lg:sticky lg:top-28">
+            <div className="bg-gradient-to-r from-sky-400 to-blue-500 rounded-2xl px-6 py-10 mb-6 shadow-md text-white hidden lg:flex flex-col justify-center">
+              <p className="text-xs sm:text-sm text-sky-50 font-medium tracking-wide">
+                Total Pembayaran
+              </p>
+              <p className="text-xl sm:text-2xl font-bold mt-1">
+                {isFetchingData ? "Memuat..." : formatCurrency(totalAmount)}
+              </p>
             </div>
+
+            {error && (
+              <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-xl text-red-700 text-sm flex items-start gap-3">
+                <FiAlertCircle className="w-5 h-5 text-red-500 shrink-0 mt-0.5" />
+                <span>{error}</span>
+              </div>
+            )}
+
+            <button
+              type="button"
+              onClick={handleLanjutkanPembayaran}
+              disabled={isLoading || isFetchingData || !selectedMetode || !totalAmount}
+              className={`w-full py-4 px-4 text-sm sm:text-base font-bold text-white rounded-xl transition flex items-center justify-center gap-2 ${
+                isLoading || isFetchingData || !selectedMetode || !totalAmount
+                  ? 'bg-slate-300 cursor-not-allowed'
+                  : 'bg-sky-600 hover:bg-sky-700 shadow-lg shadow-sky-600/20 active:scale-[0.99]'
+              }`}
+            >
+              {isLoading ? (
+                <>
+                  <span className="animate-spin w-4 h-4 border-2 border-white border-t-transparent rounded-full"></span> Memproses...
+                </>
+              ) : isFetchingData ? (
+                'Memuat Data...'
+              ) : (
+                'Bayar'
+              )}
+            </button>
+
           </div>
+
         </div>
       </div>
     </div>
+  );
+}
+
+export default function PilihMetodePembayaranPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen flex items-center justify-center bg-slate-50">
+        <div className="text-center">
+          <div className="mx-auto h-12 w-12 animate-spin rounded-full border-b-2 border-sky-600"></div>
+          <p className="mt-4 text-gray-600">Memuat metode pembayaran...</p>
+        </div>
+      </div>
+    }>
+      <PilihMetodePembayaranContent />
+    </Suspense>
   );
 }
