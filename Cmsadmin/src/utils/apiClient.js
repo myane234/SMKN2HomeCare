@@ -1,9 +1,6 @@
-// Generic fetch wrapper for the Laravel API.
-// Change VITE_API_BASE_URL in your .env file to match your backend
-// (e.g. http://localhost:8000 for `php artisan serve`, or http://localhost
-// if you're using Laravel Herd/Valet on port 80).
+import { getAuthHeaders } from './auth';
 
-export const BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://citra.faaruq.com';
+export const BASE_URL = import.meta.env.VITE_API_BASE_URL || '';
 
 async function handleResponse(res) {
   const isJson = res.headers.get('content-type')?.includes('application/json');
@@ -20,30 +17,74 @@ async function handleResponse(res) {
 }
 
 export async function apiGet(path) {
-  const res = await fetch(`${BASE_URL}${path}`);
+  const res = await fetch(`${BASE_URL}${path}`, {
+    headers: getAuthHeaders({ Accept: 'application/json' }),
+  });
+  return handleResponse(res);
+}
+
+export async function apiPostJson(path, data) {
+  const res = await fetch(`${BASE_URL}${path}`, {
+    method: 'POST',
+    headers: getAuthHeaders({ 'Content-Type': 'application/json', Accept: 'application/json' }),
+    body: JSON.stringify(data),
+  });
+  return handleResponse(res);
+}
+
+export async function apiPutJson(path, data) {
+  const res = await fetch(`${BASE_URL}${path}`, {
+    method: 'PUT',
+    headers: getAuthHeaders({ 'Content-Type': 'application/json', Accept: 'application/json' }),
+    body: JSON.stringify(data),
+  });
+  return handleResponse(res);
+}
+
+export async function apiPatch(path, data = {}) {
+  const res = await fetch(`${BASE_URL}${path}`, {
+    method: 'PATCH',
+    headers: getAuthHeaders({ 'Content-Type': 'application/json', Accept: 'application/json' }),
+    body: JSON.stringify(data),
+  });
   return handleResponse(res);
 }
 
 export async function apiPostForm(path, formData) {
   const res = await fetch(`${BASE_URL}${path}`, {
     method: 'POST',
+    headers: getAuthHeaders(),
     body: formData,
   });
   return handleResponse(res);
 }
 
 export async function apiPutForm(path, formData) {
-  // Laravel workaround: multipart PUT/PATCH requests don't populate $_FILES
-  // properly in PHP, so we POST with a `_method` override field instead.
   formData.append('_method', 'PUT');
   const res = await fetch(`${BASE_URL}${path}`, {
     method: 'POST',
+    headers: getAuthHeaders(),
     body: formData,
   });
   return handleResponse(res);
 }
 
 export async function apiDelete(path) {
-  const res = await fetch(`${BASE_URL}${path}`, { method: 'DELETE' });
+  const res = await fetch(`${BASE_URL}${path}`, {
+    method: 'DELETE',
+    headers: getAuthHeaders({ Accept: 'application/json' }),
+  });
   return handleResponse(res);
 }
+
+export const api = {
+  get: apiGet,
+  post: apiPostJson,
+  postForm: apiPostForm,
+  put: apiPutJson,
+  putForm: apiPutForm,
+  patch: apiPatch,
+  delete: apiDelete,
+};
+
+export default api;

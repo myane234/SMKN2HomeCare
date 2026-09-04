@@ -1,44 +1,54 @@
+import axios from "axios";
 import api from "./api";
 
-export const DEFAULT_ULASAN = [
+const DEFAULT_ULASAN = [
   {
     id_ulasan: 1,
-    nama_pasien: "Siti Rahmawati",
+    nama_pasien: "Budi Santoso",
+    profesi_peran: "Keluarga Pasien",
     rating: 5,
-    layanan: "Perawat Lansia",
-    komentar: "Pelayanan sangat ramah dan profesional. Perawat datang tepat waktu dan telaten merawat ibu saya.",
-    created_at: "2026-08-15"
+    layanan: "Fisioterapi Rumah",
+    komentar: "Pelayanan perawat sangat ramah dan profesional. Ayah saya yang baru pulang dari rumah sakit merasa sangat terbantu dan nyaman dirawat di rumah.",
+    created_at: "2026-09-01"
   },
   {
     id_ulasan: 2,
-    nama_pasien: "Budi Santoso",
+    nama_pasien: "Siti Rahma",
+    profesi_peran: "Pasien Lansia",
     rating: 5,
-    layanan: "Fisioterapi",
-    komentar: "Sangat membantu pemulihan pasca operasi. Terapis sabar dan memberikan panduan latihan harian.",
-    created_at: "2026-08-18"
+    layanan: "Perawatan Luka Medis",
+    komentar: "Pelayanan sangat memuaskan, perawat datang tepat waktu dan telaten sekali saat mengganti perban pasca operasi.",
+    created_at: "2026-09-02"
   },
   {
     id_ulasan: 3,
-    nama_pasien: "Dewi Lestari",
+    nama_pasien: "Hendro Gunawan",
+    profesi_peran: "Anak Pasien",
     rating: 4,
-    layanan: "Perawatan Ibu & Bayi",
-    komentar: "Pijat laktasi dan perawatan bayi sangat memuaskan. Recomended banget!",
-    created_at: "2026-08-20"
+    layanan: "Pendampingan Pasien 24 Jam",
+    komentar: "Sangat responsif! Pagi pesan layanan via website, siangnya perawat sudah tiba di rumah membawa perlengkapan medis lengkap.",
+    created_at: "2026-09-03"
   }
 ];
 
 function extractArray(payload) {
-  if (!payload) return [];
   if (Array.isArray(payload)) return payload;
-  if (Array.isArray(payload.data)) return payload.data;
-  if (Array.isArray(payload.data?.data)) return payload.data.data;
+  if (Array.isArray(payload?.data)) return payload.data;
+  if (Array.isArray(payload?.data?.data)) return payload.data.data;
   return [];
 }
 
+const getClient = () => {
+  if (typeof window !== "undefined") {
+    return axios.create({ baseURL: "" });
+  }
+  return api;
+};
+
 export const getUlasan = async (params = {}) => {
+  const client = getClient();
   try {
-    // Sesuai endpoint dokumentasi API 1.1
-    const res = await api.get("/api/resource/content/ulasan", { params });
+    const res = await client.get("/api/resource/content/ulasan", { params });
     const items = extractArray(res.data);
     if (items.length > 0) {
       return items.map((item) => ({
@@ -52,11 +62,11 @@ export const getUlasan = async (params = {}) => {
         created_at: item.created_at ? item.created_at.split("T")[0] : "2026-09-03"
       }));
     }
-  } catch {
-    // Coba fallback ke /api/ulasan
+  } catch (error) {
+    console.warn("Gagal memuat API ulasan lokal, mencoba remote:", error);
     try {
-      const resFallback = await api.get("/api/ulasan", { params });
-      const items = extractArray(resFallback.data);
+      const resRemote = await api.get("/api/resource/content/ulasan", { params });
+      const items = extractArray(resRemote.data);
       if (items.length > 0) return items;
     } catch {}
   }
@@ -64,6 +74,7 @@ export const getUlasan = async (params = {}) => {
 };
 
 export const createUlasan = async (data) => {
+  const client = getClient();
   const payload = {
     nama_pengulas: data.nama_pengulas || data.nama_pasien,
     profesi_peran: data.profesi_peran || "Pasien",
@@ -73,62 +84,15 @@ export const createUlasan = async (data) => {
   };
 
   try {
-    // Sesuai endpoint dokumentasi API 1.2
-    const res = await api.post("/api/resource/content/ulasan", payload);
+    const res = await client.post("/api/resource/content/ulasan", payload);
     return res.data;
   } catch (error) {
     try {
-      const resFallback = await api.post("/api/ulasan", {
-        nama_pasien: payload.nama_pengulas,
-        rating: payload.rating,
-        layanan: data.layanan,
-        komentar: payload.komentar
-      });
-      return resFallback.data;
+      const resRemote = await api.post("/api/resource/content/ulasan", payload);
+      return resRemote.data;
     } catch (fallbackError) {
-      const status = error?.response?.status || fallbackError?.response?.status;
-      if (!status || status === 404 || status === 500 || status === 502 || status === 503) {
-        console.warn("Endpoint API ulasan belum aktif di server (404), menyimpan ulasan secara lokal (fallback mode).");
-
-        if (typeof window !== "undefined") {
-          try {
-            const current = JSON.parse(localStorage.getItem("cms_ulasan_data_v2") || "[]");
-            const newUlasan = {
-              id: Date.now(),
-              nama_pengulas: payload.nama_pengulas,
-              profesi_peran: payload.profesi_peran,
-              rating: payload.rating,
-              komentar: payload.komentar,
-              layanan_id: payload.layanan_id,
-              is_published: false,
-              urutan: current.length + 1,
-              created_at: new Date().toISOString(),
-              updated_at: new Date().toISOString(),
-              layanan: data.layanan ? { nama_layanan: data.layanan } : null
-            };
-            localStorage.setItem("cms_ulasan_data_v2", JSON.stringify([newUlasan, ...current]));
-          } catch (storageErr) {
-            console.warn("Gagal menyimpan ke localStorage:", storageErr);
-          }
-        }
-
-        return {
-          success: true,
-          message: "Terima kasih! Ulasan Anda berhasil dikirim dan akan ditinjau oleh tim kami.",
-          data: {
-            id: Date.now(),
-            nama_pengulas: payload.nama_pengulas,
-            profesi_peran: payload.profesi_peran,
-            rating: payload.rating,
-            komentar: payload.komentar,
-            is_published: false,
-            created_at: new Date().toISOString()
-          }
-        };
-      }
-
+      console.error("Gagal mengirim ulasan:", fallbackError);
       throw fallbackError;
     }
   }
 };
-
