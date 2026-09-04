@@ -108,6 +108,9 @@ const SORT_FIELD_OPTIONS = [
 // ==========================================
 // FUNCTION 1: HALAMAN LIST & DASHBOARD
 // ==========================================
+// ==========================================
+// FUNCTION 1: HALAMAN LIST & DASHBOARD
+// ==========================================
 export default function PageBooking() {
   const navigate = useNavigate();
   const [bookings, setBookings] = useState([]);
@@ -120,8 +123,8 @@ export default function PageBooking() {
   const [searchQuery, setSearchQuery] = useState("");
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
-  const [patientFilter, setPatientFilter] = useState("all");
-  const [nakesFilter, setNakesFilter] = useState("all");
+  const [patientFilter, setPatientFilter] = useState("");
+  const [nakesFilter, setNakesFilter] = useState("");
   const [monthFilter, setMonthFilter] = useState("all");
   const [yearFilter, setYearFilter] = useState("all");
   const [rekamMedisId, setRekamMedisId] = useState("");
@@ -160,22 +163,6 @@ export default function PageBooking() {
     setCurrentPage(1);
   }, [statusBooking, searchQuery, dateFrom, dateTo, patientFilter, nakesFilter, monthFilter, yearFilter, rekamMedisId, sortBy, sortDir, itemsPerPage]);
 
-  const patientOptions = useMemo(() => {
-    const map = new Map();
-    (bookings || []).forEach((b) => {
-      if (b.pasien?.id_pasien) map.set(b.pasien.id_pasien, b.pasien.nama_lengkap);
-    });
-    return Array.from(map, ([id, nama]) => ({ id, nama }));
-  }, [bookings]);
-
-  const nakesOptions = useMemo(() => {
-    const map = new Map();
-    (bookings || []).forEach((b) => {
-      if (b.tenaga_medis?.id_tenaga_medis) map.set(b.tenaga_medis.id_tenaga_medis, b.tenaga_medis.nama_lengkap);
-    });
-    return Array.from(map, ([id, nama]) => ({ id, nama }));
-  }, [bookings]);
-
   const yearOptions = useMemo(() => {
     const years = new Set();
     (bookings || []).forEach((b) => {
@@ -201,9 +188,29 @@ export default function PageBooking() {
       if (dateFrom && visitDate && visitDate < new Date(dateFrom)) return false;
       if (dateTo && visitDate && visitDate > new Date(dateTo + "T23:59:59")) return false;
 
-      if (patientFilter !== "all" && String(booking.pasien?.id_pasien) !== String(patientFilter)) return false;
+      // Filter Pasien (TextBox Search)
+      if (patientFilter.trim()) {
+        const q = patientFilter.toLowerCase().trim();
+        const patientName = String(booking.pasien?.nama_lengkap || "").toLowerCase();
+        const patientNik = String(booking.pasien?.nik || "").toLowerCase();
+        const patientId = String(booking.pasien?.id_pasien || "").toLowerCase();
 
-      if (nakesFilter !== "all" && String(booking.tenaga_medis?.id_tenaga_medis) !== String(nakesFilter)) return false;
+        if (!patientName.includes(q) && !patientNik.includes(q) && !patientId.includes(q)) {
+          return false;
+        }
+      }
+
+      // Filter Nakes (TextBox Search)
+      if (nakesFilter.trim()) {
+        const q = nakesFilter.toLowerCase().trim();
+        const nakesName = String(booking.tenaga_medis?.nama_lengkap || "").toLowerCase();
+        const nakesSpec = String(booking.tenaga_medis?.jenis_tenaga_medis || "").toLowerCase();
+        const nakesId = String(booking.tenaga_medis?.id_tenaga_medis || "").toLowerCase();
+
+        if (!nakesName.includes(q) && !nakesSpec.includes(q) && !nakesId.includes(q)) {
+          return false;
+        }
+      }
 
       if (visitDate) {
         if (monthFilter !== "all" && visitDate.getMonth() + 1 !== Number(monthFilter)) return false;
@@ -269,8 +276,8 @@ export default function PageBooking() {
     setSearchQuery("");
     setDateFrom("");
     setDateTo("");
-    setPatientFilter("all");
-    setNakesFilter("all");
+    setPatientFilter("");
+    setNakesFilter("");
     setMonthFilter("all");
     setYearFilter("all");
     setRekamMedisId("");
@@ -383,32 +390,26 @@ export default function PageBooking() {
             </div>
             <div>
               <label className="mb-1 block text-xs font-semibold text-slate-600">Filter Pasien:</label>
-              <select
+              <input
+                type="text"
+                placeholder="Cari nama / NIK pasien..."
                 value={patientFilter}
                 onChange={(e) => setPatientFilter(e.target.value)}
                 className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
-              >
-                <option value="all">Semua Pasien</option>
-                {patientOptions.map((p) => (
-                  <option key={p.id} value={p.id}>{p.nama}</option>
-                ))}
-              </select>
+              />
             </div>
           </div>
 
           <div className="mb-4 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
             <div>
               <label className="mb-1 block text-xs font-semibold text-slate-600">Tenaga Medis (Nakes):</label>
-              <select
+              <input
+                type="text"
+                placeholder="Cari nama / spesialisasi nakes..."
                 value={nakesFilter}
                 onChange={(e) => setNakesFilter(e.target.value)}
                 className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
-              >
-                <option value="all">Semua Tenaga Medis</option>
-                {nakesOptions.map((n) => (
-                  <option key={n.id} value={n.id}>{n.nama}</option>
-                ))}
-              </select>
+              />
             </div>
             <div>
               <label className="mb-1 block text-xs font-semibold text-slate-600">Bulan:</label>
