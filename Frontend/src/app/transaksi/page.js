@@ -1,56 +1,71 @@
 "use client";
 
-import { useState, useEffect, useCallback, use } from "react";
-import { useRouter } from "next/navigation";
+import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
-import { FiArrowLeft, FiCalendar, FiUser, FiMapPin, FiCreditCard, FiClock, FiFileText } from "react-icons/fi";
+import { getTransaksiPasien } from "@/services/transaksiService";
+import { FiChevronLeft, FiChevronRight } from "react-icons/fi";
 
-export default function DetailTransaksiPage({ params }) {
-  // Unwrap params untuk Next.js 15+ / standar App Router
-  const resolvedParams = use(params);
-  const idBooking = resolvedParams?.id;
-
-  const router = useRouter();
-  const [transaksi, setTransaksi] = useState(null);
+export default function TransaksiPage() {
+  const [transaksiList, setTransaksiList] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState("");
 
-  const fetchDetailTransaksi = useCallback(async () => {
-    if (!idBooking) return;
+  const [filterStatus, setFilterStatus] = useState("");
+  const [filterTanggalDari, setFilterTanggalDari] = useState("");
+  const [filterTanggalSampai, setFilterTanggalSampai] = useState("");
+  const [sortBy, setSortBy] = useState("tanggal_kunjungan");
+  const [sortOrder, setSortOrder] = useState("desc");
+
+  const [page, setPage] = useState(1);
+  const [perPage] = useState(15);
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalData, setTotalData] = useState(0);
+
+  const fetchTransaksi = useCallback(async () => {
     setIsLoading(true);
     setError("");
-
     try {
-      // Panggil endpoint API detail transaksi
-      const res = await fetch(`https://citra.faaruq.com/api/transaksi/${idBooking}`, {
-        method: "GET",
-        headers: {
-          "Content-Type": "application/json",
-          Accept: "application/json",
-          // Sertakan token auth jika API Anda membutuhkan Bearer Token:
-          // 'Authorization': `Bearer ${token}`
-        },
-      });
+      const params = {
+        page,
+        per_page: perPage,
+        sort_by: sortBy,
+        sort_order: sortOrder,
+      };
 
-      const response = await res.json();
+      if (filterStatus) params.status_booking = filterStatus;
+      if (filterTanggalDari) params.tanggal_dari = filterTanggalDari;
+      if (filterTanggalSampai) params.tanggal_sampai = filterTanggalSampai;
 
-      if (!res.ok || response.success === false) {
-        setError(response.message || "Gagal memuat detail transaksi.");
+      const response = await getTransaksiPasien(params);
+
+      // Envelope resmi dari API:
+      // { success, message, pagination: { total, total_pages, ... }, data: [] }
+      if (response.success === false) {
+        setTransaksiList([]);
+        setTotalPages(1);
+        setTotalData(0);
+        setError(response.message || "Data transaksi tidak ditemukan.");
         return;
       }
 
-      setTransaksi(response.data || response);
+      setTransaksiList(Array.isArray(response.data) ? response.data : []);
+      setTotalPages(response.pagination?.total_pages || 1);
+      setTotalData(response.pagination?.total || 0);
     } catch (err) {
-      console.error("-> Error fetch detail transaksi:", err);
-      setError("Terjadi kesalahan koneksi saat memuat detail transaksi.");
+      console.error("-> Error saat fetch transaksi:", err);
+      setError("Gagal memuat data transaksi. Silakan coba lagi.");
     } finally {
       setIsLoading(false);
     }
-  }, [idBooking]);
+  }, [page, perPage, sortBy, sortOrder, filterStatus, filterTanggalDari, filterTanggalSampai]);
 
   useEffect(() => {
-    fetchDetailTransaksi();
-  }, [fetchDetailTransaksi]);
+    fetchTransaksi();
+  }, [fetchTransaksi]);
+
+  const handleFilterChange = () => {
+    setPage(1);
+  };
 
   const formatRupiah = (angka) => {
     return new Intl.NumberFormat("id-ID", {
@@ -65,7 +80,7 @@ export default function DetailTransaksiPage({ params }) {
     try {
       return new Date(value).toLocaleDateString("id-ID", {
         day: "2-digit",
-        month: "long",
+        month: "short",
         year: "numeric",
       });
     } catch {
@@ -73,144 +88,170 @@ export default function DetailTransaksiPage({ params }) {
     }
   };
 
-  const renderBadgeStatus = (status) => {
-    const statusMap = {
-      Selesai: "bg-green-100 text-green-700 border-green-200",
-      Tindakan: "bg-purple-100 text-purple-700 border-purple-200",
-      DiPerjalanan: "bg-blue-100 text-blue-700 border-blue-200",
-      Pending: "bg-yellow-100 text-yellow-700 border-yellow-200",
-      Dibatalkan: "bg-red-100 text-red-700 border-red-200",
-    };
-
-    const styleClass = statusMap[status] || "bg-gray-100 text-gray-700 border-gray-200";
-
-    return (
-      <span className={`px-3 py-1 rounded-full text-xs font-semibold border ${styleClass}`}>
-        {status || "Unknown"}
-      </span>
-    );
-  };
-
   return (
     <div className="min-h-screen bg-slate-50 py-8 px-4 md:px-8">
-      <div className="max-w-4xl mx-auto">
-        {/* Tombol Kembali */}
-        <Link
-          href="/transaksi"
-          className="inline-flex items-center gap-2 text-sm font-medium text-gray-600 hover:text-blue-600 mb-6 transition"
-        >
-          <FiArrowLeft /> Kembali ke Riwayat Transaksi
-        </Link>
+      <div className="max-w-6xl mx-auto">
+        <h1 className="text-2xl font-bold text-gray-800 mb-6">Riwayat Transaksi</h1>
 
+        {/* Bagian Filter & Sorting */}
+        <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-200 mb-6 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div>
+            <label className="block text-sm text-gray-600 mb-1">Status</label>
+            <select
+              className="w-full border border-gray-300 rounded-lg p-2 text-sm"
+              value={filterStatus}
+              onChange={(e) => {
+                setFilterStatus(e.target.value);
+                handleFilterChange();
+              }}
+            >
+              <option value="">Semua Status</option>
+              <option value="Pending">Pending</option>
+              <option value="DiPerjalanan">Di Perjalanan</option>
+              <option value="Tindakan">Tindakan</option>
+              <option value="Selesai">Selesai</option>
+              <option value="Dibatalkan">Dibatalkan</option>
+            </select>
+          </div>
+
+          <div>
+            <label className="block text-sm text-gray-600 mb-1">Tanggal Dari</label>
+            <input
+              type="date"
+              className="w-full border border-gray-300 rounded-lg p-2 text-sm"
+              value={filterTanggalDari}
+              onChange={(e) => {
+                setFilterTanggalDari(e.target.value);
+                handleFilterChange();
+              }}
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm text-gray-600 mb-1">Tanggal Sampai</label>
+            <input
+              type="date"
+              className="w-full border border-gray-300 rounded-lg p-2 text-sm"
+              value={filterTanggalSampai}
+              onChange={(e) => {
+                setFilterTanggalSampai(e.target.value);
+                handleFilterChange();
+              }}
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm text-gray-600 mb-1">Urutkan</label>
+            <select
+              className="w-full border border-gray-300 rounded-lg p-2 text-sm"
+              value={sortBy + "-" + sortOrder}
+              onChange={(e) => {
+                const parts = e.target.value.split("-");
+                setSortBy(parts[0]);
+                setSortOrder(parts[1]);
+                handleFilterChange();
+              }}
+            >
+              <option value="tanggal_kunjungan-desc">Tanggal Kunjungan (Terbaru)</option>
+              <option value="tanggal_kunjungan-asc">Tanggal Kunjungan (Terlama)</option>
+              <option value="created_at-desc">Waktu Pemesanan (Terbaru)</option>
+            </select>
+          </div>
+        </div>
+
+        {/* Bagian List Data */}
         {isLoading ? (
-          <div className="bg-white p-12 text-center rounded-xl shadow-sm border border-gray-200">
+          <div className="text-center py-12">
             <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600 mx-auto"></div>
-            <p className="mt-4 text-gray-500">Memuat detail transaksi...</p>
+            <p className="mt-4 text-gray-500">Memuat transaksi...</p>
           </div>
         ) : error ? (
-          <div className="bg-red-50 border border-red-200 text-red-600 p-6 rounded-xl text-center">
-            <p className="font-medium mb-4">{error}</p>
-            <button
-              onClick={() => router.push("/transaksi")}
-              className="px-4 py-2 bg-red-600 text-white rounded-lg text-sm hover:bg-red-700 transition"
-            >
-              Kembali
-            </button>
+          <div className="bg-red-50 text-red-600 p-4 rounded-lg text-center">{error}</div>
+        ) : transaksiList.length === 0 ? (
+          <div className="bg-white p-12 text-center rounded-xl shadow-sm border border-gray-200">
+            <p className="text-gray-500">Tidak ada data transaksi ditemukan.</p>
           </div>
-        ) : transaksi ? (
+        ) : (
           <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-            {/* Header Status */}
-            <div className="p-6 border-b border-gray-100 bg-gray-50 flex flex-wrap justify-between items-center gap-4">
-              <div>
-                <p className="text-xs text-gray-500 uppercase tracking-wider font-semibold">Kode Booking</p>
-                <h2 className="text-xl font-bold font-mono text-gray-800">
-                  {transaksi.booking_code || transaksi.id_booking || `- # ${idBooking}`}
-                </h2>
-              </div>
-              <div>{renderBadgeStatus(transaksi.status_booking)}</div>
-            </div>
-
-            <div className="p-6 space-y-6">
-              {/* Informasi Utama */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="space-y-4">
-                  <div className="flex items-start gap-3">
-                    <FiFileText className="text-blue-600 mt-1" />
-                    <div>
-                      <p className="text-xs text-gray-500">Layanan</p>
-                      <p className="font-semibold text-gray-800">
-                        {transaksi.layanan?.nama_layanan || "Layanan Home Care"}
-                      </p>
-                    </div>
-                  </div>
-
-                  <div className="flex items-start gap-3">
-                    <FiCalendar className="text-blue-600 mt-1" />
-                    <div>
-                      <p className="text-xs text-gray-500">Tanggal Kunjungan</p>
-                      <p className="font-medium text-gray-800">
-                        {formatTanggal(transaksi.tanggal_kunjungan)}
-                      </p>
-                    </div>
-                  </div>
-
-                  <div className="flex items-start gap-3">
-                    <FiClock className="text-blue-600 mt-1" />
-                    <div>
-                      <p className="text-xs text-gray-500">Waktu Pemesanan</p>
-                      <p className="font-medium text-gray-800">
-                        {formatTanggal(transaksi.created_at)}
-                      </p>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="space-y-4">
-                  <div className="flex items-start gap-3">
-                    <FiUser className="text-blue-600 mt-1" />
-                    <div>
-                      <p className="text-xs text-gray-500">Pasien / Pemesan</p>
-                      <p className="font-medium text-gray-800">
-                        {transaksi.pasien?.nama_lengkap || transaksi.user?.name || "-"}
-                      </p>
-                    </div>
-                  </div>
-
-                  <div className="flex items-start gap-3">
-                    <FiMapPin className="text-blue-600 mt-1" />
-                    <div>
-                      <p className="text-xs text-gray-500">Alamat Kunjungan</p>
-                      <p className="font-medium text-gray-800">
-                        {transaksi.alamat_kunjungan || transaksi.alamat || "-"}
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              <hr className="border-gray-100" />
-
-              {/* Rincian Pembayaran */}
-              <div>
-                <h3 className="text-sm font-semibold text-gray-800 mb-3 flex items-center gap-2">
-                  <FiCreditCard className="text-blue-600" /> Rincian Pembayaran
-                </h3>
-                <div className="bg-slate-50 p-4 rounded-lg space-y-2 text-sm">
-                  <div className="flex justify-between text-gray-600">
-                    <span>Biaya Layanan</span>
-                    <span>{formatRupiah(transaksi.transaksi?.jumlah_total || transaksi.total)}</span>
-                  </div>
-                  <div className="flex justify-between text-gray-900 font-bold text-base pt-2 border-t border-gray-200">
-                    <span>Total Pembayaran</span>
-                    <span className="text-blue-600">
-                      {formatRupiah(transaksi.transaksi?.jumlah_total || transaksi.total)}
-                    </span>
-                  </div>
-                </div>
-              </div>
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-sm text-gray-600">
+                <thead className="bg-gray-50 text-gray-800 border-b border-gray-200">
+                  <tr>
+                    <th className="p-4 font-semibold">Kode Booking</th>
+                    <th className="p-4 font-semibold">Layanan</th>
+                    <th className="p-4 font-semibold">Tanggal Kunjungan</th>
+                    <th className="p-4 font-semibold">Total</th>
+                    <th className="p-4 font-semibold">Status</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {transaksiList.map((item, index) => (
+                    <tr key={item.id_booking || index} className="border-b border-gray-100 hover:bg-gray-50">
+                      <td className="p-4 font-mono">
+                        <Link
+                          href={"/transaksi/" + item.id_booking}
+                          className="text-blue-600 hover:underline"
+                        >
+                          {item.booking_code || item.id_booking || "-"}
+                        </Link>
+                      </td>
+                      <td className="p-4">{item.layanan?.nama_layanan || "Layanan Home Care"}</td>
+                      <td className="p-4">{formatTanggal(item.tanggal_kunjungan)}</td>
+                      <td className="p-4 font-medium text-gray-900">
+                        {formatRupiah(item.transaksi?.jumlah_total)}
+                      </td>
+                      <td className="p-4">
+                        <span
+                          className={
+                            "px-3 py-1 rounded-full text-xs font-medium " +
+                            (item.status_booking === "Selesai"
+                              ? "bg-green-100 text-green-700"
+                              : item.status_booking === "Tindakan"
+                              ? "bg-purple-100 text-purple-700"
+                              : item.status_booking === "DiPerjalanan"
+                              ? "bg-blue-100 text-blue-700"
+                              : item.status_booking === "Pending"
+                              ? "bg-yellow-100 text-yellow-700"
+                              : item.status_booking === "Dibatalkan"
+                              ? "bg-red-100 text-red-700"
+                              : "bg-gray-100 text-gray-700")
+                          }
+                        >
+                          {item.status_booking || "Unknown"}
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
           </div>
-        ) : null}
+        )}
+
+        {/* Pagination */}
+        {!isLoading && transaksiList.length > 0 && (
+          <div className="flex justify-between items-center mt-6">
+            <span className="text-sm text-gray-500">
+              Halaman {page} dari {totalPages} &middot; Total {totalData} transaksi
+            </span>
+            <div className="flex gap-2">
+              <button
+                disabled={page === 1}
+                onClick={() => setPage(page - 1)}
+                className="p-2 bg-white border border-gray-300 rounded-lg disabled:opacity-50 hover:bg-gray-50 transition"
+              >
+                <FiChevronLeft />
+              </button>
+              <button
+                disabled={page >= totalPages}
+                onClick={() => setPage(page + 1)}
+                className="p-2 bg-white border border-gray-300 rounded-lg disabled:opacity-50 hover:bg-gray-50 transition"
+              >
+                <FiChevronRight />
+              </button>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
