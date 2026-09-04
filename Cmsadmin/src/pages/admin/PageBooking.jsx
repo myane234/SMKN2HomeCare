@@ -77,6 +77,8 @@ function getNormalizedPaymentStatus(booking) {
 // FUNCTION 1: HALAMAN LIST & DASHBOARD
 // ==========================================
 // ==========================================
+// FUNCTION 1: HALAMAN LIST & DASHBOARD
+// ==========================================
 export default function PageBooking() {
   const navigate = useNavigate();
   const [bookings, setBookings] = useState([]);
@@ -85,6 +87,16 @@ export default function PageBooking() {
 
   const [activeFilter, setActiveFilter] = useState("all");
   const [searchQuery, setSearchQuery] = useState("");
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
+  const [patientFilter, setPatientFilter] = useState("");
+  const [nakesFilter, setNakesFilter] = useState("");
+  const [monthFilter, setMonthFilter] = useState("all");
+  const [yearFilter, setYearFilter] = useState("all");
+  const [rekamMedisId, setRekamMedisId] = useState("");
+  const [sortBy, setSortBy] = useState("tanggal_kunjungan");
+  const [sortDir, setSortDir] = useState("desc");
+
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
 
@@ -114,16 +126,68 @@ export default function PageBooking() {
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [activeFilter, searchQuery]);
+  }, [statusBooking, searchQuery, dateFrom, dateTo, patientFilter, nakesFilter, monthFilter, yearFilter, rekamMedisId, sortBy, sortDir, itemsPerPage]);
+
+  const yearOptions = useMemo(() => {
+    const years = new Set();
+    (bookings || []).forEach((b) => {
+      if (b.tanggal_kunjungan) years.add(new Date(b.tanggal_kunjungan).getFullYear());
+    });
+    return Array.from(years).sort((a, b) => b - a);
+  }, [bookings]);
 
   const filteredBookings = bookings.filter((booking) => {
     const bookingStatus = String(booking.status_booking || "").toLowerCase();
     const paymentStatus = getNormalizedPaymentStatus(booking);
 
-    let matchesCategory = true;
-    if (activeFilter !== "all") {
-      if (["diperjalanan", "tindakan", "selesai", "dibatalkan"].includes(activeFilter)) {
-        matchesCategory = bookingStatus.includes(activeFilter);
+      if (dateFrom && visitDate && visitDate < new Date(dateFrom)) return false;
+      if (dateTo && visitDate && visitDate > new Date(dateTo + "T23:59:59")) return false;
+
+      // Filter Pasien (TextBox Search)
+      if (patientFilter.trim()) {
+        const q = patientFilter.toLowerCase().trim();
+        const patientName = String(booking.pasien?.nama_lengkap || "").toLowerCase();
+        const patientNik = String(booking.pasien?.nik || "").toLowerCase();
+        const patientId = String(booking.pasien?.id_pasien || "").toLowerCase();
+
+        if (!patientName.includes(q) && !patientNik.includes(q) && !patientId.includes(q)) {
+          return false;
+        }
+      }
+
+      // Filter Nakes (TextBox Search)
+      if (nakesFilter.trim()) {
+        const q = nakesFilter.toLowerCase().trim();
+        const nakesName = String(booking.tenaga_medis?.nama_lengkap || "").toLowerCase();
+        const nakesSpec = String(booking.tenaga_medis?.jenis_tenaga_medis || "").toLowerCase();
+        const nakesId = String(booking.tenaga_medis?.id_tenaga_medis || "").toLowerCase();
+
+        if (!nakesName.includes(q) && !nakesSpec.includes(q) && !nakesId.includes(q)) {
+          return false;
+        }
+      }
+
+      if (visitDate) {
+        if (monthFilter !== "all" && visitDate.getMonth() + 1 !== Number(monthFilter)) return false;
+        if (yearFilter !== "all" && visitDate.getFullYear() !== Number(yearFilter)) return false;
+      } else if (monthFilter !== "all" || yearFilter !== "all") {
+        return false;
+      }
+
+      if (rekamMedisId.trim() && String(booking.pasien?.id_rekam_medis || "") !== rekamMedisId.trim()) return false;
+
+      return true;
+    });
+
+    result = [...result].sort((a, b) => {
+      let valA;
+      let valB;
+      if (sortBy === "jumlah_total") {
+        valA = Number(a.transaksi?.jumlah_total || 0);
+        valB = Number(b.transaksi?.jumlah_total || 0);
+      } else if (sortBy === "booking_code") {
+        valA = String(a.booking_code || "");
+        valB = String(b.booking_code || "");
       } else {
         matchesCategory = paymentStatus === activeFilter;
       }
@@ -140,29 +204,41 @@ export default function PageBooking() {
   const startIndex = (currentPage - 1) * itemsPerPage;
   const paginatedBookings = filteredBookings.slice(startIndex, startIndex + itemsPerPage);
 
-  const totalLunasAmount = bookings
-    .filter((b) => getNormalizedPaymentStatus(b) === "lunas")
-    .reduce((sum, b) => sum + Number(b.transaksi?.jumlah_total || 0), 0);
+  const lunasInPage = filteredBookings.filter((b) => getNormalizedPaymentStatus(b) === "lunas");
+  const totalLunasAmount = lunasInPage.reduce((sum, b) => sum + Number(b.transaksi?.jumlah_total || 0), 0);
+  const sedangTindakanCount = filteredBookings.filter((b) => {
+    const s = String(b.status_booking || "").toLowerCase();
+    return s.includes("tindakan") || s.includes("diperjalanan");
+  }).length;
+  const selesaiCount = filteredBookings.filter((b) => String(b.status_booking || "").toLowerCase().includes("selesai")).length;
 
-  const counts = {
-    all: bookings.length,
-    diperjalanan: bookings.filter((b) => String(b.status_booking || "").toLowerCase().includes("diperjalanan")).length,
-    tindakan: bookings.filter((b) => String(b.status_booking || "").toLowerCase().includes("tindakan")).length,
-    selesai: bookings.filter((b) => String(b.status_booking || "").toLowerCase().includes("selesai")).length,
-    lunas: bookings.filter((b) => getNormalizedPaymentStatus(b) === "lunas").length,
-    pending: bookings.filter((b) => getNormalizedPaymentStatus(b) === "pending").length,
-    gagal: bookings.filter((b) => getNormalizedPaymentStatus(b) === "gagal" || String(b.status_booking || "").toLowerCase().includes("dibatalkan")).length,
-  };
+  function handleQuickDate(range) {
+    const today = new Date();
+    if (range === "today") {
+      const iso = today.toISOString().slice(0, 10);
+      setDateFrom(iso);
+      setDateTo(iso);
+    } else if (range === "7days") {
+      const past = new Date();
+      past.setDate(today.getDate() - 7);
+      setDateFrom(past.toISOString().slice(0, 10));
+      setDateTo(today.toISOString().slice(0, 10));
+    }
+  }
 
-  const filterOptions = [
-    { key: "all", label: "Semua", count: counts.all },
-    { key: "diperjalanan", label: "Di Perjalanan", count: counts.diperjalanan },
-    { key: "tindakan", label: "Tindakan", count: counts.tindakan },
-    { key: "selesai", label: "Selesai", count: counts.selesai },
-    { key: "lunas", label: "Lunas (Bayar)", count: counts.lunas },
-    { key: "pending", label: "Pending (Bayar)", count: counts.pending },
-    { key: "gagal", label: "Gagal / Batal", count: counts.gagal },
-  ];
+  function handleResetFilter() {
+    setStatusBooking("all");
+    setSearchQuery("");
+    setDateFrom("");
+    setDateTo("");
+    setPatientFilter("");
+    setNakesFilter("");
+    setMonthFilter("all");
+    setYearFilter("all");
+    setRekamMedisId("");
+    setSortBy("tanggal_kunjungan");
+    setSortDir("desc");
+  }
 
   return (
     <div className="p-6">
@@ -195,20 +271,156 @@ export default function PageBooking() {
         </div>
       </div>
 
-      {/* Filter & Search */}
-      <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div className="relative w-full sm:w-72">
-          <input
-            type="text"
-            placeholder="Cari kode booking / pasien..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full rounded-xl border border-slate-200 bg-white px-4 py-2 pl-9 pr-8 text-sm text-slate-800 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
-          />
-          <svg className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-          </svg>
-        </div>
+      {showFilter && (
+        <div className="mb-6 rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+          <div className="mb-4 flex items-center justify-between">
+            <h2 className="flex items-center gap-2 text-sm font-bold text-slate-800">
+              <svg className="h-4 w-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 4h18M6 8h12M10 12h4M12 16v4" />
+              </svg>
+              Filter Data Booking
+            </h2>
+            <button onClick={handleResetFilter} className="text-xs font-semibold text-slate-400 hover:text-red-500">
+              Reset Filter
+            </button>
+          </div>
+
+          <div className="mb-4">
+            <label className="mb-2 block text-xs font-semibold text-slate-600">Status Booking:</label>
+            <div className="flex flex-wrap gap-2">
+              {STATUS_BOOKING_OPTIONS.map((opt) => (
+                <button
+                  key={opt.key}
+                  onClick={() => setStatusBooking(opt.key)}
+                  className={"rounded-full px-4 py-2 text-xs font-semibold transition " + (statusBooking === opt.key ? "bg-blue-600 text-white shadow-sm" : "bg-white border border-slate-200 text-slate-600 hover:bg-slate-50")}
+                >
+                  {opt.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="mb-4 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            <div>
+              <label className="mb-1 block text-xs font-semibold text-slate-600">Pencarian:</label>
+              <input
+                type="text"
+                placeholder="Kode booking / pasien..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+              />
+            </div>
+            <div>
+              <div className="mb-1 flex items-center justify-between">
+                <label className="block text-xs font-semibold text-slate-600">Tanggal Dari:</label>
+                <div className="flex gap-2 text-[11px] font-semibold text-blue-600">
+                  <button onClick={() => handleQuickDate("today")} className="hover:underline">Hari Ini</button>
+                  <span className="text-slate-300">|</span>
+                  <button onClick={() => handleQuickDate("7days")} className="hover:underline">7 Hari</button>
+                </div>
+              </div>
+              <input
+                type="date"
+                value={dateFrom}
+                onChange={(e) => setDateFrom(e.target.value)}
+                className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+              />
+            </div>
+            <div>
+              <label className="mb-1 block text-xs font-semibold text-slate-600">Tanggal Sampai:</label>
+              <input
+                type="date"
+                value={dateTo}
+                onChange={(e) => setDateTo(e.target.value)}
+                className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+              />
+            </div>
+            <div>
+              <label className="mb-1 block text-xs font-semibold text-slate-600">Filter Pasien:</label>
+              <input
+                type="text"
+                placeholder="Cari nama / NIK pasien..."
+                value={patientFilter}
+                onChange={(e) => setPatientFilter(e.target.value)}
+                className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+              />
+            </div>
+          </div>
+
+          <div className="mb-4 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            <div>
+              <label className="mb-1 block text-xs font-semibold text-slate-600">Tenaga Medis (Nakes):</label>
+              <input
+                type="text"
+                placeholder="Cari nama / spesialisasi nakes..."
+                value={nakesFilter}
+                onChange={(e) => setNakesFilter(e.target.value)}
+                className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+              />
+            </div>
+            <div>
+              <label className="mb-1 block text-xs font-semibold text-slate-600">Bulan:</label>
+              <select
+                value={monthFilter}
+                onChange={(e) => setMonthFilter(e.target.value)}
+                className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+              >
+                <option value="all">Semua Bulan</option>
+                {MONTH_OPTIONS.map((m) => (
+                  <option key={m.value} value={m.value}>{m.label}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="mb-1 block text-xs font-semibold text-slate-600">Tahun:</label>
+              <select
+                value={yearFilter}
+                onChange={(e) => setYearFilter(e.target.value)}
+                className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+              >
+                <option value="all">Semua Tahun</option>
+                {yearOptions.map((y) => (
+                  <option key={y} value={y}>{y}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="mb-1 block text-xs font-semibold text-slate-600">ID Rekam Medis:</label>
+              <input
+                type="text"
+                placeholder="Contoh: 16"
+                value={rekamMedisId}
+                onChange={(e) => setRekamMedisId(e.target.value)}
+                className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+              />
+            </div>
+          </div>
+
+          <div className="flex flex-wrap items-end justify-between gap-4">
+            <div>
+              <label className="mb-1 block text-xs font-semibold text-slate-600">Urutan (Sort):</label>
+              <div className="flex gap-2">
+                <select
+                  value={sortBy}
+                  onChange={(e) => setSortBy(e.target.value)}
+                  className="rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                >
+                  {SORT_FIELD_OPTIONS.map((s) => (
+                    <option key={s.value} value={s.value}>{s.label}</option>
+                  ))}
+                </select>
+                <button
+                  onClick={() => setSortDir((prev) => (prev === "asc" ? "desc" : "asc"))}
+                  className="inline-flex items-center gap-1 rounded-xl border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50"
+                >
+                  <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 4h13M3 8h9M3 12h5m6-8v16m0 0l-4-4m4 4l4-4" />
+                  </svg>
+                  {sortDir.toUpperCase()}
+                </button>
+              </div>
+            </div>
 
         <div className="flex flex-wrap gap-2">
           {filterOptions.map((option) => (
