@@ -19,7 +19,7 @@ import {
   User,
   Calendar,
 } from "lucide-react";
-
+import { motion, AnimatePresence } from "framer-motion";
 import api from "@/services/api";
 import { resolveImageUrl } from "@/services/resolveImage";
 import {
