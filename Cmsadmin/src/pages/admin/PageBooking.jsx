@@ -1,10 +1,11 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
+// import { BASE_URL } from "../../utils/apiClient";
 import { URL } from "../../utils/getUrl";
 import { getAuthHeaders } from "../../utils/auth";
 import Pagination from "../../components/pagination";
 
-const BASE_URL = URL;
+const BASE_URL = URL; 
 
 // ==========================================
 // UTILS & HELPER FUNCTIONS
@@ -12,9 +13,7 @@ const BASE_URL = URL;
 function formatDate(value) {
   if (!value) return "-";
   try {
-    const d = new Date(value);
-    if (isNaN(d.getTime())) return value;
-    return d.toLocaleString("id-ID", {
+    return new Date(value).toLocaleString("id-ID", {
       day: "2-digit",
       month: "short",
       year: "numeric",
@@ -34,22 +33,21 @@ function formatRupiah(amount) {
   }).format(amount || 0);
 }
 
-function renderStatusBadge(status, label, color) {
-  const displayLabel = label || status || "Pending";
+function renderStatusBadge(status) {
   const value = String(status || "pending").toLowerCase();
-  if (color === "green" || value === "selesai" || value === "completed" || value === "success") {
-    return <span className="inline-flex items-center rounded-md bg-green-100 px-2.5 py-1 text-xs font-semibold text-green-700">{displayLabel}</span>;
+  if (value === "selesai" || value === "completed" || value === "success") {
+    return <span className="inline-flex items-center rounded-md bg-green-100 px-2.5 py-1 text-xs font-semibold text-green-700">Selesai</span>;
   }
-  if (color === "red" || value === "dibatalkan" || value === "cancelled" || value === "canceled") {
-    return <span className="inline-flex items-center rounded-md bg-red-100 px-2.5 py-1 text-xs font-semibold text-red-700">{displayLabel}</span>;
+  if (value === "dibatalkan" || value === "cancelled" || value === "canceled") {
+    return <span className="inline-flex items-center rounded-md bg-red-100 px-2.5 py-1 text-xs font-semibold text-red-700">Dibatalkan</span>;
   }
-  if (color === "blue" || value === "diperjalanan" || value === "dalam perjalanan") {
-    return <span className="inline-flex items-center rounded-md bg-blue-100 px-2.5 py-1 text-xs font-semibold text-blue-700">{displayLabel}</span>;
+  if (value === "diperjalanan" || value === "dalam perjalanan") {
+    return <span className="inline-flex items-center rounded-md bg-blue-100 px-2.5 py-1 text-xs font-semibold text-blue-700">Di Perjalanan</span>;
   }
-  if (color === "purple" || value === "tindakan" || value === "sedang tindakan") {
-    return <span className="inline-flex items-center rounded-md bg-purple-100 px-2.5 py-1 text-xs font-semibold text-purple-700">{displayLabel}</span>;
+  if (value === "tindakan" || value === "sedang tindakan") {
+    return <span className="inline-flex items-center rounded-md bg-purple-100 px-2.5 py-1 text-xs font-semibold text-purple-700">Tindakan</span>;
   }
-  return <span className="inline-flex items-center rounded-md bg-amber-100 px-2.5 py-1 text-xs font-semibold text-amber-700">{displayLabel}</span>;
+  return <span className="inline-flex items-center rounded-md bg-amber-100 px-2.5 py-1 text-xs font-semibold text-amber-700">{status || "Pending"}</span>;
 }
 
 function renderPaymentBadge(status) {
@@ -69,41 +67,11 @@ function renderPaymentBadge(status) {
 function getNormalizedPaymentStatus(booking) {
   const rawStatus = String(booking.transaksi?.status_transaksi || "belum bayar").toLowerCase();
   if (["settlement", "sukses", "paid", "lunas", "capture"].includes(rawStatus)) return "lunas";
+  // Tambahkan "belum bayar" dan "" (jika transaksi kosong) ke sini
   if (["pending", "menunggu", "waiting", "belum bayar"].includes(rawStatus)) return "pending";
   if (["expire", "failed", "gagal", "deny", "cancel"].includes(rawStatus)) return "gagal";
-  return "pending";
+  return "pending"; // Atau biarkan default ke pending jika tidak masuk kategori lain
 }
-
-const STATUS_BOOKING_OPTIONS = [
-  { key: "all", label: "Semua Status" },
-  { key: "pending", label: "Pending" },
-  { key: "diperjalanan", label: "Di Perjalanan" },
-  { key: "tindakan", label: "Tindakan" },
-  { key: "selesai", label: "Selesai" },
-  { key: "dibatalkan", label: "Dibatalkan" },
-];
-
-const MONTH_OPTIONS = [
-  { value: "1", label: "Januari" },
-  { value: "2", label: "Februari" },
-  { value: "3", label: "Maret" },
-  { value: "4", label: "April" },
-  { value: "5", label: "Mei" },
-  { value: "6", label: "Juni" },
-  { value: "7", label: "Juli" },
-  { value: "8", label: "Agustus" },
-  { value: "9", label: "September" },
-  { value: "10", label: "Oktober" },
-  { value: "11", label: "November" },
-  { value: "12", label: "Desember" },
-];
-
-const SORT_FIELD_OPTIONS = [
-  { value: "tanggal_kunjungan", label: "Tgl Kunjungan" },
-  { value: "created_at", label: "Tgl Dibuat" },
-  { value: "jumlah_total", label: "Total Bayar" },
-  { value: "booking_code", label: "Kode Booking" },
-];
 
 // ==========================================
 // FUNCTION 1: HALAMAN LIST & DASHBOARD
@@ -116,10 +84,8 @@ export default function PageBooking() {
   const [bookings, setBookings] = useState([]);
   const [loading, setLoading] = useState(true);
   const [errorMsg, setErrorMsg] = useState("");
-  const [showFilter, setShowFilter] = useState(true);
 
-  // ----- FILTER STATES -----
-  const [statusBooking, setStatusBooking] = useState("all");
+  const [activeFilter, setActiveFilter] = useState("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
@@ -132,22 +98,21 @@ export default function PageBooking() {
   const [sortDir, setSortDir] = useState("desc");
 
   const [currentPage, setCurrentPage] = useState(1);
-  const [itemsPerPage, setItemsPerPage] = useState(10);
+  const itemsPerPage = 10;
 
   useEffect(() => {
     async function fetchBookings() {
       try {
         setLoading(true);
         setErrorMsg("");
-        const res = await fetch(BASE_URL + "/admin/bookings", {
+        const res = await fetch(`${BASE_URL}/admin/bookings`, {
           headers: getAuthHeaders({ Accept: "application/json" }),
         });
         const data = await res.json();
-        if (!res.ok) {
-          throw new Error(data?.message || "Gagal mengambil data booking");
+        if (!res.ok || !data.success) {
+          throw new Error(data.message || "Gagal mengambil data booking");
         }
-        const list = Array.isArray(data?.data) ? data.data : (Array.isArray(data) ? data : []);
-        setBookings(list);
+        setBookings(data.data || []);
       } catch (err) {
         console.error("Gagal mengambil data booking", err);
         setErrorMsg(err.message || "Gagal mengambil data booking");
@@ -171,19 +136,9 @@ export default function PageBooking() {
     return Array.from(years).sort((a, b) => b - a);
   }, [bookings]);
 
-  const filteredBookings = useMemo(() => {
-    let result = (bookings || []).filter((booking) => {
-      const bookingStatus = String(booking.status_booking || "").toLowerCase();
-      const visitDate = booking.tanggal_kunjungan ? new Date(booking.tanggal_kunjungan) : null;
-
-      if (statusBooking !== "all" && !bookingStatus.includes(statusBooking)) return false;
-
-      const query = searchQuery.toLowerCase().trim();
-      if (query) {
-        const bookingCode = String(booking.booking_code || "#" + booking.id_booking).toLowerCase();
-        const patientName = String(booking.pasien?.nama_lengkap || "").toLowerCase();
-        if (!bookingCode.includes(query) && !patientName.includes(query)) return false;
-      }
+  const filteredBookings = bookings.filter((booking) => {
+    const bookingStatus = String(booking.status_booking || "").toLowerCase();
+    const paymentStatus = getNormalizedPaymentStatus(booking);
 
       if (dateFrom && visitDate && visitDate < new Date(dateFrom)) return false;
       if (dateTo && visitDate && visitDate > new Date(dateTo + "T23:59:59")) return false;
@@ -234,16 +189,16 @@ export default function PageBooking() {
         valA = String(a.booking_code || "");
         valB = String(b.booking_code || "");
       } else {
-        valA = new Date(a[sortBy] || 0).getTime();
-        valB = new Date(b[sortBy] || 0).getTime();
+        matchesCategory = paymentStatus === activeFilter;
       }
-      if (valA < valB) return sortDir === "asc" ? -1 : 1;
-      if (valA > valB) return sortDir === "asc" ? 1 : -1;
-      return 0;
-    });
+    }
 
-    return result;
-  }, [bookings, statusBooking, searchQuery, dateFrom, dateTo, patientFilter, nakesFilter, monthFilter, yearFilter, rekamMedisId, sortBy, sortDir]);
+    const bookingCode = String(booking.booking_code || `#${booking.id_booking}`).toLowerCase();
+    const patientName = String(booking.pasien?.nama_lengkap || "").toLowerCase();
+    const query = searchQuery.toLowerCase().trim();
+
+    return matchesCategory && (query === "" || bookingCode.includes(query) || patientName.includes(query));
+  });
 
   const totalPages = Math.ceil(filteredBookings.length / itemsPerPage);
   const startIndex = (currentPage - 1) * itemsPerPage;
@@ -287,38 +242,31 @@ export default function PageBooking() {
 
   return (
     <div className="p-6">
-      <div className="mb-6 flex items-start justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-slate-900">Dashboard & Manajemen Booking</h1>
-          <p className="text-sm text-slate-500">Monitor status kunjungan, transaksi pembayaran, dan filter jadwal pasien.</p>
-        </div>
-        <button
-          onClick={() => setShowFilter((prev) => !prev)}
-          className="inline-flex items-center gap-2 rounded-xl border border-blue-200 bg-blue-50 px-4 py-2 text-sm font-semibold text-blue-600 hover:bg-blue-100"
-        >
-          {showFilter ? "Sembunyikan Filter" : "Tampilkan Filter"}
-        </button>
+      <div className="mb-6">
+        <h1 className="text-2xl font-bold text-slate-900">Dashboard & Manajemen Booking</h1>
+        <p className="text-sm text-slate-500">Monitor status kunjungan, transaksi pembayaran, dan detail riwayat pasien.</p>
       </div>
 
+      {/* Stats Cards */}
       <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
           <p className="text-xs font-semibold uppercase text-slate-500">Total Omzet Lunas</p>
           <h3 className="mt-2 text-2xl font-extrabold text-green-600">{formatRupiah(totalLunasAmount)}</h3>
-          <p className="mt-1 text-xs text-slate-400">Dari {lunasInPage.length} transaksi lunas di halaman ini</p>
+          <p className="mt-1 text-xs text-slate-400">Dari {counts.lunas} transaksi lunas</p>
         </div>
         <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-          <p className="text-xs font-semibold uppercase text-slate-500">Total Booking</p>
-          <h3 className="mt-2 text-2xl font-extrabold text-slate-800">{filteredBookings.length}</h3>
-          <p className="mt-1 text-xs text-slate-400">Sesuai kriteria filter</p>
+          <p className="text-xs font-semibold uppercase text-slate-500">Total Booking Masuk</p>
+          <h3 className="mt-2 text-2xl font-extrabold text-slate-800">{counts.all}</h3>
+          <p className="mt-1 text-xs text-slate-400">Seluruh booking terdaftar</p>
         </div>
         <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
           <p className="text-xs font-semibold uppercase text-slate-500">Sedang Tindakan / Jalan</p>
-          <h3 className="mt-2 text-2xl font-extrabold text-purple-600">{sedangTindakanCount}</h3>
+          <h3 className="mt-2 text-2xl font-extrabold text-purple-600">{counts.tindakan + counts.diperjalanan}</h3>
           <p className="mt-1 text-xs text-slate-400">Proses kunjungan aktif</p>
         </div>
         <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
           <p className="text-xs font-semibold uppercase text-slate-500">Booking Selesai</p>
-          <h3 className="mt-2 text-2xl font-extrabold text-green-600">{selesaiCount}</h3>
+          <h3 className="mt-2 text-2xl font-extrabold text-green-600">{counts.selesai}</h3>
           <p className="mt-1 text-xs text-slate-400">Kunjungan sukses</p>
         </div>
       </div>
@@ -474,30 +422,27 @@ export default function PageBooking() {
               </div>
             </div>
 
-            <div className="flex items-center gap-3">
-              <div>
-                <label className="mb-1 block text-xs font-semibold text-slate-600">Tampilkan:</label>
-                <select
-                  value={itemsPerPage}
-                  onChange={(e) => setItemsPerPage(Number(e.target.value))}
-                  className="rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
-                >
-                  <option value={10}>10 per halaman</option>
-                  <option value={25}>25 per halaman</option>
-                  <option value={50}>50 per halaman</option>
-                  <option value={100}>100 per halaman</option>
-                </select>
-              </div>
-              <p className="text-xs text-slate-400">
-                Menampilkan {paginatedBookings.length} dari total {filteredBookings.length} booking
-              </p>
-            </div>
-          </div>
+        <div className="flex flex-wrap gap-2">
+          {filterOptions.map((option) => (
+            <button
+              key={option.key}
+              onClick={() => setActiveFilter(option.key)}
+              className={`inline-flex items-center gap-2 rounded-xl px-3.5 py-2 text-xs font-medium transition ${
+                activeFilter === option.key ? "bg-blue-600 text-white shadow-sm" : "bg-white text-slate-600 border border-slate-200 hover:bg-slate-50"
+              }`}
+            >
+              <span>{option.label}</span>
+              <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${activeFilter === option.key ? "bg-blue-500 text-white" : "bg-slate-100 text-slate-600"}`}>
+                {option.count}
+              </span>
+            </button>
+          ))}
         </div>
-      )}
+      </div>
 
       {errorMsg && <div className="mb-4 rounded-lg bg-red-50 p-3 text-sm text-red-600">{errorMsg}</div>}
 
+      {/* Table */}
       {loading ? (
         <div className="rounded-xl border border-slate-200 bg-white p-6 text-sm text-slate-500">Memuat data booking...</div>
       ) : (
@@ -511,7 +456,6 @@ export default function PageBooking() {
                   <th className="border-b border-slate-200 px-4 py-3">Pasien</th>
                   <th className="border-b border-slate-200 px-4 py-3">Nakes</th>
                   <th className="border-b border-slate-200 px-4 py-3">Layanan</th>
-                  <th className="border-b border-slate-200 px-4 py-3">Jadwal Kunjungan</th>
                   <th className="border-b border-slate-200 px-4 py-3">Total Bayar</th>
                   <th className="border-b border-slate-200 px-4 py-3">Status Booking</th>
                   <th className="border-b border-slate-200 px-4 py-3">Pembayaran</th>
@@ -522,23 +466,22 @@ export default function PageBooking() {
                 {paginatedBookings.map((booking, index) => (
                   <tr
                     key={booking.id_booking}
-                    onClick={() => navigate("/bookings/" + booking.id_booking)}
+                    onClick={() => navigate(`/bookings/${booking.id_booking}`)}
                     className="hover:bg-slate-50 transition cursor-pointer"
                   >
                     <td className="border-b border-slate-200 px-4 py-3 text-center text-slate-500">{startIndex + index + 1}</td>
-                    <td className="border-b border-slate-200 px-4 py-3 font-semibold text-blue-600">{booking.booking_code || "#" + booking.id_booking}</td>
+                    <td className="border-b border-slate-200 px-4 py-3 font-semibold text-blue-600">{booking.booking_code || `#${booking.id_booking}`}</td>
                     <td className="border-b border-slate-200 px-4 py-3 text-slate-800 font-medium">{booking.pasien?.nama_lengkap || "-"}</td>
                     <td className="border-b border-slate-200 px-4 py-3 text-slate-700">{booking.tenaga_medis?.nama_lengkap || "-"}</td>
                     <td className="border-b border-slate-200 px-4 py-3 text-slate-700">{booking.layanan?.nama_layanan || "-"}</td>
-                    <td className="border-b border-slate-200 px-4 py-3 text-slate-700">{formatDate(booking.tanggal_kunjungan)}</td>
                     <td className="border-b border-slate-200 px-4 py-3 font-medium text-slate-900">{formatRupiah(booking.transaksi?.jumlah_total)}</td>
-                    <td className="border-b border-slate-200 px-4 py-3">{renderStatusBadge(booking.status_booking, booking.status_label, booking.status_color)}</td>
+                    <td className="border-b border-slate-200 px-4 py-3">{renderStatusBadge(booking.status_booking)}</td>
                     <td className="border-b border-slate-200 px-4 py-3">{renderPaymentBadge(booking.transaksi?.status_transaksi)}</td>
                     <td className="border-b border-slate-200 px-4 py-3 text-center">
                       <button
                         onClick={(e) => {
                           e.stopPropagation();
-                          navigate("/bookings/" + booking.id_booking);
+                          navigate(`/bookings/${booking.id_booking}`);
                         }}
                         className="rounded-lg bg-blue-50 px-3 py-1.5 text-xs font-semibold text-blue-600 hover:bg-blue-100"
                       >
@@ -557,7 +500,6 @@ export default function PageBooking() {
     </div>
   );
 }
-
 // ==========================================
 // FUNCTION 2: HALAMAN DETAIL BOOKING
 // ==========================================
@@ -571,14 +513,20 @@ export function PageBookingDetail() {
   const [updatingStatus, setUpdatingStatus] = useState(false);
   const [statusMessage, setStatusMessage] = useState("");
 
-  const availableStatuses = ["Pending", "Di Perjalanan", "Tindakan", "Selesai", "Dibatalkan"];
+  const availableStatuses = [
+    "Pending",
+    "Di Perjalanan",
+    "Tindakan",
+    "Selesai",
+    "Dibatalkan"
+  ];
 
   async function fetchDetail() {
     try {
       setLoading(true);
       setErrorMsg("");
 
-      const res = await fetch(BASE_URL + "/booking/" + id, {
+      const res = await fetch(`${BASE_URL}/booking/${id}`, {
         headers: getAuthHeaders({ Accept: "application/json" }),
       });
 
@@ -605,7 +553,7 @@ export function PageBookingDetail() {
       setUpdatingStatus(true);
       setStatusMessage("");
 
-      const res = await fetch(BASE_URL + "/booking/" + id + "/status", {
+      const res = await fetch(`${BASE_URL}/booking/${id}/status`, {
         method: "PATCH",
         headers: getAuthHeaders({
           "Content-Type": "application/json",
@@ -647,10 +595,6 @@ export function PageBookingDetail() {
     );
   }
 
-  const lat = booking.koordinat_kunjungan?.latitude ?? booking.latitude_kunjungan;
-  const lng = booking.koordinat_kunjungan?.longitude ?? booking.longitude_kunjungan;
-  const mapsHref = lat && lng ? "https://maps.google.com/?q=" + lat + "," + lng : null;
-
   return (
     <div className="p-6 max-w-5xl mx-auto">
       <div className="mb-6 flex items-center justify-between">
@@ -664,7 +608,7 @@ export function PageBookingDetail() {
           Kembali ke Daftar Booking
         </button>
         <div className="flex items-center gap-2">
-          {renderStatusBadge(booking.status_booking, booking.status_label, booking.status_color)}
+          {renderStatusBadge(booking.status_booking)}
           {renderPaymentBadge(booking.transaksi?.status_transaksi)}
         </div>
       </div>
@@ -678,17 +622,11 @@ export function PageBookingDetail() {
       <div className="mb-6 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         <div>
           <span className="text-xs font-bold uppercase tracking-wider text-blue-600">Rincian Transaksi Booking</span>
-          <h1 className="mt-1 text-2xl font-bold text-slate-900">{booking.booking_code || "#" + booking.id_booking}</h1>
-          <p className="mt-1 text-xs text-slate-400">
-            Dibuat pada: {booking.dibuat_pada || formatDate(booking.created_at)}
-            {booking.medical_record_number && (
-              <span className="ml-2 rounded bg-slate-100 px-2 py-0.5 font-semibold text-slate-600">
-                RM: {booking.medical_record_number}
-              </span>
-            )}
-          </p>
+          <h1 className="mt-1 text-2xl font-bold text-slate-900">{booking.booking_code || `#${booking.id_booking}`}</h1>
+          <p className="mt-1 text-xs text-slate-400">Dibuat pada: {formatDate(booking.created_at)}</p>
         </div>
 
+        {/* Panel Update Status Booking */}
         <div className="rounded-xl border border-slate-200 bg-slate-50 p-3 flex flex-col gap-2">
           <label className="text-xs font-bold uppercase text-slate-600">Ubah Status Booking:</label>
           <div className="flex flex-wrap gap-1.5">
@@ -699,7 +637,11 @@ export function PageBookingDetail() {
                   key={st}
                   disabled={updatingStatus}
                   onClick={() => handleUpdateStatus(st)}
-                  className={"px-3 py-1.5 rounded-lg text-xs font-semibold transition " + (isActive ? "bg-blue-600 text-white shadow" : "bg-white border border-slate-200 text-slate-700 hover:bg-slate-100")}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition ${
+                    isActive
+                      ? "bg-blue-600 text-white shadow"
+                      : "bg-white border border-slate-200 text-slate-700 hover:bg-slate-100"
+                  }`}
                 >
                   {st}
                 </button>
@@ -747,9 +689,9 @@ export function PageBookingDetail() {
             <div className="pt-2 border-t border-slate-100 text-sm">
               <span className="text-xs text-slate-400 block">Alamat Kunjungan</span>
               <p className="mt-1 font-medium text-slate-800">{booking.alamat_kunjungan || "-"}</p>
-              {mapsHref && (
+              {booking.latitude_kunjungan && booking.longitude_kunjungan && (
                 <a
-                  href={mapsHref}
+                  href={`https://maps.google.com/?q=${booking.latitude_kunjungan},${booking.longitude_kunjungan}`}
                   target="_blank"
                   rel="noreferrer"
                   className="mt-2 inline-flex items-center text-xs font-semibold text-blue-600 hover:underline"
@@ -766,67 +708,48 @@ export function PageBookingDetail() {
             <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
               <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-4">Rincian Pembayaran</h3>
 
-              {(function () {
-                const tr = booking.transaksi;
-                const rincian = tr.rincian_biaya || {};
-                const persentase = tr.persentase || {};
-                const bagiHasil = tr.bagi_hasil || {};
+              <div className="space-y-2 text-xs">
+                <div className="flex justify-between text-slate-600">
+                  <span>Tarif Layanan (SL)</span>
+                  <span>{formatRupiah(booking.transaksi.sl)}</span>
+                </div>
+                <div className="flex justify-between text-slate-600">
+                  <span>Tarif BHP (SB)</span>
+                  <span>{formatRupiah(booking.transaksi.sb)}</span>
+                </div>
+                <div className="flex justify-between text-slate-600">
+                  <span>Biaya Transportasi (ST)</span>
+                  <span>{formatRupiah(booking.transaksi.st)}</span>
+                </div>
+                <div className="flex justify-between text-slate-600">
+                  <span>Biaya Administrasi (BA)</span>
+                  <span>{formatRupiah(booking.transaksi.ba)}</span>
+                </div>
+                <div className="flex justify-between text-slate-600">
+                  <span>PPN ({booking.transaksi.persen_ppn || 0}%)</span>
+                  <span>{formatRupiah(booking.transaksi.ppn)}</span>
+                </div>
 
-                const sl = rincian.sl ?? tr.sl ?? 0;
-                const sb = rincian.sb ?? tr.sb ?? 0;
-                const st = rincian.st ?? tr.st ?? 0;
-                const ba = rincian.ba ?? tr.ba ?? 0;
-                const ppn = rincian.ppn ?? tr.ppn ?? 0;
-                const persenPpn = persentase.ppn ?? tr.persen_ppn ?? 0;
-                const hakNakes = bagiHasil.hak_nakes ?? tr.hak_nakes ?? 0;
-                const profitHc = bagiHasil.profit_hc ?? tr.profit_hc ?? 0;
-                const totalFormatted = tr.jumlah_total_format || formatRupiah(tr.jumlah_total);
+                <div className="border-t border-slate-200 pt-3 flex justify-between text-sm font-extrabold text-slate-900">
+                  <span>Total Bayar Pasien</span>
+                  <span className="text-blue-600">{formatRupiah(booking.transaksi.jumlah_total)}</span>
+                </div>
 
-                return (
-                  <div className="space-y-2 text-xs">
-                    <div className="flex justify-between text-slate-600">
-                      <span>Tarif Layanan (SL)</span>
-                      <span>{formatRupiah(sl)}</span>
-                    </div>
-                    <div className="flex justify-between text-slate-600">
-                      <span>Tarif BHP (SB)</span>
-                      <span>{formatRupiah(sb)}</span>
-                    </div>
-                    <div className="flex justify-between text-slate-600">
-                      <span>Biaya Transportasi (ST)</span>
-                      <span>{formatRupiah(st)}</span>
-                    </div>
-                    <div className="flex justify-between text-slate-600">
-                      <span>Biaya Administrasi (BA)</span>
-                      <span>{formatRupiah(ba)}</span>
-                    </div>
-                    <div className="flex justify-between text-slate-600">
-                      <span>PPN ({persenPpn}%)</span>
-                      <span>{formatRupiah(ppn)}</span>
-                    </div>
-
-                    <div className="border-t border-slate-200 pt-3 flex justify-between text-sm font-extrabold text-slate-900">
-                      <span>Total Bayar Pasien</span>
-                      <span className="text-blue-600">{totalFormatted}</span>
-                    </div>
-
-                    <div className="mt-4 rounded-xl bg-slate-50 p-3 space-y-1.5 text-[11px] text-slate-500">
-                      <div className="flex justify-between">
-                        <span>Hak Nakes:</span>
-                        <span className="font-semibold text-slate-700">{formatRupiah(hakNakes)}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span>Profit HealthCare:</span>
-                        <span className="font-semibold text-green-600">{formatRupiah(profitHc)}</span>
-                      </div>
-                    </div>
+                <div className="mt-4 rounded-xl bg-slate-50 p-3 space-y-1.5 text-[11px] text-slate-500">
+                  <div className="flex justify-between">
+                    <span>Hak Nakes:</span>
+                    <span className="font-semibold text-slate-700">{formatRupiah(booking.transaksi.hak_nakes)}</span>
                   </div>
-                );
-              })()}
+                  <div className="flex justify-between">
+                    <span>Profit HealthCare:</span>
+                    <span className="font-semibold text-green-600">{formatRupiah(booking.transaksi.profit_hc)}</span>
+                  </div>
+                </div>
+              </div>
             </div>
           )}
         </div>
       </div>
     </div>
   );
-}
+} 

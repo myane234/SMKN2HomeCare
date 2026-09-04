@@ -52,14 +52,6 @@ export default function CompleteProfilePage() {
   };
 
   useEffect(() => {
-    const cookies = document.cookie.split('; ');
-    const hasToken = cookies.some(row => row.startsWith('auth_token=') || row.startsWith('smarthomecare-session='));
-
-    if (!hasToken) {
-      router.replace('/login?redirect=/complete-profile');
-      return;
-    }
-
     const loadInitialData = async () => {
       await checkMissingFields();
       

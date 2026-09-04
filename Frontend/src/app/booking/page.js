@@ -96,13 +96,12 @@ export default function BookingPage() {
   const [isCheckingAuth, setIsCheckingAuth] = useState(true);
 
   useEffect(() => {
-    const cookies = document.cookie.split("; ");
-    const hasToken = cookies.some((row) =>
-      row.startsWith("auth_token=") || row.startsWith("smarthomecare-session=")
-    );
+    const isLoggedIn =
+      document.cookie.includes("is_logged_in=true") ||
+      Boolean(getCookie("auth_token"));
 
-    if (!hasToken) {
-      router.replace("/login?redirect=/booking");
+    if (!isLoggedIn) {
+      router.push("/login");
       return;
     }
 

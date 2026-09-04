@@ -38,7 +38,6 @@ export default function PrivacyPolicyDashboard() {
       try {
         setLoading(true);
         const endpoints = [
-          '/api/legalitas/detail/kebijakan-privasi',
           '/api/resource/content/kebijakan-privasi',
           '/api/kebijakan-privasi',
           '/api/privacy-policy'

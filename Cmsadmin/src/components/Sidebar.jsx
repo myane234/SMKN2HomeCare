@@ -39,8 +39,6 @@ import {
   FaChevronRight,
   FaChevronDown,
   FaPlus,
-  FaStar,
-  FaEnvelope,
 } from "react-icons/fa";
 
 const rawMenuItems = [
@@ -61,7 +59,7 @@ const rawMenuItems = [
         label: "Promo",
         icon: <FaGift />,
         children: [
-          { to: "/promo", label: "Daftar Promo", icon: <FaGift />, end: true },
+          { to: "/promo", label: "Daftar Promo", icon: <FaGift /> },
           { to: "/promo/tambah", label: "Tambah Promo", icon: <FaPlus /> },
         ],
       },
@@ -70,7 +68,7 @@ const rawMenuItems = [
         label: "Layanan",
         icon: <FaStethoscope />,
         children: [
-          { to: "/layanan", label: "Daftar Layanan", icon: <FaStethoscope />, end: true },
+          { to: "/layanan", label: "Daftar Layanan", icon: <FaStethoscope /> },
           { to: "/layanan/tambah", label: "Tambah Layanan", icon: <FaPlus /> },
         ],
       },
@@ -79,7 +77,7 @@ const rawMenuItems = [
         label: "Artikel",
         icon: <FaRegFileAlt />,
         children: [
-          { to: "/artikel", label: "Daftar Artikel", icon: <FaRegFileAlt />, end: true },
+          { to: "/artikel", label: "Daftar Artikel", icon: <FaRegFileAlt /> },
           { to: "/artikel/tambah", label: "Tambah Artikel", icon: <FaPlus /> },
           {
             to: "/statistik-artikel",
@@ -88,8 +86,6 @@ const rawMenuItems = [
           },
         ],
       },
-      { to: "/ulasan", label: "Ulasan Pasien", icon: <FaStar /> },
-      { to: "/hubungi-kami", label: "Hubungi Kami", icon: <FaEnvelope /> },
       {
         type: "subgroup",
         label: "Konten Tambahan",
