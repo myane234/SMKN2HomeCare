@@ -22,6 +22,8 @@ import {
 import { getLayanan } from "@/services/layananService";
 
 export default function Navbar() {
+    const pathname = usePathname();
+    const [isLoggedIn, setIsLoggedIn] = useState(false);
     const [isStickyVisible, setIsStickyVisible] = useState(false);
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
     const [isSearchOpen, setIsSearchOpen] = useState(false);
@@ -33,54 +35,88 @@ export default function Navbar() {
     const pathname = usePathname();
     const originalNavRef = useRef(null);
 
+    // Initial Auth Check (Client-side sync)
     useEffect(() => {
-        setIsLoggedIn(document.cookie.includes("is_logged_in=true"));
+        const checkAuth = () => {
+            if (typeof document !== "undefined") {
+                const cookies = document.cookie.split('; ');
+                const hasToken = cookies.some(row => 
+                    row.startsWith('auth_token=') || 
+                    row.startsWith('smarthomecare-session=') || 
+                    row.startsWith('is_logged_in=true')
+                );
+                setIsLoggedIn(hasToken);
+            }
+        };
+        checkAuth();
+    }, []);
 
+    // Handle Scroll for Sticky Navbar
+    useEffect(() => {
         const handleScroll = () => {
             if (originalNavRef.current) {
                 const navHeight = originalNavRef.current.offsetHeight;
-                // Show sticky navbar when original navbar is completely scrolled away
-                if (window.scrollY > navHeight) {
-                    setIsStickyVisible(true);
-                } else {
-                    setIsStickyVisible(false);
-                }
+                setIsStickyVisible(window.scrollY > navHeight);
             }
         };
         
         window.addEventListener("scroll", handleScroll, { passive: true });
-        // Initial check
         handleScroll();
         
         return () => window.removeEventListener("scroll", handleScroll);
     }, []);
 
+    // Handle Route Changes
     useEffect(() => {
         setIsMobileMenuOpen(false);
         setIsSearchOpen(false);
+        if (typeof document !== "undefined") {
+            const cookies = document.cookie.split('; ');
+            const hasToken = cookies.some(row => 
+                row.startsWith('auth_token=') || 
+                row.startsWith('smarthomecare-session=') || 
+                row.startsWith('is_logged_in=true')
+            );
+            setIsLoggedIn(hasToken);
+        }
     }, [pathname]);
 
+    // Fetch Services for Search Modal
     useEffect(() => {
-        if (isSearchOpen) {
-            async function fetchServices() {
-                setSearchLoading(true);
-                try {
-                    const response = await getLayanan();
-                    const payload = response?.data ?? response ?? [];
-                    const services = Array.isArray(payload) ? payload : (Array.isArray(payload?.data) ? payload.data : []);
-                    setSearchData(services);
-                } catch (error) {
-                    console.error("Gagal memuat data layanan untuk pencarian", error);
-                    setSearchData([]);
-                } finally {
-                    setSearchLoading(false);
-                }
+        if (!isSearchOpen) return;
+
+        let isCancelled = false;
+        async function fetchServices() {
+            setSearchLoading(true);
+            try {
+                const response = await getLayanan();
+                if (isCancelled) return;
+                const payload = response?.data ?? response ?? [];
+                const services = Array.isArray(payload) ? payload : (Array.isArray(payload?.data) ? payload.data : []);
+                setSearchData(services);
+            } catch (error) {
+                if (isCancelled) return;
+                console.error("Gagal memuat data layanan untuk pencarian", error);
+                setSearchData([]);
+            } finally {
+                if (!isCancelled) setSearchLoading(false);
             }
             fetchServices();
         } else {
             setSearchData([]);
             setSearchQuery("");
         }
+        
+        fetchServices();
+
+        // Auto focus search input when opened
+        setTimeout(() => {
+            searchInputRef.current?.focus();
+        }, 100);
+
+        return () => {
+            isCancelled = true;
+        };
     }, [isSearchOpen]);
 
     function slugify(text) {
@@ -100,8 +136,8 @@ export default function Navbar() {
             item.category.toLowerCase().includes(searchQuery.toLowerCase())
         );
 
-    // Navbar content component to avoid duplication
-    const NavbarContent = ({ isSticky = false }) => (
+    // Render navbar content helper to keep structure consistent
+    const renderNavbarContent = (isSticky = false) => (
         <>
             {/* Logo */}
             <Link href="/" className={`transition-all duration-300 ease-in-out hover:opacity-80 ${isSticky ? 'scale-95' : ''}`}>
@@ -180,16 +216,16 @@ export default function Navbar() {
                 </li>
                 <li>
                     <Link 
-                        href="/pesan-laynan" 
-                        className={`relative px-4 py-2 rounded-lg text-sm transition-all duration-300 ease-in-out hover:bg-gray-50 ${
-                            pathname.startsWith("/pesan-laynan") 
+                        href="/pesan-layanan" 
+                        className={`relative px-2 py-1.5 xl:px-3 2xl:px-4 rounded-lg text-xs xl:text-sm whitespace-nowrap transition-all duration-300 ease-in-out hover:bg-white/60 ${
+                            pathname.startsWith("/pesan-layanan") 
                                 ? "text-green-600 font-semibold" 
                                 : "text-gray-600 hover:text-green-600"
                         }`}
                     >
                         Pesan Layanan
-                        {pathname.startsWith("/pesan-laynan") && (
-                            <span className="absolute bottom-0 left-1/2 -translate-x-1/2 w-5 h-0.5 bg-green-500 rounded-full" />
+                        {pathname.startsWith("/pesan-layanan") && (
+                            <span className="absolute bottom-0 left-1/2 -translate-x-1/2 w-4 xl:w-5 h-0.5 bg-green-500 rounded-full" />
                         )}
                     </Link>
                 </li>
@@ -244,7 +280,7 @@ export default function Navbar() {
                     </Link>
                 ) : (
                     <Link href="/login">
-                        <button className="rounded-lg bg-green-500 px-5 py-2.5 font-semibold text-white transition-all duration-300 ease-in-out hover:bg-green-600 hover:shadow-lg hover:shadow-green-500/25 hover:scale-105 active:scale-95">
+                        <button className="rounded-lg bg-green-500 px-3.5 py-1.5 xl:px-5 xl:py-2 text-xs xl:text-sm font-semibold text-white whitespace-nowrap transition-all duration-300 ease-in-out hover:bg-green-600 hover:shadow-lg hover:shadow-green-500/25 hover:scale-105 active:scale-95 cursor-pointer">
                             Masuk
                         </button>
                     </Link>
@@ -273,14 +309,14 @@ export default function Navbar() {
 
     return (
         <>
-            {/* Original Navbar - Visible at top, scrolls away naturally */}
+            {/* Original Navbar */}
             <div ref={originalNavRef} className="relative z-40">
                 <nav className="flex w-full items-center justify-between px-4 md:px-8 py-4 bg-blue-100 shadow-sm">
                     <NavbarContent isSticky={false} />
                 </nav>
             </div>
 
-            {/* Sticky Navbar - Appears after original navbar scrolls away */}
+            {/* Sticky Navbar */}
             <nav 
                 className={`fixed top-0 left-0 right-0 z-50 transition-all duration-500 ease-in-out ${
                     isStickyVisible 
@@ -297,18 +333,18 @@ export default function Navbar() {
             {isMobileMenuOpen && (
                 <div className="fixed inset-x-0 top-[60px] md:top-[76px] bottom-[64px] z-40 bg-white overflow-y-auto shadow-[0_8px_32px_rgba(0,0,0,0.12)] p-6 lg:hidden flex flex-col justify-between border-t border-slate-100/80 animate-slide-down">
                     <div className="space-y-6">
-                        <ul className="space-y-1 font-semibold text-lg text-gray-800">
+                        <ul className="space-y-1 font-semibold text-base text-gray-800">
                             <li>
                                 <Link 
                                     href="/" 
                                     onClick={() => setIsMobileMenuOpen(false)}
-                                    className={`flex items-center gap-3 px-3 py-3 rounded-lg transition-all duration-300 ease-in-out ${
+                                    className={`flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-300 ease-in-out ${
                                         pathname === "/" 
-                                            ? "bg-green-50 text-green-600" 
+                                            ? "bg-green-50 text-green-600 font-bold" 
                                             : "text-gray-700 hover:bg-gray-50 hover:text-green-600"
                                     }`}
                                 >
-                                    <FiHome size={20} />
+                                    <FiHome size={18} />
                                     <span>Beranda</span>
                                 </Link>
                             </li>
@@ -316,13 +352,13 @@ export default function Navbar() {
                                 <Link 
                                     href="/tentang-kami" 
                                     onClick={() => setIsMobileMenuOpen(false)}
-                                    className={`flex items-center gap-3 px-3 py-3 rounded-lg transition-all duration-300 ease-in-out ${
+                                    className={`flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-300 ease-in-out ${
                                         pathname === "/tentang-kami" 
-                                            ? "bg-green-50 text-green-600" 
+                                            ? "bg-green-50 text-green-600 font-bold" 
                                             : "text-gray-700 hover:bg-gray-50 hover:text-green-600"
                                     }`}
                                 >
-                                    <FiInfo size={20} />
+                                    <FiInfo size={18} />
                                     <span>Tentang Kami</span>
                                 </Link>
                             </li>
@@ -330,13 +366,13 @@ export default function Navbar() {
                                 <Link 
                                     href="/promo" 
                                     onClick={() => setIsMobileMenuOpen(false)}
-                                    className={`flex items-center gap-3 px-3 py-3 rounded-lg transition-all duration-300 ease-in-out ${
+                                    className={`flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-300 ease-in-out ${
                                         pathname.startsWith("/promo") 
-                                            ? "bg-green-50 text-green-600" 
+                                            ? "bg-green-50 text-green-600 font-bold" 
                                             : "text-gray-700 hover:bg-gray-50 hover:text-green-600"
                                     }`}
                                 >
-                                    <FiPercent size={20} />
+                                    <FiPercent size={18} />
                                     <span>Promo</span>
                                 </Link>
                             </li>
@@ -344,13 +380,13 @@ export default function Navbar() {
                                 <Link 
                                     href="/layanan" 
                                     onClick={() => setIsMobileMenuOpen(false)}
-                                    className={`flex items-center gap-3 px-3 py-3 rounded-lg transition-all duration-300 ease-in-out ${
-                                        pathname === "/layanan" 
-                                            ? "bg-green-50 text-green-600" 
+                                    className={`flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-300 ease-in-out ${
+                                        pathname.startsWith("/layanan") 
+                                            ? "bg-green-50 text-green-600 font-bold" 
                                             : "text-gray-700 hover:bg-gray-50 hover:text-green-600"
                                     }`}
                                 >
-                                    <FiActivity size={20} />
+                                    <FiActivity size={18} />
                                     <span>Layanan</span>
                                 </Link>
                             </li>
@@ -358,13 +394,13 @@ export default function Navbar() {
                                 <Link 
                                     href="/pesan-laynan" 
                                     onClick={() => setIsMobileMenuOpen(false)}
-                                    className={`flex items-center gap-3 px-3 py-3 rounded-lg transition-all duration-300 ease-in-out ${
-                                        pathname.startsWith("/pesan-laynan") 
-                                            ? "bg-green-50 text-green-600" 
+                                    className={`flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-300 ease-in-out ${
+                                        pathname.startsWith("/pesan-layanan") 
+                                            ? "bg-green-50 text-green-600 font-bold" 
                                             : "text-gray-700 hover:bg-gray-50 hover:text-green-600"
                                     }`}
                                 >
-                                    <FiCalendar size={20} />
+                                    <FiCalendar size={18} />
                                     <span>Pesan Layanan</span>
                                 </Link>
                             </li>
@@ -372,27 +408,55 @@ export default function Navbar() {
                                 <Link 
                                     href="/artikel" 
                                     onClick={() => setIsMobileMenuOpen(false)}
-                                    className={`flex items-center gap-3 px-3 py-3 rounded-lg transition-all duration-300 ease-in-out ${
-                                        pathname === "/artikel" 
-                                            ? "bg-green-50 text-green-600" 
+                                    className={`flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-300 ease-in-out ${
+                                        pathname.startsWith("/artikel") 
+                                            ? "bg-green-50 text-green-600 font-bold" 
                                             : "text-gray-700 hover:bg-gray-50 hover:text-green-600"
                                     }`}
                                 >
-                                    <FiBook size={20} />
+                                    <FiBook size={18} />
                                     <span>Artikel</span>
+                                </Link>
+                            </li>
+                            <li>
+                                <Link 
+                                    href="/ulasan" 
+                                    onClick={() => setIsMobileMenuOpen(false)}
+                                    className={`flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-300 ease-in-out ${
+                                        pathname.startsWith("/ulasan") 
+                                            ? "bg-green-50 text-green-600 font-bold" 
+                                            : "text-gray-700 hover:bg-gray-50 hover:text-green-600"
+                                    }`}
+                                >
+                                    <FiGrid size={18} />
+                                    <span>Ulasan</span>
+                                </Link>
+                            </li>
+                            <li>
+                                <Link 
+                                    href="/hubungi-kami" 
+                                    onClick={() => setIsMobileMenuOpen(false)}
+                                    className={`flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-300 ease-in-out ${
+                                        pathname === "/hubungi-kami" 
+                                            ? "bg-green-50 text-green-600 font-bold" 
+                                            : "text-gray-700 hover:bg-gray-50 hover:text-green-600"
+                                    }`}
+                                >
+                                    <FiInfo size={18} />
+                                    <span>Hubungi Kami</span>
                                 </Link>
                             </li>
                             <li>
                                 <Link 
                                     href="/gabung-mitra" 
                                     onClick={() => setIsMobileMenuOpen(false)}
-                                    className={`flex items-center gap-3 px-3 py-3 rounded-lg transition-all duration-300 ease-in-out ${
-                                        pathname === "/gabung-mitra" 
-                                            ? "bg-green-50 text-green-600" 
+                                    className={`flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-300 ease-in-out ${
+                                        pathname.startsWith("/gabung-mitra") 
+                                            ? "bg-green-50 text-green-600 font-bold" 
                                             : "text-gray-700 hover:bg-gray-50 hover:text-green-600"
                                     }`}
                                 >
-                                    <FiUsers size={20} />
+                                    <FiUsers size={18} />
                                     <span>Gabung Mitra</span>
                                 </Link>
                             </li>
@@ -401,23 +465,24 @@ export default function Navbar() {
                                     <Link 
                                         href="/profile" 
                                         onClick={() => setIsMobileMenuOpen(false)}
-                                        className={`flex items-center gap-3 px-3 py-3 rounded-lg transition-all duration-300 ease-in-out ${
+                                        className={`flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-300 ease-in-out ${
                                             pathname === "/profile" 
-                                                ? "bg-green-50 text-green-600" 
+                                                ? "bg-green-50 text-green-600 font-bold" 
                                                 : "text-gray-700 hover:bg-gray-50 hover:text-green-600"
                                         }`}
                                     >
-                                        <FiUserCheck size={20} />
+                                        <FiUserCheck size={18} />
                                         <span>Profil Saya</span>
                                     </Link>
                                 </li>
                             )}
                         </ul>
                     </div>
+                    
                     {!isLoggedIn && (
-                        <div className="mt-8 border-t border-gray-100/80 pt-6">
+                        <div className="mt-6 border-t border-gray-100 pt-5">
                             <Link href="/login" onClick={() => setIsMobileMenuOpen(false)}>
-                                <button className="flex w-full items-center justify-center gap-2 rounded-xl bg-green-500 py-3.5 font-bold text-white transition-all duration-300 ease-in-out hover:bg-green-600 hover:shadow-lg hover:shadow-green-500/25 hover:scale-[1.02] active:scale-98">
+                                <button className="flex w-full items-center justify-center gap-2 rounded-xl bg-green-500 py-3 font-bold text-white transition-all duration-300 ease-in-out hover:bg-green-600 hover:shadow-lg hover:shadow-green-500/25 hover:scale-[1.02] active:scale-98 cursor-pointer">
                                     <FiLogIn size={18} />
                                     <span>Masuk Akun</span>
                                 </button>
@@ -469,25 +534,25 @@ export default function Navbar() {
                     <span className="transition-colors duration-300">Layanan</span>
                 </Link>
 
-                <Link 
-                    href="/pesan-laynan" 
-                    className={`flex flex-col items-center gap-1 text-[11px] sm:text-xs transition-all duration-300 ease-in-out group ${
-                        pathname.startsWith("/pesan-laynan") 
-                            ? "text-green-600 font-bold" 
-                            : "hover:text-green-600"
-                    }`}
-                >
-                    <div className={`p-1.5 rounded-lg transition-all duration-300 ease-in-out ${
-                        pathname.startsWith("/pesan-laynan") 
-                            ? "bg-green-50" 
-                            : "group-hover:bg-green-50/50"
-                    }`}>
-                        <FiCalendar className={`w-5 h-5 sm:w-5.5 sm:h-5.5 transition-all duration-300 ${
-                            pathname.startsWith("/pesan-laynan") ? "stroke-[2.5]" : "stroke-2"
-                        }`} />
-                    </div>
-                    <span className="transition-colors duration-300">Pesan</span>
-                </Link>
+                    <Link 
+                        href="/pesan-layanan" 
+                        className={`flex flex-col items-center gap-1 text-[11px] sm:text-xs transition-all duration-300 ease-in-out group ${
+                            pathname.startsWith("/pesan-layanan") 
+                                ? "text-green-600 font-bold" 
+                                : "hover:text-green-600"
+                        }`}
+                    >
+                        <div className={`p-1.5 rounded-lg transition-all duration-300 ease-in-out ${
+                            pathname.startsWith("/pesan-layanan") 
+                                ? "bg-green-50" 
+                                : "group-hover:bg-green-50/50"
+                        }`}>
+                            <FiCalendar className={`w-5 h-5 sm:w-5.5 sm:h-5.5 transition-all duration-300 ${
+                                pathname.startsWith("/pesan-layanan") ? "stroke-[2.5]" : "stroke-2"
+                            }`} />
+                        </div>
+                        <span className="transition-colors duration-300">Pesan</span>
+                    </Link>
 
                 <Link
                     href={isLoggedIn ? "/profile" : "/login"}

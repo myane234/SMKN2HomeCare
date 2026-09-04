@@ -13,7 +13,9 @@ const BASE_URL = URL;
 function formatDate(value) {
   if (!value) return "-";
   try {
-    return new Date(value).toLocaleString("id-ID", {
+    const d = new Date(value);
+    if (isNaN(d.getTime())) return value;
+    return d.toLocaleString("id-ID", {
       day: "2-digit",
       month: "short",
       year: "numeric",
@@ -33,21 +35,22 @@ function formatRupiah(amount) {
   }).format(amount || 0);
 }
 
-function renderStatusBadge(status) {
+function renderStatusBadge(status, label, color) {
+  const displayLabel = label || status || "Pending";
   const value = String(status || "pending").toLowerCase();
-  if (value === "selesai" || value === "completed" || value === "success") {
-    return <span className="inline-flex items-center rounded-md bg-green-100 px-2.5 py-1 text-xs font-semibold text-green-700">Selesai</span>;
+  if (color === "green" || value === "selesai" || value === "completed" || value === "success") {
+    return <span className="inline-flex items-center rounded-md bg-green-100 px-2.5 py-1 text-xs font-semibold text-green-700">{displayLabel}</span>;
   }
-  if (value === "dibatalkan" || value === "cancelled" || value === "canceled") {
-    return <span className="inline-flex items-center rounded-md bg-red-100 px-2.5 py-1 text-xs font-semibold text-red-700">Dibatalkan</span>;
+  if (color === "red" || value === "dibatalkan" || value === "cancelled" || value === "canceled") {
+    return <span className="inline-flex items-center rounded-md bg-red-100 px-2.5 py-1 text-xs font-semibold text-red-700">{displayLabel}</span>;
   }
-  if (value === "diperjalanan" || value === "dalam perjalanan") {
-    return <span className="inline-flex items-center rounded-md bg-blue-100 px-2.5 py-1 text-xs font-semibold text-blue-700">Di Perjalanan</span>;
+  if (color === "blue" || value === "diperjalanan" || value === "dalam perjalanan") {
+    return <span className="inline-flex items-center rounded-md bg-blue-100 px-2.5 py-1 text-xs font-semibold text-blue-700">{displayLabel}</span>;
   }
-  if (value === "tindakan" || value === "sedang tindakan") {
-    return <span className="inline-flex items-center rounded-md bg-purple-100 px-2.5 py-1 text-xs font-semibold text-purple-700">Tindakan</span>;
+  if (color === "purple" || value === "tindakan" || value === "sedang tindakan") {
+    return <span className="inline-flex items-center rounded-md bg-purple-100 px-2.5 py-1 text-xs font-semibold text-purple-700">{displayLabel}</span>;
   }
-  return <span className="inline-flex items-center rounded-md bg-amber-100 px-2.5 py-1 text-xs font-semibold text-amber-700">{status || "Pending"}</span>;
+  return <span className="inline-flex items-center rounded-md bg-amber-100 px-2.5 py-1 text-xs font-semibold text-amber-700">{displayLabel}</span>;
 }
 
 function renderPaymentBadge(status) {
@@ -475,7 +478,7 @@ export default function PageBooking() {
                     <td className="border-b border-slate-200 px-4 py-3 text-slate-700">{booking.tenaga_medis?.nama_lengkap || "-"}</td>
                     <td className="border-b border-slate-200 px-4 py-3 text-slate-700">{booking.layanan?.nama_layanan || "-"}</td>
                     <td className="border-b border-slate-200 px-4 py-3 font-medium text-slate-900">{formatRupiah(booking.transaksi?.jumlah_total)}</td>
-                    <td className="border-b border-slate-200 px-4 py-3">{renderStatusBadge(booking.status_booking)}</td>
+                    <td className="border-b border-slate-200 px-4 py-3">{renderStatusBadge(booking.status_booking, booking.status_label, booking.status_color)}</td>
                     <td className="border-b border-slate-200 px-4 py-3">{renderPaymentBadge(booking.transaksi?.status_transaksi)}</td>
                     <td className="border-b border-slate-200 px-4 py-3 text-center">
                       <button
@@ -608,7 +611,7 @@ export function PageBookingDetail() {
           Kembali ke Daftar Booking
         </button>
         <div className="flex items-center gap-2">
-          {renderStatusBadge(booking.status_booking)}
+          {renderStatusBadge(booking.status_booking, booking.status_label, booking.status_color)}
           {renderPaymentBadge(booking.transaksi?.status_transaksi)}
         </div>
       </div>
@@ -689,7 +692,7 @@ export function PageBookingDetail() {
             <div className="pt-2 border-t border-slate-100 text-sm">
               <span className="text-xs text-slate-400 block">Alamat Kunjungan</span>
               <p className="mt-1 font-medium text-slate-800">{booking.alamat_kunjungan || "-"}</p>
-              {booking.latitude_kunjungan && booking.longitude_kunjungan && (
+              {mapsHref && (
                 <a
                   href={`https://maps.google.com/?q=${booking.latitude_kunjungan},${booking.longitude_kunjungan}`}
                   target="_blank"
@@ -708,44 +711,63 @@ export function PageBookingDetail() {
             <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
               <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-4">Rincian Pembayaran</h3>
 
-              <div className="space-y-2 text-xs">
-                <div className="flex justify-between text-slate-600">
-                  <span>Tarif Layanan (SL)</span>
-                  <span>{formatRupiah(booking.transaksi.sl)}</span>
-                </div>
-                <div className="flex justify-between text-slate-600">
-                  <span>Tarif BHP (SB)</span>
-                  <span>{formatRupiah(booking.transaksi.sb)}</span>
-                </div>
-                <div className="flex justify-between text-slate-600">
-                  <span>Biaya Transportasi (ST)</span>
-                  <span>{formatRupiah(booking.transaksi.st)}</span>
-                </div>
-                <div className="flex justify-between text-slate-600">
-                  <span>Biaya Administrasi (BA)</span>
-                  <span>{formatRupiah(booking.transaksi.ba)}</span>
-                </div>
-                <div className="flex justify-between text-slate-600">
-                  <span>PPN ({booking.transaksi.persen_ppn || 0}%)</span>
-                  <span>{formatRupiah(booking.transaksi.ppn)}</span>
-                </div>
+              {(function () {
+                const tr = booking.transaksi;
+                const rincian = tr.rincian_biaya || {};
+                const persentase = tr.persentase || {};
+                const bagiHasil = tr.bagi_hasil || {};
 
-                <div className="border-t border-slate-200 pt-3 flex justify-between text-sm font-extrabold text-slate-900">
-                  <span>Total Bayar Pasien</span>
-                  <span className="text-blue-600">{formatRupiah(booking.transaksi.jumlah_total)}</span>
-                </div>
+                const sl = rincian.sl ?? tr.sl ?? 0;
+                const sb = rincian.sb ?? tr.sb ?? 0;
+                const st = rincian.st ?? tr.st ?? 0;
+                const ba = rincian.ba ?? tr.ba ?? 0;
+                const ppn = rincian.ppn ?? tr.ppn ?? 0;
+                const persenPpn = persentase.ppn ?? tr.persen_ppn ?? 0;
+                const hakNakes = bagiHasil.hak_nakes ?? tr.hak_nakes ?? 0;
+                const profitHc = bagiHasil.profit_hc ?? tr.profit_hc ?? 0;
+                const totalFormatted = tr.jumlah_total_format || formatRupiah(tr.jumlah_total);
 
-                <div className="mt-4 rounded-xl bg-slate-50 p-3 space-y-1.5 text-[11px] text-slate-500">
-                  <div className="flex justify-between">
-                    <span>Hak Nakes:</span>
-                    <span className="font-semibold text-slate-700">{formatRupiah(booking.transaksi.hak_nakes)}</span>
+                return (
+                  <div className="space-y-2 text-xs">
+                    <div className="flex justify-between text-slate-600">
+                      <span>Tarif Layanan (SL)</span>
+                      <span>{formatRupiah(sl)}</span>
+                    </div>
+                    <div className="flex justify-between text-slate-600">
+                      <span>Tarif BHP (SB)</span>
+                      <span>{formatRupiah(sb)}</span>
+                    </div>
+                    <div className="flex justify-between text-slate-600">
+                      <span>Biaya Transportasi (ST)</span>
+                      <span>{formatRupiah(st)}</span>
+                    </div>
+                    <div className="flex justify-between text-slate-600">
+                      <span>Biaya Administrasi (BA)</span>
+                      <span>{formatRupiah(ba)}</span>
+                    </div>
+                    <div className="flex justify-between text-slate-600">
+                      <span>PPN ({persenPpn}%)</span>
+                      <span>{formatRupiah(ppn)}</span>
+                    </div>
+
+                    <div className="border-t border-slate-200 pt-3 flex justify-between text-sm font-extrabold text-slate-900">
+                      <span>Total Bayar Pasien</span>
+                      <span className="text-blue-600">{totalFormatted}</span>
+                    </div>
+
+                    <div className="mt-4 rounded-xl bg-slate-50 p-3 space-y-1.5 text-[11px] text-slate-500">
+                      <div className="flex justify-between">
+                        <span>Hak Nakes:</span>
+                        <span className="font-semibold text-slate-700">{formatRupiah(hakNakes)}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>Profit HealthCare:</span>
+                        <span className="font-semibold text-green-600">{formatRupiah(profitHc)}</span>
+                      </div>
+                    </div>
                   </div>
-                  <div className="flex justify-between">
-                    <span>Profit HealthCare:</span>
-                    <span className="font-semibold text-green-600">{formatRupiah(booking.transaksi.profit_hc)}</span>
-                  </div>
-                </div>
-              </div>
+                );
+              })()}
             </div>
           )}
         </div>
