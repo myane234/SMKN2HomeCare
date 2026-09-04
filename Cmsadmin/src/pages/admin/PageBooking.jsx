@@ -529,7 +529,11 @@ export default function PageBooking() {
                     <td className="border-b border-slate-200 px-4 py-3 font-semibold text-blue-600">{booking.booking_code || "#" + booking.id_booking}</td>
                     <td className="border-b border-slate-200 px-4 py-3 text-slate-800 font-medium">{booking.pasien?.nama_lengkap || "-"}</td>
                     <td className="border-b border-slate-200 px-4 py-3 text-slate-700">{booking.tenaga_medis?.nama_lengkap || "-"}</td>
-                    <td className="border-b border-slate-200 px-4 py-3 text-slate-700">{booking.layanan?.nama_layanan || "-"}</td>
+                    <td className="border-b border-slate-200 px-4 py-3 text-slate-700">
+                      {booking.layanan_items && booking.layanan_items.length > 0
+                        ? booking.layanan_items.map((item) => item.nama_layanan).filter(Boolean).join(", ")
+                        : (booking.layanan?.nama_layanan || "-")}
+                    </td>
                     <td className="border-b border-slate-200 px-4 py-3 text-slate-700">{formatDate(booking.tanggal_kunjungan)}</td>
                     <td className="border-b border-slate-200 px-4 py-3 font-medium text-slate-900">{formatRupiah(booking.transaksi?.jumlah_total)}</td>
                     <td className="border-b border-slate-200 px-4 py-3">{renderStatusBadge(booking.status_booking, booking.status_label, booking.status_color)}</td>
@@ -736,7 +740,18 @@ export function PageBookingDetail() {
             <div className="grid grid-cols-2 gap-4 text-sm">
               <div>
                 <span className="text-xs text-slate-400 block">Layanan Terpilih</span>
-                <span className="font-semibold text-slate-800">{booking.layanan?.nama_layanan || "-"}</span>
+                {booking.layanan_items && booking.layanan_items.length > 0 ? (
+                  <ul className="mt-1 space-y-1">
+                    {booking.layanan_items.map((item, idx) => (
+                      <li key={idx} className="font-semibold text-slate-800 flex items-center justify-between text-xs">
+                        <span>{idx + 1}. {item.nama_layanan || "Layanan"}</span>
+                        {item.sl ? <span className="font-normal text-slate-500">{formatRupiah(item.sl)}</span> : null}
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <span className="font-semibold text-slate-800">{booking.layanan?.nama_layanan || "-"}</span>
+                )}
               </div>
               <div>
                 <span className="text-xs text-slate-400 block">Waktu Kunjungan</span>

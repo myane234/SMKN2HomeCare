@@ -245,15 +245,15 @@ export default function BookingPage() {
         if (pasien?.alamat_utama) {
           const latitude =
             pasien?.latitude !== undefined &&
-            pasien?.latitude !== null &&
-            pasien?.latitude !== ""
+              pasien?.latitude !== null &&
+              pasien?.latitude !== ""
               ? parseFloat(pasien.latitude)
               : -6.2088;
 
           const longitude =
             pasien?.longitude !== undefined &&
-            pasien?.longitude !== null &&
-            pasien?.longitude !== ""
+              pasien?.longitude !== null &&
+              pasien?.longitude !== ""
               ? parseFloat(pasien.longitude)
               : 106.8456;
 
@@ -478,44 +478,26 @@ export default function BookingPage() {
 
     try {
       const rawIds = checkoutItems
-        .map((item) =>
-          Number(
-            getServiceId(item.service)
-          )
-        )
-        .filter(
-          (id) => !Number.isNaN(id)
-        );
+        .map((item) => Number(getServiceId(item.service)))
+        .filter((id) => !Number.isNaN(id));
 
-      const idLayananPayload =
-        rawIds.length > 1
-          ? rawIds
-          : rawIds[0];
+      const response = await createBooking({
+        layanan_ids: rawIds,
+        id_layanan: rawIds.length > 1 ? rawIds : rawIds[0],
+        tanggal_kunjungan: form.date,
+        jam_kunjungan: form.time,
 
-      const response =
-        await createBooking({
-          id_layanan:
-            idLayananPayload,
+        alamat_kunjungan:
+          addressData.address,
 
-          tanggal_kunjungan:
-            form.date,
+        latitude_kunjungan:
+          addressData.latitude,
 
-          jam_kunjungan:
-            form.time,
+        longitude_kunjungan:
+          addressData.longitude,
 
-          alamat_kunjungan:
-            addressData.address,
-
-          latitude_kunjungan:
-            addressData.latitude ||
-            -6.2088,
-
-          longitude_kunjungan:
-            addressData.longitude ||
-            106.8456,
-
-          catatan: form.notes,
-        });
+        catatan: form.notes,
+      });
 
       const payload =
         response?.data?.data ??
@@ -654,11 +636,11 @@ export default function BookingPage() {
                     const img =
                       resolveImageUrl(
                         s.foto_layanan ||
-                          s.gambar ||
-                          s.foto ||
-                          s.image ||
-                          s.foto_layanan_url ||
-                          s.gambar_url
+                        s.gambar ||
+                        s.foto ||
+                        s.image ||
+                        s.foto_layanan_url ||
+                        s.gambar_url
                       );
 
                     return (
@@ -693,8 +675,8 @@ export default function BookingPage() {
                         <p className="text-sm font-bold text-gray-900">
                           {formatCurrency(
                             price *
-                              (item.qty ||
-                                1)
+                            (item.qty ||
+                              1)
                           )}
                         </p>
 
