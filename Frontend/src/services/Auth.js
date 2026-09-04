@@ -49,7 +49,10 @@ export async function loginForm(email, password) {
   } catch (err) {
     console.error('Login error:', err);
     if (axios.isAxiosError(err) && err.response?.data) {
-      throw new Error(err.response.data.error || err.response.data.message || 'Login gagal');
+      const errorObj = new Error(err.response.data.error || err.response.data.message || 'Login gagal');
+      errorObj.status = err.response.status;
+      errorObj.data = err.response.data;
+      throw errorObj;
     }
     throw err;
   }
