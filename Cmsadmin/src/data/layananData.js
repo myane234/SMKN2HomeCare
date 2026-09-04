@@ -3,28 +3,18 @@ import { getAuthHeaders } from '../utils/auth.js';
 import { resolveImageUrl } from '../utils/resolveImage.js';
 
 function mapApiItem(item) {
-  const katNama =
-    item.kategori?.nama_kategori ||
-    item.nama_kategori ||
-    item.kategori_layanan ||
-    (typeof item.kategori === 'string' ? item.kategori : '');
-
   return {
     id: item.id_layanan ?? item.id,
-    id_layanan: item.id_layanan ?? item.id,
     nama: item.nama_layanan ?? item.nama ?? '',
-    nama_layanan: item.nama_layanan ?? item.nama ?? '',
-    id_kategori_layanan: item.id_kategori_layanan ?? item.kategori?.id_kategori_layanan ?? '',
-    kategori: katNama || (item.id_kategori_layanan ? `Kategori #${item.id_kategori_layanan}` : '-'),
-    kategori_layanan: katNama || '',
+    kategori: item.id_kategori_layanan ?? item.kategori_layanan ?? item.kategori ?? '',
     harga: Number(item.harga ?? 0),
     tipe_layanan: item.tipe_layanan ?? 'tindakan',
     durasi: item.durasi_menit ?? item.durasi ?? '',
-    transport: Boolean(item.include_transport),
-    deskripsi: item.deskripsi_layanan ?? item.deskripsi ?? '',
+    transport: item.include_transport ?? false,
+    deskripsi: item.deskripsi_layanan ?? '',
     gambar: resolveImageUrl(item.foto_layanan ?? item.gambar ?? ''),
     updated_at: item.updated_at ?? null,
-  };
+  }
 }
 
 function toFormData(item) {
@@ -69,14 +59,14 @@ export async function getAllLayanan() {
     headers: {
       'Content-Type': 'application/json',
     },
-  });
+  })
 
-  const json = await parseJsonResponse(res);
+  const json = await parseJsonResponse(res)
   if (!json.success || !Array.isArray(json.data)) {
-    throw new Error(json.message || 'Gagal mengambil data layanan');
+    throw new Error(json.message || 'Gagal mengambil data layanan')
   }
 
-  return json.data.map(mapApiItem);
+  return json.data.map(mapApiItem)
 }
 
 export async function getKategoriLayanan() {
@@ -85,7 +75,7 @@ export async function getKategoriLayanan() {
     headers: {
       'Content-Type': 'application/json'
     }
-  });
+  })
 
   const body = await parseJsonResponse(res);
   return body.data;
@@ -97,15 +87,15 @@ export async function getLayananById(id) {
     headers: {
       'Content-Type': 'application/json',
     },
-  });
+  })
 
-  const body = await parseJsonResponse(res);
+  const body = await parseJsonResponse(res)
   if (!body) {
-    throw new Error('Layanan tidak ditemukan');
+    throw new Error('Layanan tidak ditemukan')
   }
 
-  const data = body.data || body;
-  return mapApiItem(data);
+  const data = body.data || body
+  return mapApiItem(data)
 }
 
 export async function createLayanan(payload) {

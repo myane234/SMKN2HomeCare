@@ -20,16 +20,15 @@ export default function Dashboard() {
   useEffect(() => {
     if (isSuper) return;
 
-    Promise.allSettled([getAllLayanan(), getAllPromo(), getAllArtikel()])
-      .then(([layananRes, promoRes, artikelRes]) => {
-        if (layananRes.status === 'fulfilled') setLayanan(layananRes.value || []);
-        if (promoRes.status === 'fulfilled') setPromo(promoRes.value || []);
-        if (artikelRes.status === 'fulfilled') setArtikel(artikelRes.value || []);
+    Promise.all([getAllLayanan(), getAllPromo(), getAllArtikel()])
+      .then(([layananData, promoData, artikelData]) => {
+        setLayanan(layananData || []);
+        setPromo(promoData || []);
+        setArtikel(artikelData || []);
+        setLoading(false);
       })
       .catch((err) => {
         console.error('Error fetching dashboard data:', err);
-      })
-      .finally(() => {
         setLoading(false);
       });
   }, [isSuper]);

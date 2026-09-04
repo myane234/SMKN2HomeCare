@@ -286,7 +286,7 @@ export default function PageSeederManagement() {
   const allSelected = seeders.length > 0 && selected.length === seeders.length;
 
   return (
-    <div className="space-y-6">
+    <div className="w-full max-w-screen-2xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
       {/* HEADER SECTION */}
       <div className="flex flex-col gap-4 border-b border-slate-200/80 pb-5 sm:flex-row sm:items-center sm:justify-between">
         <div>

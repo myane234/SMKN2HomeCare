@@ -52,8 +52,6 @@ import AdminMasterAgama from "./pages/admin/AdminMasterAgama";
 import PageSeederManagement from "./pages/PageSeederManagement";
 import AdminMasterBank from "./pages/admin/AdminMasterBank";
 import PageApi from "./pages/PageApi";
-import PageUlasan from "./pages/PageUlasan";
-import PageHubungiKami from "./pages/PageHubungiKami";
 
 import "leaflet/dist/leaflet.css";
 
@@ -194,22 +192,6 @@ function App() {
           element={
             <ProtectedRoute requiredPath="/kelola-konten">
               <PageKelolaKontenFooter />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/ulasan"
-          element={
-            <ProtectedRoute requiredPath="/ulasan">
-              <PageUlasan />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/hubungi-kami"
-          element={
-            <ProtectedRoute requiredPath="/hubungi-kami">
-              <PageHubungiKami />
             </ProtectedRoute>
           }
         />
