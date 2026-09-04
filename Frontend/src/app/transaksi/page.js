@@ -195,8 +195,18 @@ export default function TransaksiPage() {
                           {item.booking_code || item.id_booking || "-"}
                         </Link>
                       </td>
-                      <td className="p-4">{item.layanan?.nama_layanan || "Layanan Home Care"}</td>
-                      <td className="p-4">{formatTanggal(item.tanggal_kunjungan)}</td>
+                      <td className="p-4">
+                        <div className="space-y-1">
+                          {(item.layanan_items || (item.layanan ? [item.layanan] : [])).map((layanan, layananIndex) => (
+                            <p key={layanan.id_layanan || layananIndex}>{layanan.nama_layanan}</p>
+                          ))}
+                          {!item.layanan_items?.length && !item.layanan && "Layanan Home Care"}
+                        </div>
+                      </td>
+                      <td className="p-4">
+                        <div>{formatTanggal(item.tanggal_kunjungan_raw || item.tanggal_kunjungan)}</div>
+                        <div className="text-xs text-gray-400">{item.jam_kunjungan || "-"}</div>
+                      </td>
                       <td className="p-4 font-medium text-gray-900">
                         {formatRupiah(item.transaksi?.jumlah_total)}
                       </td>

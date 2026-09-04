@@ -75,6 +75,13 @@ export default function DetailTransaksiPage({ params }) {
     }
   };
 
+  const booking = transaksi?.booking || transaksi || {};
+  const pasien = transaksi?.pasien || {};
+  const kunjungan = transaksi?.kunjungan || {};
+  const layananItems = transaksi?.layanan_items || (transaksi?.layanan ? [transaksi.layanan] : []);
+  const detailPembayaran = transaksi?.transaksi || {};
+  const rincianBiaya = detailPembayaran.rincian_biaya || {};
+
   const renderBadgeStatus = (status) => {
     const statusMap = {
       Selesai: "bg-green-100 text-green-700 border-green-200",
@@ -126,10 +133,10 @@ export default function DetailTransaksiPage({ params }) {
               <div>
                 <p className="text-xs text-gray-500 uppercase tracking-wider font-semibold">Kode Booking</p>
                 <h2 className="text-xl font-bold font-mono text-gray-800">
-                  {transaksi.booking_code || transaksi.id_booking || `- # ${idBooking}`}
+                  {booking.booking_code || booking.id_booking || `- # ${idBooking}`}
                 </h2>
               </div>
-              <div>{renderBadgeStatus(transaksi.status_booking)}</div>
+              <div>{renderBadgeStatus(booking.status?.value || booking.status_booking)}</div>
             </div>
 
             <div className="p-6 space-y-6">
@@ -141,7 +148,13 @@ export default function DetailTransaksiPage({ params }) {
                     <div>
                       <p className="text-xs text-gray-500">Layanan</p>
                       <p className="font-semibold text-gray-800">
-                        {transaksi.layanan?.nama_layanan || "Layanan Home Care"}
+                        {layananItems.length > 0 ? (
+                          <ul className="space-y-1">
+                            {layananItems.map((layanan, index) => (
+                              <li key={layanan.id_layanan || index}>{layanan.nama_layanan || "Layanan Home Care"}</li>
+                            ))}
+                          </ul>
+                        ) : "Layanan Home Care"}
                       </p>
                     </div>
                   </div>
@@ -151,7 +164,8 @@ export default function DetailTransaksiPage({ params }) {
                     <div>
                       <p className="text-xs text-gray-500">Tanggal Kunjungan</p>
                       <p className="font-medium text-gray-800">
-                        {formatTanggal(transaksi.tanggal_kunjungan)}
+                        {formatTanggal(kunjungan.tanggal || booking.tanggal_kunjungan)}
+                        {kunjungan.jam && <span className="block text-xs text-gray-500">Pukul {kunjungan.jam}</span>}
                       </p>
                     </div>
                   </div>
@@ -161,7 +175,7 @@ export default function DetailTransaksiPage({ params }) {
                     <div>
                       <p className="text-xs text-gray-500">Waktu Pemesanan</p>
                       <p className="font-medium text-gray-800">
-                        {formatTanggal(transaksi.created_at)}
+                        {booking.dibuat_pada || formatTanggal(booking.created_at)}
                       </p>
                     </div>
                   </div>
@@ -173,7 +187,8 @@ export default function DetailTransaksiPage({ params }) {
                     <div>
                       <p className="text-xs text-gray-500">Pasien / Pemesan</p>
                       <p className="font-medium text-gray-800">
-                        {transaksi.pasien?.nama_lengkap || transaksi.user?.name || "-"}
+                        {pasien.nama_lengkap || transaksi.user?.name || "-"}
+                        {pasien.no_hp && <span className="block text-xs text-gray-500">{pasien.no_hp}</span>}
                       </p>
                     </div>
                   </div>
@@ -183,7 +198,7 @@ export default function DetailTransaksiPage({ params }) {
                     <div>
                       <p className="text-xs text-gray-500">Alamat Kunjungan</p>
                       <p className="font-medium text-gray-800">
-                        {transaksi.alamat_kunjungan || transaksi.alamat || "-"}
+                        {kunjungan.alamat || transaksi.alamat_kunjungan || transaksi.alamat || "-"}
                       </p>
                     </div>
                   </div>
@@ -200,12 +215,28 @@ export default function DetailTransaksiPage({ params }) {
                 <div className="bg-slate-50 p-4 rounded-lg space-y-2 text-sm">
                   <div className="flex justify-between text-gray-600">
                     <span>Biaya Layanan</span>
-                    <span>{formatRupiah(transaksi.transaksi?.jumlah_total || transaksi.total)}</span>
+                    <span>{formatRupiah(rincianBiaya.layanan?.nilai || rincianBiaya.sl)}</span>
+                  </div>
+                  <div className="flex justify-between text-gray-600">
+                    <span>Biaya Alat</span>
+                    <span>{formatRupiah(rincianBiaya.bhp?.nilai || rincianBiaya.sb)}</span>
+                  </div>
+                  <div className="flex justify-between text-gray-600">
+                    <span>Transportasi</span>
+                    <span>{formatRupiah(rincianBiaya.transportasi?.nilai || rincianBiaya.st)}</span>
+                  </div>
+                  <div className="flex justify-between text-gray-600">
+                    <span>Administrasi</span>
+                    <span>{formatRupiah(rincianBiaya.administrasi?.nilai || rincianBiaya.ba)}</span>
+                  </div>
+                  <div className="flex justify-between text-gray-600">
+                    <span>PPN ({rincianBiaya.persentase_ppn || 0}%)</span>
+                    <span>{formatRupiah(rincianBiaya.ppn?.nilai || rincianBiaya.ppn)}</span>
                   </div>
                   <div className="flex justify-between text-gray-900 font-bold text-base pt-2 border-t border-gray-200">
                     <span>Total Pembayaran</span>
                     <span className="text-blue-600">
-                      {formatRupiah(transaksi.transaksi?.jumlah_total || transaksi.total)}
+                      {formatRupiah(rincianBiaya.total?.nilai || detailPembayaran.jumlah_total || transaksi.total)}
                     </span>
                   </div>
                 </div>

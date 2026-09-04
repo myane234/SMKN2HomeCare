@@ -524,10 +524,17 @@ export default function BookingPage() {
 
       const bookingId =
         payload?.booking?.id_booking || payload?.id_booking || payload?.id;
+      const bookingTotal = Number(payload?.jumlah_total);
 
       if (!bookingId) {
         throw new Error(
           "ID Booking tidak ditemukan dari respons server."
+        );
+      }
+
+      if (!Number.isFinite(bookingTotal) || bookingTotal <= 0) {
+        throw new Error(
+          "Jumlah total tidak ditemukan dari respons server."
         );
       }
 
@@ -538,7 +545,7 @@ export default function BookingPage() {
 
       // Langsung arahkan ke halaman pilih metode pembayaran dengan parameter
       router.push(
-        `/pembayaran/pilih-metode?booking_id=${bookingId}&total=${totalPrice}`
+        `/pembayaran/pilih-metode?booking_id=${bookingId}&total=${bookingTotal}`
       );
 
     } catch (error) {

@@ -79,7 +79,7 @@ function PilihMetodePembayaranContent() {
           try {
             const response = await api.get(`/api/booking/${validBookingId}/payment-details`);
             const resData = response.data.data || response.data;
-            validTotalAmount = resData.total_harga || resData.price || resData.total || '';
+            validTotalAmount = resData.jumlah_total || resData.total_harga || resData.price || resData.total || '';
           } catch (err) {
             console.error("Gagal mengambil data harga dari API:", err);
           }

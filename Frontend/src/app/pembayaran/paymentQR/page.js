@@ -27,7 +27,7 @@ function PaymentQRContent() {
         const savedBooking = localStorage.getItem('last_booking') || localStorage.getItem('pending_order') || localStorage.getItem('cart_checkout');
         if (savedBooking) {
           const parsed = JSON.parse(savedBooking);
-          const storageTotal = Number(parsed.total || parsed.price || parsed.amount || parsed.gross_amount);
+          const storageTotal = Number(parsed.jumlah_total || parsed.total || parsed.price || parsed.amount || parsed.gross_amount);
           if (storageTotal > 0) return storageTotal;
         }
       } catch (err) {
@@ -72,7 +72,10 @@ function PaymentQRContent() {
         setIsLoadingApi(true);
         setApiError('');
 
-        const finalAmount = (urlTotal && urlTotal > 0) ? urlTotal : (amount > 0 ? amount : 20000);
+        const finalAmount = (urlTotal && urlTotal > 0) ? urlTotal : amount;
+        if (!finalAmount || finalAmount <= 0) {
+          throw new Error('Jumlah total pembayaran tidak ditemukan.');
+        }
         const isBankTransfer = metodeParam.includes('va');
         const bankName = metodeParam.replace('_va', '');
 
@@ -98,7 +101,7 @@ function PaymentQRContent() {
         const resData = response.data.data || response.data;
         setPaymentData(resData);
         
-        const apiTotal = Number(resData?.gross_amount || resData?.total || resData?.amount);
+        const apiTotal = Number(resData?.jumlah_total || resData?.gross_amount || resData?.total || resData?.amount);
         if (apiTotal && apiTotal > 0 && apiTotal !== 10000) {
           setAmount(apiTotal);
         } else if (!apiTotal || apiTotal === 0) {

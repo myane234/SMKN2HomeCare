@@ -529,8 +529,18 @@ export default function PageBooking() {
                     <td className="border-b border-slate-200 px-4 py-3 font-semibold text-blue-600">{booking.booking_code || "#" + booking.id_booking}</td>
                     <td className="border-b border-slate-200 px-4 py-3 text-slate-800 font-medium">{booking.pasien?.nama_lengkap || "-"}</td>
                     <td className="border-b border-slate-200 px-4 py-3 text-slate-700">{booking.tenaga_medis?.nama_lengkap || "-"}</td>
-                    <td className="border-b border-slate-200 px-4 py-3 text-slate-700">{booking.layanan?.nama_layanan || "-"}</td>
-                    <td className="border-b border-slate-200 px-4 py-3 text-slate-700">{formatDate(booking.tanggal_kunjungan)}</td>
+                    <td className="border-b border-slate-200 px-4 py-3 text-slate-700">
+                      <div className="space-y-1">
+                        {(booking.layanan_items || (booking.layanan ? [booking.layanan] : [])).map((layanan, layananIndex) => (
+                          <div key={layanan.id_layanan || layananIndex}>{layanan.nama_layanan}</div>
+                        ))}
+                        {!booking.layanan_items?.length && !booking.layanan && "-"}
+                      </div>
+                    </td>
+                    <td className="border-b border-slate-200 px-4 py-3 text-slate-700">
+                      <div>{formatDate(booking.tanggal_kunjungan_raw || booking.tanggal_kunjungan)}</div>
+                      <div className="text-xs text-slate-400">{booking.jam_kunjungan || "-"}</div>
+                    </td>
                     <td className="border-b border-slate-200 px-4 py-3 font-medium text-slate-900">{formatRupiah(booking.transaksi?.jumlah_total)}</td>
                     <td className="border-b border-slate-200 px-4 py-3">{renderStatusBadge(booking.status_booking, booking.status_label, booking.status_color)}</td>
                     <td className="border-b border-slate-200 px-4 py-3">{renderPaymentBadge(booking.transaksi?.status_transaksi)}</td>
@@ -716,8 +726,10 @@ export function PageBookingDetail() {
               <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400">Informasi Pasien</h3>
               <p className="mt-3 text-base font-bold text-slate-800">{booking.pasien?.nama_lengkap || "-"}</p>
               <div className="mt-2 space-y-1 text-xs text-slate-500">
+                <p>ID Pasien: <span className="font-medium text-slate-700">{booking.pasien?.id_pasien || "-"}</span></p>
                 <p>No. Telp: <span className="font-medium text-slate-700">{booking.pasien?.no_telp || "-"}</span></p>
                 <p>NIK: <span className="font-medium text-slate-700">{booking.pasien?.nik || "-"}</span></p>
+                <p>Alamat Utama: <span className="font-medium text-slate-700">{booking.pasien?.alamat_utama || "-"}</span></p>
               </div>
             </div>
 
@@ -736,11 +748,21 @@ export function PageBookingDetail() {
             <div className="grid grid-cols-2 gap-4 text-sm">
               <div>
                 <span className="text-xs text-slate-400 block">Layanan Terpilih</span>
-                <span className="font-semibold text-slate-800">{booking.layanan?.nama_layanan || "-"}</span>
+                <div className="space-y-2 font-semibold text-slate-800">
+                  {(booking.layanan_items || (booking.layanan ? [booking.layanan] : [])).map((layanan, layananIndex) => (
+                    <div key={layanan.id_layanan || layananIndex}>
+                      <div>{layanan.nama_layanan || "-"}</div>
+                      <div className="text-xs font-normal text-slate-500">
+                        ID {layanan.id_layanan || "-"} | SL {formatRupiah(layanan.sl)} | SB {formatRupiah(layanan.sb)}
+                      </div>
+                    </div>
+                  ))}
+                  {!booking.layanan_items?.length && !booking.layanan && <span>-</span>}
+                </div>
               </div>
               <div>
                 <span className="text-xs text-slate-400 block">Waktu Kunjungan</span>
-                <span className="font-semibold text-slate-800">{formatDate(booking.tanggal_kunjungan)} - {booking.jam_kunjungan}</span>
+                <span className="font-semibold text-slate-800">{formatDate(booking.tanggal_kunjungan_raw || booking.tanggal_kunjungan)} - {booking.jam_kunjungan || "-"}</span>
               </div>
             </div>
 
@@ -784,6 +806,22 @@ export function PageBookingDetail() {
 
                 return (
                   <div className="space-y-2 text-xs">
+                    <div className="flex justify-between text-slate-600">
+                      <span>Status Transaksi</span>
+                      <span className="font-semibold text-slate-800">{tr.status_transaksi || tr.status || "-"}</span>
+                    </div>
+                    <div className="flex justify-between text-slate-600">
+                      <span>Metode Pembayaran</span>
+                      <span className="font-semibold text-slate-800">{tr.metode_pembayaran || tr.payment_method || "-"}</span>
+                    </div>
+                    <div className="flex justify-between text-slate-600">
+                      <span>ID Transaksi</span>
+                      <span className="font-mono text-slate-800">{tr.id_transaksi || "-"}</span>
+                    </div>
+                    <div className="flex justify-between text-slate-600">
+                      <span>Waktu Bayar</span>
+                      <span className="text-right text-slate-800">{tr.waktu_bayar || "Belum dibayar"}</span>
+                    </div>
                     <div className="flex justify-between text-slate-600">
                       <span>Tarif Layanan (SL)</span>
                       <span>{formatRupiah(sl)}</span>
