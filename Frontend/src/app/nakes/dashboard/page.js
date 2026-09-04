@@ -120,7 +120,6 @@ export default function DashboardPage() {
     return current;
   };
 
-  // DIPERBAIKI: Hanya mengambil ID database (angka), bukan kode string booking
   const getBookingId = (booking) =>
     booking?.id ??
     booking?.id_booking ??
@@ -295,6 +294,7 @@ export default function DashboardPage() {
       const tm = profileData?.tenaga_medis || profileData?.nakes || null;
       const user = profileData?.user || null;
 
+      let tmCategories = [];
       if (tm) {
         const nama = tm.nama_lengkap || tm.nama || profileData?.nama_lengkap || user?.name || "-";
         const noHp = tm.no_hp || tm.no_telp || tm.phone || "-";
@@ -314,6 +314,7 @@ export default function DashboardPage() {
           }
         }
 
+        tmCategories = rawCategories;
         const categoryNames = resolveCategoryNames(rawCategories, kategoriList);
         const wilayahId = tm.id_wilayah_layanan ?? tm.wilayah_layanan?.id_provinsi ?? null;
         const wilayahName = resolveWilayahName(wilayahId, tm.wilayah_layanan, wilayahList);
@@ -367,7 +368,13 @@ export default function DashboardPage() {
 
       const wilayahDefault = activeData?.id_wilayah_layanan ?? tm?.id_wilayah_layanan ?? null;
       let categoryIds = [];
-      const currentRawCategories = activeData?.kategori_layanan || tm?.kategori_layanan || [];
+      
+      // PERBAIKAN: Ambil dari activeData, jika kosong fallback ke tmCategories (pendaftaran/profil)
+      const currentRawCategories = 
+        (Array.isArray(activeData?.kategori_layanan) && activeData.kategori_layanan.length > 0)
+          ? activeData.kategori_layanan
+          : tmCategories;
+
       if (Array.isArray(currentRawCategories)) {
         categoryIds = currentRawCategories.map((item) => {
           if (typeof item === "object" && item !== null) {
@@ -375,6 +382,11 @@ export default function DashboardPage() {
           }
           return Number(item);
         }).filter((id) => Number.isFinite(id) && id > 0);
+      } else if (typeof currentRawCategories === "string") {
+        categoryIds = currentRawCategories
+          .split(",")
+          .map((item) => Number(item.trim()))
+          .filter((id) => Number.isFinite(id) && id > 0);
       }
 
       const waktu = getWaktuLayananFromObject(activeData);
