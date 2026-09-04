@@ -369,23 +369,52 @@ export default function DashboardPage() {
       const wilayahDefault = activeData?.id_wilayah_layanan ?? tm?.id_wilayah_layanan ?? null;
       let categoryIds = [];
       
-      // PERBAIKAN: Ambil dari activeData, jika kosong fallback ke tmCategories (pendaftaran/profil)
       const currentRawCategories = 
         (Array.isArray(activeData?.kategori_layanan) && activeData.kategori_layanan.length > 0)
           ? activeData.kategori_layanan
-          : tmCategories;
+          : (Array.isArray(tmCategories) && tmCategories.length > 0)
+          ? tmCategories
+          : typeof tmCategories === "string"
+          ? tmCategories
+          : [];
 
       if (Array.isArray(currentRawCategories)) {
         categoryIds = currentRawCategories.map((item) => {
           if (typeof item === "object" && item !== null) {
-            return Number(item.id ?? item.id_kategori_layanan ?? item.id_kategori);
+            const val = item.id ?? item.id_kategori_layanan ?? item.id_kategori ?? item.kategori_id;
+            if (val !== undefined && val !== null) return Number(val);
+            
+            const nameVal = item.nama_kategori ?? item.nama_layanan ?? item.nama;
+            if (nameVal) {
+              const matchedCat = kategoriList.find(
+                (c) => String(c.nama_kategori ?? c.nama).toLowerCase() === String(nameVal).toLowerCase()
+              );
+              return matchedCat ? Number(matchedCat.id_kategori_layanan ?? matchedCat.id) : null;
+            }
           }
-          return Number(item);
+          
+          if (!isNaN(item) && String(item).trim() !== "") {
+            return Number(item);
+          }
+
+          const matchedCat = kategoriList.find(
+            (c) => String(c.nama_kategori ?? c.nama).toLowerCase() === String(item).toLowerCase()
+          );
+          return matchedCat ? Number(matchedCat.id_kategori_layanan ?? matchedCat.id) : null;
         }).filter((id) => Number.isFinite(id) && id > 0);
       } else if (typeof currentRawCategories === "string") {
         categoryIds = currentRawCategories
           .split(",")
-          .map((item) => Number(item.trim()))
+          .map((item) => {
+            const cleanItem = item.trim();
+            if (!isNaN(cleanItem) && cleanItem !== "") {
+              return Number(cleanItem);
+            }
+            const matchedCat = kategoriList.find(
+              (c) => String(c.nama_kategori ?? c.nama).toLowerCase() === String(cleanItem).toLowerCase()
+            );
+            return matchedCat ? Number(matchedCat.id_kategori_layanan ?? matchedCat.id) : null;
+          })
           .filter((id) => Number.isFinite(id) && id > 0);
       }
 
@@ -398,7 +427,7 @@ export default function DashboardPage() {
         hari_selesai: last.hari || "",
         jam_mulai: first.jam_mulai ? String(first.jam_mulai).slice(0, 5) : "",
         jam_selesai: first.jam_selesai ? String(first.jam_selesai).slice(0, 5) : "",
-        id_wilayah_layanan: wilayahDefault ?? "",
+        id_wilayah_layanan: wilayahDefault !== null && wilayahDefault !== undefined ? Number(wilayahDefault) : "",
         kategori_layanan: categoryIds,
       });
 
@@ -875,12 +904,12 @@ export default function DashboardPage() {
                   <label className="block font-semibold text-slate-700 mb-1">Wilayah Layanan</label>
                   <select
                     value={formData.id_wilayah_layanan}
-                    onChange={(e) => setFormData({ ...formData, id_wilayah_layanan: e.target.value })}
+                    onChange={(e) => setFormData({ ...formData, id_wilayah_layanan: e.target.value ? Number(e.target.value) : "" })}
                     className="w-full rounded-xl border border-slate-200 p-2.5 bg-white text-slate-800 focus:outline-blue-600"
                   >
                     <option value="">Pilih Wilayah</option>
                     {listWilayah.map((w) => {
-                      const id = w.id_provinsi ?? w.id_wilayah_layanan ?? w.id;
+                      const id = Number(w.id_provinsi ?? w.id_wilayah_layanan ?? w.id);
                       const name = w.nama_provinsi ?? w.nama_wilayah ?? w.nama;
                       return <option key={id} value={id}>{name}</option>;
                     })}
