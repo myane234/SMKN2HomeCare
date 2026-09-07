@@ -11,6 +11,11 @@ export default function UlasanPage() {
   const [successMsg, setSuccessMsg] = useState("");
   const [errorMsg, setErrorMsg] = useState("");
 
+  const [headerInfo, setHeaderInfo] = useState({
+    ulasan_heading: "Pengalaman & Testimoni Pasien",
+    ulasan_subheading: "Ulasan jujur dari keluarga dan pasien yang telah menggunakan layanan perawatan medis SmartHomeCare."
+  });
+
   const [form, setForm] = useState({
     nama_pasien: "",
     rating: 5,
@@ -24,6 +29,18 @@ export default function UlasanPage() {
         setLoading(true);
         const data = await getUlasan();
         setUlasanList(data);
+
+        // Ambil info header ulasan jika ada
+        try {
+          const resRaw = await fetch("/api/resource/content/ulasan");
+          const json = await resRaw.json();
+          if (json.ulasan_heading) {
+            setHeaderInfo({
+              ulasan_heading: json.ulasan_heading,
+              ulasan_subheading: json.ulasan_subheading || ""
+            });
+          }
+        } catch {}
       } catch (err) {
         console.error("Gagal memuat ulasan:", err);
       } finally {
@@ -46,18 +63,7 @@ export default function UlasanPage() {
     try {
       setSubmitting(true);
       await createUlasan(form);
-      setSuccessMsg("Terima kasih! Ulasan Anda berhasil dikirim.");
-      setUlasanList((prev) => [
-        {
-          id_ulasan: Date.now(),
-          nama_pasien: form.nama_pasien,
-          rating: Number(form.rating),
-          layanan: form.layanan || "Layanan Homecare",
-          komentar: form.komentar,
-          created_at: new Date().toISOString().split("T")[0]
-        },
-        ...prev
-      ]);
+      setSuccessMsg("Terima kasih! Ulasan Anda berhasil dikirim dan akan ditinjau oleh tim kami.");
       setForm({ nama_pasien: "", rating: 5, layanan: "", komentar: "" });
     } catch {
       setErrorMsg("Gagal mengirim ulasan. Silakan coba lagi.");
@@ -76,10 +82,10 @@ export default function UlasanPage() {
             ULASAN PASIEN
           </span>
           <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-slate-900">
-            Pengalaman & Testimoni Pasien
+            {headerInfo.ulasan_heading}
           </h1>
           <p className="text-xs sm:text-sm text-slate-500">
-            Ulasan jujur dari keluarga dan pasien yang telah menggunakan layanan perawatan medis SmartHomeCare.
+            {headerInfo.ulasan_subheading}
           </p>
         </div>
 

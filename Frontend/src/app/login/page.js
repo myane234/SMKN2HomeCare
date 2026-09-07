@@ -73,15 +73,36 @@ export default function MasukPage() {
     }
   }
 
+  const [isUnverifiedEmail, setIsUnverifiedEmail] = useState(false);
+
   const handleManualLogin = async (e) => {
     e.preventDefault();
     setLoading(true);
     setErrorMsg("");
+    setIsUnverifiedEmail(false);
+
     try {
       const data = await loginForm(email, password);
       await createSession(data);
       redirectAfterLogin(data);
     } catch (err) {
+      const msg = String(err.message || "").toLowerCase();
+      const isUnverified =
+        msg.includes("belum diverifikasi") ||
+        msg.includes("belum terverifikasi") ||
+        msg.includes("unverified") ||
+        msg.includes("verif") ||
+        err.status === 403;
+
+      if (isUnverified) {
+        setIsUnverifiedEmail(true);
+        setErrorMsg("Email Anda belum diverifikasi. Mengalihkan ke halaman verifikasi email...");
+        setTimeout(() => {
+          window.location.href = `/auth/verify-email?email=${encodeURIComponent(email)}`;
+        }, 1500);
+        return;
+      }
+
       setErrorMsg(err.message || "Login gagal");
     } finally {
       setLoading(false);
@@ -91,6 +112,7 @@ export default function MasukPage() {
   const handleGoogleSuccess = async (accessToken) => {
     setLoading(true);
     setErrorMsg("");
+    setIsUnverifiedEmail(false);
     try {
       const data = await loginWithGoogleAPI(accessToken);
       await createSession(data);
@@ -120,8 +142,20 @@ export default function MasukPage() {
       </p>
 
       {errorMsg && (
-        <div className="mb-4 rounded-xl bg-red-50 p-3 border border-red-200">
-          <p className="text-xs font-medium text-red-600">{errorMsg}</p>
+        <div className={`mb-4 rounded-xl p-3.5 border ${
+          isUnverifiedEmail
+            ? "bg-amber-50 border-amber-200 text-amber-800"
+            : "bg-red-50 border-red-200 text-red-600"
+        }`}>
+          <p className="text-xs font-semibold">{errorMsg}</p>
+          {isUnverifiedEmail && (
+            <a
+              href={`/auth/verify-email?email=${encodeURIComponent(email)}`}
+              className="mt-2 inline-flex items-center gap-1.5 text-xs font-bold text-amber-900 underline hover:text-amber-700"
+            >
+              Klik di sini untuk langsung verifikasi email →
+            </a>
+          )}
         </div>
       )}
 

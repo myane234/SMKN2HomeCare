@@ -39,6 +39,8 @@ export const ALL_CMS_VIEWS = [
   { slug: "layanan", label: "Layanan", path: "/layanan", category: "Konten" },
   { slug: "promo", label: "Promo", path: "/promo", category: "Konten" },
   { slug: "artikel", label: "Artikel", path: "/artikel", category: "Konten" },
+  { slug: "ulasan", label: "Ulasan Pasien", path: "/ulasan", category: "Konten" },
+  { slug: "hubungi-kami", label: "Hubungi Kami", path: "/hubungi-kami", category: "Konten" },
   {
     slug: "master-pasien",
     label: "Data Pasien",
@@ -184,6 +186,8 @@ export const DEFAULT_TIER_PERMISSIONS = {
     "layanan",
     "promo",
     "artikel",
+    "ulasan",
+    "hubungi-kami",
   ],
   admin: [
     "dashboard",
@@ -193,9 +197,11 @@ export const DEFAULT_TIER_PERMISSIONS = {
     "layanan",
     "promo",
     "artikel",
+    "ulasan",
+    "hubungi-kami",
   ],
-  Editor: ["dashboard", "layanan", "promo", "artikel", "master-kategori"],
-  editor: ["dashboard", "layanan", "promo", "artikel", "master-kategori"],
+  Editor: ["dashboard", "layanan", "promo", "artikel", "ulasan", "hubungi-kami", "master-kategori"],
+  editor: ["dashboard", "layanan", "promo", "artikel", "ulasan", "hubungi-kami", "master-kategori"],
 };
 
 /**

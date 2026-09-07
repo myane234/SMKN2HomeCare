@@ -20,6 +20,7 @@ import {
     FiCalendar
 } from "react-icons/fi";
 import { getLayanan } from "@/services/layananService";
+import { getAuthToken } from "@/services/cookieHelper";
 
 export default function Navbar() {
     const pathname = usePathname();
@@ -34,19 +35,28 @@ export default function Navbar() {
     const originalNavRef = useRef(null);
 
     // Initial Auth Check (Client-side sync)
+    const checkAuth = () => {
+        if (typeof document !== "undefined") {
+            const token = getAuthToken();
+            setIsLoggedIn(Boolean(token));
+        }
+    };
+
+    // Initial Auth Check & event listeners
     useEffect(() => {
-        const checkAuth = () => {
-            if (typeof document !== "undefined") {
-                const cookies = document.cookie.split('; ');
-                const hasToken = cookies.some(row => 
-                    row.startsWith('auth_token=') || 
-                    row.startsWith('smarthomecare-session=') || 
-                    row.startsWith('is_logged_in=true')
-                );
-                setIsLoggedIn(hasToken);
-            }
-        };
         checkAuth();
+
+        const handleAuthChange = () => {
+            checkAuth();
+        };
+
+        window.addEventListener('auth:logout', handleAuthChange);
+        window.addEventListener('auth:state-change', handleAuthChange);
+
+        return () => {
+            window.removeEventListener('auth:logout', handleAuthChange);
+            window.removeEventListener('auth:state-change', handleAuthChange);
+        };
     }, []);
 
     // Handle Scroll for Sticky Navbar
@@ -68,15 +78,7 @@ export default function Navbar() {
     useEffect(() => {
         setIsMobileMenuOpen(false);
         setIsSearchOpen(false);
-        if (typeof document !== "undefined") {
-            const cookies = document.cookie.split('; ');
-            const hasToken = cookies.some(row => 
-                row.startsWith('auth_token=') || 
-                row.startsWith('smarthomecare-session=') || 
-                row.startsWith('is_logged_in=true')
-            );
-            setIsLoggedIn(hasToken);
-        }
+        checkAuth();
     }, [pathname]);
 
     // Fetch Services for Search Modal

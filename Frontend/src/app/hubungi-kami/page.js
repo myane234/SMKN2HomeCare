@@ -82,10 +82,10 @@ export default function HubungiKamiPage() {
             HUBUNGI KAMI
           </span>
           <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-slate-900">
-            Layanan Informasi &amp; Bantuan
+            {config.heading || "Layanan Informasi & Bantuan"}
           </h1>
           <p className="text-xs sm:text-sm text-slate-500">
-            Punya pertanyaan mengenai layanan homecare? Hubungi tim medis SmartHomeCare melalui form atau kontak resmi kami.
+            {config.description || "Punya pertanyaan mengenai layanan homecare? Hubungi tim medis SmartHomeCare melalui form atau kontak resmi kami."}
           </p>
         </div>
 

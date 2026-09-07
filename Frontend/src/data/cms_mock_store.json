@@ -1,0 +1,157 @@
+{
+  "hubungi_settings": {
+    "hubungi_banner": "/images/hero/hero-bg.jpg",
+    "hubungi_banner_text": "Hubungi Layanan Home Care",
+    "hubungi_heading": "Ada Pertanyaan? Kami Siap Membantu Anda",
+    "hubungi_description": "Silakan tinggalkan pesan atau hubungi tim customer service kami untuk informasi lebih lanjut mengenai layanan Home Care.",
+    "hubungi_phone": "021-12345678",
+    "hubungi_email": "info@homecare.com",
+    "hubungi_whatsapp": "0856789287",
+    "hubungi_address": "Jl. Kesehatan No. 123, Jakarta Selatan",
+    "hubungi_maps_link": "https://maps.google.com/?q=-6.200000,106.816666",
+    "hubungi_jam_operasional": "Senin - Minggu: 08:00 - 20:00 WIB"
+  },
+  "hubungi_pesan": [
+    {
+      "id": 4,
+      "nama": "Xavier_ Diaz",
+      "email": "daffadiaz04@gmail.com",
+      "no_hp": "0877287112",
+      "subjek": "bayi",
+      "pesan": "bayi kenapa",
+      "status": "belum_dibaca",
+      "catatan_admin": null,
+      "created_at": "2026-09-04T11:42:38.314Z",
+      "updated_at": "2026-09-04T11:42:38.319Z"
+    },
+    {
+      "id": 1,
+      "nama": "Andi Wijaya",
+      "email": "andi@gmail.com",
+      "no_hp": "081299998888",
+      "subjek": "Tanya Layanan Fisioterapi",
+      "pesan": "Apakah layanan fisioterapi bisa untuk pasien pasca stroke di daerah Jakarta Barat?",
+      "status": "belum_dibaca",
+      "catatan_admin": null,
+      "created_at": "2026-09-03T14:10:00.000000Z",
+      "updated_at": "2026-09-03T14:10:00.000000Z"
+    },
+    {
+      "id": 2,
+      "nama": "Siti Sarah",
+      "email": "siti.sarah@yahoo.com",
+      "no_hp": "081377889900",
+      "subjek": "Jadwal Kunjungan Rawat Luka",
+      "pesan": "Halo admin, apakah bisa menjadwalkan kunjungan perawat untuk perawatan luka diabetes setiap 2 hari sekali?",
+      "status": "sudah_dibaca",
+      "catatan_admin": "Jadwal sudah dikonfirmasi ke perawat Ns. Dewi",
+      "created_at": "2026-09-02T10:30:00.000000Z",
+      "updated_at": "2026-09-02T11:00:00.000000Z"
+    },
+    {
+      "id": 3,
+      "nama": "Bambang Prakoso",
+      "email": "bambang.p@gmail.com",
+      "no_hp": "085612344321",
+      "subjek": "Konsultasi Pendampingan Lansia",
+      "pesan": "Selamat pagi, saya ingin bertanya paket pendampingan lansia full day di rumah untuk orang tua saya yang berusia 78 tahun.",
+      "status": "dibalas",
+      "catatan_admin": "Sudah dihubungi via WA oleh CS Rina pada 02/09 14:00 dan dikirimkan brosur paket.",
+      "created_at": "2026-09-01T09:15:00.000000Z",
+      "updated_at": "2026-09-01T14:05:00.000000Z"
+    }
+  ],
+  "ulasan_header": {
+    "ulasan_heading": "Apa Kata Mereka tentang Kami",
+    "ulasan_subheading": "Ulasan jujur dari pasien dan keluarga yang telah menggunakan layanan Home Care kami."
+  },
+  "ulasan_list": [
+    {
+      "id": 5,
+      "nama_pengulas": "budi diaz",
+      "profesi_peran": "Pasien",
+      "foto": null,
+      "foto_url": null,
+      "rating": 1,
+      "komentar": "kretek abal abal mantap",
+      "layanan_id": null,
+      "is_published": false,
+      "urutan": 5,
+      "created_at": "2026-09-04T11:44:09.980Z",
+      "updated_at": "2026-09-04T11:44:09.980Z",
+      "layanan": null
+    },
+    {
+      "id": 1,
+      "nama_pengulas": "Budi Santoso",
+      "profesi_peran": "Keluarga Pasien",
+      "foto": null,
+      "foto_url": null,
+      "rating": 5,
+      "komentar": "Pelayanan perawat sangat ramah dan profesional. Ayah saya yang baru pulang dari rumah sakit merasa sangat terbantu dan nyaman dirawat di rumah.",
+      "layanan_id": 2,
+      "is_published": true,
+      "urutan": 1,
+      "created_at": "2026-09-01T14:00:00.000000Z",
+      "updated_at": "2026-09-01T14:00:00.000000Z",
+      "layanan": {
+        "id_master_layanan": 2,
+        "nama_layanan": "Fisioterapi Rumah"
+      }
+    },
+    {
+      "id": 2,
+      "nama_pengulas": "Siti Rahma",
+      "profesi_peran": "Pasien Lansia",
+      "foto": null,
+      "foto_url": null,
+      "rating": 5,
+      "komentar": "Pelayanan sangat memuaskan, perawat datang tepat waktu dan telaten sekali saat mengganti perban pasca operasi.",
+      "layanan_id": 1,
+      "is_published": true,
+      "urutan": 2,
+      "created_at": "2026-09-02T11:20:00.000000Z",
+      "updated_at": "2026-09-02T11:20:00.000000Z",
+      "layanan": {
+        "id_master_layanan": 1,
+        "nama_layanan": "Perawatan Luka Medis"
+      }
+    },
+    {
+      "id": 3,
+      "nama_pengulas": "Hendro Gunawan",
+      "profesi_peran": "Anak Pasien",
+      "foto": null,
+      "foto_url": null,
+      "rating": 4,
+      "komentar": "Sangat responsif! Pagi pesan layanan via website, siangnya perawat sudah tiba di rumah membawa perlengkapan medis lengkap.",
+      "layanan_id": 3,
+      "is_published": true,
+      "urutan": 3,
+      "created_at": "2026-09-03T08:45:00.000000Z",
+      "updated_at": "2026-09-03T08:45:00.000000Z",
+      "layanan": {
+        "id_master_layanan": 3,
+        "nama_layanan": "Pendampingan Pasien 24 Jam"
+      }
+    },
+    {
+      "id": 4,
+      "nama_pengulas": "Dewi Lestari",
+      "profesi_peran": "Ibu Pasien Balita",
+      "foto": null,
+      "foto_url": null,
+      "rating": 5,
+      "komentar": "Bidan yang datang sangat sabar memandikan bayi baru lahir dan memberikan edukasi menyusui yang bermanfaat untuk saya sebagai ibu baru.",
+      "layanan_id": 4,
+      "is_published": false,
+      "urutan": 4,
+      "created_at": "2026-09-03T16:00:00.000000Z",
+      "updated_at": "2026-09-03T16:00:00.000000Z",
+      "layanan": {
+        "id_master_layanan": 4,
+        "nama_layanan": "Pijat & Perawatan Bayi"
+      }
+    }
+  ]
+}

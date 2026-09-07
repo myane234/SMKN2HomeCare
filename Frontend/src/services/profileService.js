@@ -1,10 +1,20 @@
 import api from './api';
+import { getAuthToken, clearAllAuthCookies } from './cookieHelper';
 
 export const getProfileMe = async () => {
+  const token = getAuthToken();
+  if (!token) {
+    return null;
+  }
+
   try {
     const response = await api.get('/api/profile/me');
     return response.data;
   } catch (error) {
+    if (error?.response?.status === 401) {
+      clearAllAuthCookies();
+      return null;
+    }
     console.error("Gagal mengambil profil:", error);
     throw error;
   }
@@ -27,6 +37,11 @@ const formatAvatarUrl = (avatar) => {
 };
 
 export async function fetchAndStoreProfile() {
+  const token = getAuthToken();
+  if (!token) {
+    return null;
+  }
+
   try {
     const response = await api.get('/api/profile/me');
     const data = response.data;
@@ -88,6 +103,11 @@ export async function fetchAndStoreProfile() {
 
     return null;
   } catch (error) {
+    if (error?.response?.status === 401) {
+      console.warn('[Profile] Sesi telah berakhir atau tidak valid (401). Menghapus sesi lama.');
+      clearAllAuthCookies();
+      return null;
+    }
     console.error('[Profile] Gagal mengambil data profile:', error?.response?.data?.message || error.message);
     return null;
   }
@@ -165,13 +185,7 @@ export async function updatePasienProfile(payload) {
 }
 
 export function clearProfileCookies() {
-  const profileCookies = [
-    'user_profile', 'profile_avatar', 'profile_email', 'profile_id_user', 
-    'profile_roles', 'is_profile_complete', 'profile_nama', 'profile_nik', 
-    'profile_golongan_darah', 'profile_jenis_kelamin', 'profile_alamat', 'tenaga_medis',
-  ];
-
-  profileCookies.forEach((name) => {
-    document.cookie = `${name}=; path=/; max-age=0`;
-  });
+  clearAllAuthCookies();
 }
+
+export { clearAllAuthCookies };
