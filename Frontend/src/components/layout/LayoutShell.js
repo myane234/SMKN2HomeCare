@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import Navbar from "./Navbar";
 import Footer from "./Footer";
 import { fetchAndStoreProfile } from "@/services/profileService";
+import ActiveBookingBubble from "@/components/ActiveBookingBubble";
 
 export default function LayoutShell({ children }) {
   const pathname = usePathname();
@@ -30,6 +31,9 @@ export default function LayoutShell({ children }) {
       </main>
 
       {!hideLayout && <Footer />}
+
+      {/* Floating bubble status booking aktif */}
+      {!hideLayout && <ActiveBookingBubble />}
     </>
   );
 }
