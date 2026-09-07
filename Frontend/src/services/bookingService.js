@@ -47,17 +47,3 @@ export const confirmPayment = async ({ id_booking, order_id }) => {
     throw error;
   }
 };
-
-export const getBookingAktif = async () => {
-  try {
-    const res = await api.get('/api/booking/terkini');
-    return res.data;
-  } catch (error) {
-    // Jika 404 atau tidak ada booking aktif, return null secara diam-diam
-    if (error.response?.status === 404 || error.response?.status === 200) {
-      return null;
-    }
-    // Untuk auth error (401) atau error lain, buang ke caller
-    throw error;
-  }
-};
