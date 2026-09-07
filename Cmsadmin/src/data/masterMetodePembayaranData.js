@@ -8,7 +8,6 @@ async function fetchApi(url, options = {}) {
     const rawAuth = localStorage.getItem('cmsHomeCare_auth');
     if (rawAuth) {
       const parsed = JSON.parse(rawAuth);
-      // Mendukung token baik langsung di dalam objek maupun bersarang
       token = parsed.token || parsed.access_token || parsed.data?.token || parsed.data?.access_token || '';
     }
     
@@ -19,8 +18,12 @@ async function fetchApi(url, options = {}) {
     token = '';
   }
 
+  // JIKA body berupa FormData, HAPUS Content-Type agar browser otomatis
+  // menentukan boundary multipart/form-data secara benar.
+  const isFormData = options.body instanceof FormData;
+
   const headers = {
-    'Content-Type': 'application/json',
+    ...(isFormData ? {} : { 'Content-Type': 'application/json' }),
     'Accept': 'application/json',
     ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
     ...options.headers,
@@ -43,7 +46,7 @@ export function mapMetodeItem(item) {
   if (!item) return null;
   return {
     id: item.id_metode || item.id || '',
-    id_kategori_pembayaran: item.id_kategori_pembayaran || '',
+    id_kategori_pembayaran: item.id_kategori_pembayaran || item.payment_type || '',
     nama_kategori: item.nama_kategori || item.kategori?.nama || item.kategori?.nama_kategori || '',
     nama_metode: item.nama_metode || '',
     tipe_potongan: item.tipe_potongan || 'nominal',
@@ -83,17 +86,23 @@ export async function getMetodePembayaran() {
 }
 
 export async function createMetodePembayaran(payload) {
-  const bodyData = {
-    id_kategori_pembayaran: payload.id_kategori_pembayaran,
-    nama_metode: payload.nama_metode,
-    tipe_potongan: payload.tipe_potongan || 'nominal',
-    nilai_potongan: Number(payload.nilai_potongan) || 0,
-    is_active: Boolean(payload.is_active ?? true),
-  };
+  const formData = new FormData();
+  
+  // Kirim payment_type agar Backend menolak error 422
+  formData.append('payment_type', payload.id_kategori_pembayaran || '');
+  formData.append('id_kategori_pembayaran', payload.id_kategori_pembayaran || '');
+  formData.append('nama_metode', payload.nama_metode || '');
+  formData.append('tipe_potongan', payload.tipe_potongan || 'nominal');
+  formData.append('nilai_potongan', Number(payload.nilai_potongan) || 0);
+  formData.append('is_active', payload.is_active ? '1' : '0');
+  
+  if (payload.logo) {
+    formData.append('logo', payload.logo);
+  }
 
   const result = await fetchApi(BASE_URL, {
     method: 'POST',
-    body: JSON.stringify(bodyData),
+    body: formData,
   });
 
   return mapMetodeItem(result?.data || result);
@@ -105,17 +114,21 @@ export async function updateMetodePembayaran(id, payload) {
     throw new Error("ID Metode Pembayaran tidak ditemukan!");
   }
 
-  const bodyData = {
-    id_kategori_pembayaran: payload.id_kategori_pembayaran,
-    nama_metode: payload.nama_metode,
-    tipe_potongan: payload.tipe_potongan || 'nominal',
-    nilai_potongan: Number(payload.nilai_potongan) || 0,
-    is_active: Boolean(payload.is_active ?? true),
-  };
+  const formData = new FormData();
+  formData.append('payment_type', payload.id_kategori_pembayaran || '');
+  formData.append('id_kategori_pembayaran', payload.id_kategori_pembayaran || '');
+  formData.append('nama_metode', payload.nama_metode || '');
+  formData.append('tipe_potongan', payload.tipe_potongan || 'nominal');
+  formData.append('nilai_potongan', Number(payload.nilai_potongan) || 0);
+  formData.append('is_active', payload.is_active ? '1' : '0');
+
+  if (payload.logo) {
+    formData.append('logo', payload.logo);
+  }
 
   const result = await fetchApi(`${BASE_URL}/${realId}`, {
     method: 'POST',
-    body: JSON.stringify(bodyData),
+    body: formData,
   });
 
   return mapMetodeItem(result?.data || result);
