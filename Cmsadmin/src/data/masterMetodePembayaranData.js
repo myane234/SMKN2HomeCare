@@ -18,8 +18,7 @@ async function fetchApi(url, options = {}) {
     token = '';
   }
 
-  // JIKA body berupa FormData, HAPUS Content-Type agar browser otomatis
-  // menentukan boundary multipart/form-data secara benar.
+  // Jika body berupa FormData, browser akan otomatis menangani Content-Type & boundary-nya
   const isFormData = options.body instanceof FormData;
 
   const headers = {
@@ -40,6 +39,18 @@ async function fetchApi(url, options = {}) {
     console.error(`[API Error] Request ke ${url} gagal:`, error.message);
     throw error;
   }
+}
+
+// Helper untuk membuat string payment_type yang unik dan sesuai standar Midtrans
+function generatePaymentType(payload) {
+  if (payload.payment_type) return payload.payment_type;
+  
+  // Ambil nama metode (misal: "BRI Transfer" -> "bri_transfer")
+  if (payload.nama_metode) {
+    return payload.nama_metode.toLowerCase().trim().replace(/\s+/g, '_');
+  }
+  
+  return String(payload.id_kategori_pembayaran || '');
 }
 
 export function mapMetodeItem(item) {
@@ -88,8 +99,10 @@ export async function getMetodePembayaran() {
 export async function createMetodePembayaran(payload) {
   const formData = new FormData();
   
-  // Kirim payment_type agar Backend menolak error 422
-  formData.append('payment_type', payload.id_kategori_pembayaran || '');
+  // Buat payment_type spesifik agar unik (misal: "bri_transfer")
+  const paymentType = generatePaymentType(payload);
+
+  formData.append('payment_type', paymentType);
   formData.append('id_kategori_pembayaran', payload.id_kategori_pembayaran || '');
   formData.append('nama_metode', payload.nama_metode || '');
   formData.append('tipe_potongan', payload.tipe_potongan || 'nominal');
@@ -115,7 +128,9 @@ export async function updateMetodePembayaran(id, payload) {
   }
 
   const formData = new FormData();
-  formData.append('payment_type', payload.id_kategori_pembayaran || '');
+  const paymentType = generatePaymentType(payload);
+
+  formData.append('payment_type', paymentType);
   formData.append('id_kategori_pembayaran', payload.id_kategori_pembayaran || '');
   formData.append('nama_metode', payload.nama_metode || '');
   formData.append('tipe_potongan', payload.tipe_potongan || 'nominal');
