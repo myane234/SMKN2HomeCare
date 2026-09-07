@@ -54,7 +54,7 @@ function SuccessPaymentContent() {
         const finalPrice = dbPrice > 0 ? dbPrice : (totalParam > 0 ? totalParam : 20000);
 
         setPaymentData({
-          orderId: resData.order_id || validOrderId,
+          orderId: resData.booking_code || resData.kode_booking || resData.order_id || validOrderId,
           serviceName: resData.nama_layanan || resData.service_name || "",
           paymentMethod: resData.metode_pembayaran || resData.payment_method || "",
           virtualAccount: resData.virtual_account || resData.va || null,

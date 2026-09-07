@@ -63,15 +63,32 @@ function PilihMetodePembayaranContent() {
     const fetchRealData = async () => {
       setIsFetchingData(true);
       try {
-        let validBookingId = searchParams.get('booking_id');
-        let validTotalAmount = searchParams.get('total');
+        let validBookingId = searchParams.get('booking_id') || searchParams.get('id') || searchParams.get('bookingId');
+        let validTotalAmount = searchParams.get('total') || searchParams.get('total_harga') || searchParams.get('harga') || searchParams.get('amount') || searchParams.get('price');
 
-        if (!validBookingId || !validTotalAmount) {
-          const savedBooking = localStorage.getItem('last_booking') || localStorage.getItem('pending_order');
-          if (savedBooking) {
-            const parsed = JSON.parse(savedBooking);
-            if (!validBookingId) validBookingId = parsed.booking_id || parsed.id || '';
-            if (!validTotalAmount) validTotalAmount = parsed.total || parsed.price || parsed.amount || '';
+        if (typeof window !== 'undefined') {
+          try {
+            const historyState = window.history.state?.usr || window.history.state || {};
+            if (!validBookingId && (historyState.booking_id || historyState.id || historyState.bookingId)) {
+              validBookingId = historyState.booking_id || historyState.id || historyState.bookingId;
+            }
+            if (!validTotalAmount && (historyState.total || historyState.total_harga || historyState.amount || historyState.price)) {
+              validTotalAmount = historyState.total || historyState.total_harga || historyState.amount || historyState.price;
+            }
+
+            if (!validBookingId || !validTotalAmount) {
+              const savedBooking = localStorage.getItem('last_booking') || 
+                                   localStorage.getItem('pending_order') || 
+                                   localStorage.getItem('booking_data') ||
+                                   localStorage.getItem('cart_checkout');
+              if (savedBooking) {
+                const parsed = JSON.parse(savedBooking);
+                if (!validBookingId) validBookingId = parsed.booking_id || parsed.id || parsed.id_booking || parsed.bookingId || '';
+                if (!validTotalAmount) validTotalAmount = parsed.jumlah_total || parsed.total || parsed.total_harga || parsed.price || parsed.amount || parsed.gross_amount || '';
+              }
+            }
+          } catch (e) {
+            console.error("Gagal membaca storage/state:", e);
           }
         }
 

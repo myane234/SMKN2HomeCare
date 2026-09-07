@@ -33,6 +33,7 @@ import {
   acceptNakesBooking,
   rejectNakesBooking,
 } from "@/services/nakesService";
+import { motion, AnimatePresence } from "framer-motion";
 
 const LIST_HARI = [
   "Senin",

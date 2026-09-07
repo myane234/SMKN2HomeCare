@@ -69,23 +69,30 @@ export default function PaymentConfirmationCard({
   // Ambil fallback langsung dari URL query parameter atau localStorage jika data props kosong
   const urlTotal = Number(searchParams.get("total") || 0);
   
+  let fallbackStorageTotal = 0;
   let initialUrlOrderId = searchParams.get("order_id");
-  if (!initialUrlOrderId || initialUrlOrderId.startsWith('INV')) {
-    try {
-      const savedBooking = localStorage.getItem('last_booking') || localStorage.getItem('pending_order');
-      if (savedBooking) {
-        const parsed = JSON.parse(savedBooking);
+  try {
+    const savedBooking = localStorage.getItem('last_booking') || localStorage.getItem('pending_order');
+    if (savedBooking) {
+      const parsed = JSON.parse(savedBooking);
+      if (!initialUrlOrderId || initialUrlOrderId.startsWith('INV')) {
         if (parsed.order_id) initialUrlOrderId = parsed.order_id;
       }
-    } catch (e) {
-      console.error(e);
+      fallbackStorageTotal = Number(parsed.total || parsed.jumlah_total || parsed.price || 0);
     }
+  } catch (e) {
+    console.error(e);
   }
+
   const urlOrderId = initialUrlOrderId || (searchParams.get("booking_id") ? `BOOKING-${searchParams.get("booking_id")}` : "-");
   const urlMetode = searchParams.get("metode") || "QRIS / Transfer";
 
+  const resolvedPrice = (data.price && Number(data.price) > 0) 
+    ? Number(data.price) 
+    : (urlTotal > 0 ? urlTotal : fallbackStorageTotal);
+
   const orderData = {
-    orderId: data.orderId || urlOrderId,
+    orderId: data.booking_code || data.kode_booking || data.orderId || data.order_id || urlOrderId,
     serviceName: data.serviceName || "Layanan Kesehatan Home Care",
     paymentMethod: data.paymentMethod || urlMetode.toUpperCase(),
     virtualAccount: data.virtualAccount || null,
@@ -97,7 +104,7 @@ export default function PaymentConfirmationCard({
       minute: "2-digit"
     }),
     accountOwner: data.accountOwner || "",
-    price: Number(data.price ?? urlTotal),
+    price: resolvedPrice,
     charge: Number(data.charge || 0),
     fees: Number(data.fees || 0),
   };

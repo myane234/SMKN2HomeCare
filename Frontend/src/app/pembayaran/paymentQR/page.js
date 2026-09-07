@@ -15,7 +15,8 @@ function PaymentQRContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   
-  const metodeParam = searchParams.get('metode') || '';
+  const rawMetodeParam = searchParams.get('metode') || '';
+  const metodeParam = rawMetodeParam.replace('_va', '');
   const bookingParam = searchParams.get('booking_id') || '';
   
   const getInitialAmount = () => {
@@ -37,6 +38,7 @@ function PaymentQRContent() {
     return 0;
   };
 
+  const [bookingCode, setBookingCode] = useState('');
   const [orderId, setOrderId] = useState('');
   const [amount, setAmount] = useState(getInitialAmount);
   const [bookingId, setBookingId] = useState(bookingParam);
@@ -76,37 +78,34 @@ function PaymentQRContent() {
         if (!finalAmount || finalAmount <= 0) {
           throw new Error('Jumlah total pembayaran tidak ditemukan.');
         }
-        const isBankTransfer = metodeParam.includes('va');
-        const bankName = metodeParam.replace('_va', '');
+
+        const bankList = ['bca', 'bri', 'bni', 'seabank'];
+        const isBankTransfer = bankList.includes(metodeParam);
+        const backendPaymentType = metodeParam;
 
         const payload = {
           id_booking: bookingParam,
-          payment_type: isBankTransfer ? 'bank_transfer' : metodeParam,
+          payment_type: backendPaymentType,
           total: finalAmount,
           amount: finalAmount,
           gross_amount: finalAmount,
-          transaction_details: {
-            gross_amount: finalAmount,
-            order_id: `INV-${bookingParam}-${Date.now().toString().slice(-6)}`
-          }
         };
 
         if (isBankTransfer) {
-          payload.bank_transfer = {
-            bank: bankName
-          };
+          payload.bank_transfer = { bank: backendPaymentType };
         }
+        if (metodeParam === 'gopay') payload.gopay = {};
+        if (metodeParam === 'shopeepay') payload.shopeepay = {};
+        if (metodeParam === 'dana') payload.dana = {};
 
         const response = await api.post('/api/booking/charge', payload);
         const resData = response.data.data || response.data;
         setPaymentData(resData);
         
-        const apiTotal = Number(resData?.jumlah_total || resData?.gross_amount || resData?.total || resData?.amount);
-        if (apiTotal && apiTotal > 0 && apiTotal !== 10000) {
-          setAmount(apiTotal);
-        } else if (!apiTotal || apiTotal === 0) {
-          setAmount(finalAmount);
-        }
+        const currentTotal = (urlTotal && urlTotal > 0) 
+          ? urlTotal 
+          : (Number(resData?.gross_amount || resData?.total || resData?.amount || resData?.jumlah_total) || finalAmount);
+        setAmount(currentTotal);
 
         const extractedUrl = 
           resData?.actions?.[0]?.url || 
@@ -115,14 +114,18 @@ function PaymentQRContent() {
           resData?.qris_url ||
           resData?.url || 
           resData?.actions?.[0]?.qr_image_url ||
+          resData?.actions?.[1]?.url ||
           '';
-
         if (extractedUrl) {
           setFixedQrUrl(extractedUrl);
         }
         
-        const currentOrderId = resData.order_id || `INV-${bookingParam}-${Date.now().toString().slice(-6)}`;
-        setOrderId(currentOrderId);
+        // Simpan Order ID teknis dan Kode Booking CMS secara terpisah
+        const fetchedOrderId = resData.order_id || resData.payment_details?.order_id || '';
+        const fetchedBookingCode = resData.booking_code || resData.kode_booking || resData.booking?.booking_code || '';
+        
+        setOrderId(fetchedOrderId);
+        setBookingCode(fetchedBookingCode);
         
         const expiryTime = resData.expiry_time || resData.expired_at ? new Date(resData.expiry_time || resData.expired_at) : new Date(Date.now() + 5 * 60 * 1000);
         setExpiredAt(expiryTime);
@@ -138,7 +141,6 @@ function PaymentQRContent() {
     fetchPaymentInfo();
   }, [bookingParam, metodeParam, searchParams]);
 
-  // Handle CountDown & Mengubah state menjadi expired tanpa router.push otomatis
   useEffect(() => {
     if (!expiredAt) return;
     
@@ -159,14 +161,18 @@ function PaymentQRContent() {
     return () => clearInterval(timer);
   }, [expiredAt]);
 
-  // Handle Pengecekan Status Otomatis (Polling setiap 5 detik)
   useEffect(() => {
-    if (!bookingId || !orderId || isExpired) return;
+    if (!bookingId || isExpired) return;
 
     const checkPaymentStatus = async () => {
       try {
         const res = await api.get(`/api/booking/${bookingId}/payment-details`);
         const responseBody = res.data.data || res.data;
+        
+        // Update booking_code jika didapatkan dari endpoint payment-details
+        if (responseBody?.booking_code) {
+          setBookingCode(responseBody.booking_code);
+        }
         
         const statusTransaksi = responseBody?.status_transaksi || 'Menunggu Pembayaran';
         setStatusText(statusTransaksi);
@@ -180,7 +186,8 @@ function PaymentQRContent() {
           lowerStatus.includes('settlement') ||
           lowerStatus.includes('lunas')
         ) {
-          router.push(`/pembayaran/payment-confirmation/success?booking_id=${bookingId}&order_id=${orderId}&total=${amount}`);
+          const finalOrder = responseBody?.booking_code || bookingCode || orderId;
+          router.push(`/pembayaran/payment-confirmation/success?booking_id=${bookingId}&order_id=${finalOrder}&total=${amount}`);
         }
       } catch (err) {
         console.error('Gagal mengecek status pembayaran:', err);
@@ -189,18 +196,19 @@ function PaymentQRContent() {
 
     const statusInterval = setInterval(checkPaymentStatus, 5000);
     return () => clearInterval(statusInterval);
-  }, [bookingId, orderId, router, amount, isExpired]);
+  }, [bookingId, orderId, bookingCode, router, amount, isExpired]);
 
   const methods = {
-    qris: { name: 'QRIS', isQr: true },
-    gopay: { name: 'GoPay', isQr: true },
-    dana: { name: 'DANA', isQr: true },
-    shopeepay: { name: 'ShopeePay', isQr: true },
-    bca_va: { name: 'BCA Virtual Account', isQr: false },
-    bri_va: { name: 'BRI Virtual Account', isQr: false }
+    qris: { name: 'QRIS', type: 'qr' },
+    gopay: { name: 'GoPay', type: 'qr' },
+    shopeepay: { name: 'ShopeePay', type: 'redirect' },
+    dana: { name: 'Dana', type: 'redirect' },
+    bca: { name: 'BCA Virtual Account', type: 'va', bank: 'bca' },
+    bri: { name: 'BRI Virtual Account', type: 'va', bank: 'bri' },
+    bni: { name: 'BNI Virtual Account', type: 'va', bank: 'bni' },
+    seabank: { name: 'SeaBank Virtual Account', type: 'va', bank: 'seabank' },
   };
-
-  const method = methods[metode] || { name: metode ? metode.toUpperCase() : 'Pembayaran', isQr: true };
+  const method = methods[metode] || { name: metode ? metode.toUpperCase() : 'Pembayaran', type: 'qr' };
   
   const qrString = 
     paymentData?.qr_string || 
@@ -209,7 +217,13 @@ function PaymentQRContent() {
     '';
   
   const qrImageUrl = fixedQrUrl || (qrString ? `https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(qrString)}` : '');
-  const virtualAccountNumber = paymentData?.payment_details?.virtual_account?.va_number || paymentData?.virtual_number || '';
+  
+  const virtualAccountNumber = 
+    paymentData?.payment_details?.virtual_account?.va_number || 
+    paymentData?.va_number || 
+    paymentData?.va_numbers?.[0]?.va_number || 
+    paymentData?.virtual_number || 
+    '';
 
   const formatRupiah = (value) => {
     return new Intl.NumberFormat('id-ID', {
@@ -237,10 +251,13 @@ function PaymentQRContent() {
     }
   };
 
+  // Nilai yang akan ditampilkan dan disalin ke clipboard
+  const displayedCode = bookingCode || paymentData?.booking_code || paymentData?.kode_booking || orderId || '-';
+
   const handleCopyOrderId = async () => {
-    if (!orderId) return;
+    if (!displayedCode) return;
     try {
-      await navigator.clipboard.writeText(orderId);
+      await navigator.clipboard.writeText(displayedCode);
       setCopiedOrderId(true);
       setTimeout(() => setCopiedOrderId(false), 2000);
     } catch (err) {
@@ -249,16 +266,15 @@ function PaymentQRContent() {
   };
 
   const handleBack = () => {
-    router.push(`/pembayaran/pilih-metode?booking_id=${bookingId}&total=${amount}`);
+    if (typeof window !== 'undefined' && window.history.length > 1) {
+      router.back();
+    } else {
+      router.push(`/pembayaran/pilih-metode?booking_id=${bookingId}&total=${amount}`);
+    }
   };
 
-  const handleBackToCart = () => {
-    router.push('/keranjang');
-  };
-
-  const handlePesanLayanan = () => {
-    router.push('/pesan-layanan');
-  };
+  const handleBackToCart = () => router.push('/keranjang');
+  const handlePesanLayanan = () => router.push('/pesan-layanan');
 
   if (isLoadingApi) {
     return (
@@ -301,7 +317,6 @@ function PaymentQRContent() {
           <div className="md:col-span-2 space-y-6">
             <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 md:p-8 relative overflow-hidden">
               
-              {/* Tampilan pop-up/overlay saat waktu pembayaran habis */}
               {isExpired && (
                 <div className="absolute inset-0 bg-white/95 backdrop-blur-xs z-10 flex flex-col items-center justify-center text-center p-6">
                   <div className="w-16 h-16 bg-red-100 text-red-600 rounded-full flex items-center justify-center mb-4 shadow-sm">
@@ -330,7 +345,7 @@ function PaymentQRContent() {
 
               <h2 className="text-lg font-semibold text-gray-800 mb-6">{method.name} Payment</h2>
               
-              {method.isQr ? (
+              {method.type === 'qr' ? (
                 <div className="flex flex-col items-center">
                   <div className="w-56 h-56 bg-white rounded-xl flex items-center justify-center border-2 border-dashed border-gray-300 p-2 shadow-inner">
                     {qrImageUrl ? (
@@ -346,6 +361,28 @@ function PaymentQRContent() {
                   <p className="text-sm text-gray-500 mt-4 flex items-center gap-2">
                     <FiCreditCard className="w-4 h-4" /> Scan QR Code untuk membayar
                   </p>
+                </div>
+              ) : method.type === 'redirect' ? (
+                <div className="flex flex-col items-center text-center py-6">
+                  <div className="w-16 h-16 bg-orange-100 text-orange-600 rounded-full flex items-center justify-center mb-4 shadow-sm">
+                    <FiCreditCard className="w-8 h-8" />
+                  </div>
+                  <h3 className="text-base font-bold text-gray-900 mb-2">Lanjutkan Pembayaran via {method.name}</h3>
+                  <p className="text-sm text-gray-600 max-w-sm mb-6">
+                    Silakan klik tombol di bawah ini untuk membuka aplikasi {method.name} dan menyelesaikan transaksi Anda.
+                  </p>
+                  {fixedQrUrl ? (
+                    <a
+                      href={fixedQrUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="w-full max-w-xs py-3 px-6 bg-orange-500 hover:bg-orange-600 text-white font-medium rounded-xl shadow-md transition text-center inline-block"
+                    >
+                      Buka {method.name} & Bayar
+                    </a>
+                  ) : (
+                    <span className="text-xs text-slate-400">Link pembayaran sedang dimuat...</span>
+                  )}
                 </div>
               ) : (
                 <div className="bg-blue-50 rounded-xl p-6 border border-blue-200">
@@ -375,8 +412,8 @@ function PaymentQRContent() {
                     onClick={handleCopyOrderId}
                     className="group flex items-center gap-1.5 font-mono text-gray-800 hover:text-blue-600 transition-colors"
                   >
-                    <span>{orderId || '-'}</span>
-                    {orderId && (
+                    <span>{displayedCode}</span>
+                    {displayedCode && displayedCode !== '-' && (
                       copiedOrderId ? <FiCheckCircle className="w-3.5 h-3.5 text-green-600" /> : <FiCopy className="w-3.5 h-3.5 text-gray-400 opacity-0 group-hover:opacity-100" />
                     )}
                   </button>
