@@ -174,7 +174,7 @@ const rawSuperAdminMenus = [
         icon: <FaCogs />,
         children: [{ to: "/seeders", label: "Seeder Database", icon: <FaDatabase /> }],
       },
-      { to: "/profile-admin", label: "Profil Admin", icon: <FaUserCircle /> },
+      { to: "/profile", label: "Profil Admin", icon: <FaUserCircle /> },
     ],
   },
   {

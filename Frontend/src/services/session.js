@@ -46,10 +46,18 @@ export async function createSession(responseData) {
 }
 
 export async function removeSession() {
-  (await cookies()).delete("auth_token");
-  (await cookies()).delete("user_roles");
-  (await cookies()).delete("user_nama");
-  (await cookies()).delete("is_logged_in");
+  const cookieStore = await cookies();
+  const allCookies = [
+    "auth_token", "smarthomecare-session", "is_logged_in", "user_roles", "user_nama", "active_role",
+    "user_profile", "profile_avatar", "profile_email", "profile_id_user", "profile_roles",
+    "is_profile_complete", "profile_nama", "profile_nik", "profile_golongan_darah",
+    "profile_jenis_kelamin", "profile_alamat", "tenaga_medis"
+  ];
+  allCookies.forEach((name) => {
+    try {
+      cookieStore.delete(name);
+    } catch (e) {}
+  });
 }
 
 export async function getSession() {

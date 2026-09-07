@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import Navbar from "./Navbar";
 import Footer from "./Footer";
 import { fetchAndStoreProfile } from "@/services/profileService";
+import { getAuthToken } from "@/services/cookieHelper";
 
 export default function LayoutShell({ children }) {
   const pathname = usePathname();
@@ -14,12 +15,12 @@ export default function LayoutShell({ children }) {
 
   useEffect(() => {
     // Fetch and store profile data in cookies when page loads,
-    // but only if user is logged in (has auth_token)
-    const isLoggedIn = document.cookie.includes("auth_token=");
-    if (isLoggedIn) {
+    // but only if user has a valid auth token
+    const token = getAuthToken();
+    if (token) {
       fetchAndStoreProfile();
     }
-  }, []);
+  }, [pathname]);
 
   return (
     <>
