@@ -530,9 +530,9 @@ export default function BookingPage() {
         CHECKOUT_STORAGE_KEY
       );
 
-      // Langsung arahkan ke halaman kategori pembayaran dengan parameter total dari state UI (1225000)
+      // Langsung arahkan ke halaman pilih metode pembayaran dengan parameter total dari state UI (1225000)
       router.push(
-        `/pembayaran/kategori?booking_id=${bookingId}&total=${uiTotal}`
+        `/pembayaran/pilih-metode?booking_id=${bookingId}&total=${uiTotal}`
       );
 
     } catch (error) {

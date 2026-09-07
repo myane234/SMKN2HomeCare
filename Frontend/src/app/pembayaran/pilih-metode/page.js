@@ -104,6 +104,9 @@ function PilihMetodePembayaranContent() {
   const [bookingId, setBookingId] = useState('');
   const [totalAmount, setTotalAmount] = useState('0');
 
+  // State Accordion Kategori (Default terbuka semua atau kategori pertama)
+  const [openCategories, setOpenCategories] = useState({});
+
   useEffect(() => {
     // 1. Ambil LANGSUNG dari query parameter URL via useSearchParams()
     const urlTotal = searchParams.get('total') || searchParams.get('total_harga') || searchParams.get('harga') || searchParams.get('amount') || searchParams.get('price');
@@ -128,7 +131,7 @@ function PilihMetodePembayaranContent() {
     setTotalAmount(String(tAmount || '1225000'));
   }, [searchParams]);
 
-  // Fetch data metode pembayaran dari API CMS & Filter berdasarkan Kategori
+  // Fetch SELURUH data metode pembayaran dari API CMS tanpa memfilter kategori URL
   useEffect(() => {
     const fetchMetode = async () => {
       try {
@@ -145,44 +148,40 @@ function PilihMetodePembayaranContent() {
           allMethods = DEFAULT_METODE_FALLBACK;
         }
 
-        // Filter berdasarkan kategori_id / kategori_nama dari query URL
-        const kategoriIdParam = searchParams.get('kategori_id');
-        const kategoriNamaParam = searchParams.get('kategori_nama') || searchParams.get('kategori');
+        setMetodeList(allMethods);
 
-        let filtered = allMethods;
-        if (kategoriIdParam || kategoriNamaParam) {
-          filtered = allMethods.filter((item) => {
-            const matchId = kategoriIdParam && String(item.id_kategori_pembayaran) === String(kategoriIdParam);
-            
-            const categoryNameInItem = (
-              item.nama_kategori || 
-              item.kategori?.nama_kategori || 
-              item.kategori?.nama || 
-              ''
-            ).toLowerCase();
-
-            const matchNama = kategoriNamaParam && categoryNameInItem.includes(kategoriNamaParam.toLowerCase());
-            
-            return matchId || matchNama;
-          });
-
-          // Fallback ke seluruh list jika filter mengembalikan 0 hasil
-          if (filtered.length === 0) {
-            filtered = allMethods;
-          }
-        }
-
-        setMetodeList(filtered);
+        // Secara default SEMUA kategori dalam posisi TERTUTUP (collapsed)
+        setOpenCategories({});
       } catch (err) {
         console.error('Gagal mengambil metode pembayaran:', err);
         setMetodeList(DEFAULT_METODE_FALLBACK);
+        setOpenCategories({});
       } finally {
         setIsFetching(false);
       }
     };
 
     fetchMetode();
-  }, [searchParams]);
+  }, []);
+
+  // Helper pengelompokan berdasarkan nama kategori
+  const groupByCategory = (list) => {
+    return list.reduce((acc, item) => {
+      const catName = item.nama_kategori || item.kategori?.nama_kategori || item.kategori?.nama || 'Lainnya';
+      if (!acc[catName]) {
+        acc[catName] = [];
+      }
+      acc[catName].push(item);
+      return acc;
+    }, {});
+  };
+
+  const toggleCategory = (catName) => {
+    setOpenCategories((prev) => ({
+      ...prev,
+      [catName]: !prev[catName],
+    }));
+  };
 
   const [selectedMethodId, setSelectedMethodId] = useState(null);
 
@@ -248,10 +247,12 @@ function PilihMetodePembayaranContent() {
     return `Biaya / Potongan: Rp ${nilai.toLocaleString('id-ID')}`;
   };
 
+  const groupedMetode = groupByCategory(metodeList);
+
   return (
-    <div className="min-h-screen bg-slate-50 font-sans text-slate-800">
+    <div className="min-h-screen bg-slate-50 font-sans text-slate-800 pb-12">
       {/* Header */}
-      <div className="bg-white border-b border-slate-200 sticky top-0 z-20">
+      <div className="bg-white border-b border-slate-200 sticky top-0 z-20 shadow-xs">
         <div className="max-w-5xl mx-auto px-4 py-4">
           <div className="flex items-center gap-3">
             <button
@@ -268,132 +269,157 @@ function PilihMetodePembayaranContent() {
         </div>
       </div>
 
-      {/* Main Container */}
-      <div className="max-w-5xl mx-auto px-4 py-6 lg:py-10">
-        <div className="flex flex-col lg:flex-row gap-8 lg:gap-12 items-start">
+      {/* Main Container 2-Column Layout */}
+      <div className="max-w-5xl mx-auto px-4 py-6 lg:py-8">
+        <div className="flex flex-col lg:flex-row gap-8 items-start">
           
-          {/* ================= BAGIAN KIRI ================= */}
+          {/* ================= BAGIAN KIRI: Accordion Metode Pembayaran ================= */}
           <div className="w-full lg:flex-1">
-            
-            {/* Card Total Pembayaran (Khusus MOBILE) */}
-            <div className="bg-gradient-to-r from-sky-400 to-blue-500 rounded-2xl px-6 py-10 mb-8 shadow-md text-white flex flex-col justify-center lg:hidden">
-              <p className="text-xs sm:text-sm text-sky-50 font-medium tracking-wide">
-                Total Pembayaran
-              </p>
-              <p className="text-xl sm:text-2xl font-bold mt-1">
-                {formatCurrency(totalAmount)}
-              </p>
-            </div>
-
-            {/* List Pilihan Metode Pembayaran */}
-            <div className="space-y-3 mb-8 lg:mb-0">
-              <p className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-4">
+            <div className="mb-4">
+              <p className="text-xs font-bold uppercase tracking-wider text-slate-400">
                 Pilih Pembayaran
               </p>
-              
-              {isFetching ? (
-                <div className="py-12 text-center bg-white rounded-2xl border border-slate-200">
-                  <div className="mx-auto h-8 w-8 animate-spin rounded-full border-b-2 border-sky-600"></div>
-                  <p className="mt-3 text-sm text-slate-500">Memuat metode pembayaran...</p>
-                </div>
-              ) : metodeList.length === 0 ? (
-                <div className="p-6 text-center bg-white rounded-xl border border-dashed border-slate-300 text-slate-400 text-sm">
-                  Metode pembayaran tidak tersedia untuk kategori ini.
-                </div>
-              ) : (
-                metodeList.map((metode) => {
-                  const mId = metode.id_metode ?? metode.id ?? metode.payment_type;
-                  const itemKey = String(mId);
-                  const isSelected = selectedMethodId !== null && selectedMethodId !== undefined && String(selectedMethodId) === String(mId);
+            </div>
+
+            {isFetching ? (
+              <div className="py-12 text-center bg-white rounded-2xl border border-slate-200 shadow-xs">
+                <div className="mx-auto h-8 w-8 animate-spin rounded-full border-b-2 border-sky-600"></div>
+                <p className="mt-3 text-sm text-slate-500">Memuat metode pembayaran...</p>
+              </div>
+            ) : Object.keys(groupedMetode).length === 0 ? (
+              <div className="p-6 text-center bg-white rounded-xl border border-dashed border-slate-300 text-slate-400 text-sm">
+                Metode pembayaran tidak tersedia.
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {Object.entries(groupedMetode).map(([categoryName, items]) => {
+                  const isOpen = !!openCategories[categoryName];
 
                   return (
-                    <button
-                      key={itemKey}
-                      type="button"
-                      onClick={() => handlePilihMetode(metode)}
-                      className={`w-full flex items-center justify-between p-4 rounded-xl border transition-all duration-200 ${
-                        isSelected
-                          ? 'border-sky-500 bg-sky-50/60 shadow-sm ring-1 ring-sky-500'
-                          : 'bg-white border-slate-200 hover:border-slate-300 hover:bg-slate-50/50'
-                      }`}
+                    <div 
+                      key={categoryName}
+                      className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-xs transition-all duration-200"
                     >
-                      <div className="flex items-center gap-4 min-w-0">
-                        <div className="w-16 h-10 relative flex-shrink-0 flex items-center justify-center">
-                          <img
-                            src={getLogoUrl(metode)}
-                            alt={metode.nama_metode || metode.nama || 'Metode Pembayaran'}
-                            className="max-w-full max-h-full object-contain object-center"
-                          />
-                        </div>
+                      {/* Header Accordion (Nama Kategori saja + Panah) */}
+                      <button
+                        type="button"
+                        onClick={() => toggleCategory(categoryName)}
+                        className="w-full flex items-center justify-between px-5 py-4 bg-white hover:bg-slate-50 transition text-left select-none"
+                      >
+                        <span className="font-bold text-slate-800 text-base">
+                          {categoryName}
+                        </span>
 
-                        <div className="text-left min-w-0">
-                          <p className="text-sm font-bold text-slate-800 leading-snug">
-                            {metode.nama_metode || metode.nama}
-                          </p>
-                          <p className="text-[11px] text-slate-400 truncate mt-0.5">
-                            {getPotonganText(metode)}
-                          </p>
+                        <div className={`transform transition-transform duration-200 text-slate-400 ${isOpen ? 'rotate-180' : ''}`}>
+                          <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                          </svg>
                         </div>
-                      </div>
-                      
-                      <div className="flex-shrink-0 ml-3">
-                        <div className={`w-5 h-5 rounded-full border flex items-center justify-center transition-all ${
-                          isSelected
-                            ? 'border-sky-500 bg-sky-500 shadow-sm'
-                            : 'border-slate-300 bg-white'
-                        }`}>
-                          {isSelected && (
-                            <div className="w-2 h-2 rounded-full bg-white" />
-                          )}
+                      </button>
+
+                      {/* Body Accordion */}
+                      {isOpen && (
+                        <div className="border-t border-slate-100 divide-y divide-slate-100 bg-slate-50/40">
+                          {items.map((metode) => {
+                            const mId = metode.id_metode ?? metode.id ?? metode.payment_type;
+                            const itemKey = String(mId);
+                            const isSelected = selectedMethodId !== null && selectedMethodId !== undefined && String(selectedMethodId) === String(mId);
+
+                            return (
+                              <div
+                                key={itemKey}
+                                onClick={() => handlePilihMetode(metode)}
+                                className={`flex items-center justify-between p-4 cursor-pointer transition-all duration-150 ${
+                                  isSelected
+                                    ? 'bg-sky-50/80'
+                                    : 'hover:bg-slate-100/60 bg-white'
+                                }`}
+                              >
+                                {/* KIRI: Logo + Nama & Keterangan */}
+                                <div className="flex items-center gap-4 min-w-0 pr-2">
+                                  <div className="w-14 h-10 relative flex-shrink-0 flex items-center justify-center bg-white p-1 rounded-lg border border-slate-100">
+                                    <img
+                                      src={getLogoUrl(metode)}
+                                      alt={metode.nama_metode || metode.nama || 'Metode Pembayaran'}
+                                      className="max-w-full max-h-full object-contain object-center"
+                                    />
+                                  </div>
+
+                                  <div className="text-left min-w-0">
+                                    <p className="text-sm font-bold text-slate-800 leading-snug">
+                                      {metode.nama_metode || metode.nama}
+                                    </p>
+                                    <p className="text-xs text-slate-500 truncate mt-0.5">
+                                      {getPotonganText(metode)}
+                                    </p>
+                                  </div>
+                                </div>
+                                
+                                {/* KANAN: Radio Button */}
+                                <div className="flex-shrink-0 ml-3">
+                                  <div className={`w-5 h-5 rounded-full border flex items-center justify-center transition-all ${
+                                    isSelected
+                                      ? 'border-sky-500 bg-sky-500 shadow-sm'
+                                      : 'border-slate-300 bg-white'
+                                  }`}>
+                                    {isSelected && (
+                                      <div className="w-2 h-2 rounded-full bg-white" />
+                                    )}
+                                  </div>
+                                </div>
+                              </div>
+                            );
+                          })}
                         </div>
-                      </div>
-                    </button>
+                      )}
+                    </div>
                   );
-                })
-              )}
-            </div>
+                })}
+              </div>
+            )}
           </div>
 
-          {/* ================= BAGIAN KANAN ================= */}
-          <div className="w-full lg:w-[380px] shrink-0 lg:sticky lg:top-28">
+          {/* ================= BAGIAN KANAN: Card Total Pembayaran & Tombol Bayar ================= */}
+          <div className="w-full lg:w-[380px] shrink-0 lg:sticky lg:top-24">
             
-            {/* Card Total Pembayaran (Khusus DESKTOP) */}
-            <div className="bg-gradient-to-r from-sky-400 to-blue-500 rounded-2xl px-6 py-10 mb-6 shadow-md text-white hidden lg:flex flex-col justify-center">
+            {/* Card Total Pembayaran Bernuansa Biru */}
+            <div className="bg-gradient-to-r from-sky-400 to-blue-500 rounded-2xl p-6 sm:p-8 shadow-md text-white">
               <p className="text-xs sm:text-sm text-sky-50 font-medium tracking-wide">
                 Total Pembayaran
               </p>
-              <p className="text-xl sm:text-2xl font-bold mt-1">
+              <p className="text-2xl sm:text-3xl font-bold mt-1 mb-6">
                 {formatCurrency(totalAmount)}
               </p>
-            </div>
 
-            {/* Info Error */}
-            {error && (
-              <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-xl text-red-700 text-sm flex items-start gap-3">
-                <FiAlertCircle className="w-5 h-5 text-red-500 shrink-0 mt-0.5" />
-                <span>{error}</span>
-              </div>
-            )}
-
-            {/* Tombol Bayar */}
-            <button
-              type="button"
-              onClick={handleLanjutkanPembayaran}
-              disabled={isLoading || isFetching || !selectedMetode}
-              className={`w-full py-4 px-4 text-sm sm:text-base font-bold text-white rounded-xl transition flex items-center justify-center gap-2 ${
-                isLoading || isFetching || !selectedMetode
-                  ? 'bg-slate-300 cursor-not-allowed'
-                  : 'bg-sky-600 hover:bg-sky-700 shadow-lg shadow-sky-600/20 active:scale-[0.99]'
-              }`}
-            >
-              {isLoading ? (
-                <>
-                  <span className="animate-spin w-4 h-4 border-2 border-white border-t-transparent rounded-full"></span> Memproses...
-                </>
-              ) : (
-                'Bayar'
+              {/* Info Error jika belum pilih metode */}
+              {error && (
+                <div className="mb-4 p-3 bg-red-500/20 border border-red-200/40 rounded-xl text-white text-xs flex items-start gap-2 backdrop-blur-xs">
+                  <FiAlertCircle className="w-4 h-4 text-red-100 shrink-0 mt-0.5" />
+                  <span>{error}</span>
+                </div>
               )}
-            </button>
+
+              {/* Tombol Bayar di dalam Card */}
+              <button
+                type="button"
+                onClick={handleLanjutkanPembayaran}
+                disabled={isLoading || isFetching || !selectedMetode}
+                className={`w-full py-3.5 px-4 text-sm sm:text-base font-bold text-white rounded-xl transition-all flex items-center justify-center gap-2 ${
+                  isLoading || isFetching || !selectedMetode
+                    ? 'bg-white/30 text-white/70 cursor-not-allowed border border-white/20'
+                    : 'bg-sky-600 hover:bg-sky-700 shadow-lg shadow-sky-900/30 active:scale-[0.99]'
+                }`}
+              >
+                {isLoading ? (
+                  <>
+                    <span className="animate-spin w-4 h-4 border-2 border-white border-t-transparent rounded-full"></span>
+                    <span>Memproses...</span>
+                  </>
+                ) : (
+                  'Bayar'
+                )}
+              </button>
+            </div>
 
           </div>
 
