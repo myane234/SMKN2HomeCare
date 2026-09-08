@@ -81,7 +81,7 @@ function PaymentQRContent() {
 
         const bankList = ['bca', 'bri', 'bni', 'seabank'];
         const isBankTransfer = bankList.includes(metodeParam);
-        const backendPaymentType = metodeParam;
+        const backendPaymentType = isBankTransfer ? 'bank_transfer' : metodeParam;
 
         const payload = {
           id_booking: bookingParam,

@@ -25,70 +25,56 @@ function SuccessPaymentContent() {
         
         // 1. Ambil order_id asli dari localStorage jika orderId dari URL berupa INV
         let validOrderId = orderId;
-        if (!validOrderId || validOrderId.startsWith('INV')) {
+
+        // Panggil endpoint confirm ke backend jika ada bookingId & orderId
+        if (bookingId && validOrderId) {
           try {
-            const savedBooking = localStorage.getItem('last_booking') || localStorage.getItem('pending_order');
-            if (savedBooking) {
-              const parsed = JSON.parse(savedBooking);
-              if (parsed.order_id) validOrderId = parsed.order_id;
-            }
+            await api.post('/transaksi/confirm', {
+              id_booking: Number(bookingId),
+              order_id: validOrderId
+            });
           } catch (e) {
-            console.error("Gagal parse localstorage order_id:", e);
+            console.error("Gagal sinkronisasi konfirmasi transaksi:", e);
           }
         }
 
-        // Panggil endpoint confirm ke backend agar status database berubah jadi 'Diproses' / 'Lunas'
-        if (bookingId && validOrderId) {
-          await api.post('/transaksi/confirm', {
-            id_booking: Number(bookingId),
-            order_id: validOrderId
-          });
-        }
-
-        // 2. Lanjut ambil detail pembayaran
+        // 2. Lanjut ambil detail pembayaran dari API
         const response = await api.get(`/api/booking/${bookingId}/payment-details`);
         const resData = response.data.data || response.data;
 
-        // Ambil harga asli dari database backend, abaikan parameter 10000 di URL
-        const dbPrice = Number(resData.total_harga || resData.price || resData.total || 0);
-        const finalPrice = dbPrice > 0 ? dbPrice : (totalParam > 0 ? totalParam : 20000);
+        // Ambil harga asli murni dari API
+        const dbPrice = Number(resData.jumlah_total || resData.total_harga || resData.price || resData.total || 0);
+        const finalPrice = dbPrice > 0 ? dbPrice : (totalParam > 0 ? totalParam : 0);
+
+        // Ambil nama layanan dari daftar layanan jika berupa array
+        let displayServiceName = resData.nama_layanan || resData.service_name || "";
+        if (!displayServiceName && Array.isArray(resData.layanan) && resData.layanan.length > 0) {
+          displayServiceName = resData.layanan.map(l => l.nama_layanan).join(', ');
+        }
 
         setPaymentData({
           orderId: resData.booking_code || resData.kode_booking || resData.order_id || validOrderId,
-          serviceName: resData.nama_layanan || resData.service_name || "",
-          paymentMethod: resData.metode_pembayaran || resData.payment_method || "",
+          serviceName: displayServiceName || "Layanan Kesehatan Home Care",
+          paymentMethod: resData.metode_pembayaran || resData.payment_method || searchParams.get("metode") || "QRIS / Transfer",
           virtualAccount: resData.virtual_account || resData.va || null,
           paymentTime: resData.waktu_pembayaran || resData.created_at || "",
           accountOwner: resData.account_owner || "",
           price: finalPrice,
           charge: 0,
           fees: 0,
+          layanan: resData.layanan || [],
+          rincianBiaya: resData.rincian_biaya || null,
         });
       } catch (err) {
         console.error("Gagal memuat data transaksi sukses dari API:", err);
-        
-        let fallbackPrice = totalParam > 0 ? totalParam : 20000;
-        if (typeof window !== 'undefined') {
-          try {
-            const savedBooking = localStorage.getItem('last_booking') || localStorage.getItem('pending_order');
-            if (savedBooking) {
-              const parsed = JSON.parse(savedBooking);
-              const storageTotal = Number(parsed.total || parsed.price || parsed.amount);
-              if (storageTotal > 0 && storageTotal !== 10000) fallbackPrice = storageTotal;
-            }
-          } catch (e) {
-            console.error(e);
-          }
-        }
-
         setPaymentData({
-          orderId: orderId || "",
-          serviceName: searchParams.get("service") || "",
-          paymentMethod: searchParams.get("metode") || "",
+          orderId: orderId || (bookingId ? `BOOKING-${bookingId}` : "-"),
+          serviceName: searchParams.get("service") || "Layanan Kesehatan Home Care",
+          paymentMethod: searchParams.get("metode") || "QRIS / Transfer",
           virtualAccount: null,
           paymentTime: "",
           accountOwner: "",
-          price: fallbackPrice,
+          price: totalParam,
           charge: 0,
           fees: 0,
         });
