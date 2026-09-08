@@ -16,6 +16,8 @@ import PageKelolaKontenHome from "./pages/PageKelolaKontenHome";
 import PageKelolaKontenAbout from "./pages/PageKelolaKontenAbout";
 import PageKelolaKontenMitra from "./pages/PageKelolaKontenMitra";
 import PageKelolaKontenFooter from "./pages/PageKelolaKontenFooter";
+import PageUlasan from "./pages/PageUlasan";
+import PageHubungiKami from "./pages/PageHubungiKami";
 import PageNakesRequest from "./pages/admin/RegisterNakes/PageNakesRequest";
 import PageNakesRequestDetail from "./pages/admin/RegisterNakes/PageNakesRequestDetail";
 import PageOperasionalNakes from "./pages/admin/PageOperasionalNakes";
@@ -192,6 +194,22 @@ function App() {
           element={
             <ProtectedRoute requiredPath="/kelola-konten">
               <PageKelolaKontenFooter />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/ulasan"
+          element={
+            <ProtectedRoute requiredPath="/ulasan">
+              <PageUlasan />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/hubungi-kami"
+          element={
+            <ProtectedRoute requiredPath="/hubungi-kami">
+              <PageHubungiKami />
             </ProtectedRoute>
           }
         />

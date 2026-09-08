@@ -46,13 +46,13 @@ export default function Footer() {
 
         setFooterData({
           footer_description: resFooter?.footer_description || null,
-          footer_phone: globalCfg?.phone_number || resFooter?.footer_phone || null,
-          footer_email: globalCfg?.email || resFooter?.footer_email || null,
-          footer_address: globalCfg?.address || resFooter?.footer_address || null,
-          footer_logo: globalCfg?.app_logo ? resolveImageUrl(globalCfg.app_logo) : null,
-          footer_socials: Array.isArray(globalCfg?.socials) && globalCfg.socials.length > 0
-            ? globalCfg.socials
-            : (Array.isArray(resFooter?.footer_socials) ? resFooter.footer_socials : []),
+          footer_phone: resFooter?.footer_phone || globalCfg?.phone_number || null,
+          footer_email: resFooter?.footer_email || globalCfg?.email || null,
+          footer_address: resFooter?.footer_address || globalCfg?.address || null,
+          footer_logo: (resFooter?.footer_logo ? resolveImageUrl(resFooter.footer_logo) : null) || (globalCfg?.app_logo ? resolveImageUrl(globalCfg.app_logo) : null),
+          footer_socials: Array.isArray(resFooter?.footer_socials) && resFooter.footer_socials.length > 0
+            ? resFooter.footer_socials
+            : (Array.isArray(globalCfg?.socials) && globalCfg.socials.length > 0 ? globalCfg.socials : []),
         });
       } catch (err) {
         console.error("Gagal memuat konten footer:", err);

@@ -1,5 +1,6 @@
 import axios from 'axios';
 import api from '@/services/api';
+import { clearAllAuthCookies } from './cookieHelper';
 
 /**
  * Login dengan Google OAuth2 access_token.
@@ -16,6 +17,9 @@ export const loginWithGoogleAPI = async (accessToken) => {
 
     if (token) {
       document.cookie = `auth_token=${token}; path=/; max-age=604800; SameSite=Lax`;
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new Event('auth:state-change'));
+      }
     }
 
     return res.data;
@@ -43,13 +47,19 @@ export async function loginForm(email, password) {
     const token = res.data?.token || res.data?.access_token || res.data?.data?.token;
     if (token) {
       document.cookie = `auth_token=${token}; path=/; max-age=604800; SameSite=Lax`;
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new Event('auth:state-change'));
+      }
     }
 
     return res.data;
   } catch (err) {
     console.error('Login error:', err);
     if (axios.isAxiosError(err) && err.response?.data) {
-      throw new Error(err.response.data.error || err.response.data.message || 'Login gagal');
+      const errorObj = new Error(err.response.data.error || err.response.data.message || 'Login gagal');
+      errorObj.status = err.response.status;
+      errorObj.data = err.response.data;
+      throw errorObj;
     }
     throw err;
   }
@@ -89,18 +99,17 @@ export async function registerUser({ email, password, nama_lengkap, no_hp, nik, 
 }
 
 /**
- * Logout user: hapus token Sanctum di backend.
+ * Logout user: hapus token Sanctum di backend dan bersihkan cookie lokal.
  */
 export async function logoutUser() {
   try {
     const res = await api.post('/api/logout');
     return res.data;
   } catch (err) {
-    console.error('Error saat logout:', err);
-    if (axios.isAxiosError(err) && err.response?.data) {
-      throw new Error(err.response.data.message || 'Gagal logout');
-    }
-    throw err;
+    console.warn('Backend logout warning (sesi mungkin sudah berakhir):', err?.response?.data?.message || err.message);
+    return { success: false, message: err?.response?.data?.message || err.message };
+  } finally {
+    clearAllAuthCookies();
   }
 }
 

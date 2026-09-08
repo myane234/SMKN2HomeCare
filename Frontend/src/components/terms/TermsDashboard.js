@@ -159,6 +159,7 @@ export default function TermsDashboard() {
     async function loadTermsContent() {
       try {
         const endpoints = [
+          '/api/legalitas/detail/syarat-ketentuan-pasien',
           '/api/resource/content/terms',
           '/api/syarat-ketentuan',
           '/api/terms-of-service'
@@ -184,6 +185,20 @@ export default function TermsDashboard() {
               setTosData(apiData);
             } else if (Array.isArray(apiData?.sections)) {
               setTosData(apiData.sections);
+            } else if (apiData?.content) {
+              setTosData([
+                {
+                  id: 'pasal-1',
+                  number: 1,
+                  roman: 'I',
+                  title: apiData.title || 'Syarat & Ketentuan Layanan Pasien',
+                  category: 'umum',
+                  categoryName: 'Ketentuan Layanan',
+                  icon: BookOpen,
+                  summary: 'Ketentuan dan aturan resmi penggunaan layanan kesehatan SmartHomeCare.',
+                  content: apiData.content
+                }
+              ]);
             }
           } else {
             setTosData(TOS_DATA);

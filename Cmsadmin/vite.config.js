@@ -6,17 +6,30 @@ export default defineConfig({
   plugins: [react(), tailwindcss()],
 server: {
     proxy: {
+      // Rute API Ulasan & Hubungi Kami diarahkan ke API aktif di port 3000
+      '/api/resource/content/ulasan': {
+        target: 'http://localhost:3000',
+        changeOrigin: true,
+      },
+      '/api/admin/ulasan': {
+        target: 'http://localhost:3000',
+        changeOrigin: true,
+      },
+      '/api/resource/content/hubungi-kami': {
+        target: 'http://localhost:3000',
+        changeOrigin: true,
+      },
+      '/api/admin/hubungi-kami': {
+        target: 'http://localhost:3000',
+        changeOrigin: true,
+      },
       '/api': {
-        // eslint-disable-next-line no-undef
         target: 'https://citra.faaruq.com',
         changeOrigin: true,
         secure: false,
       },
-      // Teruskan permintaan gambar artikel (/storage/...) ke backend,
-      // sehingga gambar yang di-upload & disimpan di produksi dapat
-      // dimuat lewat proxy saat mode development tanpa CORS/ERR_CONNECTION_REFUSED.
+      // Teruskan permintaan gambar artikel (/storage/...) ke backend produksi
       '/storage': {
-        // eslint-disable-next-line no-undef
         target: 'https://citra.faaruq.com',
         changeOrigin: true,
         secure: false,

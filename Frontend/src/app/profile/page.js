@@ -20,6 +20,7 @@ import {
 } from 'react-icons/fi';
 import { logoutUser } from '../../services/Auth.js';
 import { getProfileFromCookies, fetchAndStoreProfile } from '@/services/profileService';
+import { getAuthToken, clearAllAuthCookies } from '@/services/cookieHelper';
 
 const getFullAvatarUrl = (rawAvatar) => {
   if (!rawAvatar) return null;
@@ -70,6 +71,12 @@ export default function ProfilePage() {
     }
 
     const refreshProfile = async () => {
+      const token = getAuthToken();
+      if (!token) {
+        router.push('/login?redirect=/profile');
+        return;
+      }
+
       const freshProfile = await fetchAndStoreProfile();
       if (freshProfile) {
         setProfile(freshProfile);
@@ -84,10 +91,15 @@ export default function ProfilePage() {
         } else if (freshProfile.roles?.length > 0) {
           setActiveRole(freshProfile.roles[0]);
         }
+      } else {
+        // Jika profile null karena unauthenticated
+        if (!getAuthToken()) {
+          router.push('/login?redirect=/profile');
+        }
       }
     };
     refreshProfile();
-  }, []);
+  }, [router]);
 
   const userName = profile?.pasien?.nama_lengkap || 
                    profile?.tenaga_medis?.nama_lengkap || 
@@ -113,14 +125,13 @@ export default function ProfilePage() {
     setIsLoading(true);
     try {
       await logoutUser();
-      localStorage.removeItem('token'); 
+    } catch (error) {
+      console.warn("Logout error:", error);
+    } finally {
+      clearAllAuthCookies();
+      setIsLoading(false);
       router.push('/login');
       router.refresh?.();
-    } catch (error) {
-      console.error("Logout gagal:", error);
-      alert("Gagal logout, silakan coba lagi.");
-    } finally {
-      setIsLoading(false);
     }
   };
 
