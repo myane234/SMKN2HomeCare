@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, Suspense } from 'react';
+import { useState, useEffect, useRef, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { 
   FiArrowLeft, 
@@ -17,7 +17,9 @@ function PaymentQRContent() {
   
   // Ambil parameter URL secara langsung
   const rawMetodeParam = searchParams.get('metode') || '';
-  const metodeParam = rawMetodeParam.replace(/_(va|transfer)$/, '');
+  const metodeParam = rawMetodeParam === 'bank_transfer'
+    ? rawMetodeParam
+    : rawMetodeParam.replace(/_(va|transfer)$/, '');
   const bookingParam = searchParams.get('booking_id') || '';
   const urlTotalParam = parseInt(searchParams.get('total') || searchParams.get('price') || '0', 10);
 
@@ -56,8 +58,14 @@ function PaymentQRContent() {
   const [isExpired, setIsExpired] = useState(false);
   const [copiedVA, setCopiedVA] = useState(false);
   const [copiedOrderId, setCopiedOrderId] = useState(false);
+  const [virtualAccountNumber, setVirtualAccountNumber] = useState('');
+  const paymentRequestRef = useRef('');
 
   useEffect(() => {
+    const requestKey = `${bookingParam}:${metodeParam}:${urlTotalParam}`;
+    if (paymentRequestRef.current === requestKey) return;
+    paymentRequestRef.current = requestKey;
+
     // Prioritaskan nominal dari URL
     const finalAmount = urlTotalParam > 0 ? urlTotalParam : amount;
     if (urlTotalParam > 0) {
@@ -115,8 +123,16 @@ function PaymentQRContent() {
         }
 
         const response = await api.post('/api/booking/charge', payload);
-        const resData = response.data.data || response.data;
+        const responseBody = response.data || {};
+        const resData = responseBody.data || responseBody;
+        const vaNumber = resData?.va_numbers?.[0]?.va_number
+          || responseBody?.va_numbers?.[0]?.va_number
+          || resData?.payment_details?.virtual_account?.va_number
+          || resData?.va_number
+          || resData?.virtual_number
+          || '';
         setPaymentData(resData);
+        setVirtualAccountNumber(String(vaNumber));
         
         // UTAMAKAN nominal dari URL (searchParams). KUNCI agar tidak tertimpa API jika total di URL ada.
         if (urlTotalParam && urlTotalParam > 0) {
@@ -218,6 +234,7 @@ function PaymentQRContent() {
     gopay: { name: 'GoPay', type: 'qr' },
     shopeepay: { name: 'ShopeePay', type: 'redirect' },
     dana: { name: 'Dana', type: 'redirect' },
+    bank_transfer: { name: 'Bank Transfer', type: 'va' },
     bca: { name: 'BCA Virtual Account', type: 'va', bank: 'bca' },
     bri: { name: 'BRI Virtual Account', type: 'va', bank: 'bri' },
     bni: { name: 'BNI Virtual Account', type: 'va', bank: 'bni' },
@@ -233,13 +250,6 @@ function PaymentQRContent() {
   
   const qrImageUrl = fixedQrUrl || (qrString ? `https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(qrString)}` : '');
   
-  const virtualAccountNumber = 
-    paymentData?.payment_details?.virtual_account?.va_number || 
-    paymentData?.va_number || 
-    paymentData?.va_numbers?.[0]?.va_number || 
-    paymentData?.virtual_number || 
-    '';
-
   const formatRupiah = (value) => {
     return new Intl.NumberFormat('id-ID', {
       style: 'currency',
@@ -358,7 +368,7 @@ function PaymentQRContent() {
 
               <h2 className="text-lg font-semibold text-gray-800 mb-6">{method.name} Payment</h2>
               
-              {method.type === 'qr' ? (
+              {method.type === 'qr' && !virtualAccountNumber ? (
                 <div className="flex flex-col items-center">
                   <div className="w-56 h-56 bg-white rounded-xl flex items-center justify-center border-2 border-dashed border-gray-300 p-2 shadow-inner">
                     {qrImageUrl ? (
@@ -375,7 +385,7 @@ function PaymentQRContent() {
                     <FiCreditCard className="w-4 h-4" /> Scan QR Code untuk membayar
                   </p>
                 </div>
-              ) : method.type === 'redirect' ? (
+              ) : method.type === 'redirect' && !virtualAccountNumber ? (
                 <div className="flex flex-col items-center text-center py-6">
                   <div className="w-16 h-16 bg-orange-100 text-orange-600 rounded-full flex items-center justify-center mb-4 shadow-sm">
                     <FiCreditCard className="w-8 h-8" />
