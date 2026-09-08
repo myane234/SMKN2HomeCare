@@ -66,30 +66,15 @@ export default function PaymentConfirmationCard({
 
   const isSuccess = status === "success";
 
-  // Ambil fallback langsung dari URL query parameter atau localStorage jika data props kosong
+  // Ambil fallback langsung dari URL query parameter jika data props belum terisi
   const urlTotal = Number(searchParams.get("total") || 0);
-  
-  let fallbackStorageTotal = 0;
-  let initialUrlOrderId = searchParams.get("order_id");
-  try {
-    const savedBooking = localStorage.getItem('last_booking') || localStorage.getItem('pending_order');
-    if (savedBooking) {
-      const parsed = JSON.parse(savedBooking);
-      if (!initialUrlOrderId || initialUrlOrderId.startsWith('INV')) {
-        if (parsed.order_id) initialUrlOrderId = parsed.order_id;
-      }
-      fallbackStorageTotal = Number(parsed.total || parsed.jumlah_total || parsed.price || 0);
-    }
-  } catch (e) {
-    console.error(e);
-  }
-
+  const initialUrlOrderId = searchParams.get("order_id");
   const urlOrderId = initialUrlOrderId || (searchParams.get("booking_id") ? `BOOKING-${searchParams.get("booking_id")}` : "-");
   const urlMetode = searchParams.get("metode") || "QRIS / Transfer";
 
   const resolvedPrice = (data.price && Number(data.price) > 0) 
     ? Number(data.price) 
-    : (urlTotal > 0 ? urlTotal : fallbackStorageTotal);
+    : urlTotal;
 
   const orderData = {
     orderId: data.booking_code || data.kode_booking || data.orderId || data.order_id || urlOrderId,
@@ -278,45 +263,6 @@ export default function PaymentConfirmationCard({
             </div>
           )}
         </div>
-
-        <div className="mt-7 bg-white border border-slate-200 rounded-2xl p-5 relative overflow-hidden shadow-sm">
-          <div className="flex items-center justify-between pb-3 border-b border-slate-100">
-            <div className="flex items-center gap-2">
-              <FileText className="w-4 h-4 text-blue-600" />
-              <span className="text-xs font-bold uppercase tracking-wider text-slate-700">
-                Virtual Receipt (Struk Pembayaran)
-              </span>
-            </div>
-            <span className="text-[10px] font-mono bg-blue-50 text-blue-600 px-2 py-0.5 rounded border border-blue-200">
-              OFFICIAL RECEIPT
-            </span>
-          </div>
-
-          <div className="mt-3.5 space-y-2 text-xs">
-            <div className="flex justify-between text-slate-600">
-              <span>Pesanan ({orderData.serviceName})</span>
-              <span className="font-medium text-slate-900">{formatRupiah(orderData.price)}</span>
-            </div>
-            {orderData.charge > 0 && (
-              <div className="flex justify-between text-slate-600">
-                <span>Biaya Operasional / Charge</span>
-                <span className="font-medium text-slate-900">{formatRupiah(orderData.charge)}</span>
-              </div>
-            )}
-            {orderData.fees > 0 && (
-              <div className="flex justify-between text-slate-600">
-                <span>Biaya Layanan & Penanganan</span>
-                <span className="font-medium text-slate-900">{formatRupiah(orderData.fees)}</span>
-              </div>
-            )}
-
-            <div className="pt-3 border-t border-dashed border-slate-200 flex justify-between items-center text-sm">
-              <span className="font-bold text-slate-900">Total Harga</span>
-              <span className="font-black text-emerald-600 text-base">{formatRupiah(totalPrice)}</span>
-            </div>
-          </div>
-        </div>
-
         <div className="mt-8 space-y-3">
           <button
             onClick={() => setShowReceiptModal(true)}
@@ -352,13 +298,6 @@ export default function PaymentConfirmationCard({
               >
                 <ArrowLeft className="w-4 h-4" />
                 <span>Beranda</span>
-              </Link>
-
-              <Link
-                href="/booking"
-                className="w-full bg-slate-900 hover:bg-slate-800 text-white font-semibold py-3 px-4 rounded-xl flex items-center justify-center gap-2 text-sm transition"
-              >
-                <span>Detail Booking</span>
               </Link>
             </div>
           )}
@@ -434,11 +373,48 @@ export default function PaymentConfirmationCard({
               </div>
 
               <div className="py-4 space-y-2 text-xs">
-                <p className="font-bold text-slate-800 uppercase tracking-wider text-[10px]">Rincian Item</p>
-                <div className="flex justify-between text-slate-700">
-                  <span>{orderData.serviceName}</span>
-                  <span>{formatRupiah(orderData.price)}</span>
-                </div>
+                <p className="font-bold text-slate-800 uppercase tracking-wider text-[10px]">Rincian Layanan & Biaya</p>
+                
+                {Array.isArray(data?.layanan) && data.layanan.length > 0 ? (
+                  data.layanan.map((item, idx) => {
+                    const itemPrice = Number(item.sl || item.harga || item.subtotal || 0);
+                    return (
+                      <div key={idx} className="flex justify-between text-slate-700">
+                        <span>{item.nama_layanan || item.nama}</span>
+                        <span>{formatRupiah(itemPrice)}</span>
+                      </div>
+                    );
+                  })
+                ) : (
+                  <div className="flex justify-between text-slate-700">
+                    <span>{orderData.serviceName}</span>
+                    <span>{formatRupiah(orderData.price)}</span>
+                  </div>
+                )}
+
+                {data?.rincianBiaya && (
+                  <div className="pt-2 mt-2 border-t border-slate-200/60 space-y-1 text-slate-500">
+                    {Number(data.rincianBiaya.ba) > 0 && (
+                      <div className="flex justify-between">
+                        <span>Biaya Operasional / Alat</span>
+                        <span>{formatRupiah(data.rincianBiaya.ba)}</span>
+                      </div>
+                    )}
+                    {Number(data.rincianBiaya.total_sb) > 0 && (
+                      <div className="flex justify-between">
+                        <span>Subtotal Biaya Tambahan</span>
+                        <span>{formatRupiah(data.rincianBiaya.total_sb)}</span>
+                      </div>
+                    )}
+                    {Number(data.rincianBiaya.ppn) > 0 && (
+                      <div className="flex justify-between">
+                        <span>PPN</span>
+                        <span>{formatRupiah(data.rincianBiaya.ppn)}</span>
+                      </div>
+                    )}
+                  </div>
+                )}
+
                 {orderData.charge > 0 && (
                   <div className="flex justify-between text-slate-500">
                     <span>Biaya Operasional / Charge</span>

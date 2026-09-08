@@ -7,6 +7,7 @@ import {
   FiAlertCircle
 } from 'react-icons/fi';
 import { pembayaranService } from '@/services/pembayaranService';
+import api from '@/services/api';
 
 const FALLBACK_LOGOS = {
   qris: '/images/payment/qris.png',
@@ -107,25 +108,32 @@ function PilihMetodePembayaranContent() {
   const [openCategories, setOpenCategories] = useState({});
 
   useEffect(() => {
-    const urlTotal = searchParams.get('total') || searchParams.get('total_harga') || searchParams.get('harga') || searchParams.get('amount') || searchParams.get('price');
-    const urlBookingId = searchParams.get('booking_id') || searchParams.get('id') || searchParams.get('bookingId');
+    const urlTotal = searchParams.get('total') || searchParams.get('jumlah_total') || searchParams.get('total_harga') || searchParams.get('harga') || searchParams.get('amount') || searchParams.get('price');
+    const urlBookingId = searchParams.get('booking_id') || searchParams.get('id_booking') || searchParams.get('id') || searchParams.get('bookingId');
 
-    let bId = urlBookingId || '';
-    let tAmount = urlTotal || '';
+    const bId = urlBookingId || '';
+    setBookingId(String(bId));
 
-    if (!tAmount && typeof window !== 'undefined') {
-      try {
-        const savedBooking = localStorage.getItem('last_booking') || localStorage.getItem('pending_order');
-        if (savedBooking) {
-          const parsed = JSON.parse(savedBooking);
-          if (!bId) bId = parsed.booking_id || parsed.id || '';
-          tAmount = parsed.total || parsed.jumlah_total || parsed.price || '';
-        }
-      } catch (err) {}
+    if (urlTotal && Number(urlTotal) > 0) {
+      setTotalAmount(String(urlTotal));
     }
 
-    setBookingId(String(bId || ''));
-    setTotalAmount(String(tAmount || '1225000'));
+    if (bId) {
+      const fetchBookingDetails = async () => {
+        try {
+          const res = await api.get(`/api/booking/${bId}/payment-details`);
+          const resData = res.data?.data || res.data;
+          const apiJumlahTotal = resData?.jumlah_total || resData?.total || resData?.gross_amount || resData?.rincian_biaya?.jumlah_total;
+          if (apiJumlahTotal && Number(apiJumlahTotal) > 0) {
+            setTotalAmount(String(apiJumlahTotal));
+          }
+        } catch (err) {
+          console.error('Gagal mengambil rincian booking dari API:', err);
+        }
+      };
+
+      fetchBookingDetails();
+    }
   }, [searchParams]);
 
   useEffect(() => {
