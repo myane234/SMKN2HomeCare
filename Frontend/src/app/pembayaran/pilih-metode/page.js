@@ -19,7 +19,7 @@ const FALLBACK_LOGOS = {
   bca_va: '/images/payment/bca.png',
   bni: '/images/payment/bni.png',
   bni_va: '/images/payment/bni.png',
-  seabank: '/images/payment/seabank.png',
+  seabanks: '/images/payment/seabank.png',
 };
 
 const DEFAULT_METODE_FALLBACK = [
@@ -104,18 +104,15 @@ function PilihMetodePembayaranContent() {
   const [bookingId, setBookingId] = useState('');
   const [totalAmount, setTotalAmount] = useState('0');
 
-  // State Accordion Kategori (Default terbuka semua atau kategori pertama)
   const [openCategories, setOpenCategories] = useState({});
 
   useEffect(() => {
-    // 1. Ambil LANGSUNG dari query parameter URL via useSearchParams()
     const urlTotal = searchParams.get('total') || searchParams.get('total_harga') || searchParams.get('harga') || searchParams.get('amount') || searchParams.get('price');
     const urlBookingId = searchParams.get('booking_id') || searchParams.get('id') || searchParams.get('bookingId');
 
     let bId = urlBookingId || '';
     let tAmount = urlTotal || '';
 
-    // 2. Hanya jika parameter query URL kosong, gunakan fallback dari storage/state
     if (!tAmount && typeof window !== 'undefined') {
       try {
         const savedBooking = localStorage.getItem('last_booking') || localStorage.getItem('pending_order');
@@ -131,7 +128,6 @@ function PilihMetodePembayaranContent() {
     setTotalAmount(String(tAmount || '1225000'));
   }, [searchParams]);
 
-  // Fetch SELURUH data metode pembayaran dari API CMS tanpa memfilter kategori URL
   useEffect(() => {
     const fetchMetode = async () => {
       try {
@@ -149,8 +145,6 @@ function PilihMetodePembayaranContent() {
         }
 
         setMetodeList(allMethods);
-
-        // Secara default SEMUA kategori dalam posisi TERTUTUP (collapsed)
         setOpenCategories({});
       } catch (err) {
         console.error('Gagal mengambil metode pembayaran:', err);
@@ -164,7 +158,6 @@ function PilihMetodePembayaranContent() {
     fetchMetode();
   }, []);
 
-  // Helper pengelompokan berdasarkan nama kategori
   const groupByCategory = (list) => {
     return list.reduce((acc, item) => {
       const catName = item.nama_kategori || item.kategori?.nama_kategori || item.kategori?.nama || 'Lainnya';
@@ -203,7 +196,6 @@ function PilihMetodePembayaranContent() {
 
     try {
       const paymentType = selectedMetode.payment_type || selectedMetode.id_metode || selectedMetode.id || 'qris';
-      // Langsung arahkan ke halaman paymentQR dengan membawa parameter yang dibutuhkan
       router.push(
         `/pembayaran/paymentQR?metode=${paymentType}&booking_id=${bookingId}&total=${totalAmount}`
       );
@@ -251,9 +243,9 @@ function PilihMetodePembayaranContent() {
 
   return (
     <div className="min-h-screen bg-slate-50 font-sans text-slate-800 pb-12">
-      {/* Header */}
+      {/* Header Full Width */}
       <div className="bg-white border-b border-slate-200 sticky top-0 z-20 shadow-xs">
-        <div className="max-w-5xl mx-auto px-4 py-4">
+        <div className="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
           <div className="flex items-center gap-3">
             <button
               type="button"
@@ -262,18 +254,18 @@ function PilihMetodePembayaranContent() {
             >
               <FiArrowLeft className="w-5 h-5 text-slate-600" />
             </button>
-            <h1 className="text-lg font-bold text-slate-800">
+            <h1 className="text-lg sm:text-xl font-bold text-slate-800">
               Pilih Metode Pembayaran
             </h1>
           </div>
         </div>
       </div>
 
-      {/* Main Container 2-Column Layout */}
-      <div className="max-w-5xl mx-auto px-4 py-6 lg:py-8">
-        <div className="flex flex-col lg:flex-row gap-8 items-start">
+      {/* Container Utama melebarkan tampilan Desktop (max-w-7xl) & Membalik Urutan di Mobile */}
+      <div className="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 lg:py-8">
+        <div className="flex flex-col-reverse lg:flex-row gap-8 items-start justify-between">
           
-          {/* ================= BAGIAN KIRI: Accordion Metode Pembayaran ================= */}
+          {/* ================= AKAN DI BAWAH PADA MOBILE | DI KIRI PADA DESKTOP ================= */}
           <div className="w-full lg:flex-1">
             <div className="mb-4">
               <p className="text-xs font-bold uppercase tracking-wider text-slate-400">
@@ -300,7 +292,6 @@ function PilihMetodePembayaranContent() {
                       key={categoryName}
                       className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-xs transition-all duration-200"
                     >
-                      {/* Header Accordion (Nama Kategori saja + Panah) */}
                       <button
                         type="button"
                         onClick={() => toggleCategory(categoryName)}
@@ -317,7 +308,6 @@ function PilihMetodePembayaranContent() {
                         </div>
                       </button>
 
-                      {/* Body Accordion */}
                       {isOpen && (
                         <div className="border-t border-slate-100 divide-y divide-slate-100 bg-slate-50/40">
                           {items.map((metode) => {
@@ -335,7 +325,6 @@ function PilihMetodePembayaranContent() {
                                     : 'hover:bg-slate-100/60 bg-white'
                                 }`}
                               >
-                                {/* KIRI: Logo + Nama & Keterangan */}
                                 <div className="flex items-center gap-4 min-w-0 pr-2">
                                   <div className="w-14 h-10 relative flex-shrink-0 flex items-center justify-center bg-white p-1 rounded-lg border border-slate-100">
                                     <img
@@ -355,7 +344,6 @@ function PilihMetodePembayaranContent() {
                                   </div>
                                 </div>
                                 
-                                {/* KANAN: Radio Button */}
                                 <div className="flex-shrink-0 ml-3">
                                   <div className={`w-5 h-5 rounded-full border flex items-center justify-center transition-all ${
                                     isSelected
@@ -379,10 +367,9 @@ function PilihMetodePembayaranContent() {
             )}
           </div>
 
-          {/* ================= BAGIAN KANAN: Card Total Pembayaran & Tombol Bayar ================= */}
-          <div className="w-full lg:w-[380px] shrink-0 lg:sticky lg:top-24">
+          {/* ================= AKAN DI ATAS PADA MOBILE | DI KANAN PADA DESKTOP ================= */}
+          <div className="w-full lg:w-[400px] shrink-0 lg:sticky lg:top-24">
             
-            {/* Card Total Pembayaran Bernuansa Biru */}
             <div className="bg-gradient-to-r from-sky-400 to-blue-500 rounded-2xl p-6 sm:p-8 shadow-md text-white">
               <p className="text-xs sm:text-sm text-sky-50 font-medium tracking-wide">
                 Total Pembayaran
@@ -391,7 +378,6 @@ function PilihMetodePembayaranContent() {
                 {formatCurrency(totalAmount)}
               </p>
 
-              {/* Info Error jika belum pilih metode */}
               {error && (
                 <div className="mb-4 p-3 bg-red-500/20 border border-red-200/40 rounded-xl text-white text-xs flex items-start gap-2 backdrop-blur-xs">
                   <FiAlertCircle className="w-4 h-4 text-red-100 shrink-0 mt-0.5" />
@@ -399,7 +385,6 @@ function PilihMetodePembayaranContent() {
                 </div>
               )}
 
-              {/* Tombol Bayar di dalam Card */}
               <button
                 type="button"
                 onClick={handleLanjutkanPembayaran}

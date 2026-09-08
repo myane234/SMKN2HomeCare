@@ -15,13 +15,14 @@ function PaymentQRContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   
+  // Ambil parameter URL secara langsung
   const rawMetodeParam = searchParams.get('metode') || '';
   const metodeParam = rawMetodeParam.replace('_va', '');
   const bookingParam = searchParams.get('booking_id') || '';
-  
+  const urlTotalParam = parseInt(searchParams.get('total') || searchParams.get('price') || '0', 10);
+
   const getInitialAmount = () => {
-    const urlTotal = parseInt(searchParams.get('total') || searchParams.get('price'));
-    if (urlTotal && urlTotal > 0) return urlTotal;
+    if (urlTotalParam > 0) return urlTotalParam;
 
     if (typeof window !== 'undefined') {
       try {
@@ -38,7 +39,6 @@ function PaymentQRContent() {
     return 0;
   };
 
-  const [bookingCode, setBookingCode] = useState('');
   const [orderId, setOrderId] = useState('');
   const [amount, setAmount] = useState(getInitialAmount);
   const [bookingId, setBookingId] = useState(bookingParam);
@@ -58,9 +58,10 @@ function PaymentQRContent() {
   const [copiedOrderId, setCopiedOrderId] = useState(false);
 
   useEffect(() => {
-    const urlTotal = parseInt(searchParams.get('total') || searchParams.get('price'));
-    if (urlTotal && urlTotal > 0) {
-      setAmount(urlTotal);
+    // Prioritaskan nominal dari URL
+    const finalAmount = urlTotalParam > 0 ? urlTotalParam : amount;
+    if (urlTotalParam > 0) {
+      setAmount(urlTotalParam);
     }
 
     if (!bookingParam) {
@@ -74,7 +75,6 @@ function PaymentQRContent() {
         setIsLoadingApi(true);
         setApiError('');
 
-        const finalAmount = (urlTotal && urlTotal > 0) ? urlTotal : amount;
         if (!finalAmount || finalAmount <= 0) {
           throw new Error('Jumlah total pembayaran tidak ditemukan.');
         }
@@ -92,20 +92,41 @@ function PaymentQRContent() {
         };
 
         if (isBankTransfer) {
-          payload.bank_transfer = { bank: backendPaymentType };
+          payload.bank_transfer = {
+            bank: backendPaymentType
+          };
         }
-        if (metodeParam === 'gopay') payload.gopay = {};
-        if (metodeParam === 'shopeepay') payload.shopeepay = {};
-        if (metodeParam === 'dana') payload.dana = {};
+
+        if (metodeParam === 'gopay') {
+          payload.gopay = {
+            enable_callback: true,
+            callback_url: `${window.location.origin}/pembayaran/payment-confirmation/success?booking_id=${bookingParam}`
+          };
+        }
+        
+        if (metodeParam === 'shopeepay') {
+          payload.shopeepay = {
+            callback_url: `${window.location.origin}/pembayaran/payment-confirmation/success?booking_id=${bookingParam}`
+          };
+        }
+
+        if (metodeParam === 'dana') {
+          payload.dana = {};
+        }
 
         const response = await api.post('/api/booking/charge', payload);
         const resData = response.data.data || response.data;
         setPaymentData(resData);
         
-        const currentTotal = (urlTotal && urlTotal > 0) 
-          ? urlTotal 
-          : (Number(resData?.gross_amount || resData?.total || resData?.amount || resData?.jumlah_total) || finalAmount);
-        setAmount(currentTotal);
+        // UTAMAKAN nominal dari URL (searchParams). KUNCI agar tidak tertimpa API jika total di URL ada.
+        if (urlTotalParam && urlTotalParam > 0) {
+          setAmount(urlTotalParam);
+        } else {
+          const apiTotal = Number(resData?.jumlah_total || resData?.gross_amount || resData?.total || resData?.amount);
+          if (apiTotal && apiTotal > 0) {
+            setAmount(apiTotal);
+          }
+        }
 
         const extractedUrl = 
           resData?.actions?.[0]?.url || 
@@ -120,12 +141,12 @@ function PaymentQRContent() {
           setFixedQrUrl(extractedUrl);
         }
         
-        // Simpan Order ID teknis dan Kode Booking CMS secara terpisah
-        const fetchedOrderId = resData.order_id || resData.payment_details?.order_id || '';
-        const fetchedBookingCode = resData.booking_code || resData.kode_booking || resData.booking?.booking_code || '';
-        
-        setOrderId(fetchedOrderId);
-        setBookingCode(fetchedBookingCode);
+        // UTAMAKAN murni dari field booking_code atau code_booking dari response API
+        const pureBookingCode = resData?.booking_code || resData?.code_booking || resData?.order_id || bookingParam;
+        setOrderId(pureBookingCode);
+        if (resData?.booking_code || resData?.code_booking) {
+          setBookingId(resData?.booking_code || resData?.code_booking);
+        }
         
         const expiryTime = resData.expiry_time || resData.expired_at ? new Date(resData.expiry_time || resData.expired_at) : new Date(Date.now() + 5 * 60 * 1000);
         setExpiredAt(expiryTime);
@@ -139,7 +160,7 @@ function PaymentQRContent() {
     };
 
     fetchPaymentInfo();
-  }, [bookingParam, metodeParam, searchParams]);
+  }, [bookingParam, metodeParam, urlTotalParam]);
 
   useEffect(() => {
     if (!expiredAt) return;
@@ -162,17 +183,12 @@ function PaymentQRContent() {
   }, [expiredAt]);
 
   useEffect(() => {
-    if (!bookingId || isExpired) return;
+    if (!bookingId || !orderId || isExpired) return;
 
     const checkPaymentStatus = async () => {
       try {
         const res = await api.get(`/api/booking/${bookingId}/payment-details`);
         const responseBody = res.data.data || res.data;
-        
-        // Update booking_code jika didapatkan dari endpoint payment-details
-        if (responseBody?.booking_code) {
-          setBookingCode(responseBody.booking_code);
-        }
         
         const statusTransaksi = responseBody?.status_transaksi || 'Menunggu Pembayaran';
         setStatusText(statusTransaksi);
@@ -186,8 +202,7 @@ function PaymentQRContent() {
           lowerStatus.includes('settlement') ||
           lowerStatus.includes('lunas')
         ) {
-          const finalOrder = responseBody?.booking_code || bookingCode || orderId;
-          router.push(`/pembayaran/payment-confirmation/success?booking_id=${bookingId}&order_id=${finalOrder}&total=${amount}`);
+          router.push(`/pembayaran/payment-confirmation/success?booking_id=${bookingId}&order_id=${orderId}&total=${amount}`);
         }
       } catch (err) {
         console.error('Gagal mengecek status pembayaran:', err);
@@ -196,7 +211,7 @@ function PaymentQRContent() {
 
     const statusInterval = setInterval(checkPaymentStatus, 5000);
     return () => clearInterval(statusInterval);
-  }, [bookingId, orderId, bookingCode, router, amount, isExpired]);
+  }, [bookingId, orderId, router, amount, isExpired]);
 
   const methods = {
     qris: { name: 'QRIS', type: 'qr' },
@@ -251,13 +266,10 @@ function PaymentQRContent() {
     }
   };
 
-  // Nilai yang akan ditampilkan dan disalin ke clipboard
-  const displayedCode = bookingCode || paymentData?.booking_code || paymentData?.kode_booking || orderId || '-';
-
   const handleCopyOrderId = async () => {
-    if (!displayedCode) return;
+    if (!orderId) return;
     try {
-      await navigator.clipboard.writeText(displayedCode);
+      await navigator.clipboard.writeText(orderId);
       setCopiedOrderId(true);
       setTimeout(() => setCopiedOrderId(false), 2000);
     } catch (err) {
@@ -266,15 +278,16 @@ function PaymentQRContent() {
   };
 
   const handleBack = () => {
-    if (typeof window !== 'undefined' && window.history.length > 1) {
-      router.back();
-    } else {
-      router.push(`/pembayaran/pilih-metode?booking_id=${bookingId}&total=${amount}`);
-    }
+    router.push(`/pembayaran/pilih-metode?booking_id=${bookingId}&total=${amount}`);
   };
 
-  const handleBackToCart = () => router.push('/keranjang');
-  const handlePesanLayanan = () => router.push('/pesan-layanan');
+  const handleBackToCart = () => {
+    router.push('/keranjang');
+  };
+
+  const handlePesanLayanan = () => {
+    router.push('/pesan-layanan');
+  };
 
   if (isLoadingApi) {
     return (
@@ -407,13 +420,13 @@ function PaymentQRContent() {
 
               <div className="mt-8 pt-6 border-t border-gray-100 space-y-2">
                 <div className="flex justify-between text-sm">
-                  <span className="text-gray-500">Order ID</span>
+                  <span className="text-gray-500">Booking ID</span>
                   <button
                     onClick={handleCopyOrderId}
                     className="group flex items-center gap-1.5 font-mono text-gray-800 hover:text-blue-600 transition-colors"
                   >
-                    <span>{displayedCode}</span>
-                    {displayedCode && displayedCode !== '-' && (
+                    <span>{orderId || '-'}</span>
+                    {orderId && (
                       copiedOrderId ? <FiCheckCircle className="w-3.5 h-3.5 text-green-600" /> : <FiCopy className="w-3.5 h-3.5 text-gray-400 opacity-0 group-hover:opacity-100" />
                     )}
                   </button>
