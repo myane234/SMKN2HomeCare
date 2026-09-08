@@ -17,7 +17,7 @@ function PaymentQRContent() {
   
   // Ambil parameter URL secara langsung
   const rawMetodeParam = searchParams.get('metode') || '';
-  const metodeParam = rawMetodeParam.replace('_va', '');
+  const metodeParam = rawMetodeParam.replace(/_(va|transfer)$/, '');
   const bookingParam = searchParams.get('booking_id') || '';
   const urlTotalParam = parseInt(searchParams.get('total') || searchParams.get('price') || '0', 10);
 
@@ -93,7 +93,7 @@ function PaymentQRContent() {
 
         if (isBankTransfer) {
           payload.bank_transfer = {
-            bank: backendPaymentType
+            bank: metodeParam
           };
         }
 
