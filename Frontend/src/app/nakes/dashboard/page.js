@@ -19,7 +19,7 @@ import {
   User,
   Calendar,
 } from "lucide-react";
-import { motion, AnimatePresence } from "framer-motion";
+import {  AnimatePreence } from "framer-motion";
 import api from "@/services/api";
 import { resolveImageUrl } from "@/services/resolveImage";
 import {
@@ -33,6 +33,7 @@ import {
   acceptNakesBooking,
   rejectNakesBooking,
 } from "@/services/nakesService";
+import { motion, AnimatePresence } from "framer-motion";
 
 const LIST_HARI = [
   "Senin",
@@ -120,8 +121,8 @@ export default function DashboardPage() {
   };
 
   const getBookingId = (booking) =>
-    booking?.id ??
     booking?.id_booking ??
+    booking?.id ??
     booking?.booking_id;
 
   const getBookingCode = (booking) =>
@@ -136,17 +137,37 @@ export default function DashboardPage() {
     booking?.nama_pasien ||
     "Pasien";
 
-  const formatBookingDate = (value) => {
-    if (!value) return "Jadwal belum tersedia";
-    const date = new Date(value);
-    if (Number.isNaN(date.getTime())) return String(value);
-    return date.toLocaleString("id-ID", {
-      day: "2-digit",
-      month: "short",
-      year: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
-    });
+  const getBookingVisitDate = (booking) => {
+    const rawDate = booking?.tanggal_kunjungan || booking?.tanggal_booking || booking?.created_at;
+    const jam = booking?.jam_kunjungan;
+    if (!rawDate) return "Jadwal belum tersedia";
+
+    let dateStr = "";
+    const date = new Date(rawDate);
+    if (!Number.isNaN(date.getTime())) {
+      dateStr = date.toLocaleDateString("id-ID", {
+        day: "2-digit",
+        month: "short",
+        year: "numeric",
+      });
+    } else {
+      dateStr = String(rawDate);
+    }
+
+    if (jam) {
+      const formattedJam = String(jam).slice(0, 5);
+      return `${dateStr}, ${formattedJam}`;
+    }
+
+    if (!Number.isNaN(date.getTime()) && (date.getHours() !== 0 || date.getMinutes() !== 0)) {
+      const formattedTime = date.toLocaleTimeString("id-ID", {
+        hour: "2-digit",
+        minute: "2-digit",
+      });
+      return `${dateStr}, ${formattedTime}`;
+    }
+
+    return dateStr;
   };
 
   const resolveCategoryNames = (rawCategories, masterCategories = listCategories) => {
@@ -275,14 +296,28 @@ export default function DashboardPage() {
 
       const ordersData = unwrapData(ordersRes);
       const bookingsData = unwrapData(bookingsRes);
-      const allBookings = Array.isArray(bookingsData) ? bookingsData : (Array.isArray(ordersData) ? ordersData : []);
+
+      const extractList = (data) => {
+        if (!data) return [];
+        if (Array.isArray(data)) return data;
+        if (Array.isArray(data.data)) return data.data;
+        if (Array.isArray(data.orders)) return data.orders;
+        if (Array.isArray(data.bookings)) return data.bookings;
+        return [];
+      };
+
+      const primaryOrders = extractList(ordersData);
+      const fallbackBookings = extractList(bookingsData);
+
+      const allBookings = primaryOrders.length > 0 ? primaryOrders : fallbackBookings;
       
-      const pendingList = allBookings.filter(b => 
-        String(b.status_booking || b.status || "").toLowerCase() === "pending"
-      );
+      const pendingList = allBookings.filter(b => {
+        const st = String(b?.status_booking || b?.status || "").toLowerCase();
+        return st === "pending";
+      });
       
       const processedList = allBookings.filter(b => {
-        const st = String(b.status_booking || b.status || "").toLowerCase();
+        const st = String(b?.status_booking || b?.status || "").toLowerCase();
         return st !== "pending" && st !== "dibatalkan" && st !== "ditolak";
       });
 
@@ -716,11 +751,18 @@ export default function DashboardPage() {
                           <div>
                             <span className="text-xs font-bold text-blue-600">{getBookingCode(b)}</span>
                             <h4 className="font-bold text-slate-900 text-sm mt-0.5">{getBookingPatientName(b)}</h4>
-                            <p className="text-xs text-slate-500 mt-0.5">{b.layanan?.nama_layanan || "Layanan Home Care"}</p>
+                            <p className="text-xs text-slate-500 mt-0.5">
+                              {Array.isArray(b?.layanan_items) && b.layanan_items.length > 0
+                                ? b.layanan_items
+                                    .map((item) => item?.nama_layanan || item?.layanan?.nama_layanan || item?.nama)
+                                    .filter(Boolean)
+                                    .join(", ")
+                                : b.layanan?.nama_layanan || "-"}
+                            </p>
                           </div>
                           <span className="px-2 py-1 bg-amber-50 text-amber-700 text-[10px] font-bold rounded-lg">Menunggu</span>
                         </div>
-                        <p className="text-xs text-slate-500 flex items-center gap-1.5"><Calendar className="w-3.5 h-3.5" /> {formatBookingDate(b.tanggal_booking || b.created_at)}</p>
+                        <p className="text-xs text-slate-500 flex items-center gap-1.5"><Calendar className="w-3.5 h-3.5" /> {getBookingVisitDate(b)}</p>
                         <div className="flex gap-2 pt-1">
                           <button type="button" onClick={() => handleOpenBookingDetail(b)} className="flex-1 py-2 rounded-xl border border-slate-200 text-xs font-semibold text-slate-700 hover:bg-slate-50">Detail</button>
                           <button type="button" disabled={isActing} onClick={() => handleBookingAction(b, "reject")} className="px-3 py-2 rounded-xl border border-rose-200 text-xs font-semibold text-rose-600 hover:bg-rose-50">Tolak</button>
@@ -756,7 +798,7 @@ export default function DashboardPage() {
                           </div>
                           <span className="px-2 py-1 bg-emerald-50 text-emerald-700 text-[10px] font-bold rounded-lg">{statusText}</span>
                         </div>
-                        <p className="text-xs text-slate-500 mt-2">{formatBookingDate(b.tanggal_booking || b.updated_at)}</p>
+                        <p className="text-xs text-slate-500 mt-2">{getBookingVisitDate(b)}</p>
                       </button>
                     );
                   })
@@ -785,7 +827,12 @@ export default function DashboardPage() {
                   <div className="overflow-hidden">
                     <h4 className="font-extrabold text-slate-900 text-sm truncate">{nakesProfile.name}</h4>
                     <p className="text-xs text-slate-500 flex items-center gap-1 mt-0.5"><Phone className="w-3 h-3 text-blue-600" /> {nakesProfile.phone}</p>
-                    <p className="text-[11px] text-slate-500 flex items-center gap-1 mt-0.5 truncate"><Home className="w-3 h-3 text-blue-600 shrink-0" /> {nakesProfile.address}</p>
+                    <p className="text-[11px] text-slate-500 flex items-start gap-1 mt-0.5">
+                      <Home className="w-3 h-3 text-blue-600 shrink-0 mt-0.5" />
+                      <span className="whitespace-normal break-words">
+                        {nakesProfile.address}
+                      </span>
+                    </p>
                   </div>
                 </div>
 
@@ -1017,12 +1064,20 @@ export default function DashboardPage() {
                     </div>
                     <div className="p-4 rounded-2xl bg-slate-50 border border-slate-100 space-y-2">
                       <p className="font-bold text-slate-900 uppercase text-[10px] tracking-wider text-slate-400">Detail Layanan</p>
-                      <p><strong className="text-slate-900">Layanan:</strong> {selectedBooking?.layanan?.nama_layanan || "Home Care"}</p>
-                      <p><strong className="text-slate-900">Jadwal:</strong> {formatBookingDate(selectedBooking?.tanggal_booking)}</p>
-                      <p><strong className="text-slate-900">Status:</strong> <span className="px-2 py-0.5 rounded-md bg-blue-50 text-blue-700 font-semibold">{selectedBooking?.status_booking || "Pending"}</span></p>
+                      <p>
+                        <strong className="text-slate-900">Layanan:</strong>{" "}
+                        {Array.isArray(selectedBooking?.layanan_items) && selectedBooking.layanan_items.length > 0
+                          ? selectedBooking.layanan_items
+                              .map((item) => item?.nama_layanan || item?.layanan?.nama_layanan || item?.nama)
+                              .filter(Boolean)
+                              .join(", ")
+                          : selectedBooking?.layanan?.nama_layanan || "-"}
+                      </p>
+                      <p><strong className="text-slate-900">Jadwal:</strong> {getBookingVisitDate(selectedBooking)}</p>
+                      <p><strong className="text-slate-900">Status:</strong> <span className="px-2 py-0.5 rounded-md bg-blue-50 text-blue-700 font-semibold">{selectedBooking?.status_booking || selectedBooking?.status || "Pending"}</span></p>
                     </div>
 
-                    {String(selectedBooking?.status_booking || "").toLowerCase() === "pending" && (
+                    {String(selectedBooking?.status_booking || selectedBooking?.status || "").toLowerCase() === "pending" && (
                       <div className="pt-2 flex gap-2">
                         <button type="button" onClick={() => handleBookingAction(selectedBooking, "reject")} className="flex-1 py-2.5 rounded-xl border border-rose-200 text-rose-600 font-semibold hover:bg-rose-50">Tolak</button>
                         <button type="button" onClick={() => handleBookingAction(selectedBooking, "accept")} className="flex-1 py-2.5 rounded-xl bg-emerald-600 text-white font-semibold hover:bg-emerald-700">Terima</button>
