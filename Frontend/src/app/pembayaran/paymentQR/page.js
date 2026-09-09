@@ -144,7 +144,9 @@ function PaymentQRContent() {
           }
         }
 
-        const extractedUrl = 
+        // Cari URL app deeplink khusus aplikasi atau fallback ke url/redirect biasa
+        const appDeeplinkUrl = resData?.actions?.find(action => action.name === 'deeplink-redirect')?.url || '';
+        const webRedirectUrl = 
           resData?.actions?.[0]?.url || 
           resData?.qr_url || 
           resData?.payment_details?.qris?.qr_url || 
@@ -153,8 +155,10 @@ function PaymentQRContent() {
           resData?.actions?.[0]?.qr_image_url ||
           resData?.actions?.[1]?.url ||
           '';
-        if (extractedUrl) {
-          setFixedQrUrl(extractedUrl);
+
+        const finalDeeplink = appDeeplinkUrl || webRedirectUrl;
+        if (finalDeeplink) {
+          setFixedQrUrl(finalDeeplink);
         }
         
         // UTAMAKAN murni dari field booking_code atau code_booking dari response API
@@ -248,7 +252,7 @@ function PaymentQRContent() {
     paymentData?.actions?.[0]?.qr_string ||
     '';
   
-  const qrImageUrl = fixedQrUrl || (qrString ? `https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(qrString)}` : '');
+  const qrImageUrl = fixedQrUrl && method.type === 'qr' ? fixedQrUrl : (qrString ? `https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(qrString)}` : '');
   
   const formatRupiah = (value) => {
     return new Intl.NumberFormat('id-ID', {
@@ -392,17 +396,18 @@ function PaymentQRContent() {
                   </div>
                   <h3 className="text-base font-bold text-gray-900 mb-2">Lanjutkan Pembayaran via {method.name}</h3>
                   <p className="text-sm text-gray-600 max-w-sm mb-6">
-                    Silakan klik tombol di bawah ini untuk membuka aplikasi {method.name} dan menyelesaikan transaksi Anda.
+                    Klik tombol di bawah untuk membuka aplikasi {method.name} secara otomatis di perangkatmu.
                   </p>
                   {fixedQrUrl ? (
-                    <a
-                      href={fixedQrUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="w-full max-w-xs py-3 px-6 bg-orange-500 hover:bg-orange-600 text-white font-medium rounded-xl shadow-md transition text-center inline-block"
+                    <button
+                      type="button"
+                      onClick={() => {
+                        window.location.href = fixedQrUrl;
+                      }}
+                      className="w-full max-w-xs py-3 px-6 bg-orange-500 hover:bg-orange-600 text-white font-medium rounded-xl shadow-md transition text-center inline-block cursor-pointer"
                     >
                       Buka {method.name} & Bayar
-                    </a>
+                    </button>
                   ) : (
                     <span className="text-xs text-slate-400">Link pembayaran sedang dimuat...</span>
                   )}
