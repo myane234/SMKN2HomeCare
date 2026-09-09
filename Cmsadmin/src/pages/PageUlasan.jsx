@@ -160,9 +160,20 @@ export default function PageUlasan() {
     }
 
     try {
+      const selectedLayanan = layananOptions.find(
+        (l) => String(l.id_layanan || l.id) === String(formData.layanan_id)
+      );
+
       const payload = {
         ...formData,
-        rating: Number(formData.rating)
+        rating: Number(formData.rating),
+        layanan_id: formData.layanan_id ? Number(formData.layanan_id) : null,
+        layanan: selectedLayanan
+          ? {
+              id_master_layanan: selectedLayanan.id_layanan || selectedLayanan.id,
+              nama_layanan: selectedLayanan.nama_layanan || selectedLayanan.nama
+            }
+          : null
       };
 
       const res = await api.post("/api/admin/ulasan", payload);
@@ -192,7 +203,7 @@ export default function PageUlasan() {
       profesi_peran: item.profesi_peran || "",
       rating: Number(item.rating) || 5,
       komentar: item.komentar || "",
-      layanan_id: item.layanan_id || "",
+      layanan_id: item.layanan_id || item.layanan?.id_master_layanan || "",
       is_published: Boolean(item.is_published),
       urutan: item.urutan || 1,
       foto: null
@@ -206,16 +217,31 @@ export default function PageUlasan() {
     if (!selectedItem) return;
 
     try {
+      const selectedLayanan = layananOptions.find(
+        (l) => String(l.id_layanan || l.id) === String(formData.layanan_id)
+      );
+
       const payload = {
         ...formData,
-        rating: Number(formData.rating)
+        rating: Number(formData.rating),
+        layanan_id: formData.layanan_id ? Number(formData.layanan_id) : null,
+        layanan: selectedLayanan
+          ? {
+              id_master_layanan: selectedLayanan.id_layanan || selectedLayanan.id,
+              nama_layanan: selectedLayanan.nama_layanan || selectedLayanan.nama
+            }
+          : null
       };
 
       const res = await api.post(`/api/admin/ulasan/${selectedItem.id}`, payload);
       const updated = res?.data || { ...selectedItem, ...payload };
 
       setUlasanList((prev) =>
-        prev.map((u) => (u.id === selectedItem.id ? { ...u, ...updated } : u))
+        prev.map((u) =>
+          u.id === selectedItem.id
+            ? { ...u, ...updated, layanan: payload.layanan || updated.layanan || u.layanan }
+            : u
+        )
       );
       setShowEditModal(false);
 
@@ -346,10 +372,10 @@ export default function PageUlasan() {
       </div>
 
       {/* Tabs Navigation */}
-      <div className="flex border-b border-slate-200">
+      <div className="flex border-b border-slate-200 overflow-x-auto whitespace-nowrap scrollbar-none">
         <button
           onClick={() => setActiveTab("list")}
-          className={`px-5 py-3 text-xs font-bold border-b-2 transition flex items-center gap-2 cursor-pointer ${
+          className={`px-5 py-3 text-xs font-bold border-b-2 transition flex items-center gap-2 cursor-pointer shrink-0 ${
             activeTab === "list"
               ? "border-primary text-primary-dark bg-primary-light/40"
               : "border-transparent text-slate-500 hover:text-slate-800"
@@ -359,7 +385,7 @@ export default function PageUlasan() {
         </button>
         <button
           onClick={() => setActiveTab("header")}
-          className={`px-5 py-3 text-xs font-bold border-b-2 transition flex items-center gap-2 cursor-pointer ${
+          className={`px-5 py-3 text-xs font-bold border-b-2 transition flex items-center gap-2 cursor-pointer shrink-0 ${
             activeTab === "header"
               ? "border-primary text-primary-dark bg-primary-light/40"
               : "border-transparent text-slate-500 hover:text-slate-800"
@@ -471,8 +497,8 @@ export default function PageUlasan() {
             </div>
 
             {/* Table */}
-            <div className="overflow-x-auto">
-              <table className="w-full text-left border-collapse text-xs">
+            <div className="overflow-x-auto w-full">
+              <table className="w-full min-w-[780px] text-left border-collapse text-xs">
                 <thead>
                   <tr className="bg-slate-50 text-slate-500 font-semibold border-b border-slate-100">
                     <th className="py-3 px-4 w-12 text-center">No</th>
@@ -595,7 +621,7 @@ export default function PageUlasan() {
         </>
       ) : (
         /* Tab 2: Pengaturan Header Portal Web */
-        <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-2xs max-w-2xl space-y-6">
+        <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-2xs w-full space-y-6">
           <div>
             <h2 className="text-base font-bold text-slate-800 flex items-center gap-2">
               <FaHeading className="text-primary" /> Pengaturan Header Section Ulasan
@@ -652,8 +678,8 @@ export default function PageUlasan() {
 
       {/* Modal Tambah Ulasan */}
       {showAddModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 backdrop-blur-xs p-4">
-          <div className="bg-white rounded-2xl max-w-lg w-full p-6 space-y-4 shadow-xl">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 backdrop-blur-xs p-3 sm:p-4 overflow-y-auto">
+          <div className="bg-white rounded-2xl max-w-lg w-full p-5 sm:p-6 space-y-4 shadow-xl my-auto max-h-[90vh] overflow-y-auto">
             <h2 className="text-base font-bold text-slate-800 flex items-center gap-2 border-b border-slate-100 pb-3">
               <FaPlus className="text-primary" /> Tambah Ulasan Pasien Manual
             </h2>
@@ -671,7 +697,7 @@ export default function PageUlasan() {
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="block font-semibold text-slate-700 mb-1">Profesi / Peran</label>
                   <input
@@ -762,8 +788,8 @@ export default function PageUlasan() {
 
       {/* Modal Edit Ulasan */}
       {showEditModal && selectedItem && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 backdrop-blur-xs p-4">
-          <div className="bg-white rounded-2xl max-w-lg w-full p-6 space-y-4 shadow-xl">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 backdrop-blur-xs p-3 sm:p-4 overflow-y-auto">
+          <div className="bg-white rounded-2xl max-w-lg w-full p-5 sm:p-6 space-y-4 shadow-xl my-auto max-h-[90vh] overflow-y-auto">
             <h2 className="text-base font-bold text-slate-800 flex items-center gap-2 border-b border-slate-100 pb-3">
               <FaEdit className="text-primary" /> Edit Ulasan Pasien #{selectedItem.id}
             </h2>
@@ -780,7 +806,7 @@ export default function PageUlasan() {
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="block font-semibold text-slate-700 mb-1">Profesi / Peran</label>
                   <input
@@ -805,6 +831,22 @@ export default function PageUlasan() {
                     <option value={1}>⭐ (1 Bintang)</option>
                   </select>
                 </div>
+              </div>
+
+              <div>
+                <label className="block font-semibold text-slate-700 mb-1">Layanan Terkait</label>
+                <select
+                  value={formData.layanan_id}
+                  onChange={(e) => setFormData({ ...formData, layanan_id: e.target.value })}
+                  className="w-full px-3.5 py-2 border border-slate-200 rounded-xl focus:border-primary focus:outline-none bg-white cursor-pointer"
+                >
+                  <option value="">-- Pilih Layanan (Opsional) --</option>
+                  {layananOptions.map((l) => (
+                    <option key={l.id_layanan || l.id} value={l.id_layanan || l.id}>
+                      {l.nama_layanan || l.nama}
+                    </option>
+                  ))}
+                </select>
               </div>
 
               <div>
@@ -853,8 +895,8 @@ export default function PageUlasan() {
 
       {/* Modal Detail Ulasan */}
       {showDetailModal && selectedItem && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 backdrop-blur-xs p-4">
-          <div className="bg-white rounded-2xl max-w-md w-full p-6 space-y-4 shadow-xl">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 backdrop-blur-xs p-3 sm:p-4 overflow-y-auto">
+          <div className="bg-white rounded-2xl max-w-md w-full p-5 sm:p-6 space-y-4 shadow-xl my-auto max-h-[90vh] overflow-y-auto">
             <h2 className="text-base font-bold text-slate-800 flex items-center gap-2 border-b border-slate-100 pb-3">
               <FaEye className="text-primary" /> Rincian Ulasan Pasien
             </h2>
@@ -886,7 +928,7 @@ export default function PageUlasan() {
                 </p>
               </div>
 
-              <div className="flex items-center justify-between pt-1">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pt-1">
                 <div>
                   <span className="text-slate-400 block font-medium">Status Tayang</span>
                   <span
@@ -899,10 +941,18 @@ export default function PageUlasan() {
                     {selectedItem.is_published ? "Tayang di Web" : "Pending Moderasi"}
                   </span>
                 </div>
-                <div className="text-right">
+                <div className="sm:text-right">
                   <span className="text-slate-400 block font-medium">Tanggal Dibuat</span>
-                  <span className="text-slate-600">
-                    {selectedItem.created_at ? selectedItem.created_at.split("T")[0] : "-"}
+                  <span className="text-slate-600 font-medium">
+                    {selectedItem.created_at
+                      ? new Date(selectedItem.created_at).toLocaleString("id-ID", {
+                          day: "numeric",
+                          month: "short",
+                          year: "numeric",
+                          hour: "2-digit",
+                          minute: "2-digit"
+                        })
+                      : "-"}
                   </span>
                 </div>
               </div>

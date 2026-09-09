@@ -349,20 +349,38 @@ export function getUlasanById(id) {
 export function createUlasan(data) {
   const store = readStore();
   const newId = (store.ulasan_list || []).reduce((max, u) => Math.max(max, Number(u.id) || 0), 0) + 1;
+  
+  let resolvedLayanan = null;
+  if (data.layanan && typeof data.layanan === 'object') {
+    resolvedLayanan = data.layanan;
+  } else if (typeof data.layanan === 'string' && data.layanan.trim()) {
+    resolvedLayanan = {
+      id_master_layanan: Number(data.layanan_id) || 1,
+      nama_layanan: data.layanan
+    };
+  } else if (data.nama_layanan) {
+    resolvedLayanan = {
+      id_master_layanan: Number(data.layanan_id) || 1,
+      nama_layanan: data.nama_layanan
+    };
+  }
+
   const newUlasan = {
     id: newId,
+    id_user: data.id_user || null,
+    email: data.email || null,
     nama_pengulas: data.nama_pengulas || data.nama_pasien || 'Pengunjung',
     profesi_peran: data.profesi_peran || 'Pasien',
     foto: data.foto || null,
     foto_url: data.foto_url || null,
     rating: Number(data.rating) || 5,
     komentar: data.komentar || '',
-    layanan_id: data.layanan_id || null,
+    layanan_id: data.layanan_id ? Number(data.layanan_id) : null,
     is_published: data.is_published !== undefined ? Boolean(data.is_published) : false,
     urutan: data.urutan !== undefined ? Number(data.urutan) : (store.ulasan_list || []).length + 1,
-    created_at: new Date().toISOString(),
+    created_at: data.created_at || new Date().toISOString(),
     updated_at: new Date().toISOString(),
-    layanan: data.layanan ? { id_master_layanan: data.layanan_id || 1, nama_layanan: data.layanan } : null
+    layanan: resolvedLayanan
   };
 
   store.ulasan_list = [newUlasan, ...(store.ulasan_list || [])];
@@ -375,9 +393,27 @@ export function updateUlasan(id, updates) {
   const index = (store.ulasan_list || []).findIndex((u) => String(u.id) === String(id));
   if (index === -1) return null;
 
+  const current = store.ulasan_list[index];
+  let resolvedLayanan = current.layanan;
+
+  if (updates.layanan && typeof updates.layanan === 'object') {
+    resolvedLayanan = updates.layanan;
+  } else if (typeof updates.layanan === 'string' && updates.layanan.trim()) {
+    resolvedLayanan = {
+      id_master_layanan: Number(updates.layanan_id || current.layanan_id) || 1,
+      nama_layanan: updates.layanan
+    };
+  } else if (updates.nama_layanan) {
+    resolvedLayanan = {
+      id_master_layanan: Number(updates.layanan_id || current.layanan_id) || 1,
+      nama_layanan: updates.nama_layanan
+    };
+  }
+
   store.ulasan_list[index] = {
-    ...store.ulasan_list[index],
+    ...current,
     ...updates,
+    layanan: resolvedLayanan,
     updated_at: new Date().toISOString()
   };
   writeStore(store);

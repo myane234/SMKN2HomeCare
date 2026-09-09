@@ -102,3 +102,7 @@ export async function DELETE(request, { params }) {
     );
   }
 }
+
+export const PUT = POST;
+export const PATCH = POST;
+

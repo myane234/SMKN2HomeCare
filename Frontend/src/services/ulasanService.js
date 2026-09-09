@@ -1,35 +1,8 @@
 import axios from "axios";
 import api from "./api";
+import { getAuthToken } from "./cookieHelper";
 
-const DEFAULT_ULASAN = [
-  {
-    id_ulasan: 1,
-    nama_pasien: "Budi Santoso",
-    profesi_peran: "Keluarga Pasien",
-    rating: 5,
-    layanan: "Fisioterapi Rumah",
-    komentar: "Pelayanan perawat sangat ramah dan profesional. Ayah saya yang baru pulang dari rumah sakit merasa sangat terbantu dan nyaman dirawat di rumah.",
-    created_at: "2026-09-01"
-  },
-  {
-    id_ulasan: 2,
-    nama_pasien: "Siti Rahma",
-    profesi_peran: "Pasien Lansia",
-    rating: 5,
-    layanan: "Perawatan Luka Medis",
-    komentar: "Pelayanan sangat memuaskan, perawat datang tepat waktu dan telaten sekali saat mengganti perban pasca operasi.",
-    created_at: "2026-09-02"
-  },
-  {
-    id_ulasan: 3,
-    nama_pasien: "Hendro Gunawan",
-    profesi_peran: "Anak Pasien",
-    rating: 4,
-    layanan: "Pendampingan Pasien 24 Jam",
-    komentar: "Sangat responsif! Pagi pesan layanan via website, siangnya perawat sudah tiba di rumah membawa perlengkapan medis lengkap.",
-    created_at: "2026-09-03"
-  }
-];
+const DEFAULT_ULASAN = 
 
 function extractArray(payload) {
   if (Array.isArray(payload)) return payload;
@@ -45,6 +18,35 @@ const getClient = () => {
   return api;
 };
 
+/**
+ * Auto Load Data User untuk Prefill & Disable Email di Form Ulasan
+ * URL: /api/resource/content/ulasan/user-info
+ */
+export const getUserInfoForUlasan = async () => {
+  const token = getAuthToken();
+  if (!token) return null;
+
+  const client = getClient();
+  try {
+    const res = await client.get("/api/resource/content/ulasan/user-info", {
+      headers: {
+        Authorization: `Bearer ${token}`,
+        Accept: "application/json"
+      }
+    });
+    return res.data?.data || res.data;
+  } catch (error) {
+    if (error?.response?.status === 401) {
+      return null;
+    }
+    console.warn("Gagal memuat user info ulasan:", error?.message);
+    return null;
+  }
+};
+
+/**
+ * Mengambil Daftar Ulasan Publik (bisa filter rating, search, page, per_page)
+ */
 export const getUlasan = async (params = {}) => {
   const client = getClient();
   try {
@@ -54,12 +56,13 @@ export const getUlasan = async (params = {}) => {
       return items.map((item) => ({
         id_ulasan: item.id || item.id_ulasan,
         nama_pasien: item.nama_pengulas || item.nama_pasien || "Pasien",
-        profesi_peran: item.profesi_peran || "",
+        profesi_peran: item.profesi_peran || "Pasien",
         rating: Number(item.rating) || 5,
         layanan: item.layanan?.nama_layanan || item.layanan || "Layanan Homecare",
+        layanan_id: item.layanan_id || item.layanan?.id_master_layanan || null,
         komentar: item.komentar || "",
         foto_url: item.foto_url || null,
-        created_at: item.created_at ? item.created_at.split("T")[0] : "2026-09-03"
+        created_at: item.created_at || "2026-09-03T10:00:00.000000Z"
       }));
     }
   } catch (error) {
@@ -67,32 +70,69 @@ export const getUlasan = async (params = {}) => {
     try {
       const resRemote = await api.get("/api/resource/content/ulasan", { params });
       const items = extractArray(resRemote.data);
-      if (items.length > 0) return items;
+      if (items.length > 0) {
+        return items.map((item) => ({
+          id_ulasan: item.id || item.id_ulasan,
+          nama_pasien: item.nama_pengulas || item.nama_pasien || "Pasien",
+          profesi_peran: item.profesi_peran || "Pasien",
+          rating: Number(item.rating) || 5,
+          layanan: item.layanan?.nama_layanan || item.layanan || "Layanan Homecare",
+          layanan_id: item.layanan_id || null,
+          komentar: item.komentar || "",
+          foto_url: item.foto_url || null,
+          created_at: item.created_at || "2026-09-03T10:00:00.000000Z"
+        }));
+      }
     } catch {}
   }
   return DEFAULT_ULASAN;
 };
 
+/**
+ * Kirim Ulasan (Wajib Login) via multipart/form-data
+ */
 export const createUlasan = async (data) => {
+  const token = getAuthToken();
+  if (!token) {
+    const err = new Error("Unauthenticated.");
+    err.status = 401;
+    err.response = { status: 401, data: { message: "Unauthenticated." } };
+    throw err;
+  }
+
   const client = getClient();
-  const payload = {
-    nama_pengulas: data.nama_pengulas || data.nama_pasien,
-    profesi_peran: data.profesi_peran || "Pasien",
-    rating: Number(data.rating) || 5,
-    komentar: data.komentar,
-    layanan_id: data.layanan_id || null
+  const formData = new FormData();
+  formData.append("rating", String(data.rating || 5));
+  formData.append("komentar", data.komentar || "");
+  if (data.nama_pengulas || data.nama_pasien) {
+    formData.append("nama_pengulas", data.nama_pengulas || data.nama_pasien);
+  }
+  if (data.profesi_peran) {
+    formData.append("profesi_peran", data.profesi_peran);
+  }
+  if (data.layanan_id) {
+    formData.append("layanan_id", String(data.layanan_id));
+  }
+  if (data.foto instanceof File) {
+    formData.append("foto", data.foto);
+  }
+
+  const headers = {
+    Authorization: `Bearer ${token}`,
+    Accept: "application/json"
   };
 
   try {
-    const res = await client.post("/api/resource/content/ulasan", payload);
+    const res = await client.post("/api/resource/content/ulasan", formData, { headers });
     return res.data;
   } catch (error) {
-    try {
-      const resRemote = await api.post("/api/resource/content/ulasan", payload);
-      return resRemote.data;
-    } catch (fallbackError) {
-      console.error("Gagal mengirim ulasan:", fallbackError);
-      throw fallbackError;
+    if (error?.response?.status === 401) {
+      const err = new Error("Unauthenticated.");
+      err.status = 401;
+      err.response = error.response;
+      throw err;
     }
+    console.error("Gagal mengirim ulasan:", error);
+    throw error;
   }
 };
