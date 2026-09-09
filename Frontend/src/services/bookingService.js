@@ -47,3 +47,13 @@ export const confirmPayment = async ({ id_booking, order_id }) => {
     throw error;
   }
 };
+
+export const getBookingAktif = async () => {
+  try {
+    const res = await api.get('/api/booking/terkini');
+    return res.data;
+  } catch (error) {
+    if (error.response?.status === 404) return null;
+    throw error;
+  }
+};
