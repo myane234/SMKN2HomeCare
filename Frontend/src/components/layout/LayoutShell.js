@@ -6,6 +6,7 @@ import Navbar from "./Navbar";
 import Footer from "./Footer";
 import { fetchAndStoreProfile } from "@/services/profileService";
 import { getAuthToken } from "@/services/cookieHelper";
+import ActiveBookingBubble from "@/components/ActiveBookingBubble";
 
 export default function LayoutShell({ children }) {
   const pathname = usePathname();
@@ -31,6 +32,9 @@ export default function LayoutShell({ children }) {
       </main>
 
       {!hideLayout && <Footer />}
+
+      {/* Floating bubble status booking aktif — hanya untuk pasien login */}
+      {!hideLayout && <ActiveBookingBubble />}
     </>
   );
 }
