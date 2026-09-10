@@ -205,7 +205,7 @@ function PilihMetodePembayaranContent() {
     try {
       const paymentType = selectedMetode.payment_type || selectedMetode.id_metode || selectedMetode.id || 'qris';
       router.push(
-        `/pembayaran/paymentQR?metode=${paymentType}&booking_id=${bookingId}&total=${totalAmount}`
+        `/pembayaran/payment?metode=${paymentType}&booking_id=${bookingId}&total=${totalAmount}`
       );
     } catch (err) {
       console.error('Gagal melakukan navigasi pembayaran:', err);
