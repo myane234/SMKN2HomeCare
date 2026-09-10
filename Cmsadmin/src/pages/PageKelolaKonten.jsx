@@ -322,11 +322,11 @@ export default function PageKelolaKonten() {
   }
 
   return (
-    <div className="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-slate-200/80 pb-4">
+    <div className="w-full space-y-6">
+      <div className="mb-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-slate-200/80 pb-4">
         <div>
-          <h1 className="text-xl sm:text-2xl font-bold text-slate-900">Manajemen Konten Web</h1>
-          <p className="text-xs sm:text-sm text-slate-500 mt-1">Kelola konten Halaman Beranda, Tentang Kami, Gabung Mitra, dan Footer</p>
+          <h1 className="page-title">Manajemen Konten Web</h1>
+          <p className="page-subtitle">Kelola konten Halaman Beranda, Tentang Kami, Gabung Mitra, dan Footer</p>
         </div>
 
         {/* Tab Selector */}

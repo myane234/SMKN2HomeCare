@@ -2,12 +2,46 @@ import { NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import { getPublicUlasanList, createUlasan } from '@/lib/cmsDataStore';
 
+const REMOTE_API_BASE = process.env.NEXT_PUBLIC_API_URL || 'https://citra.faaruq.com';
+
 export async function GET(request) {
+  const { searchParams } = new URL(request.url);
+
+  // 1. Coba ambil langsung dari database backend API resmi
   try {
-    const { searchParams } = new URL(request.url);
+    const remoteUrl = new URL(`${REMOTE_API_BASE}/api/resource/content/ulasan`);
+    searchParams.forEach((val, key) => {
+      remoteUrl.searchParams.set(key, val);
+    });
+
+    const remoteRes = await fetch(remoteUrl.toString(), {
+      headers: {
+        Accept: 'application/json'
+      },
+      cache: 'no-store'
+    });
+
+    if (remoteRes.ok) {
+      const data = await remoteRes.json();
+      const rawList = Array.isArray(data?.data?.data)
+        ? data.data.data
+        : Array.isArray(data?.data)
+        ? data.data
+        : [];
+
+      if (rawList.length > 0) {
+        return NextResponse.json(data);
+      }
+    }
+  } catch (err) {
+    console.warn('Gagal memuat ulasan dari remote database, fallback ke local:', err?.message);
+  }
+
+  // 2. Fallback jika remote database tidak memiliki data atau tidak bisa diakses
+  try {
     const rating = searchParams.get('rating');
     const search = searchParams.get('search');
-    const per_page = searchParams.get('per_page') || 10;
+    const per_page = searchParams.get('per_page') || 6;
     const page = searchParams.get('page') || 1;
 
     const result = getPublicUlasanList({ rating, search, per_page, page });
@@ -29,7 +63,7 @@ export async function GET(request) {
 
 export async function POST(request) {
   try {
-    // 1. Validasi Autentikasi (Wajib Login)
+    // 1. Dapatkan token autentikasi jika ada
     const authHeader = request.headers.get('authorization') || '';
     let token = null;
 
@@ -42,13 +76,6 @@ export async function POST(request) {
       token =
         cookieStore.get('auth_token')?.value ||
         cookieStore.get('smarthomecare-session')?.value;
-    }
-
-    if (!token || token === 'null' || token === 'undefined') {
-      return NextResponse.json(
-        { message: 'Unauthenticated.' },
-        { status: 401 }
-      );
     }
 
     // 2. Parse payload (FormData atau JSON)
@@ -66,7 +93,7 @@ export async function POST(request) {
       payload = await request.json();
     }
 
-    // 3. Validasi Field Wajib (rating & komentar)
+    // 3. Validasi Field Wajib (rating & komentar & nama_pengulas)
     const errors = {};
     if (!payload.rating) {
       errors.rating = ['The rating field is required.'];
@@ -89,45 +116,35 @@ export async function POST(request) {
       );
     }
 
-    // 4. Dapatkan info user jika nama_pengulas atau email belum terisi
-    if (!payload.nama_pengulas || !payload.email) {
-      try {
-        const cookieStore = await cookies();
-        const emailCookie = cookieStore.get('profile_email')?.value;
-        const namaCookie = cookieStore.get('profile_nama')?.value || cookieStore.get('user_nama')?.value;
-        if (!payload.email && emailCookie) {
-          payload.email = decodeURIComponent(emailCookie);
-        }
-        if (!payload.nama_pengulas && namaCookie) {
-          payload.nama_pengulas = decodeURIComponent(namaCookie);
-        }
-      } catch {}
-    }
-
-    payload.is_published = false; // Memerlukan moderasi admin
+    // 4. Simpan ke database/store lokal CMS agar admin langsung bisa melihat & menayangkan ulasan
+    payload.is_published = false;
     payload.urutan = 0;
-    
-    // Simpan ke local CMS store
     const newUlasan = createUlasan(payload);
 
-    // Coba kirim juga ke backend remote (citra.faaruq.com) jika token valid
+    // 5. Teruskan ke database backend API resmi (jika terhubung)
     try {
-      const remoteForm = new FormData();
-      remoteForm.append('rating', String(payload.rating));
-      remoteForm.append('komentar', String(payload.komentar));
-      if (payload.nama_pengulas) remoteForm.append('nama_pengulas', String(payload.nama_pengulas));
-      if (payload.profesi_peran) remoteForm.append('profesi_peran', String(payload.profesi_peran));
-      if (payload.layanan_id) remoteForm.append('layanan_id', String(payload.layanan_id));
+      const remoteHeaders = {
+        Accept: 'application/json',
+        'Content-Type': 'application/json'
+      };
+      if (token && token !== 'null' && token !== 'undefined') {
+        remoteHeaders.Authorization = `Bearer ${token}`;
+      }
 
-      fetch('https://citra.faaruq.com/api/resource/content/ulasan', {
+      await fetch(`${REMOTE_API_BASE}/api/resource/content/ulasan`, {
         method: 'POST',
-        headers: {
-          Authorization: `Bearer ${token}`,
-          Accept: 'application/json',
-        },
-        body: remoteForm,
-      }).catch(() => {});
-    } catch {}
+        headers: remoteHeaders,
+        body: JSON.stringify({
+          rating: Number(payload.rating),
+          komentar: payload.komentar,
+          nama_pengulas: payload.nama_pengulas || 'Pasien',
+          profesi_peran: payload.profesi_peran || 'Keluarga Pasien',
+          layanan_id: payload.layanan_id ? Number(payload.layanan_id) : null
+        })
+      });
+    } catch (remoteErr) {
+      console.warn('Gagal sinkronisasi ulasan ke remote database:', remoteErr?.message);
+    }
 
     return NextResponse.json(
       {

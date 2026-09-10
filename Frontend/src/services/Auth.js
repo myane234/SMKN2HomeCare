@@ -42,7 +42,10 @@ export const loginWithGoogleAPI = async (accessToken) => {
  */
 export async function loginForm(email, password) {
   try {
-    const res = await api.post('/api/login', { email, password });
+    const endpoint = typeof window !== 'undefined' ? '/api/login' : 'https://citra.faaruq.com/api/login';
+    const res = await axios.post(endpoint, { email, password }, {
+      headers: { 'Content-Type': 'application/json' }
+    });
 
     const token = res.data?.token || res.data?.access_token || res.data?.data?.token;
     if (token) {
@@ -54,7 +57,6 @@ export async function loginForm(email, password) {
 
     return res.data;
   } catch (err) {
-    console.error('Login error:', err);
     if (axios.isAxiosError(err) && err.response?.data) {
       const errorObj = new Error(err.response.data.error || err.response.data.message || 'Login gagal');
       errorObj.status = err.response.status;

@@ -297,15 +297,27 @@ export function getPublicUlasanList({ rating, search, per_page, page } = {}) {
   }
 
   const header = getUlasanHeader();
+  const pageNum = Math.max(1, Number(page) || 1);
+  const perPageNum = per_page === 'all' ? (list.length || 10) : Math.max(1, Number(per_page) || 10);
+  const total = list.length;
+  const lastPage = Math.max(1, Math.ceil(total / perPageNum));
+  const startIndex = (pageNum - 1) * perPageNum;
+  const paginatedData = list.slice(startIndex, startIndex + perPageNum);
+  const nextPageUrl =
+    pageNum < lastPage
+      ? `/api/resource/content/ulasan?page=${pageNum + 1}&per_page=${perPageNum}`
+      : null;
 
   return {
     ulasan_heading: header.ulasan_heading,
     ulasan_subheading: header.ulasan_subheading,
     data: {
-      current_page: Number(page) || 1,
-      data: list,
-      total: list.length,
-      per_page: per_page === 'all' ? list.length : Number(per_page) || 10
+      current_page: pageNum,
+      data: paginatedData,
+      last_page: lastPage,
+      per_page: perPageNum,
+      total: total,
+      next_page_url: nextPageUrl
     }
   };
 }

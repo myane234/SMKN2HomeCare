@@ -94,13 +94,15 @@ export default function PageKelolaKontenAbout() {
   }
 
   return (
-    <div className="w-full max-w-screen-2xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-slate-200/80 pb-4">
+    <div className="w-full space-y-6">
+      <div className="mb-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-xl sm:text-2xl font-bold text-slate-900 flex items-center gap-2.5">
-            <FaInfoCircle className="text-primary" /> Tentang Kami
+          <h1 className="page-title flex items-center gap-2.5">
+            <FaInfoCircle className="text-primary" /> Kelola Konten Tentang Kami
           </h1>
-          <p className="text-xs sm:text-sm text-slate-500 mt-1">Pengaturan banner, teks deskripsi, gambar ilustrasi, dan visi-misi Halaman Tentang Kami</p>
+          <p className="page-subtitle">
+            Pengaturan banner, teks deskripsi, gambar ilustrasi, dan visi-misi Halaman Tentang Kami
+          </p>
         </div>
       </div>
 
@@ -117,71 +119,66 @@ export default function PageKelolaKontenAbout() {
         </div>
       )}
 
-      <form onSubmit={handleAboutSubmit} className="bg-white rounded-2xl border border-slate-200/80 p-4 sm:p-6 lg:p-8 shadow-xs space-y-6 sm:space-y-8">
+      <form onSubmit={handleAboutSubmit} className="card p-5 sm:p-7 space-y-6">
         <h2 className="text-base font-semibold text-slate-900 border-b border-slate-200 pb-3 flex items-center gap-2">
           <FaInfoCircle className="text-primary" /> Form Konten Halaman Tentang Kami
         </h2>
 
-
         {/* About Banner Upload */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <div>
+          <div className="p-4 rounded-xl border border-slate-200 bg-slate-50/70 space-y-3">
             <label className="form-label">Banner Header Tentang Kami</label>
-            <div className="flex flex-col items-start gap-3">
-              {aboutBannerPreview ? (
-                <div className="w-full h-32 rounded-xl overflow-hidden border border-slate-200 bg-slate-50 shadow-sm">
-                  <img src={aboutBannerPreview} alt="About Banner" className="w-full h-full object-cover" />
-                </div>
-              ) : (
-                <div className="w-48 h-32 rounded-xl border-2 border-dashed border-slate-200 bg-slate-50 flex flex-col items-center justify-center text-slate-400">
-                  <FaImage size={28} />
-                  <span className="text-xs mt-1">Belum ada gambar</span>
-                </div>
-              )}
-              <input
-                type="file"
-                accept="image/*"
-                onChange={(e) => {
-                  if (e.target.files[0]) {
-                    setAboutBannerFile(e.target.files[0]);
-                    setAboutBannerPreview(URL.createObjectURL(e.target.files[0]));
-                  }
-                }}
-                className="text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-primary-light file:text-primary-dark hover:file:bg-primary-light/80 cursor-pointer"
-              />
-            </div>
+            {aboutBannerPreview ? (
+              <div className="w-full aspect-video rounded-xl overflow-hidden border border-slate-200 bg-white shadow-sm">
+                <img src={aboutBannerPreview} alt="About Banner" className="w-full h-full object-cover" />
+              </div>
+            ) : (
+              <div className="w-full aspect-video rounded-xl border-2 border-dashed border-slate-200 bg-white flex flex-col items-center justify-center text-slate-400">
+                <FaImage size={28} />
+                <span className="text-xs mt-1">Belum ada gambar</span>
+              </div>
+            )}
+            <input
+              type="file"
+              accept="image/*"
+              onChange={(e) => {
+                if (e.target.files[0]) {
+                  setAboutBannerFile(e.target.files[0]);
+                  setAboutBannerPreview(URL.createObjectURL(e.target.files[0]));
+                }
+              }}
+              className="w-full text-xs text-slate-500 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-primary-light file:text-primary-dark hover:file:bg-primary-light/80 cursor-pointer"
+            />
           </div>
 
-          <div>
+          <div className="p-4 rounded-xl border border-slate-200 bg-slate-50/70 space-y-3">
             <label className="form-label">Foto Deskripsi About Us</label>
-            <div className="flex flex-col items-start gap-3">
-              {aboutDescImagePreview ? (
-                <div className="w-full h-32 rounded-xl overflow-hidden border border-slate-200 bg-slate-50 shadow-sm">
-                  <img src={aboutDescImagePreview} alt="About Description" className="w-full h-full object-cover" />
-                </div>
-              ) : (
-                <div className="w-48 h-32 rounded-xl border-2 border-dashed border-slate-200 bg-slate-50 flex flex-col items-center justify-center text-slate-400">
-                  <FaImage size={28} />
-                  <span className="text-xs mt-1">Belum ada foto deskripsi</span>
-                </div>
-              )}
-              <input
-                type="file"
-                accept="image/*"
-                onChange={(e) => {
-                  if (e.target.files[0]) {
-                    setAboutDescImageFile(e.target.files[0]);
-                    setAboutDescImagePreview(URL.createObjectURL(e.target.files[0]));
-                  }
-                }}
-                className="text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-primary-light file:text-primary-dark hover:file:bg-primary-light/80 cursor-pointer"
-              />
-            </div>
+            {aboutDescImagePreview ? (
+              <div className="w-full aspect-video rounded-xl overflow-hidden border border-slate-200 bg-white shadow-sm">
+                <img src={aboutDescImagePreview} alt="About Description" className="w-full h-full object-cover" />
+              </div>
+            ) : (
+              <div className="w-full aspect-video rounded-xl border-2 border-dashed border-slate-200 bg-white flex flex-col items-center justify-center text-slate-400">
+                <FaImage size={28} />
+                <span className="text-xs mt-1">Belum ada foto deskripsi</span>
+              </div>
+            )}
+            <input
+              type="file"
+              accept="image/*"
+              onChange={(e) => {
+                if (e.target.files[0]) {
+                  setAboutDescImageFile(e.target.files[0]);
+                  setAboutDescImagePreview(URL.createObjectURL(e.target.files[0]));
+                }
+              }}
+              className="w-full text-xs text-slate-500 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-primary-light file:text-primary-dark hover:file:bg-primary-light/80 cursor-pointer"
+            />
           </div>
         </div>
 
         {/* Text Fields Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-5 pt-2">
           <div>
             <label className="form-label">Text Banner Header</label>
             <input
@@ -189,7 +186,7 @@ export default function PageKelolaKontenAbout() {
               value={aboutTextBanner}
               onChange={(e) => setAboutTextBanner(e.target.value)}
               placeholder="Contoh: Kenali Kami Lebih Dekat"
-              className="form-input"
+              className="form-input bg-white"
             />
           </div>
 
@@ -200,7 +197,7 @@ export default function PageKelolaKontenAbout() {
               value={aboutDescriptionText}
               onChange={(e) => setAboutDescriptionText(e.target.value)}
               placeholder="Tulis deskripsi sejarah/pendirian SmartHomeCare..."
-              className="form-input resize-none"
+              className="form-input resize-none bg-white"
             />
           </div>
 
@@ -211,7 +208,7 @@ export default function PageKelolaKontenAbout() {
               value={visiMisi}
               onChange={(e) => setVisiMisi(e.target.value)}
               placeholder="Tulis visi dan misi perusahaan..."
-              className="form-input resize-none"
+              className="form-input resize-none bg-white"
             />
           </div>
 
@@ -222,30 +219,30 @@ export default function PageKelolaKontenAbout() {
               value={caraKerja}
               onChange={(e) => setCaraKerja(e.target.value)}
               placeholder="Contoh: 1. Pesan via Web, 2. Nakes Datang..."
-              className="form-input resize-none"
+              className="form-input resize-none bg-white"
             />
           </div>
 
-          <div>
+          <div className="md:col-span-2">
             <label className="form-label">Komitmen Perusahaan</label>
             <textarea
               rows={3}
               value={komitmen}
               onChange={(e) => setKomitmen(e.target.value)}
               placeholder="Tulis komitmen pelayanan kepada pasien..."
-              className="form-input resize-none"
+              className="form-input resize-none bg-white"
             />
           </div>
         </div>
 
-        <div className="pt-2">
+        <div className="flex items-center justify-end pt-4 border-t border-slate-200">
           <button
             type="submit"
             disabled={saving}
-            className="btn-primary flex items-center justify-center gap-2 px-6 py-2.5"
+            className="btn-primary flex items-center justify-center gap-2 px-6 py-2.5 cursor-pointer"
           >
             {saving ? <FaSpinner className="animate-spin" /> : <FaSave />}
-            Simpan Konten Tentang Kami
+            <span>{saving ? "Menyimpan..." : "Simpan Konten Tentang Kami"}</span>
           </button>
         </div>
       </form>

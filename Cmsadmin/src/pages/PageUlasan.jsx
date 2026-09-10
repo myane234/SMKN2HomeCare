@@ -338,15 +338,15 @@ export default function PageUlasan() {
   return (
     <div className="space-y-6">
       {/* Header Page */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      <div className="mb-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-slate-800 flex items-center gap-2.5">
+          <h1 className="page-title flex items-center gap-2.5">
             <span className="p-2 rounded-xl bg-amber-50 text-amber-500">
               <FaStar className="text-xl" />
             </span>
             Kelola Ulasan Pasien & Testimoni
           </h1>
-          <p className="text-xs text-slate-500 mt-1">
+          <p className="page-subtitle">
             Kelola ulasan dari pasien, moderasi tayangan di web, serta atur header section testimoni
           </p>
         </div>
