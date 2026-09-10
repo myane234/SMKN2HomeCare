@@ -29,21 +29,25 @@ const nextConfig = {
     ],
   },
   async rewrites() {
-    return [
-      {
-        source: '/api/:path*',
-        destination: `${apiOrigin}/api/:path*`,
-      },
-      {
-        source: '/sanctum/csrf-cookie',
-        destination: `${apiOrigin}/sanctum/csrf-cookie`,
-      },
-      {
-        // Proxy Laravel storage assets (gambar, file, dll) lewat Next.js
-        source: '/storage/:path*',
-        destination: `${apiOrigin}/storage/:path*`,
-      },
-    ];
+    return {
+      beforeFiles: [],
+      afterFiles: [],
+      fallback: [
+        {
+          source: '/api/:path*',
+          destination: `${apiOrigin}/api/:path*`,
+        },
+        {
+          source: '/sanctum/csrf-cookie',
+          destination: `${apiOrigin}/sanctum/csrf-cookie`,
+        },
+        {
+          // Proxy Laravel storage assets (gambar, file, dll) lewat Next.js
+          source: '/storage/:path*',
+          destination: `${apiOrigin}/storage/:path*`,
+        },
+      ],
+    };
   },
 };
 
