@@ -122,19 +122,21 @@ function PaymentQRContent() {
           payload.dana = {};
         }
 
+        // 1. Hit charge untuk inisiasi pembayaran ke Midtrans
         const response = await api.post('/api/booking/charge', payload);
         const responseBody = response.data || {};
         const resData = responseBody.data || responseBody;
+        
         const vaNumber = resData?.va_numbers?.[0]?.va_number
           || responseBody?.va_numbers?.[0]?.va_number
           || resData?.payment_details?.virtual_account?.va_number
           || resData?.va_number
           || resData?.virtual_number
           || '';
+          
         setPaymentData(resData);
         setVirtualAccountNumber(String(vaNumber));
         
-        // UTAMAKAN nominal dari URL (searchParams). KUNCI agar tidak tertimpa API jika total di URL ada.
         if (urlTotalParam && urlTotalParam > 0) {
           setAmount(urlTotalParam);
         } else {
@@ -144,7 +146,6 @@ function PaymentQRContent() {
           }
         }
 
-        // Cari URL app deeplink khusus aplikasi atau fallback ke url/redirect biasa
         const appDeeplinkUrl = resData?.actions?.find(action => action.name === 'deeplink-redirect')?.url || '';
         const webRedirectUrl = 
           resData?.actions?.[0]?.url || 
@@ -161,12 +162,32 @@ function PaymentQRContent() {
           setFixedQrUrl(finalDeeplink);
         }
         
-        // UTAMAKAN murni dari field booking_code atau code_booking dari response API
-        const pureBookingCode = resData?.booking_code || resData?.code_booking || resData?.order_id || bookingParam;
-        setOrderId(pureBookingCode);
-        if (resData?.booking_code || resData?.code_booking) {
-          setBookingId(resData?.booking_code || resData?.code_booking);
+        // 2. Ambil booking_code asli dari getPaymentDetails untuk ditampilkan di UI
+        // 2. Ambil booking_code dan metode pembayaran asli dari getPaymentDetails untuk ditampilkan di UI
+        try {
+          const detailRes = await api.get(`/api/booking/${bookingParam}/payment-details`);
+          const detailData = detailRes.data?.data || detailRes.data;
+          
+          if (detailData?.booking_code) {
+            setOrderId(detailData.booking_code); // Menampilkan booking_code yang bersih
+          } else {
+            setOrderId(resData?.order_id || bookingParam);
+          }
+          
+          if (detailData?.status_transaksi) {
+            setStatusText(detailData.status_transaksi);
+          }
+
+          // Sinkronkan juga metode pembayaran jika tersedia dari backend
+          if (detailData?.metode_pembayaran) {
+            setMetode(detailData.metode_pembayaran.toLowerCase());
+          }
+        } catch (detailErr) {
+          console.error('Gagal mengambil detail tambahan:', detailErr);
+          setOrderId(resData?.order_id || bookingParam);
         }
+        
+        setBookingId(bookingParam);
         
         const expiryTime = resData.expiry_time || resData.expired_at ? new Date(resData.expiry_time || resData.expired_at) : new Date(Date.now() + 5 * 60 * 1000);
         setExpiredAt(expiryTime);
@@ -178,7 +199,6 @@ function PaymentQRContent() {
         setIsLoadingApi(false);
       }
     };
-
     fetchPaymentInfo();
   }, [bookingParam, metodeParam, urlTotalParam]);
 
