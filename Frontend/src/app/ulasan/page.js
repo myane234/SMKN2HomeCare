@@ -3,6 +3,8 @@
 import { useEffect, useState } from "react";
 import { getUlasan, createUlasan, getUserInfoForUlasan } from "@/services/ulasanService";
 import { getLayanan } from "@/services/layananService";
+import { getProfileFromCookies, fetchAndStoreProfile } from "@/services/profileService";
+import { getAuthToken } from "@/services/cookieHelper";
 import LoginRequiredModal from "@/components/LoginRequiredModal";
 import {
   FiStar,
@@ -17,14 +19,12 @@ import {
   FiChevronLeft,
   FiChevronRight,
   FiLogIn,
-  FiAlertCircle,
-  FiLoader
+  FiAlertCircle
 } from "react-icons/fi";
 
 export default function UlasanPage() {
   const [ulasanList, setUlasanList] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [loadingMore, setLoadingMore] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [successMsg, setSuccessMsg] = useState("");
   const [errorMsg, setErrorMsg] = useState("");
@@ -64,12 +64,8 @@ export default function UlasanPage() {
   });
 
   // Memuat ulasan dari API database dengan pagination dan filter
-  const fetchUlasanData = async (page = 1, rating = starFilter, append = false) => {
-    if (append) {
-      setLoadingMore(true);
-    } else {
-      setLoading(true);
-    }
+  const fetchUlasanData = async (page = 1, rating = starFilter) => {
+    setLoading(true);
 
     try {
       const params = {
@@ -90,11 +86,7 @@ export default function UlasanPage() {
       }
 
       const newItems = res.items || [];
-      if (append) {
-        setUlasanList((prev) => [...prev, ...newItems]);
-      } else {
-        setUlasanList(newItems);
-      }
+      setUlasanList(newItems);
 
       if (res.pagination) {
         setPagination(res.pagination);
@@ -103,14 +95,66 @@ export default function UlasanPage() {
       console.error("Gagal memuat ulasan dari database:", err);
     } finally {
       setLoading(false);
-      setLoadingMore(false);
     }
+  };
+
+  // Helper: tarik data user dari cookies sebagai fallback tercepat
+  const pullUserFromCookies = () => {
+    try {
+      const getCookie = (name) => {
+        if (typeof document === "undefined") return null;
+        const match = document.cookie.match(new RegExp(`(^| )${name}=([^;]+)`));
+        return match ? decodeURIComponent(match[2]) : null;
+      };
+      const hasToken = Boolean(getAuthToken());
+      const cookieProfile = getProfileFromCookies();
+      const directEmail = getCookie("profile_email") || getCookie("user_email") || "";
+      const directNama = getCookie("profile_nama") || getCookie("user_nama") || "";
+
+      const user = cookieProfile?.user || {};
+      const pasien = cookieProfile?.pasien || {};
+      const email = user.email || directEmail || "";
+      const nama = pasien.nama_lengkap || user.nama || user.name || directNama || "";
+
+      if (hasToken && (email || nama)) {
+        return {
+          email,
+          nama_pengulas: nama,
+          profesi_peran: pasien.peran || user.role || "Keluarga Pasien"
+        };
+      }
+    } catch (cErr) {
+      console.warn("Gagal baca cookie profile:", cErr);
+    }
+    return null;
   };
 
   // 1. Inisialisasi Data & Cek Login Status
   useEffect(() => {
     async function initData() {
-      // Cek login & auto-load user info untuk prefill form ulasan
+      // Step 0: Cek cepat dari cookies terlebih dahulu untuk UX instan
+      const cookieUser = pullUserFromCookies();
+      if (cookieUser) {
+        setIsLoggedIn(true);
+        setUserInfo(cookieUser);
+        setForm((prev) => ({
+          ...prev,
+          email: cookieUser.email || prev.email,
+          nama_pengulas: cookieUser.nama_pengulas || prev.nama_pengulas,
+          profesi_peran: cookieUser.profesi_peran || prev.profesi_peran
+        }));
+      }
+
+      // Step 1: Coba refresh profile dari backend (jika cookie ada)
+      try {
+        if (getAuthToken()) {
+          await fetchAndStoreProfile();
+        }
+      } catch (fpErr) {
+        console.warn("Gagal refresh profile dari backend:", fpErr);
+      }
+
+      // Step 2: Cek login & auto-load user info via API route (akurat)
       try {
         const uInfo = await getUserInfoForUlasan();
         if (uInfo && (uInfo.email || uInfo.nama_pengulas)) {
@@ -118,16 +162,18 @@ export default function UlasanPage() {
           setUserInfo(uInfo);
           setForm((prev) => ({
             ...prev,
-            email: uInfo.email || "",
-            nama_pengulas: uInfo.nama_pengulas || "",
+            email: uInfo.email || prev.email,
+            nama_pengulas: uInfo.nama_pengulas || prev.nama_pengulas,
             profesi_peran: uInfo.profesi_peran || prev.profesi_peran
           }));
-        } else {
+        } else if (!cookieUser) {
           setIsLoggedIn(false);
           setUserInfo(null);
         }
       } catch {
-        setIsLoggedIn(false);
+        if (!cookieUser) {
+          setIsLoggedIn(false);
+        }
       }
 
       // Ambil Master Data Layanan untuk dropdown ulasan
@@ -139,7 +185,7 @@ export default function UlasanPage() {
       }
 
       // Load ulasan publik dari database API
-      await fetchUlasanData(1, "all", false);
+      await fetchUlasanData(1, "all");
     }
 
     initData();
@@ -148,24 +194,17 @@ export default function UlasanPage() {
   // Ubah Filter Bintang
   const handleFilterChange = async (ratingVal) => {
     setStarFilter(ratingVal);
-    await fetchUlasanData(1, ratingVal, false);
+    await fetchUlasanData(1, ratingVal);
   };
 
   // Navigasi Paginasi Nomor Halaman
   const handlePageChange = async (newPage) => {
     if (newPage < 1 || newPage > pagination.last_page || loading) return;
-    await fetchUlasanData(newPage, starFilter, false);
+    await fetchUlasanData(newPage, starFilter);
     const el = document.getElementById("daftar-ulasan");
     if (el) {
       el.scrollIntoView({ behavior: "smooth", block: "start" });
     }
-  };
-
-  // Tombol "Lihat Selengkapnya" tanpa Refresh Page (Pagination API)
-  const handleLoadMore = async () => {
-    if (pagination.current_page >= pagination.last_page || loadingMore) return;
-    const nextPage = pagination.current_page + 1;
-    await fetchUlasanData(nextPage, starFilter, true);
   };
 
   // Format Tanggal & Waktu (Date & Time)
@@ -236,7 +275,7 @@ export default function UlasanPage() {
       }));
 
       // Segarkan daftar ulasan dari database tanpa refresh page
-      await fetchUlasanData(1, starFilter, false);
+      await fetchUlasanData(1, starFilter);
     } catch (err) {
       if (err?.status === 401 || err?.response?.status === 401) {
         setIsLoggedIn(false);
@@ -252,8 +291,6 @@ export default function UlasanPage() {
       setSubmitting(false);
     }
   };
-
-  const hasMore = pagination.current_page < pagination.last_page;
 
   return (
     <div className="min-h-screen bg-slate-50/70 font-sans text-slate-800 py-5 sm:py-8 px-3 sm:px-5 lg:px-6">
@@ -630,30 +667,8 @@ export default function UlasanPage() {
             </div>
           )}
 
-          {/* Section Paginasi & Lihat Selengkapnya */}
+          {/* Section Paginasi Nomor Halaman */}
           <div className="pt-2 space-y-2.5">
-            {/* Tombol Lihat Selengkapnya */}
-            {hasMore && (
-              <div className="text-center">
-                <button
-                  type="button"
-                  onClick={handleLoadMore}
-                  disabled={loadingMore}
-                  className="inline-flex items-center gap-1 px-4 py-1.5 rounded-xl border border-slate-200 bg-white text-[11px] font-semibold text-slate-700 hover:bg-slate-50 hover:border-slate-300 shadow-2xs transition cursor-pointer disabled:opacity-50 active:scale-95"
-                >
-                  {loadingMore ? (
-                    <>
-                      <FiLoader className="animate-spin text-sky-600 text-xs" /> Memuat...
-                    </>
-                  ) : (
-                    <>
-                      <FiChevronDown className="text-xs" /> Lihat Selengkapnya ({pagination.total - ulasanList.length} lagi)
-                    </>
-                  )}
-                </button>
-              </div>
-            )}
-
             {/* Paginasi Nomor Halaman */}
             {pagination.last_page > 1 && (
               <div className="flex flex-col sm:flex-row items-center justify-between gap-2 pt-2 border-t border-slate-200/60 text-[10px] sm:text-[11px] text-slate-500">

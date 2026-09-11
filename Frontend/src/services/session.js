@@ -6,12 +6,14 @@ export async function createSession(responseData) {
   const data = responseData?.data || responseData;
   const token = data?.token || responseData?.token || data?.access_token || responseData?.access_token;
   const roles = data?.roles || responseData?.roles || data?.user?.roles;
-  const nama = data?.nama || data?.user?.nama || responseData?.nama;
+  const email = data?.email || data?.user?.email || responseData?.email;
 
   console.log("Token yang ditangkap:", token); // <-- Cek di terminal server apakah tokennya ada
 
+  const cookieStore = await cookies();
+
   if (token) {
-    (await cookies()).set("auth_token", token, {
+    cookieStore.set("auth_token", token, {
       httpOnly: false, // Supaya bisa dibaca document.cookie
       secure: process.env.NODE_ENV === "production",
       path: "/",
@@ -20,7 +22,7 @@ export async function createSession(responseData) {
   }
 
   if (roles) {
-    (await cookies()).set("user_roles", JSON.stringify(roles), {
+    cookieStore.set("user_roles", JSON.stringify(roles), {
       httpOnly: false,
       secure: process.env.NODE_ENV === "production",
       path: "/",
@@ -29,7 +31,50 @@ export async function createSession(responseData) {
   }
   
   if (nama) {
-    (await cookies()).set("user_nama", nama, {
+    cookieStore.set("user_nama", nama, {
+      httpOnly: false,
+      secure: process.env.NODE_ENV === "production",
+      path: "/",
+      maxAge: 60 * 60 * 24 * 7,
+    });
+    cookieStore.set("profile_nama", encodeURIComponent(nama), {
+      httpOnly: false,
+      secure: process.env.NODE_ENV === "production",
+      path: "/",
+      maxAge: 60 * 60 * 24 * 7,
+    });
+  }
+
+  if (email) {
+    cookieStore.set("user_email", email, {
+      httpOnly: false,
+      secure: process.env.NODE_ENV === "production",
+      path: "/",
+      maxAge: 60 * 60 * 24 * 7,
+    });
+    cookieStore.set("profile_email", encodeURIComponent(email), {
+      httpOnly: false,
+      secure: process.env.NODE_ENV === "production",
+      path: "/",
+      maxAge: 60 * 60 * 24 * 7,
+    });
+  }
+
+  // Buat synthesized profile awal jika profile belum lengkap dari backend
+  if (email || nama) {
+    const syntheticProfile = {
+      user: {
+        email: email || "",
+        nama: nama || "",
+        name: nama || ""
+      },
+      pasien: {
+        nama_lengkap: nama || "",
+        no_hp: data?.no_hp || data?.pasien?.no_hp || ""
+      },
+      roles: Array.isArray(roles) ? roles : [roles || "pasien"]
+    };
+    cookieStore.set("user_profile", encodeURIComponent(JSON.stringify(syntheticProfile)), {
       httpOnly: false,
       secure: process.env.NODE_ENV === "production",
       path: "/",
@@ -37,7 +82,7 @@ export async function createSession(responseData) {
     });
   }
   
-  (await cookies()).set("is_logged_in", "true", {
+  cookieStore.set("is_logged_in", "true", {
     httpOnly: false,
     secure: process.env.NODE_ENV === "production",
     path: "/",

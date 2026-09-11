@@ -17,40 +17,67 @@ const getClient = () => {
   return api;
 };
 
-export const DEFAULT_ULASAN = [
-  {
-    id_ulasan: 1,
-    nama_pasien: "Siti Rahmawati",
-    profesi_peran: "Keluarga Pasien",
-    rating: 5,
-    layanan: "Perawat Lansia",
-    layanan_id: 1,
-    komentar: "Pelayanan perawat sangat telaten dan ramah.",
-    foto_url: null,
-    created_at: "2026-09-10T04:29:51.000000Z"
-  }
-];
-
 /**
  * Auto Load Data User untuk Prefill & Disable Email di Form Ulasan
+ * Menarik data dari endpoint API route /api/resource/content/ulasan/user-info
+ * yang sudah menangani cookie session & backend profile secara konsisten.
  */
 export const getUserInfoForUlasan = async () => {
   const token = getAuthToken();
   if (!token) return null;
 
   try {
+    const client = getClient();
+    const res = await client.get("/api/resource/content/ulasan/user-info", {
+      headers: { Accept: "application/json" }
+    });
+    const payload = res?.data?.data || res?.data;
+    if (payload && (payload.email || payload.nama_pengulas)) {
+      return {
+        email: payload.email || "",
+        nama_pengulas: payload.nama_pengulas || "",
+        profesi_peran: payload.profesi_peran || "Pasien",
+        foto_url: payload.foto_url || null
+      };
+    }
+  } catch (routeErr) {
+    console.warn("Gagal dari route user-info, fallback ke profileService:", routeErr?.message);
+  }
+
+  try {
     const profileRes = await getProfileMe();
     const profile = profileRes?.data || profileRes;
     if (profile && (profile.email || profile.nama_lengkap || profile.nama)) {
+      const user = profile.user || profile;
+      const pasien = profile.pasien || {};
       return {
-        email: profile.email || "",
-        nama_pengulas: profile.nama_lengkap || profile.nama || "",
+        email: user.email || profile.email || "",
+        nama_pengulas: pasien.nama_lengkap || user.nama_lengkap || user.nama || profile.nama || "",
         profesi_peran: profile.peran || profile.role || "Pasien"
       };
     }
   } catch (error) {
     console.warn("Gagal memuat profil user untuk form ulasan:", error?.message);
   }
+
+  // Fallback 3: Baca langsung dari cookies browser
+  if (typeof document !== "undefined") {
+    const getCookie = (name) => {
+      const match = document.cookie.match(new RegExp(`(^| )${name}=([^;]+)`));
+      return match ? decodeURIComponent(match[2]) : null;
+    };
+    const cEmail = getCookie("profile_email") || getCookie("user_email");
+    const cNama = getCookie("profile_nama") || getCookie("user_nama");
+    if (cEmail || cNama) {
+      return {
+        email: cEmail || "",
+        nama_pengulas: cNama || "Pasien",
+        profesi_peran: "Keluarga Pasien",
+        foto_url: getCookie("profile_avatar") || null
+      };
+    }
+  }
+
   return null;
 };
 
@@ -115,12 +142,12 @@ export const getUlasan = async (params = {}) => {
       ulasan_heading: "Apa Kata Mereka tentang Kami",
       ulasan_subheading:
         "Ulasan jujur dari pasien dan keluarga yang telah menggunakan layanan Home Care kami.",
-      items: DEFAULT_ULASAN,
+      items: [],
       pagination: {
         current_page: 1,
         last_page: 1,
-        per_page: DEFAULT_ULASAN.length,
-        total: DEFAULT_ULASAN.length,
+        per_page: 0,
+        total: 0,
         next_page_url: null
       }
     };

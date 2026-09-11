@@ -1,7 +1,34 @@
 import fs from 'fs';
 import path from 'path';
+import { fileURLToPath } from 'url';
 
-const DATA_FILE = path.join(process.cwd(), 'src', 'data', 'cms_mock_store.json');
+function getDataFile() {
+  const candidates = [];
+  try {
+    const __filename = fileURLToPath(import.meta.url);
+    const __dirname = path.dirname(__filename);
+    if (__dirname && !__dirname.includes('[turbopack') && !__dirname.includes('turbopack/') && !__dirname.includes('/.next/')) {
+      candidates.push(path.resolve(__dirname, '..', 'data', 'cms_mock_store.json'));
+    }
+  } catch (_) {}
+  const cwd = process.cwd();
+  candidates.push(path.join(cwd, 'Frontend', 'src', 'data', 'cms_mock_store.json'));
+  candidates.push(path.join(cwd, 'src', 'data', 'cms_mock_store.json'));
+  candidates.push(path.resolve(cwd, '..', 'Frontend', 'src', 'data', 'cms_mock_store.json'));
+  let existing = [];
+  for (let i = 0; i < candidates.length; i++) {
+    const p = candidates[i];
+    if (fs.existsSync(p)) existing.push(p);
+  }
+  existing.sort(function (a, b) {
+    return fs.statSync(b).size - fs.statSync(a).size;
+  });
+  if (existing[0]) return existing[0];
+  for (const p of candidates) {
+    if (p.includes('Frontend')) return p;
+  }
+  return candidates[0];
+}
 
 const DEFAULT_STORE = {
   hubungi_settings: {
@@ -58,83 +85,11 @@ const DEFAULT_STORE = {
     ulasan_heading: "Apa Kata Mereka tentang Kami",
     ulasan_subheading: "Ulasan jujur dari pasien dan keluarga yang telah menggunakan layanan Home Care kami."
   },
-  ulasan_list: [
-    {
-      id: 1,
-      nama_pengulas: "Budi Santoso",
-      profesi_peran: "Keluarga Pasien",
-      foto: null,
-      foto_url: null,
-      rating: 5,
-      komentar: "Pelayanan perawat sangat ramah dan profesional. Ayah saya yang baru pulang dari rumah sakit merasa sangat terbantu dan nyaman dirawat di rumah.",
-      layanan_id: 2,
-      is_published: true,
-      urutan: 1,
-      created_at: "2026-09-01T14:00:00.000000Z",
-      updated_at: "2026-09-01T14:00:00.000000Z",
-      layanan: {
-        id_master_layanan: 2,
-        nama_layanan: "Fisioterapi Rumah"
-      }
-    },
-    {
-      id: 2,
-      nama_pengulas: "Siti Rahma",
-      profesi_peran: "Pasien Lansia",
-      foto: null,
-      foto_url: null,
-      rating: 5,
-      komentar: "Pelayanan sangat memuaskan, perawat datang tepat waktu dan telaten sekali saat mengganti perban pasca operasi.",
-      layanan_id: 1,
-      is_published: true,
-      urutan: 2,
-      created_at: "2026-09-02T11:20:00.000000Z",
-      updated_at: "2026-09-02T11:20:00.000000Z",
-      layanan: {
-        id_master_layanan: 1,
-        nama_layanan: "Perawatan Luka Medis"
-      }
-    },
-    {
-      id: 3,
-      nama_pengulas: "Hendro Gunawan",
-      profesi_peran: "Anak Pasien",
-      foto: null,
-      foto_url: null,
-      rating: 4,
-      komentar: "Sangat responsif! Pagi pesan layanan via website, siangnya perawat sudah tiba di rumah membawa perlengkapan medis lengkap.",
-      layanan_id: 3,
-      is_published: true,
-      urutan: 3,
-      created_at: "2026-09-03T08:45:00.000000Z",
-      updated_at: "2026-09-03T08:45:00.000000Z",
-      layanan: {
-        id_master_layanan: 3,
-        nama_layanan: "Pendampingan Pasien 24 Jam"
-      }
-    },
-    {
-      id: 4,
-      nama_pengulas: "Dewi Lestari",
-      profesi_peran: "Ibu Pasien Balita",
-      foto: null,
-      foto_url: null,
-      rating: 5,
-      komentar: "Bidan yang datang sangat sabar memandikan bayi baru lahir dan memberikan edukasi menyusui yang bermanfaat untuk saya sebagai ibu baru.",
-      layanan_id: 4,
-      is_published: false,
-      urutan: 4,
-      created_at: "2026-09-03T16:00:00.000000Z",
-      updated_at: "2026-09-03T16:00:00.000000Z",
-      layanan: {
-        id_master_layanan: 4,
-        nama_layanan: "Pijat & Perawatan Bayi"
-      }
-    }
-  ]
+  ulasan_list: []
 };
 
 function readStore() {
+  const DATA_FILE = getDataFile();
   try {
     if (!fs.existsSync(DATA_FILE)) {
       const dir = path.dirname(DATA_FILE);
@@ -147,12 +102,13 @@ function readStore() {
     const raw = fs.readFileSync(DATA_FILE, 'utf-8');
     return JSON.parse(raw);
   } catch (err) {
-    console.error('Error reading cms_mock_store.json:', err);
+    console.error('Error reading cms_mock_store.json at:', DATA_FILE, err);
     return DEFAULT_STORE;
   }
 }
 
 function writeStore(store) {
+  const DATA_FILE = getDataFile();
   try {
     const dir = path.dirname(DATA_FILE);
     if (!fs.existsSync(dir)) {
@@ -160,7 +116,7 @@ function writeStore(store) {
     }
     fs.writeFileSync(DATA_FILE, JSON.stringify(store, null, 2), 'utf-8');
   } catch (err) {
-    console.error('Error writing cms_mock_store.json:', err);
+    console.error('Error writing cms_mock_store.json at:', DATA_FILE, err);
   }
 }
 

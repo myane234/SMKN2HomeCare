@@ -7,19 +7,23 @@ const REMOTE_API_BASE = process.env.NEXT_PUBLIC_API_URL || 'https://citra.faaruq
 export async function GET(request) {
   const { searchParams } = new URL(request.url);
 
-  // 1. Coba ambil langsung dari database backend API resmi
   try {
     const remoteUrl = new URL(`${REMOTE_API_BASE}/api/resource/content/ulasan`);
     searchParams.forEach((val, key) => {
       remoteUrl.searchParams.set(key, val);
     });
 
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 6000);
+
     const remoteRes = await fetch(remoteUrl.toString(), {
       headers: {
         Accept: 'application/json'
       },
-      cache: 'no-store'
+      cache: 'no-store',
+      signal: controller.signal
     });
+    clearTimeout(timeoutId);
 
     if (remoteRes.ok) {
       const data = await remoteRes.json();
@@ -34,7 +38,12 @@ export async function GET(request) {
       }
     }
   } catch (err) {
-    console.warn('Gagal memuat ulasan dari remote database, fallback ke local:', err?.message);
+    const isTimeout = err?.name === 'AbortError' || /timeout|abort/i.test(err?.message || '');
+    if (isTimeout) {
+      console.warn('Remote ulasan API timeout (6s), fallback ke local store');
+    } else {
+      console.warn('Gagal memuat ulasan dari remote database, fallback ke local:', err?.message);
+    }
   }
 
   // 2. Fallback jika remote database tidak memiliki data atau tidak bisa diakses

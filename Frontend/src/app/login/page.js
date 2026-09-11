@@ -6,6 +6,7 @@ import { GoogleOAuthProvider, useGoogleLogin } from "@react-oauth/google";
 import { useRouter } from "next/navigation";
 import { loginForm, loginWithGoogleAPI } from "@/services/Auth.js";
 import { createSession } from "@/services/session.js";
+import { fetchAndStoreProfile } from "@/services/profileService";
 import { FaShieldAlt } from "react-icons/fa";
 
 // Path logo langsung merujuk ke folder public
@@ -84,6 +85,9 @@ export default function MasukPage() {
     try {
       const data = await loginForm(email, password);
       await createSession(data);
+      try {
+        await fetchAndStoreProfile();
+      } catch {}
       redirectAfterLogin(data);
     } catch (err) {
       const msg = String(err.message || "").toLowerCase();
@@ -116,6 +120,9 @@ export default function MasukPage() {
     try {
       const data = await loginWithGoogleAPI(accessToken);
       await createSession(data);
+      try {
+        await fetchAndStoreProfile();
+      } catch {}
       redirectAfterLogin(data);
     } catch (e) {
       console.error(e);
