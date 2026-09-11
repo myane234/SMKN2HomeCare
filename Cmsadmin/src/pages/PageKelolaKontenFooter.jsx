@@ -85,13 +85,15 @@ export default function PageKelolaKontenFooter() {
   }
 
   return (
-    <div className="w-full max-w-screen-2xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-slate-200/80 pb-4">
+    <div className="w-full space-y-6">
+      <div className="mb-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-xl sm:text-2xl font-bold text-slate-900 flex items-center gap-2.5">
-            <FaGlobe className="text-primary" /> Footer
+          <h1 className="page-title flex items-center gap-2.5">
+            <FaGlobe className="text-primary" /> Kelola Konten Footer
           </h1>
-          <p className="text-xs sm:text-sm text-slate-500 mt-1">Pengaturan informasi kontak, alamat kantor, deskripsi singkat, dan tautan media sosial</p>
+          <p className="page-subtitle">
+            Pengaturan informasi kontak, alamat kantor, deskripsi singkat, dan tautan media sosial
+          </p>
         </div>
       </div>
 
@@ -108,12 +110,12 @@ export default function PageKelolaKontenFooter() {
         </div>
       )}
 
-      <form onSubmit={handleFooterSubmit} className="bg-white rounded-2xl border border-slate-200/80 p-4 sm:p-6 lg:p-8 shadow-xs space-y-6">
+      <form onSubmit={handleFooterSubmit} className="card p-5 sm:p-7 space-y-6">
         <h2 className="text-base font-semibold text-slate-900 border-b border-slate-200 pb-3 flex items-center gap-2">
           <FaGlobe className="text-primary" /> Form Konten Footer Web
         </h2>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
           <div className="md:col-span-2">
             <label className="form-label">Deskripsi Footer</label>
             <textarea
@@ -121,7 +123,7 @@ export default function PageKelolaKontenFooter() {
               value={footerDescription}
               onChange={(e) => setFooterDescription(e.target.value)}
               placeholder="Contoh: Solusi kesehatan keluarga terpercaya langsung di rumah Anda."
-              className="form-input resize-none"
+              className="form-input resize-none bg-white"
             />
           </div>
 
@@ -132,7 +134,7 @@ export default function PageKelolaKontenFooter() {
               value={footerPhone}
               onChange={(e) => setFooterPhone(e.target.value)}
               placeholder="Contoh: 021-99998888 / 08123456789"
-              className="form-input"
+              className="form-input bg-white"
             />
           </div>
 
@@ -143,7 +145,7 @@ export default function PageKelolaKontenFooter() {
               value={footerEmail}
               onChange={(e) => setFooterEmail(e.target.value)}
               placeholder="Contoh: info@homecare.com"
-              className="form-input"
+              className="form-input bg-white"
             />
           </div>
 
@@ -154,14 +156,14 @@ export default function PageKelolaKontenFooter() {
               value={footerAddress}
               onChange={(e) => setFooterAddress(e.target.value)}
               placeholder="Contoh: Ruko Sentra Medika, Blok B No. 9, Jakarta"
-              className="form-input resize-none"
+              className="form-input resize-none bg-white"
             />
           </div>
         </div>
 
         {/* Social Media Links Editor */}
-        <div className="p-4 sm:p-6 rounded-xl border border-slate-200 bg-slate-50/60 space-y-4">
-          <div className="flex items-center justify-between border-b border-slate-200 pb-2.5">
+        <div className="p-4 sm:p-5 rounded-xl border border-slate-200 bg-slate-50/70 space-y-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-slate-200 pb-2.5 gap-2">
             <div>
               <span className="font-semibold text-slate-800 text-sm">Tautan Media Sosial</span>
               <p className="text-xs text-slate-500">Kelola akun medsos yang ditampilkan di footer</p>
@@ -169,7 +171,7 @@ export default function PageKelolaKontenFooter() {
             <button
               type="button"
               onClick={handleAddSocial}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg bg-primary text-white hover:bg-primary-dark transition shadow-sm"
+              className="inline-flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-semibold rounded-lg bg-primary text-white hover:bg-primary-dark transition shadow-xs cursor-pointer self-start sm:self-auto"
             >
               <FaPlus size={12} /> Tambah Medsos
             </button>
@@ -188,7 +190,7 @@ export default function PageKelolaKontenFooter() {
                       value={soc.name || ''}
                       onChange={(e) => handleSocialChange(idx, 'name', e.target.value)}
                       placeholder="Facebook / Instagram / TikTok"
-                      className="form-input text-xs"
+                      className="form-input text-xs bg-white"
                     />
                   </div>
                   <div className="w-full sm:w-1/3">
@@ -198,7 +200,7 @@ export default function PageKelolaKontenFooter() {
                       value={soc.icon || ''}
                       onChange={(e) => handleSocialChange(idx, 'icon', e.target.value)}
                       placeholder="fa-facebook / fa-instagram"
-                      className="form-input text-xs"
+                      className="form-input text-xs bg-white"
                     />
                   </div>
                   <div className="w-full sm:w-1/3">
@@ -208,13 +210,13 @@ export default function PageKelolaKontenFooter() {
                       value={soc.url || ''}
                       onChange={(e) => handleSocialChange(idx, 'url', e.target.value)}
                       placeholder="https://facebook.com/..."
-                      className="form-input text-xs"
+                      className="form-input text-xs bg-white"
                     />
                   </div>
                   <button
                     type="button"
                     onClick={() => handleRemoveSocial(idx)}
-                    className="mt-2 sm:mt-5 p-2 text-danger hover:bg-danger-bg rounded-lg transition self-end sm:self-center"
+                    className="mt-2 sm:mt-5 p-2 text-danger hover:bg-danger-bg rounded-lg transition self-end sm:self-center cursor-pointer"
                     title="Hapus Media Sosial"
                   >
                     <FaTrash size={14} />
@@ -225,14 +227,14 @@ export default function PageKelolaKontenFooter() {
           )}
         </div>
 
-        <div className="pt-2">
+        <div className="flex items-center justify-end pt-4 border-t border-slate-200">
           <button
             type="submit"
             disabled={saving}
-            className="btn-primary flex items-center justify-center gap-2 px-6 py-2.5"
+            className="btn-primary flex items-center justify-center gap-2 px-6 py-2.5 cursor-pointer"
           >
             {saving ? <FaSpinner className="animate-spin" /> : <FaSave />}
-            Simpan Konten Footer
+            <span>{saving ? "Menyimpan..." : "Simpan Konten Footer"}</span>
           </button>
         </div>
       </form>

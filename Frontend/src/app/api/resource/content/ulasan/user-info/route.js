@@ -40,14 +40,9 @@ export async function GET(request) {
         cache: 'no-store',
       });
 
-      if (remoteRes.status === 401) {
-        return NextResponse.json(
-          { message: 'Unauthenticated.' },
-          { status: 401 }
-        );
-      }
-
-      if (remoteRes.ok) {
+      if (!remoteRes.ok) {
+        console.warn('Backend /api/profile/me returned status:', remoteRes.status, '- attempting cookie session fallback');
+      } else {
         const body = await remoteRes.json();
         const profileData = body?.data || body;
         if (profileData) {
@@ -81,7 +76,7 @@ export async function GET(request) {
     if (!userInfo) {
       const cookieStore = await cookies();
       const profileCookie = cookieStore.get('user_profile')?.value;
-      const emailCookie = cookieStore.get('profile_email')?.value;
+      const emailCookie = cookieStore.get('profile_email')?.value || cookieStore.get('user_email')?.value;
       const namaCookie = cookieStore.get('profile_nama')?.value || cookieStore.get('user_nama')?.value;
 
       if (profileCookie || emailCookie || namaCookie) {

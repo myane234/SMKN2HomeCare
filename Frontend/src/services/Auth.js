@@ -15,11 +15,23 @@ export const loginWithGoogleAPI = async (accessToken) => {
     // { success, message, token, user, roles, is_profile_complete }
     const token = res.data?.token || res.data?.access_token || res.data?.data?.token;
 
+    const user = res.data?.user || res.data?.data?.user;
+    const userEmail = user?.email || res.data?.email;
+    const userNama = user?.nama || user?.name || res.data?.nama;
+
     if (token) {
       document.cookie = `auth_token=${token}; path=/; max-age=604800; SameSite=Lax`;
-      if (typeof window !== 'undefined') {
-        window.dispatchEvent(new Event('auth:state-change'));
-      }
+    }
+    if (userEmail) {
+      document.cookie = `profile_email=${encodeURIComponent(userEmail)}; path=/; max-age=604800; SameSite=Lax`;
+      document.cookie = `user_email=${encodeURIComponent(userEmail)}; path=/; max-age=604800; SameSite=Lax`;
+    }
+    if (userNama) {
+      document.cookie = `profile_nama=${encodeURIComponent(userNama)}; path=/; max-age=604800; SameSite=Lax`;
+      document.cookie = `user_nama=${encodeURIComponent(userNama)}; path=/; max-age=604800; SameSite=Lax`;
+    }
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new Event('auth:state-change'));
     }
 
     return res.data;
@@ -42,19 +54,33 @@ export const loginWithGoogleAPI = async (accessToken) => {
  */
 export async function loginForm(email, password) {
   try {
-    const res = await api.post('/api/login', { email, password });
+    const endpoint = typeof window !== 'undefined' ? '/api/login' : 'https://citra.faaruq.com/api/login';
+    const res = await axios.post(endpoint, { email, password }, {
+      headers: { 'Content-Type': 'application/json' }
+    });
 
-    const token = res.data?.token || res.data?.access_token || res.data?.data?.token;
+    const data = res.data?.data || res.data;
+    const token = res.data?.token || res.data?.access_token || data?.token;
+    const userEmail = data?.email || res.data?.email || email;
+    const userNama = data?.nama || res.data?.nama || data?.user?.nama;
+
     if (token) {
       document.cookie = `auth_token=${token}; path=/; max-age=604800; SameSite=Lax`;
-      if (typeof window !== 'undefined') {
-        window.dispatchEvent(new Event('auth:state-change'));
-      }
+    }
+    if (userEmail) {
+      document.cookie = `profile_email=${encodeURIComponent(userEmail)}; path=/; max-age=604800; SameSite=Lax`;
+      document.cookie = `user_email=${encodeURIComponent(userEmail)}; path=/; max-age=604800; SameSite=Lax`;
+    }
+    if (userNama) {
+      document.cookie = `profile_nama=${encodeURIComponent(userNama)}; path=/; max-age=604800; SameSite=Lax`;
+      document.cookie = `user_nama=${encodeURIComponent(userNama)}; path=/; max-age=604800; SameSite=Lax`;
+    }
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new Event('auth:state-change'));
     }
 
     return res.data;
   } catch (err) {
-    console.error('Login error:', err);
     if (axios.isAxiosError(err) && err.response?.data) {
       const errorObj = new Error(err.response.data.error || err.response.data.message || 'Login gagal');
       errorObj.status = err.response.status;

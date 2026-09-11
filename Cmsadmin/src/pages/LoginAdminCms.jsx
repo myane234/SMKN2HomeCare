@@ -36,26 +36,58 @@ export default function LoginAdminCms() {
     }
   }
 
+  const fillDemoAccount = (role) => {
+    if (role === 'super') {
+      setForm({ email: 'admin@gmail.com', password: 'faruqganteng' });
+    } else {
+      setForm({ email: 'faruq@homecare.com', password: 'faruqganteng' });
+    }
+    setError('');
+  };
+
   const renderLoginForm = () => (
-    <div className="w-full bg-white rounded-3xl p-6 sm:p-8 shadow-2xl border border-slate-100">
+    <div className="w-full bg-white rounded-2xl sm:rounded-3xl p-5 sm:p-8 shadow-xl border border-slate-100">
       <div className="mb-4 flex items-center justify-start">
         <img src={logo} alt="Smartcare" className="h-8 sm:h-10 w-auto object-contain" />
       </div>
 
-      <h2 className="text-2xl font-black text-slate-800 mb-1">Selamat Datang</h2>
-      <p className="mb-5 text-xs sm:text-sm text-slate-500 font-medium">
+      <h2 className="text-xl sm:text-2xl font-black text-slate-800 mb-1">Selamat Datang</h2>
+      <p className="mb-4 text-xs sm:text-sm text-slate-500 font-medium">
         Masuk ke panel admin CMS HomeCare
       </p>
+
+      {/* Quick Fill Demo Akun */}
+      <div className="mb-4 p-3 rounded-xl bg-slate-50 border border-slate-200/80 space-y-2">
+        <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block">
+          Pilih Akun Terdaftar:
+        </span>
+        <div className="grid grid-cols-2 gap-2">
+          <button
+            type="button"
+            onClick={() => fillDemoAccount('super')}
+            className="px-2.5 py-1.5 rounded-lg border border-sky-200 bg-sky-50/70 hover:bg-sky-100 text-[11px] font-semibold text-sky-700 transition cursor-pointer text-center"
+          >
+            Super Admin
+          </button>
+          <button
+            type="button"
+            onClick={() => fillDemoAccount('admin')}
+            className="px-2.5 py-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-100 text-[11px] font-semibold text-slate-700 transition cursor-pointer text-center"
+          >
+            Admin Konten
+          </button>
+        </div>
+      </div>
 
       <form onSubmit={handleSubmit} className="flex flex-col">
         <label className="text-xs font-bold text-slate-600 mb-1.5">Email</label>
         <input
           type="email"
           name="email"
-          placeholder="admin@smarthomecare.com"
+          placeholder="admin@gmail.com"
           value={form.email}
           onChange={handleChange}
-          className="w-full px-4 py-3 rounded-xl border border-slate-200 mb-3.5 text-sm focus:border-sky-500 outline-none transition bg-slate-50/50"
+          className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 mb-3 text-sm focus:border-sky-500 outline-none transition bg-white"
           autoComplete="username"
         />
 
@@ -67,12 +99,12 @@ export default function LoginAdminCms() {
             placeholder="••••••••"
             value={form.password}
             onChange={handleChange}
-            className="w-full px-4 py-3 rounded-xl border border-slate-200 mb-3.5 text-sm focus:border-sky-500 outline-none pr-16 transition bg-slate-50/50"
+            className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 mb-3 text-sm focus:border-sky-500 outline-none pr-16 transition bg-white"
             autoComplete="current-password"
           />
           <button
             type="button"
-            className="absolute right-4 top-3.5 text-xs font-bold text-sky-600 cursor-pointer hover:opacity-80"
+            className="absolute right-3.5 top-2.5 text-xs font-bold text-sky-600 cursor-pointer hover:opacity-80"
             onClick={() => setShowPassword((s) => !s)}
             tabIndex={-1}
           >
@@ -81,23 +113,19 @@ export default function LoginAdminCms() {
         </div>
 
         {error && (
-          <div className="mt-1 mb-3 rounded-xl bg-red-50 text-red-600 px-3 py-2.5 text-xs">
+          <div className="mt-1 mb-3 rounded-xl bg-red-50 text-red-600 px-3 py-2 text-xs font-medium border border-red-100">
             {error}
           </div>
         )}
 
         <button 
           type="submit" 
-          className="w-full py-3.5 bg-[#004fa4] text-white rounded-xl font-bold text-sm hover:bg-sky-700 transition shadow-md cursor-pointer mt-1" 
+          className="w-full py-3 bg-[#004fa4] text-white rounded-xl font-bold text-sm hover:bg-sky-700 transition shadow-md cursor-pointer mt-1" 
           disabled={loading}
         >
           {loading ? 'Memproses...' : 'Masuk'}
         </button>
       </form>
-
-      <div className="mt-5 border-t border-slate-100 pt-4">
-      
-      </div>
     </div>
   );
 

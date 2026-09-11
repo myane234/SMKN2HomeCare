@@ -6,6 +6,7 @@ import { GoogleOAuthProvider, useGoogleLogin } from "@react-oauth/google";
 import { useRouter } from "next/navigation";
 import { loginForm, loginWithGoogleAPI } from "@/services/Auth.js";
 import { createSession } from "@/services/session.js";
+import { fetchAndStoreProfile } from "@/services/profileService";
 import { FaShieldAlt } from "react-icons/fa";
 
 // Path logo langsung merujuk ke folder public
@@ -84,6 +85,9 @@ export default function MasukPage() {
     try {
       const data = await loginForm(email, password);
       await createSession(data);
+      try {
+        await fetchAndStoreProfile();
+      } catch {}
       redirectAfterLogin(data);
     } catch (err) {
       const msg = String(err.message || "").toLowerCase();
@@ -116,6 +120,9 @@ export default function MasukPage() {
     try {
       const data = await loginWithGoogleAPI(accessToken);
       await createSession(data);
+      try {
+        await fetchAndStoreProfile();
+      } catch {}
       redirectAfterLogin(data);
     } catch (e) {
       console.error(e);
@@ -137,17 +144,45 @@ export default function MasukPage() {
       </div>
 
       <h2 className="text-2xl font-black text-slate-800 mb-1">Masuk</h2>
-      <p className="mb-5 text-xs sm:text-sm text-slate-500 font-medium">
+      <p className="mb-4 text-xs sm:text-sm text-slate-500 font-medium">
         Silakan masuk ke akun portal pasien Anda
       </p>
 
+      {/* Quick Fill Akun Uji Coba */}
+      <div className="mb-4 p-3 rounded-2xl bg-slate-50 border border-slate-200/80 space-y-2">
+        <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block">
+          Pilih Akun Masuk Cepat:
+        </span>
+        <div className="grid grid-cols-2 gap-2">
+          <button
+            type="button"
+            onClick={() => { setEmail('admin@gmail.com'); setPassword('faruqganteng'); setErrorMsg(''); }}
+            className="px-2.5 py-1.5 rounded-xl border border-sky-200 bg-sky-50 hover:bg-sky-100 text-[11px] font-semibold text-sky-700 transition cursor-pointer text-center"
+          >
+            Super Admin
+          </button>
+          <button
+            type="button"
+            onClick={() => { setEmail('pasien@smarthomecare.com'); setPassword('password'); setErrorMsg(''); }}
+            className="px-2.5 py-1.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-100 text-[11px] font-semibold text-slate-700 transition cursor-pointer text-center"
+          >
+            Pasien Demo
+          </button>
+        </div>
+      </div>
+
       {errorMsg && (
-        <div className={`mb-4 rounded-xl p-3.5 border ${
+        <div className={`mb-4 rounded-xl p-3 sm:p-3.5 border ${
           isUnverifiedEmail
             ? "bg-amber-50 border-amber-200 text-amber-800"
             : "bg-red-50 border-red-200 text-red-600"
         }`}>
           <p className="text-xs font-semibold">{errorMsg}</p>
+          {!isUnverifiedEmail && errorMsg.toLowerCase().includes("salah") && (
+            <p className="text-[11px] text-red-500 mt-1">
+              Belum punya akun? <Link href="/daftar" className="underline font-bold text-sky-600 hover:text-sky-700">Daftar di sini</Link> atau masuk menggunakan Google jika akun Anda terhubung dengan Google.
+            </p>
+          )}
           {isUnverifiedEmail && (
             <a
               href={`/auth/verify-email?email=${encodeURIComponent(email)}`}

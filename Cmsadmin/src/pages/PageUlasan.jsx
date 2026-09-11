@@ -60,9 +60,22 @@ export default function PageUlasan() {
   const loadData = async () => {
     setLoading(true);
     try {
-      // Ambil daftar ulasan dari API
+      // Ambil daftar ulasan dari API (hybrid: backend server > local fallback)
       const res = await api.get("/api/admin/ulasan?per_page=all");
-      const list = res?.data?.data || res?.data || [];
+
+      // Extract array ulasan dari struktur nested manapun:
+      // case 1: res -> data.pagination.data
+      // case 2: res -> data.data (normal)
+      // case 3: res -> data (sudah array)
+      let list = [];
+      const payload = res?.data;
+      if (Array.isArray(payload)) list = payload;
+      else if (payload && typeof payload === 'object') {
+        if (Array.isArray(payload.data)) list = payload.data;
+        else if (payload.data && Array.isArray(payload.data.data)) list = payload.data.data;
+      }
+      if (Array.isArray(res?.list) && !list.length) list = res.list;
+
       setUlasanList(Array.isArray(list) ? list : []);
 
       // Ambil data header portal dari API
@@ -72,6 +85,11 @@ export default function PageUlasan() {
           setHeaderSettings({
             ulasan_heading: resHeader.ulasan_heading,
             ulasan_subheading: resHeader.ulasan_subheading || ""
+          });
+        } else if (resHeader?.data?.ulasan_heading) {
+          setHeaderSettings({
+            ulasan_heading: resHeader.data.ulasan_heading,
+            ulasan_subheading: resHeader.data.ulasan_subheading || ""
           });
         }
       } catch {}
@@ -83,6 +101,15 @@ export default function PageUlasan() {
       } catch {}
     } catch (err) {
       console.error("Gagal memuat data ulasan:", err);
+      Swal.fire({
+        icon: "warning",
+        title: "Gagal Terhubung ke Server Backend",
+        text: "Tidak bisa mengambil data ulasan. Kamu bisa cek koneksi server atau jalankan Frontend di port 3000.",
+        confirmButtonText: "Tutup",
+        allowOutsideClick: true
+      });
+      // Meskipun error, pastikan state tidak undefined
+      setUlasanList([]);
     } finally {
       setLoading(false);
     }
@@ -176,7 +203,18 @@ export default function PageUlasan() {
           : null
       };
 
-      const res = await api.post("/api/admin/ulasan", payload);
+      let res;
+      try {
+        res = await api.post("/api/admin/ulasan", payload);
+      } catch (postErr) {
+        if (payload.layanan_id && (postErr?.message?.includes("id_master_layanan") || postErr?.message?.includes("500"))) {
+          const fallbackPayload = { ...payload };
+          delete fallbackPayload.layanan_id;
+          res = await api.post("/api/admin/ulasan", fallbackPayload);
+        } else {
+          throw postErr;
+        }
+      }
       const created = res?.data || payload;
 
       setUlasanList((prev) => [created, ...prev]);
@@ -233,7 +271,18 @@ export default function PageUlasan() {
           : null
       };
 
-      const res = await api.post(`/api/admin/ulasan/${selectedItem.id}`, payload);
+      let res;
+      try {
+        res = await api.post(`/api/admin/ulasan/${selectedItem.id}`, payload);
+      } catch (updateErr) {
+        if (payload.layanan_id && (updateErr?.message?.includes("id_master_layanan") || updateErr?.message?.includes("500"))) {
+          const fallbackPayload = { ...payload };
+          delete fallbackPayload.layanan_id;
+          res = await api.post(`/api/admin/ulasan/${selectedItem.id}`, fallbackPayload);
+        } else {
+          throw updateErr;
+        }
+      }
       const updated = res?.data || { ...selectedItem, ...payload };
 
       setUlasanList((prev) =>
@@ -338,15 +387,15 @@ export default function PageUlasan() {
   return (
     <div className="space-y-6">
       {/* Header Page */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      <div className="mb-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-slate-800 flex items-center gap-2.5">
+          <h1 className="page-title flex items-center gap-2.5">
             <span className="p-2 rounded-xl bg-amber-50 text-amber-500">
               <FaStar className="text-xl" />
             </span>
             Kelola Ulasan Pasien & Testimoni
           </h1>
-          <p className="text-xs text-slate-500 mt-1">
+          <p className="page-subtitle">
             Kelola ulasan dari pasien, moderasi tayangan di web, serta atur header section testimoni
           </p>
         </div>

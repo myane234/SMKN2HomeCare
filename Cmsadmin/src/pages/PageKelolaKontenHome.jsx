@@ -162,13 +162,15 @@ export default function PageKelolaKontenHome() {
   }
 
   return (
-    <div className="w-full max-w-screen-2xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-slate-200/80 pb-4">
+    <div className="w-full space-y-6">
+      <div className="mb-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-xl sm:text-2xl font-bold text-slate-900 flex items-center gap-2.5">
-            <FaHome className="text-primary" /> Beranda
+          <h1 className="page-title flex items-center gap-2.5">
+            <FaHome className="text-primary" /> Kelola Konten Beranda
           </h1>
-          <p className="text-xs sm:text-sm text-slate-500 mt-1">Pengaturan banner hero slider dan teks deskripsi section Halaman Beranda Utama</p>
+          <p className="page-subtitle">
+            Pengaturan banner hero slider dan teks deskripsi section Halaman Beranda Utama
+          </p>
         </div>
       </div>
 
@@ -185,198 +187,205 @@ export default function PageKelolaKontenHome() {
         </div>
       )}
 
-      <form onSubmit={handleHomeSubmit} className="bg-white rounded-2xl border border-slate-200/80 p-4 sm:p-6 lg:p-8 shadow-xs space-y-6 sm:space-y-8">
-        <div className="flex items-center justify-between border-b border-slate-200 pb-3">
+      <form onSubmit={handleHomeSubmit} className="card p-5 sm:p-7 space-y-6">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-slate-200 pb-3 gap-2">
           <div>
             <h2 className="text-base font-semibold text-slate-900 flex items-center gap-2">
-              <FaHome className="text-primary" /> Konten Banner Halaman Beranda
+              <FaHome className="text-primary" /> Konten Banner Slider Beranda
             </h2>
             <p className="text-xs text-slate-500 mt-0.5">Banner hero utama yang ditampilkan pada halaman depan aplikasi pasien</p>
           </div>
-          <span className="text-xs font-semibold px-3 py-1 rounded-full bg-blue-50 text-blue-600 border border-blue-200">
-            1 Banner Utama API
+          <span className="text-xs font-semibold px-3 py-1 rounded-full bg-blue-50 text-blue-600 border border-blue-200 self-start sm:self-auto">
+            {slides.length} Slide Aktif (Maks 10)
           </span>
         </div>
 
         {/* DYNAMIC SLIDES LIST */}
-        {slides.map((slide, index) => (
-          <div key={slide.id || index} className="p-5 rounded-xl border border-slate-200 bg-slate-50/60 space-y-4">
-            <div className="flex items-center justify-between border-b border-slate-200 pb-2.5">
-              <span className="font-semibold text-slate-800 text-sm">
-                Banner Slide {index + 1} {index === 0 ? '(Utama)' : ''}
-              </span>
-              <div className="flex items-center gap-2">
-                <span className="text-xs bg-primary-light text-primary-dark font-semibold px-2.5 py-0.5 rounded-full">
-                  Slide #{index + 1}
+        <div className="space-y-4">
+          {slides.map((slide, index) => (
+            <div key={slide.id || index} className="p-4 sm:p-5 rounded-xl border border-slate-200 bg-slate-50/70 space-y-4">
+              <div className="flex items-center justify-between border-b border-slate-200 pb-2.5">
+                <span className="font-semibold text-slate-800 text-sm">
+                  Banner Slide #{index + 1} {index === 0 ? '(Slide Utama)' : ''}
                 </span>
-                {slides.length > 1 && (
-                  <button
-                    type="button"
-                    onClick={() => handleRemoveSlide(index)}
-                    className="text-xs text-red-600 hover:text-red-800 p-1.5 rounded-lg hover:bg-red-50 transition-colors flex items-center gap-1 font-medium cursor-pointer"
-                    title="Hapus Slide"
-                  >
-                    <FaTrash size={12} /> Hapus
-                  </button>
-                )}
+                <div className="flex items-center gap-2">
+                  <span className="text-xs bg-primary-light text-primary-dark font-semibold px-2.5 py-0.5 rounded-full">
+                    Slide #{index + 1}
+                  </span>
+                  {slides.length > 1 && (
+                    <button
+                      type="button"
+                      onClick={() => handleRemoveSlide(index)}
+                      className="text-xs text-red-600 hover:text-red-800 p-1.5 rounded-lg hover:bg-red-50 transition-colors flex items-center gap-1 font-medium cursor-pointer"
+                      title="Hapus Slide"
+                    >
+                      <FaTrash size={12} /> Hapus
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
+                <div className="lg:col-span-4 space-y-2">
+                  <label className="form-label">Gambar Banner {index + 1}</label>
+                  {slide.preview ? (
+                    <div className="relative w-full aspect-video rounded-xl overflow-hidden border border-slate-200 bg-white shadow-sm">
+                      <img src={slide.preview} alt={`Home Banner ${index + 1}`} className="w-full h-full object-cover" />
+                    </div>
+                  ) : (
+                    <div className="w-full aspect-video rounded-xl border-2 border-dashed border-slate-200 bg-white flex flex-col items-center justify-center text-slate-400">
+                      <FaImage size={28} />
+                      <span className="text-xs mt-1">Belum ada banner</span>
+                    </div>
+                  )}
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={(e) => {
+                      if (e.target.files[0]) {
+                        const file = e.target.files[0];
+                        const preview = URL.createObjectURL(file);
+                        setSlides((prev) =>
+                          prev.map((item, i) =>
+                            i === index ? { ...item, file, preview } : item
+                          )
+                        );
+                      }
+                    }}
+                    className="w-full text-xs text-slate-500 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-primary-light file:text-primary-dark hover:file:bg-primary-light/80 cursor-pointer"
+                  />
+                </div>
+
+                <div className="lg:col-span-8 space-y-3">
+                  <div>
+                    <label className="form-label">Headline Text Slide {index + 1}</label>
+                    <input
+                      type="text"
+                      value={slide.text}
+                      onChange={(e) => handleSlideChange(index, 'text', e.target.value)}
+                      placeholder={`Contoh: Headline untuk Slide ${index + 1}`}
+                      className="form-input bg-white"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="form-label">Deskripsi Slide {index + 1}</label>
+                    <textarea
+                      rows={3}
+                      value={slide.description}
+                      onChange={(e) => handleSlideChange(index, 'description', e.target.value)}
+                      placeholder={`Tulis deskripsi singkat untuk Slide ${index + 1}...`}
+                      className="form-input resize-none bg-white"
+                    />
+                  </div>
+                </div>
               </div>
             </div>
-
-            <div>
-              <label className="form-label">Gambar Banner {index + 1}</label>
-              <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
-                {slide.preview ? (
-                  <div className="relative w-48 h-28 rounded-xl overflow-hidden border border-slate-200 bg-white shadow-sm">
-                    <img src={slide.preview} alt={`Home Banner ${index + 1}`} className="w-full h-full object-cover" />
-                  </div>
-                ) : (
-                  <div className="w-48 h-28 rounded-xl border-2 border-dashed border-slate-200 bg-white flex flex-col items-center justify-center text-slate-400">
-                    <FaImage size={28} />
-                    <span className="text-xs mt-1">Belum ada banner</span>
-                  </div>
-                )}
-                <input
-                  type="file"
-                  accept="image/*"
-                  onChange={(e) => {
-                    if (e.target.files[0]) {
-                      const file = e.target.files[0];
-                      const preview = URL.createObjectURL(file);
-                      setSlides((prev) =>
-                        prev.map((item, i) =>
-                          i === index ? { ...item, file, preview } : item
-                        )
-                      );
-                    }
-                  }}
-                  className="text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-primary-light file:text-primary-dark hover:file:bg-primary-light/80 cursor-pointer"
-                />
-              </div>
-            </div>
-
-            <div>
-              <label className="form-label">Headline Text Slide {index + 1}</label>
-              <input
-                type="text"
-                value={slide.text}
-                onChange={(e) => handleSlideChange(index, 'text', e.target.value)}
-                placeholder={`Contoh: Headline untuk Slide ${index + 1}`}
-                className="form-input bg-white"
-              />
-            </div>
-
-            <div>
-              <label className="form-label">Deskripsi Slide {index + 1}</label>
-              <textarea
-                rows={3}
-                value={slide.description}
-                onChange={(e) => handleSlideChange(index, 'description', e.target.value)}
-                placeholder={`Tulis deskripsi singkat untuk Slide ${index + 1}...`}
-                className="form-input resize-none bg-white"
-              />
-            </div>
-          </div>
-        ))}
+          ))}
+        </div>
 
         {slides.length < 10 && (
           <button
             type="button"
             onClick={handleAddSlide}
-            className="w-full py-3 border-2 border-dashed border-primary/40 text-primary hover:bg-primary-light/40 font-semibold rounded-xl flex items-center justify-center gap-2 transition-colors cursor-pointer"
+            className="w-full py-3 border-2 border-dashed border-primary/40 text-primary hover:bg-primary-light/40 font-semibold rounded-xl flex items-center justify-center gap-2 transition-colors cursor-pointer text-sm"
           >
-            <FaPlus size={14} /> Tambah Slide Banner (Maks. 10)
+            <FaPlus size={14} /> Tambah Slide Banner ({slides.length}/10)
           </button>
         )}
 
-        {/* PROMO SECTION */}
-        <div className="p-5 rounded-xl border border-slate-200 bg-slate-50/60 space-y-4">
-          <div className="border-b border-slate-200 pb-2.5">
-            <span className="font-semibold text-slate-800 text-sm">Pengaturan Konten Promo</span>
+        {/* SECTION SECTIONS: PROMO, ARTIKEL, LAYANAN DALAM GRID RESPONSIVE */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-5 pt-2">
+          {/* PROMO SECTION */}
+          <div className="p-4 sm:p-5 rounded-xl border border-slate-200 bg-slate-50/70 space-y-3 flex flex-col">
+            <div className="border-b border-slate-200 pb-2">
+              <span className="font-semibold text-slate-800 text-sm">Pengaturan Konten Promo</span>
+            </div>
+            <div>
+              <label className="form-label">Heading Promo</label>
+              <input
+                type="text"
+                value={promoHeading}
+                onChange={(e) => setPromoHeading(e.target.value)}
+                placeholder="Contoh: Promo Spesial Kemerdekaan"
+                className="form-input bg-white"
+              />
+            </div>
+            <div className="flex-1">
+              <label className="form-label">Deskripsi Promo</label>
+              <textarea
+                rows={3}
+                value={promoText}
+                onChange={(e) => setPromoText(e.target.value)}
+                placeholder="Diskon spesial hingga 50% untuk layanan tertentu..."
+                className="form-input resize-none bg-white h-24"
+              />
+            </div>
           </div>
-          <div>
-            <label className="form-label">Heading Promo</label>
-            <input
-              type="text"
-              value={promoHeading}
-              onChange={(e) => setPromoHeading(e.target.value)}
-              placeholder="Contoh: Promo Spesial Kemerdekaan"
-              className="form-input bg-white"
-            />
+
+          {/* ARTIKEL SECTION */}
+          <div className="p-4 sm:p-5 rounded-xl border border-slate-200 bg-slate-50/70 space-y-3 flex flex-col">
+            <div className="border-b border-slate-200 pb-2">
+              <span className="font-semibold text-slate-800 text-sm">Pengaturan Konten Artikel</span>
+            </div>
+            <div>
+              <label className="form-label">Heading Artikel</label>
+              <input
+                type="text"
+                value={artikelHeading}
+                onChange={(e) => setArtikelHeading(e.target.value)}
+                placeholder="Contoh: Artikel & Info Medis"
+                className="form-input bg-white"
+              />
+            </div>
+            <div className="flex-1">
+              <label className="form-label">Deskripsi Artikel</label>
+              <textarea
+                rows={3}
+                value={artikelText}
+                onChange={(e) => setArtikelText(e.target.value)}
+                placeholder="Temukan edukasi kesehatan harian yang disusun oleh dokter..."
+                className="form-input resize-none bg-white h-24"
+              />
+            </div>
           </div>
-          <div>
-            <label className="form-label">Deskripsi / Teks Promo</label>
-            <textarea
-              rows={2}
-              value={promoText}
-              onChange={(e) => setPromoText(e.target.value)}
-              placeholder="Diskon spesial hingga 50% untuk layanan tertentu..."
-              className="form-input resize-none bg-white"
-            />
+
+          {/* LAYANAN SECTION */}
+          <div className="p-4 sm:p-5 rounded-xl border border-slate-200 bg-slate-50/70 space-y-3 flex flex-col">
+            <div className="border-b border-slate-200 pb-2">
+              <span className="font-semibold text-slate-800 text-sm">Pengaturan Konten Layanan</span>
+            </div>
+            <div>
+              <label className="form-label">Heading Layanan</label>
+              <input
+                type="text"
+                value={layananHeading}
+                onChange={(e) => setLayananHeading(e.target.value)}
+                placeholder="Contoh: Layanan Home Care Kami"
+                className="form-input bg-white"
+              />
+            </div>
+            <div className="flex-1">
+              <label className="form-label">Deskripsi Layanan</label>
+              <textarea
+                rows={3}
+                value={layananText}
+                onChange={(e) => setLayananText(e.target.value)}
+                placeholder="Berbagai opsi layanan fisioterapi, okupasi terapi, dan perawatan medis..."
+                className="form-input resize-none bg-white h-24"
+              />
+            </div>
           </div>
         </div>
 
-        {/* ARTIKEL SECTION */}
-        <div className="p-5 rounded-xl border border-slate-200 bg-slate-50/60 space-y-4">
-          <div className="border-b border-slate-200 pb-2.5">
-            <span className="font-semibold text-slate-800 text-sm">Pengaturan Konten Artikel</span>
-          </div>
-          <div>
-            <label className="form-label">Heading Artikel</label>
-            <input
-              type="text"
-              value={artikelHeading}
-              onChange={(e) => setArtikelHeading(e.target.value)}
-              placeholder="Contoh: Artikel & Info Medis"
-              className="form-input bg-white"
-            />
-          </div>
-          <div>
-            <label className="form-label">Deskripsi / Teks Artikel</label>
-            <textarea
-              rows={2}
-              value={artikelText}
-              onChange={(e) => setArtikelText(e.target.value)}
-              placeholder="Temukan edukasi kesehatan harian yang disusun oleh dokter..."
-              className="form-input resize-none bg-white"
-            />
-          </div>
-        </div>
-
-        {/* LAYANAN SECTION */}
-        <div className="p-5 rounded-xl border border-slate-200 bg-slate-50/60 space-y-4">
-          <div className="border-b border-slate-200 pb-2.5">
-            <span className="font-semibold text-slate-800 text-sm">Pengaturan Konten Layanan</span>
-          </div>
-          <div>
-            <label className="form-label">Heading Layanan</label>
-            <input
-              type="text"
-              value={layananHeading}
-              onChange={(e) => setLayananHeading(e.target.value)}
-              placeholder="Contoh: Layanan Home Care Kami"
-              className="form-input bg-white"
-            />
-          </div>
-          <div>
-            <label className="form-label">Deskripsi / Teks Layanan</label>
-            <textarea
-              rows={2}
-              value={layananText}
-              onChange={(e) => setLayananText(e.target.value)}
-              placeholder="Berbagai opsi layanan fisioterapi, okupasi terapi, dan perawatan medis..."
-              className="form-input resize-none bg-white"
-            />
-          </div>
-        </div>
-
-        <div className="pt-2">
+        <div className="flex items-center justify-end pt-4 border-t border-slate-200">
           <button
             type="submit"
             disabled={saving}
-            className="btn-primary flex items-center justify-center gap-2 px-6 py-2.5"
+            className="btn-primary flex items-center justify-center gap-2 px-6 py-2.5 cursor-pointer"
           >
             {saving ? <FaSpinner className="animate-spin" /> : <FaSave />}
-            Simpan Konten Home
+            <span>{saving ? "Menyimpan..." : "Simpan Konten Beranda"}</span>
           </button>
         </div>
       </form>

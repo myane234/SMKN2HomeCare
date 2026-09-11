@@ -59,6 +59,8 @@ export default function PageHubungiKami() {
   // Response Form in Detail Modal
   const [responseStatus, setResponseStatus] = useState("dibalas");
   const [catatanAdmin, setCatatanAdmin] = useState("");
+  const [balasanEmail, setBalasanEmail] = useState("");
+  const [sendingEmail, setSendingEmail] = useState(false);
   const [savingResponse, setSavingResponse] = useState(false);
 
   // Manual Add Message Form State
@@ -131,6 +133,7 @@ export default function PageHubungiKami() {
     setSelectedPesan(item);
     setResponseStatus(item.status === "belum_dibaca" ? "sudah_dibaca" : item.status || "sudah_dibaca");
     setCatatanAdmin(item.catatan_admin || "");
+    setBalasanEmail(item.balasan_email || "");
     setShowDetailModal(true);
 
     // Tandai sudah dibaca di server & state jika statusnya masih belum dibaca
@@ -152,36 +155,71 @@ export default function PageHubungiKami() {
     e.preventDefault();
     if (!selectedPesan) return;
     setSavingResponse(true);
+    setSendingEmail(false);
 
     try {
+      const isStatusDibalas = responseStatus === "dibalas";
       const payload = {
         status: responseStatus,
-        catatan_admin: catatanAdmin
+        catatan_admin: catatanAdmin,
+        balasan_email: isStatusDibalas ? balasanEmail || null : null
       };
 
-      await api.put(`/api/admin/hubungi-kami/pesan/${selectedPesan.id}`, payload);
+      const res = await api.put(`/api/admin/hubungi-kami/pesan/${selectedPesan.id}`, payload);
+      const result = res?.data?.data || res?.data || payload;
 
       setPesanList((prev) =>
         prev.map((p) =>
           p.id === selectedPesan.id
-            ? { ...p, status: responseStatus, catatan_admin: catatanAdmin }
+            ? {
+                ...p,
+                status: responseStatus,
+                catatan_admin: catatanAdmin,
+                balasan_email: result.balasan_email || payload.balasan_email,
+                email_sent: isStatusDibalas ? (result.email_sent ?? false) : p.email_sent
+              }
             : p
         )
       );
 
       setShowDetailModal(false);
 
+      let titleText = "Tanggapan Tersimpan";
+      let bodyText = "Status pesan dan catatan admin berhasil diperbarui.";
+      if (isStatusDibalas) {
+        if (res?.data?.email_sent === true || result.email_sent === true) {
+          titleText = "Berhasil Dibalas & Email Terkirim";
+          bodyText = `Balasan telah dikirim ke email ${selectedPesan.email}. Status pesan diperbarui.`;
+        } else {
+          titleText = "Tanggapan Tersimpan (Gagal Kirim Email)";
+          bodyText = `Status diperbarui menjadi "Sudah Dibalas", namun email balasan gagal dikirim ke ${selectedPesan.email}. Silakan kirim manual atau coba lagi.`;
+        }
+      }
+
       Swal.fire({
-        icon: "success",
-        title: "Tanggapan Tersimpan",
-        text: "Status pesan dan catatan admin berhasil diperbarui.",
-        timer: 1500,
-        showConfirmButton: false
+        icon: isStatusDibalas && res?.data?.email_sent !== true && result.email_sent !== true ? "info" : "success",
+        title: titleText,
+        text: isStatusDibalas ? `${bodyText} Aplikasi email Anda juga dibuka untuk memastikan pengiriman langsung ke ${selectedPesan.email}.` : bodyText,
+        timer: isStatusDibalas ? 3000 : 1500,
+        showConfirmButton: true
       });
+
+      // Direct ke email client pengirim
+      if (isStatusDibalas && selectedPesan.email) {
+        try {
+          const mailSubject = encodeURIComponent(`Tanggapan SmartHomeCare: ${selectedPesan.subjek || 'Pertanyaan Layanan'}`);
+          const mailBody = encodeURIComponent(
+            balasanEmail ||
+            `Kepada Yth. ${selectedPesan.nama},\n\nTerima kasih telah menghubungi SmartHomeCare mengenai "${selectedPesan.subjek || 'layanan kami'}".\n\nSalam,\nTim SmartHomeCare`
+          );
+          window.open(`mailto:${selectedPesan.email}?subject=${mailSubject}&body=${mailBody}`, '_blank');
+        } catch {}
+      }
     } catch (err) {
       Swal.fire("Gagal", err.message || "Gagal menyimpan tanggapan", "error");
     } finally {
       setSavingResponse(false);
+      setSendingEmail(false);
     }
   };
 
@@ -523,6 +561,22 @@ export default function PageHubungiKami() {
                                 </a>
                               )}
 
+                              {item.email && (
+                                <a
+                                  href={`mailto:${item.email}?subject=${encodeURIComponent(
+                                    `Tanggapan SmartHomeCare: ${item.subjek || "Pesan Layanan"}`
+                                  )}&body=${encodeURIComponent(
+                                    `Halo ${item.nama},\n\nTerima kasih telah menghubungi SmartHomeCare mengenai "${item.subjek || "layanan kami"}".\n\n[Tuliskan pesan balasan di sini]\n\nSalam,\nTim SmartHomeCare`
+                                  )}`}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  title="Direct ke Email Pengirim"
+                                  className="p-2 rounded-lg text-sky-600 hover:bg-sky-50 transition cursor-pointer"
+                                >
+                                  <FaEnvelope />
+                                </a>
+                              )}
+
                               <button
                                 onClick={() => handleDeletePesan(item)}
                                 title="Hapus Pesan"
@@ -714,109 +768,190 @@ export default function PageHubungiKami() {
         </div>
       )}
 
-      {/* Modal Detail Pesan Masuk & Respon Admin */}
+      {/* Modal Detail Pesan Masuk & Respon Admin (SCROLLABLE - LAYERED PATTERN) */}
       {showDetailModal && selectedPesan && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 backdrop-blur-xs p-4">
-          <div className="bg-white rounded-2xl max-w-lg w-full p-6 space-y-4 shadow-xl">
-            <h2 className="text-base font-bold text-slate-800 flex items-center gap-2 border-b border-slate-100 pb-3">
-              <FaEye className="text-primary" /> Rincian Pesan Masuk #{selectedPesan.id}
-            </h2>
+        <div className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-xs overflow-y-auto" style={{ WebkitOverflowScrolling: 'touch' }}>
+          {/* Layer flex dengan min-h-full agar content > viewport tetap bisa scroll top-to-bottom */}
+          <div className="flex min-h-full items-start justify-center p-3 sm:items-center sm:p-4">
+            {/* Modal utama: max 90vh + flex column agar body/footer terpisah scroll */}
+            <div className="w-full max-w-lg max-h-[90vh] flex flex-col overflow-hidden rounded-2xl bg-white shadow-xl border border-slate-100">
 
-            <div className="space-y-3 text-xs">
-              <div className="grid grid-cols-2 gap-3 p-3 rounded-xl bg-slate-50 border border-slate-100">
-                <div>
-                  <span className="text-slate-400 block font-medium">Nama Pengirim</span>
-                  <span className="font-bold text-slate-800 text-sm">{selectedPesan.nama}</span>
-                  <span className="text-slate-500 block">{selectedPesan.email}</span>
+              {/* === HEADER (shrink-0: SELALU TERLIHAT, tidak ikut scroll) === */}
+              <div className="shrink-0 px-5 sm:px-6 pt-5 sm:pt-6 pb-3 border-b border-slate-100">
+                <h2 className="text-base font-bold text-slate-800 flex items-center gap-2">
+                  <FaEye className="text-primary" /> Rincian Pesan Masuk #{selectedPesan.id}
+                </h2>
+              </div>
+
+              {/* === BODY (flex-1 overflow-y-auto: AREA SCROLL UTAMA, content panjang disini) === */}
+              <div className="flex-1 overflow-y-auto px-5 sm:px-6 py-4 space-y-3.5 text-xs" style={{ scrollbarGutter: 'stable' }}>
+                <div className="grid grid-cols-2 gap-3 p-3 rounded-xl bg-slate-50 border border-slate-100">
+                  <div>
+                    <span className="text-slate-400 block font-medium">Nama Pengirim</span>
+                    <span className="font-bold text-slate-800 text-sm">{selectedPesan.nama}</span>
+                    <span className="text-slate-500 block break-all">{selectedPesan.email}</span>
+                  </div>
+                  <div>
+                    <span className="text-slate-400 block font-medium">Nomor WhatsApp / HP</span>
+                    <span className="font-semibold text-slate-700">{selectedPesan.no_hp || "-"}</span>
+                    {selectedPesan.no_hp && (
+                      <a
+                        href={`https://wa.me/${selectedPesan.no_hp.replace(/[^0-9]/g, "")}?text=${encodeURIComponent(
+                          `Halo ${selectedPesan.nama}, kami dari SmartHomeCare menindaklanjuti pesan Anda.`
+                        )}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="mt-1 inline-flex items-center gap-1 text-[11px] font-bold text-emerald-600 hover:underline"
+                      >
+                        <FaWhatsapp /> Chat Pengirim via WA
+                      </a>
+                    )}
+                  </div>
                 </div>
+
                 <div>
-                  <span className="text-slate-400 block font-medium">Nomor WhatsApp / HP</span>
-                  <span className="font-semibold text-slate-700">{selectedPesan.no_hp || "-"}</span>
-                  {selectedPesan.no_hp && (
+                  <span className="text-slate-400 block font-medium">Subjek Pertanyaan</span>
+                  <span className="font-bold text-slate-800 text-sm">{selectedPesan.subjek || "-"}</span>
+                </div>
+
+                <div>
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="text-slate-400 block font-medium">Isi Pesan Lengkap</span>
+                  </div>
+                  <div className="max-h-56 overflow-y-auto p-3.5 rounded-xl bg-slate-50 border border-slate-200 text-slate-700 whitespace-pre-wrap leading-relaxed select-text shadow-2xs font-sans text-xs">
+                    {selectedPesan.pesan}
+                  </div>
+                </div>
+
+                {selectedPesan.email && (
+                  <div className="p-3 bg-sky-50/80 border border-sky-200 rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                    <div className="text-[11px] text-sky-900 font-medium truncate">
+                      Kirim langsung tanggapan ke email: <strong className="text-sky-700">{selectedPesan.email}</strong>
+                    </div>
                     <a
-                      href={`https://wa.me/${selectedPesan.no_hp.replace(/[^0-9]/g, "")}?text=${encodeURIComponent(
-                        `Halo ${selectedPesan.nama}, kami dari SmartHomeCare menindaklanjuti pesan Anda.`
+                      href={`mailto:${selectedPesan.email}?subject=${encodeURIComponent(
+                        `Tanggapan SmartHomeCare: ${selectedPesan.subjek || "Pesan Layanan"}`
+                      )}&body=${encodeURIComponent(
+                        balasanEmail ||
+                          `Kepada Yth. ${selectedPesan.nama},\n\nTerima kasih telah menghubungi SmartHomeCare mengenai "${selectedPesan.subjek || "layanan kami"}".\n\nSalam,\nTim SmartHomeCare`
                       )}`}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="mt-1 inline-flex items-center gap-1 text-[11px] font-bold text-emerald-600 hover:underline"
+                      className="inline-flex items-center justify-center gap-1.5 px-3 py-1.5 bg-sky-600 hover:bg-sky-700 text-white rounded-lg text-xs font-bold transition shadow-xs shrink-0 cursor-pointer"
                     >
-                      <FaWhatsapp /> Chat Pengirim via WA
+                      <FaEnvelope /> Buka / Direct ke Email
                     </a>
-                  )}
-                </div>
-              </div>
+                  </div>
+                )}
 
-              <div>
-                <span className="text-slate-400 block font-medium">Subjek Pertanyaan</span>
-                <span className="font-bold text-slate-800 text-sm">{selectedPesan.subjek || "-"}</span>
-              </div>
+                {/* Status Email Terkirim (jika ada balasan sebelumnya) */}
+                {selectedPesan.balasan_email && (
+                  <div className="p-3 rounded-xl bg-emerald-50 border border-emerald-200 space-y-1.5">
+                    <div className="flex items-center gap-1.5 text-emerald-700 font-bold text-[11px]">
+                      <FaCheckCircle className="text-emerald-600" /> Riwayat Balasan Email
+                    </div>
+                    <div className="text-[11px] text-slate-700 whitespace-pre-wrap leading-relaxed bg-white rounded-lg border border-emerald-100 p-2.5 max-h-40 overflow-y-auto">
+                      {selectedPesan.balasan_email}
+                    </div>
+                    {selectedPesan.email_sent && (
+                      <span className="text-[10px] text-emerald-600 font-semibold">✓ Email balasan telah terkirim ke {selectedPesan.email}</span>
+                    )}
+                  </div>
+                )}
 
-              <div>
-                <span className="text-slate-400 block font-medium">Isi Pesan Lengkap</span>
-                <div className="mt-1 p-3.5 rounded-xl bg-white border border-slate-200 text-slate-700 whitespace-pre-wrap leading-relaxed">
-                  {selectedPesan.pesan}
-                </div>
-              </div>
+                {/* Form Respon & Tindak Lanjut Admin (dipindah ke dalam scroll body) */}
+                <div className="pt-2 border-t border-slate-100 space-y-3">
+                  <h3 className="font-bold text-slate-800 flex items-center gap-1.5 text-xs">
+                    <FaCommentDots className="text-primary" /> Respon &amp; Catatan Admin
+                  </h3>
 
-              {/* Form Respon & Tindak Lanjut Admin */}
-              <form onSubmit={handleSaveResponse} className="pt-2 border-t border-slate-100 space-y-3">
-                <h3 className="font-bold text-slate-800 flex items-center gap-1.5 text-xs">
-                  <FaCommentDots className="text-primary" /> Respon &amp; Catatan Admin
-                </h3>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block font-semibold text-slate-700 mb-1">Update Status Pesan</label>
+                      <select
+                        value={responseStatus}
+                        onChange={(e) => setResponseStatus(e.target.value)}
+                        className="w-full px-3 py-2 border border-slate-200 rounded-xl focus:border-primary focus:outline-none bg-white cursor-pointer"
+                      >
+                        <option value="sudah_dibaca">Sudah Dibaca</option>
+                        <option value="dibalas">Sudah Dibalas</option>
+                        <option value="belum_dibaca">Belum Dibaca</option>
+                      </select>
+                    </div>
 
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="block font-semibold text-slate-700 mb-1">Update Status Pesan</label>
-                    <select
-                      value={responseStatus}
-                      onChange={(e) => setResponseStatus(e.target.value)}
-                      className="w-full px-3 py-2 border border-slate-200 rounded-xl focus:border-primary focus:outline-none bg-white cursor-pointer"
-                    >
-                      <option value="sudah_dibaca">Sudah Dibaca</option>
-                      <option value="dibalas">Sudah Dibalas</option>
-                      <option value="belum_dibaca">Belum Dibaca</option>
-                    </select>
+                    <div>
+                      <label className="block font-semibold text-slate-700 mb-1">Tanggal Pesan</label>
+                      <input
+                        type="text"
+                        disabled
+                        value={selectedPesan.created_at ? selectedPesan.created_at.split("T")[0] : "-"}
+                        className="w-full px-3 py-2 border border-slate-200 rounded-xl bg-slate-50 text-slate-500"
+                      />
+                    </div>
                   </div>
 
+                  {/* Field Balasan Email: hanya muncul ketika status = 'dibalas' */}
+                  {responseStatus === "dibalas" && (
+                    <div className="p-3 rounded-xl bg-sky-50 border border-sky-200 space-y-2">
+                      <label className="block font-bold text-slate-700 text-[11px] flex items-center gap-1.5">
+                        <FaEnvelope className="text-sky-600" /> Isi Balasan Email (Akan dikirim ke: <span className="text-sky-700 break-all">{selectedPesan.email}</span>)
+                      </label>
+                      <textarea
+                        rows={4}
+                        value={balasanEmail}
+                        onChange={(e) => setBalasanEmail(e.target.value)}
+                        placeholder={`Kepada Yth. Bapak/Ibu ${selectedPesan.nama},\n\nTerima kasih telah menghubungi SmartHomeCare. Terkait pertanyaan Anda:\n\n[Isi balasan admin di sini]\n\nSalam,\nTim SmartHomeCare`}
+                        className="w-full p-2.5 border border-sky-200 rounded-xl bg-white focus:border-primary focus:outline-none text-xs"
+                      />
+                      <p className="text-[10px] text-slate-500 leading-relaxed">
+                        <FaExclamationCircle className="inline mr-1 text-amber-500" />
+                        Jika dikosongkan, sistem akan mengirim email template notifikasi otomatis. Disarankan diisi untuk personalisasi balasan.
+                      </p>
+                    </div>
+                  )}
+
                   <div>
-                    <label className="block font-semibold text-slate-700 mb-1">Tanggal Pesan</label>
-                    <input
-                      type="text"
-                      disabled
-                      value={selectedPesan.created_at ? selectedPesan.created_at.split("T")[0] : "-"}
-                      className="w-full px-3 py-2 border border-slate-200 rounded-xl bg-slate-50 text-slate-500"
+                    <label className="block font-semibold text-slate-700 mb-1">Catatan Tindak Lanjut (Admin Notes - internal)</label>
+                    <textarea
+                      rows={2}
+                      value={catatanAdmin}
+                      onChange={(e) => setCatatanAdmin(e.target.value)}
+                      placeholder="Contoh: Sudah dihubungi oleh CS Rina via WA pada 04/09 14:00"
+                      className="w-full p-2.5 border border-slate-200 rounded-xl focus:border-primary focus:outline-none"
                     />
                   </div>
                 </div>
+              </div>
 
-                <div>
-                  <label className="block font-semibold text-slate-700 mb-1">Catatan Tindak Lanjut (Admin Notes)</label>
-                  <textarea
-                    rows={2}
-                    value={catatanAdmin}
-                    onChange={(e) => setCatatanAdmin(e.target.value)}
-                    placeholder="Contoh: Sudah dihubungi oleh CS Rina via WA pada 04/09 14:00"
-                    className="w-full p-2.5 border border-slate-200 rounded-xl focus:border-primary focus:outline-none"
-                  />
-                </div>
-
-                <div className="flex items-center justify-end gap-2 pt-2">
-                  <button
-                    type="button"
-                    onClick={() => setShowDetailModal(false)}
-                    className="px-4 py-2 border border-slate-200 rounded-xl text-slate-600 hover:bg-slate-50 transition cursor-pointer"
-                  >
-                    Tutup
-                  </button>
-                  <button
-                    type="submit"
-                    disabled={savingResponse}
-                    className="px-4 py-2 bg-primary hover:bg-primary-dark text-white rounded-xl font-semibold shadow-xs transition cursor-pointer"
-                  >
-                    {savingResponse ? "Menyimpan..." : "Simpan Tindak Lanjut"}
-                  </button>
-                </div>
+              {/* === FOOTER (shrink-0: SELALU TERLIHAT DI BAWAH, tidak ikut scroll) === */}
+              <form
+                onSubmit={handleSaveResponse}
+                className="shrink-0 border-t border-slate-100 bg-white/90 backdrop-blur-sm px-5 sm:px-6 py-3 flex items-center justify-end gap-2"
+              >
+                <button
+                  type="button"
+                  onClick={() => setShowDetailModal(false)}
+                  className="px-4 py-2 border border-slate-200 rounded-xl text-slate-600 hover:bg-slate-50 transition cursor-pointer"
+                >
+                  Tutup
+                </button>
+                <button
+                  type="submit"
+                  disabled={savingResponse || sendingEmail}
+                  className="px-4 py-2 bg-primary hover:bg-primary-dark text-white rounded-xl font-semibold shadow-xs transition cursor-pointer inline-flex items-center gap-1.5 disabled:opacity-60"
+                >
+                  {savingResponse || sendingEmail ? (
+                    <>
+                      <FaSyncAlt className="animate-spin text-white" />
+                      {sendingEmail ? "Mengirim Email..." : "Menyimpan..."}
+                    </>
+                  ) : (
+                    <>
+                      {responseStatus === "dibalas" && <FaEnvelope />}
+                      {responseStatus === "dibalas" ? "Kirim Balasan & Simpan" : "Simpan Tindak Lanjut"}
+                    </>
+                  )}
+                </button>
               </form>
             </div>
           </div>
