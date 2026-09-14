@@ -75,14 +75,16 @@ export default function PageHubungiKami() {
     try {
       // Ambil daftar pesan masuk
       const resPesan = await api.get("/api/admin/hubungi-kami/pesan?per_page=all");
-      const list = resPesan?.data?.data || resPesan?.data || [];
+      const list = resPesan?.data?.data?.data || resPesan?.data?.data || [];
       setPesanList(Array.isArray(list) ? list : []);
-      setUnreadCount(resPesan?.unread_count ?? (Array.isArray(list) ? list.filter((p) => p.status === "belum_dibaca").length : 0));
+      setUnreadCount(resPesan?.data?.unread_count ?? (Array.isArray(list) ? list.filter((p) => p.status === "belum_dibaca").length : 0));
 
       // Ambil pengaturan kontak dari API
       try {
         const resSettings = await api.get("/api/admin/hubungi-kami/settings");
-        if (resSettings?.data) {
+        if (resSettings?.data?.data) {
+          setSettings((prev) => ({ ...prev, ...resSettings.data.data }));
+        } else if (resSettings?.data) {
           setSettings((prev) => ({ ...prev, ...resSettings.data }));
         }
       } catch {}
@@ -250,7 +252,7 @@ export default function PageHubungiKami() {
 
     try {
       const res = await api.post("/api/resource/content/hubungi-kami/kirim-pesan", newPesan);
-      const created = res?.data || { ...newPesan, id: Date.now(), status: "belum_dibaca" };
+      const created = res?.data?.data || { ...newPesan, id: Date.now(), status: "belum_dibaca" };
 
       setPesanList((prev) => [created, ...prev]);
       setUnreadCount((prev) => prev + 1);
@@ -510,17 +512,26 @@ export default function PageHubungiKami() {
                               </button>
 
                               {item.no_hp && (
-                                <a
-                                  href={`https://wa.me/${item.no_hp.replace(/[^0-9]/g, "")}?text=${encodeURIComponent(
-                                    `Halo ${item.nama}, terima kasih telah menghubungi SmartHomeCare mengenai "${item.subjek}". Kami siap membantu Anda.`
-                                  )}`}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  title="Balas via WhatsApp"
-                                  className="p-2 rounded-lg text-emerald-600 hover:bg-emerald-50 transition cursor-pointer"
-                                >
-                                  <FaWhatsapp />
-                                </a>
+                                <>
+                                  <a
+                                    href={`https://wa.me/${item.no_hp.replace(/[^0-9]/g, "")}?text=${encodeURIComponent(
+                                      `Halo ${item.nama}, terima kasih telah menghubungi SmartHomeCare mengenai "${item.subjek}". Kami siap membantu Anda.`
+                                    )}`}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    title="Hubungi via WhatsApp"
+                                    className="p-2 rounded-lg text-emerald-600 hover:bg-emerald-50 transition cursor-pointer"
+                                  >
+                                    <FaWhatsapp />
+                                  </a>
+                                  <a
+                                    href={`tel:${item.no_hp.replace(/[^0-9]/g, "")}`}
+                                    title="Telepon Langsung"
+                                    className="p-2 rounded-lg text-sky-600 hover:bg-sky-50 transition cursor-pointer"
+                                  >
+                                    <FaPhone />
+                                  </a>
+                                </>
                               )}
 
                               <button
@@ -634,10 +645,12 @@ export default function PageHubungiKami() {
                   WhatsApp Hotline (hubungi_whatsapp) *
                 </label>
                 <input
-                  type="text"
+                  type="tel"
+                  inputMode="numeric"
+                  pattern="[0-9]*"
                   required
                   value={settings.hubungi_whatsapp || ""}
-                  onChange={(e) => setSettings({ ...settings, hubungi_whatsapp: e.target.value })}
+                  onChange={(e) => setSettings({ ...settings, hubungi_whatsapp: e.target.value.replace(/\D/g, "") })}
                   placeholder="6281234567890"
                   className="w-full text-xs px-3.5 py-2 border border-slate-200 rounded-xl focus:border-primary focus:outline-none"
                 />
@@ -714,37 +727,59 @@ export default function PageHubungiKami() {
         </div>
       )}
 
-      {/* Modal Detail Pesan Masuk & Respon Admin */}
+      {/* Modal Detail Pesan Masuk & Respon Admin (Scrollable) */}
       {showDetailModal && selectedPesan && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 backdrop-blur-xs p-4">
-          <div className="bg-white rounded-2xl max-w-lg w-full p-6 space-y-4 shadow-xl">
-            <h2 className="text-base font-bold text-slate-800 flex items-center gap-2 border-b border-slate-100 pb-3">
-              <FaEye className="text-primary" /> Rincian Pesan Masuk #{selectedPesan.id}
-            </h2>
+        <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-900/40 backdrop-blur-xs p-3 sm:p-4 flex items-start sm:items-center justify-center">
+          <div className="bg-white rounded-2xl max-w-lg w-full max-h-[90vh] flex flex-col p-5 sm:p-6 shadow-xl border border-slate-100">
+            {/* Header (shrink-0) */}
+            <div className="shrink-0 flex items-center justify-between border-b border-slate-100 pb-3">
+              <h2 className="text-base font-bold text-slate-800 flex items-center gap-2">
+                <FaEye className="text-primary" /> Rincian Pesan Masuk #{selectedPesan.id}
+              </h2>
+              <button
+                onClick={() => setShowDetailModal(false)}
+                className="text-slate-400 hover:text-slate-600 text-sm font-bold p-1 rounded-lg hover:bg-slate-100 transition cursor-pointer"
+              >
+                ✕
+              </button>
+            </div>
 
-            <div className="space-y-3 text-xs">
-              <div className="grid grid-cols-2 gap-3 p-3 rounded-xl bg-slate-50 border border-slate-100">
-                <div>
-                  <span className="text-slate-400 block font-medium">Nama Pengirim</span>
-                  <span className="font-bold text-slate-800 text-sm">{selectedPesan.nama}</span>
-                  <span className="text-slate-500 block">{selectedPesan.email}</span>
+            {/* Scrollable Body (flex-1 overflow-y-auto) */}
+            <div className="flex-1 overflow-y-auto space-y-3.5 text-xs py-3 pr-1" style={{ scrollbarGutter: 'stable' }}>
+              <div className="p-3 rounded-xl bg-slate-50 border border-slate-100 space-y-2.5">
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <span className="text-slate-400 block font-medium">Nama Pengirim</span>
+                    <span className="font-bold text-slate-800 text-sm">{selectedPesan.nama}</span>
+                    <span className="text-slate-500 block break-all">{selectedPesan.email}</span>
+                  </div>
+                  <div>
+                    <span className="text-slate-400 block font-medium">Nomor Telepon / WhatsApp</span>
+                    <span className="font-semibold text-slate-800 text-sm">{selectedPesan.no_hp || "-"}</span>
+                  </div>
                 </div>
-                <div>
-                  <span className="text-slate-400 block font-medium">Nomor WhatsApp / HP</span>
-                  <span className="font-semibold text-slate-700">{selectedPesan.no_hp || "-"}</span>
-                  {selectedPesan.no_hp && (
+
+                {/* Aksi Kontak Langsung via Nomor Telepon / WA */}
+                {selectedPesan.no_hp && (
+                  <div className="pt-2 border-t border-slate-200/70 flex flex-wrap items-center gap-2">
                     <a
                       href={`https://wa.me/${selectedPesan.no_hp.replace(/[^0-9]/g, "")}?text=${encodeURIComponent(
-                        `Halo ${selectedPesan.nama}, kami dari SmartHomeCare menindaklanjuti pesan Anda.`
+                        `Halo ${selectedPesan.nama}, kami dari SmartHomeCare menindaklanjuti pesan Anda mengenai "${selectedPesan.subjek || 'layanan kami'}".`
                       )}`}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="mt-1 inline-flex items-center gap-1 text-[11px] font-bold text-emerald-600 hover:underline"
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100 text-xs font-bold transition cursor-pointer"
                     >
-                      <FaWhatsapp /> Chat Pengirim via WA
+                      <FaWhatsapp /> Hubungi via WhatsApp
                     </a>
-                  )}
-                </div>
+                    <a
+                      href={`tel:${selectedPesan.no_hp.replace(/[^0-9]/g, "")}`}
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-sky-50 text-sky-700 border border-sky-200 hover:bg-sky-100 text-xs font-bold transition cursor-pointer"
+                    >
+                      <FaPhone /> Telepon Pasien
+                    </a>
+                  </div>
+                )}
               </div>
 
               <div>
@@ -752,17 +787,24 @@ export default function PageHubungiKami() {
                 <span className="font-bold text-slate-800 text-sm">{selectedPesan.subjek || "-"}</span>
               </div>
 
+              {/* Isi Pesan dengan Scroll Area Khusus */}
               <div>
-                <span className="text-slate-400 block font-medium">Isi Pesan Lengkap</span>
-                <div className="mt-1 p-3.5 rounded-xl bg-white border border-slate-200 text-slate-700 whitespace-pre-wrap leading-relaxed">
+                <div className="flex items-center justify-between mb-1">
+                  <span className="text-slate-400 font-medium">Isi Pesan Lengkap</span>
+                  <span className="text-[10px] text-slate-400">Dapat digulir jika pesan panjang</span>
+                </div>
+                <div
+                  className="p-3.5 rounded-xl bg-slate-50 border border-slate-200 text-slate-700 whitespace-pre-wrap leading-relaxed max-h-56 overflow-y-auto select-text shadow-2xs font-sans text-xs"
+                  style={{ scrollbarGutter: 'stable' }}
+                >
                   {selectedPesan.pesan}
                 </div>
               </div>
 
               {/* Form Respon & Tindak Lanjut Admin */}
-              <form onSubmit={handleSaveResponse} className="pt-2 border-t border-slate-100 space-y-3">
+              <form id="form-respon-pesan" onSubmit={handleSaveResponse} className="pt-2 border-t border-slate-100 space-y-3">
                 <h3 className="font-bold text-slate-800 flex items-center gap-1.5 text-xs">
-                  <FaCommentDots className="text-primary" /> Respon &amp; Catatan Admin
+                  <FaCommentDots className="text-primary" /> Respon &amp; Tindak Lanjut Admin
                 </h3>
 
                 <div className="grid grid-cols-2 gap-3">
@@ -774,7 +816,7 @@ export default function PageHubungiKami() {
                       className="w-full px-3 py-2 border border-slate-200 rounded-xl focus:border-primary focus:outline-none bg-white cursor-pointer"
                     >
                       <option value="sudah_dibaca">Sudah Dibaca</option>
-                      <option value="dibalas">Sudah Dibalas</option>
+                      <option value="dibalas">Sudah Dibalas (via Telepon/WA)</option>
                       <option value="belum_dibaca">Belum Dibaca</option>
                     </select>
                   </div>
@@ -791,33 +833,35 @@ export default function PageHubungiKami() {
                 </div>
 
                 <div>
-                  <label className="block font-semibold text-slate-700 mb-1">Catatan Tindak Lanjut (Admin Notes)</label>
+                  <label className="block font-semibold text-slate-700 mb-1">Catatan Tindak Lanjut Telepon / WA (Internal)</label>
                   <textarea
                     rows={2}
                     value={catatanAdmin}
                     onChange={(e) => setCatatanAdmin(e.target.value)}
-                    placeholder="Contoh: Sudah dihubungi oleh CS Rina via WA pada 04/09 14:00"
+                    placeholder="Contoh: Sudah dihubungi oleh CS Rina via WA/telepon pada 04/09 14:00 dan jadwal dikonfirmasi."
                     className="w-full p-2.5 border border-slate-200 rounded-xl focus:border-primary focus:outline-none"
                   />
                 </div>
-
-                <div className="flex items-center justify-end gap-2 pt-2">
-                  <button
-                    type="button"
-                    onClick={() => setShowDetailModal(false)}
-                    className="px-4 py-2 border border-slate-200 rounded-xl text-slate-600 hover:bg-slate-50 transition cursor-pointer"
-                  >
-                    Tutup
-                  </button>
-                  <button
-                    type="submit"
-                    disabled={savingResponse}
-                    className="px-4 py-2 bg-primary hover:bg-primary-dark text-white rounded-xl font-semibold shadow-xs transition cursor-pointer"
-                  >
-                    {savingResponse ? "Menyimpan..." : "Simpan Tindak Lanjut"}
-                  </button>
-                </div>
               </form>
+            </div>
+
+            {/* Footer (shrink-0) */}
+            <div className="shrink-0 pt-3 border-t border-slate-100 flex items-center justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setShowDetailModal(false)}
+                className="px-4 py-2 border border-slate-200 rounded-xl text-slate-600 hover:bg-slate-50 transition cursor-pointer text-xs"
+              >
+                Tutup
+              </button>
+              <button
+                type="submit"
+                form="form-respon-pesan"
+                disabled={savingResponse}
+                className="px-4 py-2 bg-primary hover:bg-primary-dark text-white rounded-xl font-semibold shadow-xs transition cursor-pointer text-xs"
+              >
+                {savingResponse ? "Menyimpan..." : "Simpan Tindak Lanjut"}
+              </button>
             </div>
           </div>
         </div>
@@ -860,9 +904,11 @@ export default function PageHubungiKami() {
                 <div>
                   <label className="block font-semibold text-slate-700 mb-1">No. WhatsApp / HP</label>
                   <input
-                    type="text"
+                    type="tel"
+                    inputMode="numeric"
+                    pattern="[0-9]*"
                     value={newPesan.no_hp}
-                    onChange={(e) => setNewPesan({ ...newPesan, no_hp: e.target.value })}
+                    onChange={(e) => setNewPesan({ ...newPesan, no_hp: e.target.value.replace(/\D/g, "") })}
                     placeholder="08123456789"
                     className="w-full px-3.5 py-2 border border-slate-200 rounded-xl focus:border-primary focus:outline-none"
                   />

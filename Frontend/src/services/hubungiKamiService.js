@@ -1,7 +1,6 @@
 import axios from "axios";
 import api from "./api";
 
-// Gunakan relative request saat di browser agar memanggil API App Router Next.js secara langsung
 const getClient = () => {
   if (typeof window !== "undefined") {
     return axios.create({ baseURL: "" });
@@ -29,7 +28,6 @@ export const getHubungiKamiInfo = async () => {
 export const createHubungiKami = async (data) => {
   const client = getClient();
   try {
-    // Panggil endpoint API resmi
     const res = await client.post("/api/resource/content/hubungi-kami/kirim-pesan", data);
     return res.data;
   } catch (error) {
@@ -42,3 +40,4 @@ export const createHubungiKami = async (data) => {
     }
   }
 };
+
