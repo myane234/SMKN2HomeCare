@@ -24,11 +24,11 @@ export default function RootLayout({ children }) {
       lang="id"
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
-      <body className="flex min-h-screen flex-col bg-slate-50"
-      suppressHydrationWarning={true}>
-        <LayoutShell>
-          {children}
-        </LayoutShell>
+      <body
+        className="flex min-h-screen flex-col bg-slate-50"
+        suppressHydrationWarning={true}
+      >
+        <LayoutShell>{children}</LayoutShell>
         <ToastContainer />
       </body>
     </html>
