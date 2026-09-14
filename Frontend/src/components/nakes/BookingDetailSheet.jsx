@@ -230,9 +230,19 @@ export default function BookingDetailSheet({
     };
   }, [bookingId, isChatOpen]);
 
+  const isInitialChatLoadRef = useRef(true);
+
+  // Reset initial load ref saat chat modal dibuka/ditutup
   useEffect(() => {
-    if (isChatOpen && messagesEndRef.current) {
-      messagesEndRef.current.scrollIntoView({ behavior: "smooth" });
+    if (isChatOpen) {
+      isInitialChatLoadRef.current = true;
+    }
+  }, [isChatOpen]);
+
+  useEffect(() => {
+    if (isChatOpen && messages.length > 0 && isInitialChatLoadRef.current) {
+      messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+      isInitialChatLoadRef.current = false;
     }
   }, [messages, isChatOpen]);
 
@@ -282,6 +292,9 @@ export default function BookingDetailSheet({
       const root = response?.data ?? response ?? {};
       const list = root?.messages ?? root?.data?.messages ?? response?.messages ?? [];
       setMessages(Array.isArray(list) ? list : []);
+      setTimeout(() => {
+        messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+      }, 100);
     } catch (error) {
       setChatInput(content);
       setToast({
@@ -669,7 +682,7 @@ export default function BookingDetailSheet({
               </button>
             </div>
 
-            <div className="flex-1 p-3 overflow-y-auto space-y-2.5 bg-slate-50">
+            <div className="flex-1 p-3 overflow-y-auto space-y-3 bg-slate-50">
               {messages.length > 0 ? (
                 messages.map((message, index) => {
                   const senderType = String(
@@ -678,18 +691,61 @@ export default function BookingDetailSheet({
                   const isNakes = senderType === "nakes";
                   const key = message?.id_chat ?? message?.id ?? `${index}`;
 
+                  // Nama Pengirim
+                  const senderName = isNakes
+                    ? "Anda (Nakes)"
+                    : message?.sender_name || getBookingPatientName(booking) || "Pasien";
+
+                  // Waktu Kirim (Mendukung field `timestamp`, `created_at`, `time`, `updated_at`)
+                  let formattedTime = "";
+                  const rawTime =
+                    message?.timestamp ||
+                    message?.created_at ||
+                    message?.time ||
+                    message?.updated_at;
+
+                  if (rawTime) {
+                    try {
+                      const d = new Date(rawTime);
+                      if (!Number.isNaN(d.getTime())) {
+                        formattedTime = d.toLocaleTimeString("id-ID", {
+                          hour: "2-digit",
+                          minute: "2-digit",
+                        });
+                      } else {
+                        formattedTime = String(rawTime);
+                      }
+                    } catch {
+                      formattedTime = String(rawTime);
+                    }
+                  }
+
                   return (
-                    <div key={key} className={`flex ${isNakes ? "justify-end" : "justify-start"}`}>
+                    <div key={key} className={`flex flex-col ${isNakes ? "items-end" : "items-start"}`}>
+                      <div className="px-1 mb-1 text-[10px] text-slate-400 font-medium">
+                        <span>{senderName}</span>
+                      </div>
+
                       <div
-                        className={`max-w-[80%] px-3 py-2 rounded-2xl shadow-sm ${
+                        className={`max-w-[80%] px-3 py-2 rounded-2xl shadow-sm relative group ${
                           isNakes
                             ? "bg-blue-600 text-white rounded-tr-none"
                             : "bg-white text-slate-800 border border-slate-200/80 rounded-tl-none"
                         }`}
                       >
-                        <p className="text-xs leading-relaxed break-words">
+                        <p className="text-xs leading-relaxed break-words pr-10 pb-0.5">
                           {message?.content ?? message?.message ?? ""}
                         </p>
+
+                        {formattedTime && (
+                          <span
+                            className={`absolute bottom-1.5 right-2 text-[9px] font-medium leading-none ${
+                              isNakes ? "text-blue-100/90" : "text-slate-400"
+                            }`}
+                          >
+                            {formattedTime.replace(":", ".")}
+                          </span>
+                        )}
                       </div>
                     </div>
                   );
