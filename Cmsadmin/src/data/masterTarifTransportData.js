@@ -10,7 +10,7 @@ async function parseJsonResponse(response) {
   return body;
 }
 
-// Response API selalu flat: { success, message, data: [...] }
+// Response API: { success, message, data: object|null }
 function extractData(body) {
   if (body && typeof body === 'object' && body.data !== undefined) {
     return body.data;
@@ -43,14 +43,7 @@ export async function getAllTarifTransport() {
 
   const json = await parseJsonResponse(res);
   const data = extractData(json);
-  const list = Array.isArray(data) ? data : (data ? [data] : []);
-
-  console.log('TARIF LIST:', list);
-  if (list.length > 0) {
-    console.log('CONTOH ID ITEM PERTAMA:', getTarifId(list[0]));
-  }
-
-  return list;
+  return data;
 }
 
 // 2. GET BY ID (opsional, kalau butuh nanti)
@@ -73,8 +66,6 @@ export async function getTarifTransportById(id) {
 
 // 3. CREATE
 export async function createTarifTransport(payload) {
-  console.log('CREATE PAYLOAD:', payload);
-
   const res = await fetch(`${URL}/tarif-transport`, {
     method: 'POST',
     headers: getAuthHeaders({
@@ -93,9 +84,6 @@ export async function updateTarifTransport(id, payload) {
   if (id === null || id === undefined) {
     throw new Error('ID tarif transport tidak valid, tidak bisa update.');
   }
-
-  console.log('UPDATE ID:', id);
-  console.log('UPDATE PAYLOAD:', payload);
 
   const res = await fetch(`${URL}/tarif-transport/${id}`, {
     method: 'PUT',
