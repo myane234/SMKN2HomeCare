@@ -158,6 +158,7 @@ const rawSuperAdminMenus = [
     ],
   },
   { to: "/booking", label: "Booking", icon: <FaCalendarCheck /> },
+  { to: "/chat-rooms", label: "Chat Rooms", icon: <FaEnvelope /> },
   {
     type: "group",
     label: "Konfigurasi",

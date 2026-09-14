@@ -17,10 +17,6 @@ import {
 } from '../../data/masterTarifData';
 import { getAllLayanan, getKategoriLayanan } from '../../data/layananData';
 import { getAllKomponenTarif } from '../../data/masterKomponenTarifData';
-import {
-  getAllWilayahLayanan,
-  getAllKotaKabupaten,
-} from '../../data/wilayahLayananData';
 import Swal from 'sweetalert2';
 
 export default function AdminMasterTarif() {
@@ -31,8 +27,6 @@ export default function AdminMasterTarif() {
   const [kategoriLayananList, setKategoriLayananList] = useState([]);
   const [kategoriTarifList, setKategoriTarifList] = useState([]);
   const [komponenList, setKomponenList] = useState([]);
-  const [provinsiList, setProvinsiList] = useState([]);
-  const [kotaList, setKotaList] = useState([]);
 
   const [loading, setLoading] = useState(true);
   const [errorMsg, setErrorMsg] = useState('');
@@ -49,8 +43,6 @@ export default function AdminMasterTarif() {
   const [formKategoriLayananIds, setFormKategoriLayananIds] = useState([]);
   const [formKategoriTarif, setFormKategoriTarif] = useState('');
   const [formKomponenIds, setFormKomponenIds] = useState([]);
-  const [formIdProvinsi, setFormIdProvinsi] = useState('');
-  const [formIdKota, setFormIdKota] = useState('');
   const [formFeeNakesTipe, setFormFeeNakesTipe] = useState('nominal');
   const [formFeeNakesNilai, setFormFeeNakesNilai] = useState('');
   const [formIsTransport, setFormIsTransport] = useState(false);
@@ -236,31 +228,6 @@ const parseFormattedNumber = (val) => {
     return `ID: ${ids.join(', ')}`;
   };
 
-  const getProvinsiName = (id) => {
-    if (!id) {
-      return 'Nasional';
-    }
-
-    const found = provinsiList.find(
-      (provinsi) =>
-        String(provinsi.id_provinsi) === String(id)
-    );
-
-    return found?.nama_provinsi || id;
-  };
-
-  const getKotaName = (id) => {
-    if (!id) {
-      return 'Semua Kota';
-    }
-
-    const found = kotaList.find(
-      (kota) => String(kota.id_kota) === String(id)
-    );
-
-    return found?.nama_kota || id;
-  };
-
   /* =========================================================
      FETCH DATA
   ========================================================= */
@@ -274,8 +241,6 @@ const parseFormattedNumber = (val) => {
         tarifRes,
         layananRes,
         komponenRes,
-        provinsiRes,
-        kotaRes,
         kategoriLayananRes,
         kategoriTarifRes,
       ] = await Promise.all([
@@ -292,16 +257,6 @@ const parseFormattedNumber = (val) => {
         getAllKomponenTarif().catch((error) => {
           console.error('Gagal GET komponen tarif:', error);
           return { data: [] };
-        }),
-
-        getAllWilayahLayanan().catch((error) => {
-          console.error('Gagal GET wilayah layanan:', error);
-          return [];
-        }),
-
-        getAllKotaKabupaten().catch((error) => {
-          console.error('Gagal GET kota kabupaten:', error);
-          return [];
         }),
 
         getKategoriLayanan().catch((error) => {
@@ -364,65 +319,6 @@ const parseFormattedNumber = (val) => {
         );
 
       /* -----------------------------------------
-         KOTA
-      ----------------------------------------- */
-
-      const rawKota = Array.isArray(kotaRes)
-        ? kotaRes
-        : kotaRes?.data || [];
-
-      const normalizedKota = rawKota
-        .map((kota) => ({
-          ...kota,
-
-          id_kota: Number(
-            kota.id_kota ??
-              kota.id
-          ),
-
-          id_provinsi:
-            kota.id_provinsi ??
-            kota.provinsi_id,
-
-          nama_kota:
-            kota.nama_kota ||
-            kota.nama ||
-            '',
-        }))
-        .filter(
-          (kota) =>
-            !Number.isNaN(kota.id_kota)
-        );
-
-      /* -----------------------------------------
-         PROVINSI
-      ----------------------------------------- */
-
-      const rawProvinsi = Array.isArray(provinsiRes)
-        ? provinsiRes
-        : provinsiRes?.data || [];
-
-      const normalizedProvinsi = rawProvinsi
-        .map((provinsi) => ({
-          ...provinsi,
-
-          id_provinsi: Number(
-            provinsi.id_provinsi ??
-              provinsi.provinsi_id ??
-              provinsi.id
-          ),
-
-          nama_provinsi:
-            provinsi.nama_provinsi ||
-            provinsi.nama ||
-            '',
-        }))
-        .filter(
-          (provinsi) =>
-            !Number.isNaN(provinsi.id_provinsi)
-        );
-
-      /* -----------------------------------------
          LAYANAN
       ----------------------------------------- */
 
@@ -455,8 +351,6 @@ const parseFormattedNumber = (val) => {
       setKategoriLayananList(Array.isArray(kategoriLayananRes) ? kategoriLayananRes : []);
       setKategoriTarifList(Array.isArray(kategoriTarifRes) ? kategoriTarifRes : []);
       setKomponenList(normalizedKomponen);
-      setProvinsiList(normalizedProvinsi);
-      setKotaList(normalizedKota);
 
       console.log('=== MASTER TARIF ===', normalizedTarif);
       console.log(
@@ -472,7 +366,8 @@ const parseFormattedNumber = (val) => {
   };
 
   useEffect(() => {
-    fetchData();
+    const timer = window.setTimeout(() => { fetchData(); }, 0);
+    return () => window.clearTimeout(timer);
   }, []);
 
   /* =========================================================
@@ -488,8 +383,6 @@ const parseFormattedNumber = (val) => {
     setFormKategoriLayananIds([]);
     setFormKategoriTarif('');
     setFormKomponenIds([]);
-    setFormIdProvinsi('');
-    setFormIdKota('');
     setFormFeeNakesTipe('nominal');
     setFormFeeNakesNilai('');
     setFormIsTransport(false);
@@ -559,20 +452,6 @@ const parseFormattedNumber = (val) => {
 
     setFormKomponenIds(
       validKomponenIds
-    );
-
-    setFormIdProvinsi(
-      (
-        item?.id_provinsi ??
-        ''
-      ).toString()
-    );
-
-    setFormIdKota(
-      (
-        item?.id_kota ??
-        ''
-      ).toString()
     );
 
     setFormFeeNakesTipe(
@@ -690,12 +569,6 @@ const parseFormattedNumber = (val) => {
           .filter(
             (id) => !Number.isNaN(id)
           ),
-
-      id_provinsi:
-        formIdProvinsi || null,
-
-      id_kota:
-        formIdKota || null,
 
       fee_nakes_tipe:
         formFeeNakesTipe,
@@ -1111,103 +984,6 @@ const parseFormattedNumber = (val) => {
               </div>
             </div>
 
-            {/* PROVINSI + KOTA */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-              {/* PROVINSI */}
-              <div>
-                <label className="block text-xs font-semibold uppercase tracking-wider text-slate-600 mb-2">
-                  Provinsi (Opsional)
-                </label>
-
-                <select
-                  className="w-full rounded-xl border border-slate-200 px-4 py-2.5 text-sm text-slate-800 focus:border-green-500 focus:outline-none focus:ring-2 focus:ring-green-500/20 transition-all bg-white"
-                  value={
-                    formIdProvinsi
-                  }
-                  onChange={(e) => {
-                    setFormIdProvinsi(
-                      e.target.value
-                    );
-
-                    setFormIdKota('');
-                  }}
-                >
-                  <option value="">
-                    Nasional / Semua Provinsi
-                  </option>
-
-                  {provinsiList.map(
-                    (provinsi) => (
-                      <option
-                        key={
-                          provinsi.id_provinsi
-                        }
-                        value={
-                          provinsi.id_provinsi
-                        }
-                      >
-                        {
-                          provinsi.nama_provinsi
-                        }
-                      </option>
-                    )
-                  )}
-                </select>
-              </div>
-
-              {/* KOTA */}
-              <div>
-                <label className="block text-xs font-semibold uppercase tracking-wider text-slate-600 mb-2">
-                  Kota/Kabupaten (Opsional)
-                </label>
-
-                <select
-                  className="w-full rounded-xl border border-slate-200 px-4 py-2.5 text-sm text-slate-800 focus:border-green-500 focus:outline-none focus:ring-2 focus:ring-green-500/20 transition-all bg-white"
-                  value={formIdKota}
-                  onChange={(e) =>
-                    setFormIdKota(
-                      e.target.value
-                    )
-                  }
-                  disabled={
-                    !formIdProvinsi
-                  }
-                >
-                  <option value="">
-                    Semua Kota di Provinsi
-                  </option>
-
-                  {kotaList
-                    .filter(
-                      (kota) =>
-                        !formIdProvinsi ||
-                        String(
-                          kota.id_provinsi
-                        ) ===
-                          String(
-                            formIdProvinsi
-                          )
-                    )
-                    .map(
-                      (kota) => (
-                        <option
-                          key={
-                            kota.id_kota
-                          }
-                          value={
-                            kota.id_kota
-                          }
-                        >
-                          {
-                            kota.nama_kota
-                          }
-                        </option>
-                      )
-                    )}
-                </select>
-              </div>
-            </div>
-
             {/* FEE NAKES */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
               {/* TIPE */}
@@ -1482,10 +1258,6 @@ const parseFormattedNumber = (val) => {
                     Komponen Tarif
                   </th>
 
-                  <th className="px-5 py-4">
-                    Provinsi
-                  </th>
-
                   <th className="px-5 py-4 text-center">
                     Fee Nakes
                   </th>
@@ -1505,7 +1277,7 @@ const parseFormattedNumber = (val) => {
                 0 ? (
                   <tr>
                     <td
-                      colSpan="8"
+                      colSpan="7"
                       className="px-5 py-8 text-center text-sm text-slate-400"
                     >
                       Tidak ada template
@@ -1547,16 +1319,6 @@ const parseFormattedNumber = (val) => {
                           item
                         );
 
-                      const namaProvinsi =
-                        getProvinsiName(
-                          item?.id_provinsi
-                        );
-
-                      const namaKota =
-                        getKotaName(
-                          item?.id_kota
-                        );
-
                       const isActive =
                         normalizeBoolean(
                           item?.is_active,
@@ -1578,9 +1340,7 @@ const parseFormattedNumber = (val) => {
                           {/* NAMA */}
                           <td className="px-5 py-4">
                             <div className="font-semibold text-slate-900">
-                              {
-                                item?.nama_template
-                              }
+                              {item?.nama_template}
                             </div>
                           </td>
 
@@ -1599,19 +1359,6 @@ const parseFormattedNumber = (val) => {
                               {
                                 komponenText
                               }
-                            </div>
-                          </td>
-
-                          {/* PROVINSI */}
-                          <td className="px-5 py-4">
-                            <div className="text-xs text-slate-700">
-                              {
-                                namaProvinsi
-                              }
-
-                              {item?.id_kota
-                                ? ` - ${namaKota}`
-                                : ''}
                             </div>
                           </td>
 

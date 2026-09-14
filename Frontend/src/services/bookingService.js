@@ -57,3 +57,33 @@ export const getBookingAktif = async () => {
     throw error;
   }
 };
+
+export const sendBookingChat = async (bookingId, content) => {
+  const res = await api.post(`/api/booking/${bookingId}/chat`, { content });
+  return res.data;
+};
+
+export const getWebSocketConfig = async () => {
+  try {
+    const res = await api.get('/api/websocket/config');
+    return res.data;
+  } catch (error) {
+    console.warn('Gagal memuat konfigurasi websocket:', error);
+    return null;
+  }
+};
+
+export const getBookingChatHistory = async (bookingId) => {
+  try {
+    const res = await api.get(`/api/booking/${bookingId}/chat`);
+    return res.data;
+  } catch (error) {
+    // Coba fallback ke endpoint alternatif jika ada
+    try {
+      const fallback = await api.get(`/api/manage-admin/chat-rooms/${bookingId}`);
+      return fallback.data;
+    } catch {
+      return null;
+    }
+  }
+};

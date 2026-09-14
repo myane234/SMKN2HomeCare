@@ -140,7 +140,7 @@ function PilihMetodePembayaranContent() {
 
     try {
       router.push(
-        `/pembayaran/paymentQR?metode=${selectedMetode}&booking_id=${bookingId}&total=${totalAmount}`
+        `/pembayaran/payment?metode=${selectedMetode}&booking_id=${bookingId}&total=${totalAmount}`
       );
     } catch (err) {
       setError('Gagal memproses pembayaran. Silakan coba lagi.');

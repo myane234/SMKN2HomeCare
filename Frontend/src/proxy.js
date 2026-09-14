@@ -9,7 +9,7 @@ const PROTECTED_ROUTES = [
   '/nakes/dashboard',
 ];
 
-export function middleware(request) {
+export function proxy(request) {
   const { pathname } = request.nextUrl;
   
   const token = request.cookies.get('auth_token')?.value || request.cookies.get('smarthomecare-session')?.value;

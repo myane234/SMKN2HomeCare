@@ -53,6 +53,8 @@ import AdminMasterUniversitas from "./pages/admin/AdminMasterUniversitas";
 import AdminMasterAgama from "./pages/admin/AdminMasterAgama"; 
 import PageSeederManagement from "./pages/PageSeederManagement";
 import AdminMasterBank from "./pages/admin/AdminMasterBank";
+import AdminChatRooms from "./pages/admin/AdminChatRooms";
+import AdminChatDetail from "./pages/admin/AdminChatDetail";
 import PageApi from "./pages/PageApi";
 
 import "leaflet/dist/leaflet.css";
@@ -260,6 +262,23 @@ function App() {
           element={
             <ProtectedRoute requiredPath="/booking">
               <PageBookingDetail />
+            </ProtectedRoute>
+          }
+        />
+        {/* Chat */}
+        <Route
+          path="/chat-rooms"
+          element={
+            <ProtectedRoute requiredPath="/chat-rooms">
+              <AdminChatRooms />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/chat-rooms/:id"
+          element={
+            <ProtectedRoute requiredPath="/chat-rooms">
+              <AdminChatDetail />
             </ProtectedRoute>
           }
         />
