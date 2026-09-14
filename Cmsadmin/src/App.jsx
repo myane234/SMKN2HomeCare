@@ -69,15 +69,7 @@ function App() {
         element={<Navigate to="/dashboard" replace />}
       />
 
-      {/* Rute Profile di luar AdminLayout */}
-      <Route
-        path="/profile"
-        element={
-          <ProtectedRoute requiredPath="/profile">
-            <AdminProfile />
-          </ProtectedRoute>
-        }
-      />
+   
 
       {/* Main Admin/Super Admin App Layout */}
       <Route
@@ -369,6 +361,15 @@ function App() {
           element={
             <ProtectedRoute requiredPath="/laporan">
               <PageLaporan />
+            </ProtectedRoute>
+          }
+        />
+        {/* Pindahkan rute profile ke sini agar memiliki sidebar */}
+        <Route
+          path="/profile"
+          element={
+            <ProtectedRoute requiredPath="/profile">
+              <AdminProfile />
             </ProtectedRoute>
           }
         />
