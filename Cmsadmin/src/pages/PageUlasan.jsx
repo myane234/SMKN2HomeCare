@@ -60,18 +60,70 @@ export default function PageUlasan() {
   const loadData = async () => {
     setLoading(true);
     try {
-      // Ambil daftar ulasan dari API
-      const res = await api.get("/api/admin/ulasan?per_page=all");
-      const list = res?.data?.data || res?.data || [];
+      // Ambil daftar ulasan dari API Admin
+      let list = [];
+      try {
+        const res = await api.get("/api/admin/ulasan?per_page=all");
+        if (Array.isArray(res)) list = res;
+        else if (Array.isArray(res?.data)) list = res.data;
+        else if (Array.isArray(res?.data?.data)) list = res.data.data;
+        else if (Array.isArray(res?.data?.data?.data)) list = res.data.data.data;
+      } catch (errAdmin) {
+        console.warn("Gagal memuat ulasan via /api/admin/ulasan:", errAdmin?.message);
+      }
+
+      // Selalu periksa dan sinkronkan dengan ulasan publik di frontend agar semua ulasan tampil di CMS
+      try {
+        const resPublic = await api.get("/api/resource/content/ulasan?per_page=100");
+        const publicItems =
+          (Array.isArray(resPublic?.data?.data) && resPublic.data.data) ||
+          (Array.isArray(resPublic?.data) && resPublic.data) ||
+          (Array.isArray(resPublic) && resPublic) ||
+          [];
+
+        if (publicItems.length > 0) {
+          const existingIds = new Set(list.map((u) => String(u.id ?? u.id_ulasan)));
+          const merged = [...list];
+          for (const item of publicItems) {
+            const key = String(item.id ?? item.id_ulasan);
+            if (!existingIds.has(key)) {
+              merged.push({
+                id: item.id || item.id_ulasan,
+                nama_pengulas: item.nama_pengulas || item.nama_pasien || "Pasien",
+                profesi_peran: item.profesi_peran || "Pasien",
+                rating: Number(item.rating) || 5,
+                komentar: item.komentar || "",
+                layanan_id:
+                  item.layanan_id ||
+                  (item.layanan && typeof item.layanan === "object"
+                    ? item.layanan.id_master_layanan
+                    : null),
+                layanan: item.layanan || null,
+                is_published: item.is_published !== undefined ? item.is_published : true,
+                urutan: item.urutan ?? 0,
+                foto_url: item.foto_url || null,
+                created_at: item.created_at || new Date().toISOString()
+              });
+              existingIds.add(key);
+            }
+          }
+          list = merged;
+        }
+      } catch (errPublic) {
+        console.warn("Gagal memuat ulasan publik fallback:", errPublic?.message);
+      }
+
       setUlasanList(Array.isArray(list) ? list : []);
 
       // Ambil data header portal dari API
       try {
         const resHeader = await api.get("/api/resource/content/ulasan");
-        if (resHeader?.ulasan_heading) {
+        const heading = resHeader?.ulasan_heading || resHeader?.data?.ulasan_heading;
+        const subheading = resHeader?.ulasan_subheading || resHeader?.data?.ulasan_subheading;
+        if (heading) {
           setHeaderSettings({
-            ulasan_heading: resHeader.ulasan_heading,
-            ulasan_subheading: resHeader.ulasan_subheading || ""
+            ulasan_heading: heading,
+            ulasan_subheading: subheading || ""
           });
         }
       } catch {}
@@ -127,7 +179,7 @@ export default function PageUlasan() {
   const handleTogglePublish = async (item) => {
     try {
       const res = await api.patch(`/api/admin/ulasan/${item.id}/toggle-publish`);
-      const newStatus = res?.data?.is_published ?? !item.is_published;
+      const newStatus = res?.data?.data?.is_published ?? !item.is_published;
 
       setUlasanList((prev) =>
         prev.map((u) => (u.id === item.id ? { ...u, is_published: newStatus } : u))
@@ -177,7 +229,7 @@ export default function PageUlasan() {
       };
 
       const res = await api.post("/api/admin/ulasan", payload);
-      const created = res?.data || payload;
+      const created = res?.data?.data || payload;
 
       setUlasanList((prev) => [created, ...prev]);
       setShowAddModal(false);
@@ -234,7 +286,7 @@ export default function PageUlasan() {
       };
 
       const res = await api.post(`/api/admin/ulasan/${selectedItem.id}`, payload);
-      const updated = res?.data || { ...selectedItem, ...payload };
+      const updated = res?.data?.data || { ...selectedItem, ...payload };
 
       setUlasanList((prev) =>
         prev.map((u) =>

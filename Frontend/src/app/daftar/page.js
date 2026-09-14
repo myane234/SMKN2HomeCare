@@ -233,10 +233,8 @@ export default function DaftarPage() {
         longitude: form.longitude,
       });
 
-      setSuccessMsg("Registrasi berhasil! Mengalihkan ke halaman verifikasi email...");
+      setSuccessMsg("Registrasi berhasil! Mengalihkan ke halaman masuk...");
       setFieldErrors({});
-
-      const registeredEmail = form.email;
 
       setForm({
         nama_lengkap: "",
@@ -253,7 +251,7 @@ export default function DaftarPage() {
       });
 
       setTimeout(() => {
-        window.location.href = `/auth/verify-email?email=${encodeURIComponent(registeredEmail)}`;
+        window.location.href = "/login";
       }, 1200);
     } catch (err) {
       if (err.fieldErrors && Object.keys(err.fieldErrors).length > 0) {

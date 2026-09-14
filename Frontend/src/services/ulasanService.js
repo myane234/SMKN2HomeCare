@@ -1,15 +1,6 @@
 import axios from "axios";
 import api from "./api";
-import { getAuthToken } from "./cookieHelper";
-
-const DEFAULT_ULASAN = 
-
-function extractArray(payload) {
-  if (Array.isArray(payload)) return payload;
-  if (Array.isArray(payload?.data)) return payload.data;
-  if (Array.isArray(payload?.data?.data)) return payload.data.data;
-  return [];
-}
+import { getAuthToken, getCookie } from "./cookieHelper";
 
 const getClient = () => {
   if (typeof window !== "undefined") {
@@ -18,74 +9,110 @@ const getClient = () => {
   return api;
 };
 
+function extractPaginated(payload) {
+  const envelope = payload?.data ? payload.data : payload;
+  const paginationBlock = envelope?.data ? envelope.data : null;
+  const rawItems =
+    (Array.isArray(paginationBlock?.data) && paginationBlock.data) ||
+    (Array.isArray(envelope?.data) && envelope.data) ||
+    (Array.isArray(payload?.data) && payload.data) ||
+    (Array.isArray(payload) && payload) ||
+    [];
+  const list = rawItems.map((item) => ({
+    id_ulasan: item.id || item.id_ulasan,
+    nama_pasien: item.nama_pengulas || item.nama_pasien || "Pasien",
+    profesi_peran: item.profesi_peran || "Pasien",
+    rating: Number(item.rating) || 5,
+    layanan: item.layanan?.nama_layanan || item.layanan || "Layanan Homecare",
+    layanan_id: item.layanan_id || item.layanan?.id_master_layanan || null,
+    komentar: item.komentar || "",
+    foto_url: item.foto_url || null,
+    created_at: item.created_at || "2026-09-03T10:00:00.000000Z"
+  }));
+  const current_page = Number(paginationBlock?.current_page || envelope?.current_page || 1);
+  const per_page = Number(paginationBlock?.per_page || envelope?.per_page || 10);
+  const total = Number(paginationBlock?.total || envelope?.total || list.length);
+  const last_page = Number(paginationBlock?.last_page || envelope?.last_page || Math.max(1, Math.ceil(total / per_page)));
+  return {
+    list,
+    pagination: {
+      current_page,
+      per_page,
+      total,
+      last_page
+    },
+    heading: envelope?.ulasan_heading || "",
+    subheading: envelope?.ulasan_subheading || ""
+  };
+}
+
 /**
  * Auto Load Data User untuk Prefill & Disable Email di Form Ulasan
  * URL: /api/resource/content/ulasan/user-info
  */
 export const getUserInfoForUlasan = async () => {
   const token = getAuthToken();
-  if (!token) return null;
 
   const client = getClient();
   try {
-    const res = await client.get("/api/resource/content/ulasan/user-info", {
-      headers: {
-        Authorization: `Bearer ${token}`,
-        Accept: "application/json"
+    if (token) {
+      const res = await client.get("/api/resource/content/ulasan/user-info", {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          Accept: "application/json"
+        }
+      });
+      const data = res.data?.data || res.data;
+      if (data && (data.email || data.nama_pengulas)) {
+        return data;
       }
-    });
-    return res.data?.data || res.data;
+    }
   } catch (error) {
     if (error?.response?.status === 401) {
       return null;
     }
-    console.warn("Gagal memuat user info ulasan:", error?.message);
-    return null;
+    console.warn("Gagal memuat user info ulasan via endpoint:", error?.message);
   }
+
+  // Fallback baca langsung dari cookies / localStorage jika endpoint backend terkendala
+  if (typeof window !== "undefined") {
+    const email = getCookie("profile_email") || getCookie("user_email");
+    const nama = getCookie("profile_nama") || getCookie("user_nama");
+    let storedProfile = null;
+    try {
+      const raw = localStorage.getItem("user_profile");
+      if (raw) storedProfile = JSON.parse(raw);
+    } catch {}
+
+    const resolvedEmail = email || storedProfile?.user?.email || storedProfile?.email || "";
+    const resolvedNama =
+      nama ||
+      storedProfile?.pasien?.nama_lengkap ||
+      storedProfile?.nama_lengkap ||
+      storedProfile?.user?.nama ||
+      storedProfile?.nama ||
+      "";
+
+    if (token || resolvedEmail || resolvedNama) {
+      return {
+        email: resolvedEmail,
+        nama_pengulas: resolvedNama,
+        profesi_peran: "Keluarga Pasien"
+      };
+    }
+  }
+
+  return null;
 };
 
 /**
  * Mengambil Daftar Ulasan Publik (bisa filter rating, search, page, per_page)
+ * Return { list, pagination, heading, subheading }
  */
 export const getUlasan = async (params = {}) => {
   const client = getClient();
-  try {
-    const res = await client.get("/api/resource/content/ulasan", { params });
-    const items = extractArray(res.data);
-    if (items.length > 0) {
-      return items.map((item) => ({
-        id_ulasan: item.id || item.id_ulasan,
-        nama_pasien: item.nama_pengulas || item.nama_pasien || "Pasien",
-        profesi_peran: item.profesi_peran || "Pasien",
-        rating: Number(item.rating) || 5,
-        layanan: item.layanan?.nama_layanan || item.layanan || "Layanan Homecare",
-        layanan_id: item.layanan_id || item.layanan?.id_master_layanan || null,
-        komentar: item.komentar || "",
-        foto_url: item.foto_url || null,
-        created_at: item.created_at || "2026-09-03T10:00:00.000000Z"
-      }));
-    }
-  } catch (error) {
-    console.warn("Gagal memuat API ulasan lokal, mencoba remote:", error);
-    try {
-      const resRemote = await api.get("/api/resource/content/ulasan", { params });
-      const items = extractArray(resRemote.data);
-      if (items.length > 0) {
-        return items.map((item) => ({
-          id_ulasan: item.id || item.id_ulasan,
-          nama_pasien: item.nama_pengulas || item.nama_pasien || "Pasien",
-          profesi_peran: item.profesi_peran || "Pasien",
-          rating: Number(item.rating) || 5,
-          layanan: item.layanan?.nama_layanan || item.layanan || "Layanan Homecare",
-          layanan_id: item.layanan_id || null,
-          komentar: item.komentar || "",
-          foto_url: item.foto_url || null,
-          created_at: item.created_at || "2026-09-03T10:00:00.000000Z"
-        }));
-      }
-    } catch {}
-  }
-  return DEFAULT_ULASAN;
+  const res = await client.get("/api/resource/content/ulasan", { params });
+  return extractPaginated(res.data);
 };
 
 /**

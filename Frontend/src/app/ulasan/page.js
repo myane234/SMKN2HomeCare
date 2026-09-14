@@ -14,34 +14,39 @@ import {
   FiClock,
   FiFilter,
   FiChevronDown,
+  FiChevronLeft,
+  FiChevronRight,
   FiLogIn,
   FiAlertCircle
 } from "react-icons/fi";
 
 export default function UlasanPage() {
   const [ulasanList, setUlasanList] = useState([]);
+  const [pagination, setPagination] = useState({
+    current_page: 1,
+    per_page: 5,
+    total: 0,
+    last_page: 1
+  });
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [successMsg, setSuccessMsg] = useState("");
   const [errorMsg, setErrorMsg] = useState("");
 
-  // Auth & User State
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [userInfo, setUserInfo] = useState(null);
   const [showLoginModal, setShowLoginModal] = useState(false);
 
-  // Master Data Layanan
   const [layananOptions, setLayananOptions] = useState([]);
 
-  // Header Section Portal
   const [headerInfo, setHeaderInfo] = useState({
     ulasan_heading: "Pengalaman & Testimoni Pasien",
     ulasan_subheading: "Ulasan jujur dari keluarga dan pasien yang telah menggunakan layanan perawatan medis SmartHomeCare."
   });
 
-  // Filter & Pagination Display
   const [starFilter, setStarFilter] = useState("all");
-  const [visibleCount, setVisibleCount] = useState(5);
+  const [currentPage, setCurrentPage] = useState(1);
+  const ITEMS_PER_PAGE = 5;
 
   // Form State
   const [form, setForm] = useState({
@@ -85,20 +90,8 @@ export default function UlasanPage() {
           console.warn("Gagal memuat master data layanan:", lErr);
         }
 
-        // Ambil Header Section Ulasan
-        try {
-          const resRaw = await fetch("/api/resource/content/ulasan");
-          const json = await resRaw.json();
-          if (json?.ulasan_heading) {
-            setHeaderInfo({
-              ulasan_heading: json.ulasan_heading,
-              ulasan_subheading: json.ulasan_subheading || ""
-            });
-          }
-        } catch {}
-
-        // Ambil Daftar Ulasan Publik
-        await loadUlasanList();
+        // Ambil Daftar Ulasan Publik (header + list sekaligus dari service, service return {list, heading, subheading})
+        await loadUlasanList(starFilter, currentPage);
       } catch (err) {
         console.error("Gagal menginisialisasi ulasan:", err);
       } finally {
@@ -107,26 +100,37 @@ export default function UlasanPage() {
     }
 
     initData();
-  }, []);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentPage]);
 
-  // Memuat daftar ulasan dari database / API
-  const loadUlasanList = async (filter = starFilter) => {
-    try {
-      const params = filter !== "all" ? { rating: filter, per_page: 50 } : { per_page: 50 };
-      const data = await getUlasan(params);
-      setUlasanList(data);
-    } catch (err) {
-      console.error("Gagal memuat ulasan:", err);
+  const loadUlasanList = async (filter = starFilter, page = currentPage) => {
+    const params = {
+      per_page: ITEMS_PER_PAGE,
+      page: Math.max(1, Number(page) || 1)
+    };
+    if (filter !== "all") {
+      params.rating = filter;
+    }
+    const data = await getUlasan(params);
+    setUlasanList(data.list || []);
+    setPagination(data.pagination || { current_page: 1, per_page: ITEMS_PER_PAGE, total: 0, last_page: 1 });
+    if (data.heading) {
+      setHeaderInfo({
+        ulasan_heading: data.heading,
+        ulasan_subheading: data.subheading || ""
+      });
     }
   };
 
-  // Ubah Filter Bintang
   const handleFilterChange = async (ratingVal) => {
     setStarFilter(ratingVal);
-    setVisibleCount(5); // Reset limit tampilan saat ganti filter
+    setCurrentPage(1);
     setLoading(true);
-    await loadUlasanList(ratingVal);
-    setLoading(false);
+    try {
+      await loadUlasanList(ratingVal, 1);
+    } finally {
+      setLoading(false);
+    }
   };
 
   // Format Tanggal & Waktu (Date & Time)
@@ -203,13 +207,22 @@ export default function UlasanPage() {
     }
   };
 
-  // Tombol Lihat Selengkapnya
-  const handleLoadMore = () => {
-    setVisibleCount((prev) => prev + 5);
+  const handlePageChange = (page) => {
+    const target = Math.max(1, Math.min(page, pagination.last_page || 1));
+    setCurrentPage(target);
+    if (typeof window !== "undefined") {
+      const targetEl = document.getElementById("daftar-ulasan-section");
+      if (targetEl) {
+        targetEl.scrollIntoView({ behavior: "smooth" });
+      }
+    }
   };
 
-  const displayedUlasan = ulasanList.slice(0, visibleCount);
-  const hasMore = ulasanList.length > visibleCount;
+  const paginationStart = pagination.total > 0 ? (pagination.current_page - 1) * pagination.per_page + 1 : 0;
+  const paginationEnd = Math.min(pagination.current_page * pagination.per_page, pagination.total);
+  const hasPrev = pagination.current_page > 1;
+  const hasNext = pagination.current_page < pagination.last_page;
+  const displayedUlasan = ulasanList;
 
   return (
     <div className="min-h-screen bg-slate-50 font-sans text-slate-800 py-10 px-4 sm:px-6 lg:px-8">
@@ -432,13 +445,13 @@ export default function UlasanPage() {
         </div>
 
         {/* Daftar Ulasan Pasien */}
-        <div className="space-y-4 pt-2">
+        <div id="daftar-ulasan-section" className="space-y-4 pt-2">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div>
               <h2 className="text-base sm:text-lg font-bold text-slate-900 flex items-center gap-2">
                 Daftar Ulasan Pasien
                 <span className="text-xs font-semibold text-sky-700 bg-sky-100 px-2.5 py-0.5 rounded-full">
-                  {ulasanList.length}
+                  {pagination.total} Total
                 </span>
               </h2>
               <p className="text-xs text-slate-500 mt-0.5">
@@ -564,16 +577,56 @@ export default function UlasanPage() {
             </div>
           )}
 
-          {/* Tombol Lihat Selengkapnya */}
-          {hasMore && (
-            <div className="text-center pt-3">
-              <button
-                type="button"
-                onClick={handleLoadMore}
-                className="inline-flex items-center gap-2 px-6 py-2.5 rounded-xl border border-slate-200 bg-white text-xs font-semibold text-slate-700 hover:bg-slate-50 hover:border-slate-300 shadow-2xs transition cursor-pointer"
-              >
-                <FiChevronDown /> Lihat Selengkapnya ({ulasanList.length - visibleCount} ulasan lagi)
-              </button>
+          {/* Pagination Controls */}
+          {pagination.total > 0 && (
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-4 border-t border-slate-200/80">
+              <p className="text-xs text-slate-500 text-center sm:text-left">
+                Menampilkan <span className="font-semibold text-slate-700">{paginationStart}</span> -{" "}
+                <span className="font-semibold text-slate-700">{paginationEnd}</span> dari{" "}
+                <span className="font-semibold text-slate-700">{pagination.total}</span> ulasan
+              </p>
+
+              {pagination.last_page > 1 && (
+                <div className="inline-flex items-center gap-1.5">
+                  <button
+                    type="button"
+                    disabled={!hasPrev}
+                    onClick={() => handlePageChange(currentPage - 1)}
+                    className="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl border border-slate-200 bg-white text-xs font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition cursor-pointer shadow-2xs"
+                  >
+                    <FiChevronLeft className="text-sm" /> Prev
+                  </button>
+
+                  <div className="inline-flex items-center gap-1">
+                    {Array.from({ length: pagination.last_page }, (_, i) => i + 1).map((p) => {
+                      const isActive = p === currentPage;
+                      return (
+                        <button
+                          key={p}
+                          type="button"
+                          onClick={() => handlePageChange(p)}
+                          className={`min-w-8 h-8 px-2.5 rounded-xl text-xs font-semibold transition cursor-pointer ${
+                            isActive
+                              ? "bg-sky-600 text-white shadow-xs"
+                              : "bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 shadow-2xs"
+                          }`}
+                        >
+                          {p}
+                        </button>
+                      );
+                    })}
+                  </div>
+
+                  <button
+                    type="button"
+                    disabled={!hasNext}
+                    onClick={() => handlePageChange(currentPage + 1)}
+                    className="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl border border-slate-200 bg-white text-xs font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition cursor-pointer shadow-2xs"
+                  >
+                    Next <FiChevronRight className="text-sm" />
+                  </button>
+                </div>
+              )}
             </div>
           )}
         </div>
