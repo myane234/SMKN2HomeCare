@@ -70,15 +70,13 @@ export default function PageKelolaKontenMitra() {
   }
 
   return (
-    <div className="w-full space-y-6">
-      <div className="mb-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+    <div className="w-full max-w-screen-2xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-slate-200/80 pb-4">
         <div>
-          <h1 className="page-title flex items-center gap-2.5">
-            <FaHandshake className="text-primary" /> Kelola Konten Gabung Mitra
+          <h1 className="text-xl sm:text-2xl font-bold text-slate-900 flex items-center gap-2.5">
+            <FaHandshake className="text-primary" /> Gabung Mitra
           </h1>
-          <p className="page-subtitle">
-            Pengaturan banner hero, judul headline, dan deskripsi pendaftaran mitra nakes
-          </p>
+          <p className="text-xs sm:text-sm text-slate-500 mt-1">Pengaturan banner hero, judul headline, dan deskripsi pendaftaran mitra nakes</p>
         </div>
       </div>
 
@@ -95,21 +93,21 @@ export default function PageKelolaKontenMitra() {
         </div>
       )}
 
-      <form onSubmit={handleMitraSubmit} className="card p-5 sm:p-7 space-y-6">
+      <form onSubmit={handleMitraSubmit} className="bg-white rounded-2xl border border-slate-200/80 p-4 sm:p-6 lg:p-8 shadow-xs space-y-6">
         <h2 className="text-base font-semibold text-slate-900 border-b border-slate-200 pb-3 flex items-center gap-2">
           <FaHandshake className="text-primary" /> Form Konten Halaman Gabung Mitra
         </h2>
 
-        <div className="p-4 rounded-xl border border-slate-200 bg-slate-50/70 space-y-3">
+        <div>
           <label className="form-label">Banner Hero Gabung Mitra</label>
-          <p className="text-xs text-slate-500">Format: jpeg, png, jpg, webp (Maksimal 2MB)</p>
-          <div className="flex flex-col sm:flex-row items-start sm:items-center gap-5">
+          <p className="text-xs text-slate-500 mb-2">Format: jpeg, png, jpg, webp (Maksimal 2MB)</p>
+          <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
             {mitraBannerPreview ? (
-              <div className="relative w-full sm:w-72 aspect-video rounded-xl overflow-hidden border border-slate-200 bg-white shadow-sm">
+              <div className="relative w-full sm:w-64 h-36 rounded-xl overflow-hidden border border-slate-200 bg-slate-50 shadow-sm">
                 <img src={mitraBannerPreview} alt="Mitra Banner" className="w-full h-full object-cover" />
               </div>
             ) : (
-              <div className="w-full sm:w-72 aspect-video rounded-xl border-2 border-dashed border-slate-200 bg-white flex flex-col items-center justify-center text-slate-400">
+              <div className="w-full sm:w-64 h-36 rounded-xl border-2 border-dashed border-slate-200 bg-slate-50 flex flex-col items-center justify-center text-slate-400">
                 <FaImage size={28} />
                 <span className="text-xs mt-1">Belum ada banner</span>
               </div>
@@ -123,7 +121,7 @@ export default function PageKelolaKontenMitra() {
                   setMitraBannerPreview(URL.createObjectURL(e.target.files[0]));
                 }
               }}
-              className="w-full sm:w-auto text-xs text-slate-500 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-primary-light file:text-primary-dark hover:file:bg-primary-light/80 cursor-pointer"
+              className="text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-primary-light file:text-primary-dark hover:file:bg-primary-light/80 cursor-pointer"
             />
           </div>
         </div>
@@ -135,7 +133,7 @@ export default function PageKelolaKontenMitra() {
             value={mitraTextBanner}
             onChange={(e) => setMitraTextBanner(e.target.value)}
             placeholder='Contoh: "Ayo Bergabung Bersama Kami"'
-            className="form-input bg-white"
+            className="form-input"
           />
         </div>
 
@@ -146,18 +144,18 @@ export default function PageKelolaKontenMitra() {
             value={mitraDescription}
             onChange={(e) => setMitraDescription(e.target.value)}
             placeholder='Contoh: "Daftar sekarang untuk menjangkau pasien lebih luas."'
-            className="form-input resize-none bg-white"
+            className="form-input resize-none"
           />
         </div>
 
-        <div className="flex items-center justify-end pt-4 border-t border-slate-200">
+        <div className="pt-2">
           <button
             type="submit"
             disabled={saving}
-            className="btn-primary flex items-center justify-center gap-2 px-6 py-2.5 cursor-pointer"
+            className="btn-primary flex items-center justify-center gap-2 px-6 py-2.5"
           >
             {saving ? <FaSpinner className="animate-spin" /> : <FaSave />}
-            <span>{saving ? "Menyimpan..." : "Simpan Konten Gabung Mitra"}</span>
+            Simpan Konten Gabung Mitra
           </button>
         </div>
       </form>
