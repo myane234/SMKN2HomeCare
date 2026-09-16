@@ -34,6 +34,20 @@ function formatRupiah(amount) {
   }).format(amount || 0);
 }
 
+function formatTriggerDays(days) {
+  if (!Array.isArray(days) || days.length === 0) return "Fallback nasional";
+  const dayNames = {
+    senin: "Senin",
+    selasa: "Selasa",
+    rabu: "Rabu",
+    kamis: "Kamis",
+    jumat: "Jumat",
+    sabtu: "Sabtu",
+    minggu: "Minggu",
+  };
+  return days.map((day) => dayNames[String(day).toLowerCase()] || day).join(", ");
+}
+
 function renderStatusBadge(status, label, color) {
   const displayLabel = label || status || "Pending";
   const value = String(status || "pending").toLowerCase();
@@ -160,7 +174,8 @@ export default function PageBooking() {
   }, []);
 
   useEffect(() => {
-    setCurrentPage(1);
+    const timer = window.setTimeout(() => setCurrentPage(1), 0);
+    return () => window.clearTimeout(timer);
   }, [statusBooking, searchQuery, dateFrom, dateTo, patientFilter, nakesFilter, monthFilter, yearFilter, rekamMedisId, sortBy, sortDir, itemsPerPage]);
 
   const yearOptions = useMemo(() => {
@@ -607,7 +622,10 @@ export function PageBookingDetail() {
   }
 
   useEffect(() => {
-    if (id) fetchDetail();
+    const timer = id ? window.setTimeout(() => fetchDetail(), 0) : null;
+    return () => {
+      if (timer) window.clearTimeout(timer);
+    };
   }, [id]);
 
   async function handleUpdateStatus(newStatus) {
@@ -726,7 +744,6 @@ export function PageBookingDetail() {
               <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400">Informasi Pasien</h3>
               <p className="mt-3 text-base font-bold text-slate-800">{booking.pasien?.nama_lengkap || "-"}</p>
               <div className="mt-2 space-y-1 text-xs text-slate-500">
-                <p>ID Pasien: <span className="font-medium text-slate-700">{booking.pasien?.id_pasien || "-"}</span></p>
                 <p>No. Telp: <span className="font-medium text-slate-700">{booking.pasien?.no_telp || "-"}</span></p>
                 <p>NIK: <span className="font-medium text-slate-700">{booking.pasien?.nik || "-"}</span></p>
                 <p>Alamat Utama: <span className="font-medium text-slate-700">{booking.pasien?.alamat_utama || "-"}</span></p>
@@ -751,10 +768,19 @@ export function PageBookingDetail() {
                 <div className="space-y-2 font-semibold text-slate-800">
                   {(booking.layanan_items || (booking.layanan ? [booking.layanan] : [])).map((layanan, layananIndex) => (
                     <div key={layanan.id_layanan || layananIndex}>
-                      <div>{layanan.nama_layanan || "-"}</div>
+                      <div className="text-base">{layanan.nama_layanan || "-"}</div>
+                      {/* <div className="mt-1 text-xs font-normal text-slate-500">
+                        {layanan.deskripsi || "Tidak ada deskripsi layanan."}
+                      </div> */}
                       <div className="text-xs font-normal text-slate-500">
-                        ID {layanan.id_layanan || "-"} | SL {formatRupiah(layanan.sl)} | SB {formatRupiah(layanan.sb)}
+                        Durasi {layanan.durasi_menit || 0} menit | SL {formatRupiah(layanan.sl)} | SB {formatRupiah(layanan.sb)}
                       </div>
+                      {layanan.kategori && <div className="text-xs font-normal text-slate-500">Kategori layanan: {layanan.kategori.nama_kategori || "-"}</div>}
+                      {layanan.bhp?.length > 0 && (
+                        <div className="mt-1 text-xs font-normal text-slate-500">
+                          BHP: {layanan.bhp.map((bhp) => `${bhp.nama_bhp} (${bhp.qty_default}x)`).join(", ")}
+                        </div>
+                      )}
                     </div>
                   ))}
                   {!booking.layanan_items?.length && !booking.layanan && <span>-</span>}
@@ -781,6 +807,34 @@ export function PageBookingDetail() {
               )}
             </div>
           </div>
+
+          <div className="rounded-2xl border border-emerald-200 bg-emerald-50/60 p-5 shadow-sm">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <h3 className="text-xs font-bold uppercase tracking-wider text-emerald-700">Kategori Tarif yang Dipakai</h3>
+                <p className="mt-2 text-lg font-bold text-slate-900">{booking.kategori_tarif?.nama_kategori || "-"}</p>
+              </div>
+            </div>
+            <div className="mt-3 grid grid-cols-1 gap-2 text-xs text-slate-600 sm:grid-cols-3">
+              <div><span className="block text-slate-400">Biaya tambahan</span><strong className="text-slate-800">{formatRupiah(booking.kategori_tarif?.biaya_tambahan)}</strong></div>
+              <div><span className="block text-slate-400">Hari Berlaku</span><strong className="text-slate-800">{formatTriggerDays(booking.kategori_tarif?.hari_berlaku)}</strong></div>
+              <div><span className="block text-slate-400">Jam Berlaku</span><strong className="text-slate-800">{booking.kategori_tarif?.jam_mulai && booking.kategori_tarif?.jam_selesai ? `${booking.kategori_tarif.jam_mulai.slice(0, 5)}-${booking.kategori_tarif.jam_selesai.slice(0, 5)}` : "Fallback nasional"}</strong></div>
+            </div>
+          </div>
+
+          {booking.booking_bhp?.length > 0 && (
+            <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+              <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400">BHP Tambahan</h3>
+              <div className="mt-3 space-y-2 text-xs text-slate-600">
+                {booking.booking_bhp.map((bhp) => (
+                  <div key={bhp.id_booking_bhp} className="flex items-center justify-between gap-3 border-b border-slate-100 pb-2 last:border-0 last:pb-0">
+                    <span>{bhp.nama_bhp || "BHP"} x{bhp.qty_tambahan || bhp.qty_real || bhp.qty_default || 0}</span>
+                    <strong className="text-slate-800">{formatRupiah(bhp.total_sb_tambahan || 0)}</strong>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
 
         <div className="space-y-6">
@@ -813,10 +867,6 @@ export function PageBookingDetail() {
                     <div className="flex justify-between text-slate-600">
                       <span>Metode Pembayaran</span>
                       <span className="font-semibold text-slate-800">{tr.metode_pembayaran || tr.payment_method || "-"}</span>
-                    </div>
-                    <div className="flex justify-between text-slate-600">
-                      <span>ID Transaksi</span>
-                      <span className="font-mono text-slate-800">{tr.id_transaksi || "-"}</span>
                     </div>
                     <div className="flex justify-between text-slate-600">
                       <span>Waktu Bayar</span>

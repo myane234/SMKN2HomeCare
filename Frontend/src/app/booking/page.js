@@ -82,6 +82,70 @@ function getCookie(name) {
   }
 }
 
+function normalizeDurationValue(baseMinutes, rawValue) {
+  const base = Math.max(1, Number(baseMinutes) || 1);
+  const numeric = Number(rawValue);
+
+  if (!Number.isFinite(numeric) || numeric <= 0) {
+    return base;
+  }
+
+  const safeValue = Math.max(base, Math.round(numeric / base) * base);
+  return safeValue;
+}
+
+function formatReadableDuration(minutes) {
+  const totalMinutes = Math.max(0, Number(minutes) || 0);
+  const hours = Math.floor(totalMinutes / 60);
+  const remainingMinutes = totalMinutes % 60;
+
+  if (hours && remainingMinutes) {
+    return `${totalMinutes} menit (${hours} jam ${remainingMinutes} menit)`;
+  }
+
+  if (hours) {
+    return `${totalMinutes} menit (${hours} jam)`;
+  }
+
+  return `${totalMinutes} menit`;
+}
+
+function getBaseDurationMinutes(value) {
+  const baseDuration = Number(value);
+  if (!Number.isFinite(baseDuration) || baseDuration <= 0) {
+    return 60;
+  }
+
+  return Math.max(60, Math.round(baseDuration));
+}
+
+function normalizeDurationMinutes(value, baseMinutes) {
+  const baseDuration = getBaseDurationMinutes(baseMinutes);
+  const parsedValue = Number(value);
+
+  if (!Number.isFinite(parsedValue) || parsedValue <= 0) {
+    return baseDuration;
+  }
+
+  return Math.max(baseDuration, Math.ceil(parsedValue / baseDuration) * baseDuration);
+}
+
+function formatDurationText(totalMinutes) {
+  const safeMinutes = Math.max(0, Number(totalMinutes) || 0);
+  const hours = Math.floor(safeMinutes / 60);
+  const minutes = safeMinutes % 60;
+
+  if (hours && minutes) {
+    return `${safeMinutes} menit (${hours} jam ${minutes} menit)`;
+  }
+
+  if (hours) {
+    return `${safeMinutes} menit (${hours} jam)`;
+  }
+
+  return `${safeMinutes} menit`;
+}
+
 /* =========================================================
    PAGE
 ========================================================= */
@@ -123,6 +187,7 @@ export default function BookingPage() {
   ========================================================= */
 
   const [checkoutItems, setCheckoutItems] = useState([]);
+  const [durationInputs, setDurationInputs] = useState({});
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   /* =========================================================
@@ -221,6 +286,26 @@ export default function BookingPage() {
       router.push("/keranjang");
     }
   }, [router]);
+
+  useEffect(() => {
+    setDurationInputs((current) => {
+      const next = { ...current };
+      let changed = false;
+
+      checkoutItems.forEach((item) => {
+        const service = item.service || {};
+        const serviceId = getServiceId(service);
+
+        if (service?.tipe_layanan === "durasi" && serviceId && !next[serviceId]) {
+          const baseDuration = getBaseDurationMinutes(service.durasi_menit || service.durasi || 60);
+          next[serviceId] = baseDuration;
+          changed = true;
+        }
+      });
+
+      return changed ? next : current;
+    });
+  }, [checkoutItems]);
 
   /* =========================================================
      LOAD ADDRESS
@@ -409,18 +494,45 @@ export default function BookingPage() {
      TOTAL PRICE
   ========================================================= */
 
+  const getCheckoutItemPrice = (item) => {
+    const service = item.service || {};
+    const basePrice = Number(
+      service.harga || service.price || item.harga || item.price || item.total_harga || item.amount
+    ) || 0;
+
+    if (service.tipe_layanan !== "durasi") {
+      return basePrice;
+    }
+
+    const baseDuration = getBaseDurationMinutes(service.durasi_menit || service.durasi || 60);
+    const selectedDuration = normalizeDurationMinutes(
+      durationInputs[getServiceId(service)],
+      baseDuration
+    );
+
+    return basePrice * (selectedDuration / baseDuration);
+  };
+
+  const totalDurationMinutes = useMemo(() => {
+    return checkoutItems.reduce((acc, item) => {
+      const service = item.service || {};
+      if (service.tipe_layanan !== "durasi") {
+        return acc;
+      }
+
+      const serviceId = getServiceId(service);
+      const baseDuration = getBaseDurationMinutes(service.durasi_menit || service.durasi || 60);
+      const selectedDuration = normalizeDurationMinutes(durationInputs[serviceId], baseDuration);
+      const qty = item.qty || item.jumlah || 1;
+
+      return acc + (selectedDuration * qty);
+    }, 0);
+  }, [checkoutItems, durationInputs]);
+
   const totalPrice = useMemo(() => {
     return checkoutItems.reduce(
       (acc, item) => {
-        const price =
-          Number(
-            item.service?.harga ||
-            item.service?.price ||
-            item.harga ||
-            item.price ||
-            item.total_harga ||
-            item.amount
-          ) || 0;
+        const price = getCheckoutItemPrice(item);
 
         const qty = item.qty || item.jumlah || 1;
 
@@ -428,7 +540,7 @@ export default function BookingPage() {
       },
       0
     );
-  }, [checkoutItems]);
+  }, [checkoutItems, durationInputs]);
 
   /* =========================================================
      HANDLE INPUT
@@ -485,9 +597,25 @@ export default function BookingPage() {
         .map((item) => Number(getServiceId(item.service)))
         .filter((id) => !Number.isNaN(id));
 
+      const durasiLayanan = Object.fromEntries(
+        checkoutItems
+          .filter((item) => item.service?.tipe_layanan === "durasi")
+          .map((item) => {
+            const service = item.service || {};
+            const serviceId = getServiceId(service);
+            const baseDuration = getBaseDurationMinutes(service.durasi_menit || service.durasi || 60);
+
+            return [
+              serviceId,
+              normalizeDurationMinutes(durationInputs[serviceId], baseDuration),
+            ];
+          })
+      );
+
       const response = await createBooking({
         layanan_ids: rawIds,
         id_layanan: rawIds.length > 1 ? rawIds : rawIds[0],
+        durasi_layanan: durasiLayanan,
         tanggal_kunjungan: form.date,
         jam_kunjungan: form.time,
 
@@ -640,10 +768,13 @@ export default function BookingPage() {
                       "Layanan";
 
                     const price =
-                      Number(
-                        s.harga ||
-                        s.price
-                      ) || 0;
+                      getCheckoutItemPrice(item);
+                    const isDurationBased = s.tipe_layanan === "durasi";
+                    const baseDuration = getBaseDurationMinutes(s.durasi_menit || s.durasi || 60);
+                    const selectedDuration = normalizeDurationMinutes(
+                      durationInputs[getServiceId(s)],
+                      baseDuration
+                    );
 
                     const img =
                       resolveImageUrl(
@@ -676,11 +807,34 @@ export default function BookingPage() {
                           </p>
 
                           <p className="text-xs text-gray-500">
-                            {item.qty}x{" "}
-                            {formatCurrency(
-                              price
-                            )}
+                            {item.qty || 1}x {formatCurrency(price)}
                           </p>
+
+                          {isDurationBased && (
+                            <div className="mt-2 space-y-1 text-xs text-gray-500">
+                              <label className="flex items-center gap-2">
+                                <span>Durasi</span>
+                                <input
+                                  type="number"
+                                  min={baseDuration}
+                                  max="1440"
+                                  step={baseDuration}
+                                  value={selectedDuration}
+                                  onChange={(event) => {
+                                    setDurationInputs((current) => ({
+                                      ...current,
+                                      [getServiceId(s)]: normalizeDurationMinutes(event.target.value, baseDuration),
+                                    }));
+                                  }}
+                                  className="w-24 rounded-lg border border-gray-200 px-2 py-1 text-center text-xs text-gray-900 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                                />
+                                <span>menit</span>
+                              </label>
+                              <p className="text-[10px] text-gray-500">
+                                Total: {formatDurationText(selectedDuration)}
+                              </p>
+                            </div>
+                          )}
 
                         </div>
 
@@ -701,18 +855,27 @@ export default function BookingPage() {
 
               {/* TOTAL */}
 
-              <div className="mt-4 pt-3 border-t border-gray-200 flex justify-between items-center">
+              <div className="mt-4 space-y-3 border-t border-gray-200 pt-3">
+                <div className="flex items-center justify-between gap-3">
+                  <span className="text-sm font-medium text-gray-600">
+                    Total Durasi
+                  </span>
+                  <span className="text-sm font-semibold text-gray-900">
+                    {formatDurationText(totalDurationMinutes)}
+                  </span>
+                </div>
 
-                <span className="text-sm font-medium text-gray-600">
-                  Total Biaya Layanan
-                </span>
+                <div className="flex items-center justify-between">
+                  <span className="text-sm font-medium text-gray-600">
+                    Total Biaya Layanan
+                  </span>
 
-                <span className="text-base font-bold text-blue-600">
-                  {formatCurrency(
-                    totalPrice
-                  )}
-                </span>
-
+                  <span className="text-base font-bold text-blue-600">
+                    {formatCurrency(
+                      totalPrice
+                    )}
+                  </span>
+                </div>
               </div>
 
             </div>

@@ -19,37 +19,33 @@ export default function LayananForm({ initialData, onSubmit, submitting, mode })
   const [errors, setErrors] = useState({});
   const [preview, setPreview] = useState('');
 
-  // 1. Fetch opsi kategori layanan
   useEffect(() => {
     async function fetchKategori() {
       try {
         const data = await getKategoriLayanan();
         setKategoriOptions(data || []);
-        
-        // Jika mode Tambah (bukan Edit) dan belum ada kategori terpilih, gunakan opsi pertama sebagai default
+
         if (!initialData && data && data.length > 0) {
-          setForm((prev) => ({ 
-            ...prev, 
-            kategori: prev.kategori || data[0].id_kategori_layanan 
+          setForm((prev) => ({
+            ...prev,
+            kategori: prev.kategori || data[0].id_kategori_layanan,
           }));
         }
       } catch (err) {
         console.error('Gagal memuat kategori layanan:', err);
       }
     }
-    
+
     fetchKategori();
   }, [initialData]);
 
-  // 2. Load initialData jika mode Edit
   useEffect(() => {
     if (initialData) {
       setForm({
         ...emptyForm,
         ...initialData,
-        // Pastikan kategori mengambil ID jika data berupa object/string
         kategori: initialData.kategori?.id_kategori_layanan || initialData.kategori || '',
-        gambar: null // Di-reset agar tidak mengirim string URL sebagai File object
+        gambar: null,
       });
       setPreview(initialData.gambar || '');
     }
@@ -64,8 +60,9 @@ export default function LayananForm({ initialData, onSubmit, submitting, mode })
   function handleImageChange(e) {
     const file = e.target.files?.[0];
     if (!file) return;
+
     setForm((prev) => ({ ...prev, gambar: file }));
-    
+
     const reader = new FileReader();
     reader.onload = () => setPreview(reader.result);
     reader.readAsDataURL(file);
@@ -73,12 +70,18 @@ export default function LayananForm({ initialData, onSubmit, submitting, mode })
 
   function validate() {
     const newErrors = {};
+
     if (!form.nama.trim()) newErrors.nama = 'Nama layanan wajib diisi';
     if (!form.deskripsi.trim()) newErrors.deskripsi = 'Deskripsi wajib diisi';
     if (!form.harga || Number(form.harga) <= 0) newErrors.harga = 'Harga harus lebih dari 0';
-    if (form.tipe_layanan === 'durasi' && (!form.durasi || Number(form.durasi) <= 0)) {
-      newErrors.durasi = 'Durasi harus lebih dari 0';
+
+    if (form.tipe_layanan === 'durasi') {
+      const minutes = Number(form.durasi);
+      if (!form.durasi || !Number.isFinite(minutes) || minutes <= 0 || !Number.isInteger(minutes)) {
+        newErrors.durasi = 'Durasi wajib diisi dan harus angka bulat positif.';
+      }
     }
+
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   }
@@ -86,17 +89,17 @@ export default function LayananForm({ initialData, onSubmit, submitting, mode })
   function handleSubmit(e) {
     e.preventDefault();
     if (!validate()) return;
+
     onSubmit({
       ...form,
-      id_kategori_layanan: form.kategori, // Dipetakan agar sesuai dengan kebutuhan backend
+      id_kategori_layanan: form.kategori,
       harga: Number(form.harga),
       durasi: form.tipe_layanan === 'durasi' ? Number(form.durasi) : '',
     });
   }
 
   return (
-    <div className="w-full max-w-screen-2xl mx-auto space-y-6 pb-10">
-      {/* Tombol Kembali dengan Ikon Panah */}
+    <div className="space-y-5">
       <div>
         <a
           href="/layanan"
@@ -191,7 +194,6 @@ export default function LayananForm({ initialData, onSubmit, submitting, mode })
                 </div>
               )}
             </div>
-
           </div>
 
           <div className="flex flex-col">
@@ -239,8 +241,8 @@ export default function LayananForm({ initialData, onSubmit, submitting, mode })
               {submitting
                 ? 'Menyimpan...'
                 : mode === 'edit'
-                ? 'Simpan Perubahan'
-                : 'Tambah Layanan'}
+                  ? 'Simpan Perubahan'
+                  : 'Tambah Layanan'}
             </button>
           </div>
         </div>
