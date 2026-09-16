@@ -443,7 +443,7 @@ export default function BookingPage() {
     };
   }, []);
 
-  /* =========================================================
+ /* =========================================================
      HANDLE MAP
   ========================================================= */
 
@@ -488,6 +488,57 @@ export default function BookingPage() {
           setIsFetchingAddress(false);
         }
       }, 500);
+  };
+
+  /* =========================================================
+     HANDLE CURRENT LOCATION (GPS)
+  ========================================================= */
+
+  const handleCurrentLocation = () => {
+    if (!navigator.geolocation) {
+      alert("Geolocation tidak didukung oleh browser Anda.");
+      return;
+    }
+
+    setIsFetchingAddress(true);
+
+    navigator.geolocation.getCurrentPosition(
+      async (position) => {
+        const lat = position.coords.latitude;
+        const lng = position.coords.longitude;
+
+        // Perbarui state koordinat peta
+        setAddressData((prev) => ({
+          ...prev,
+          latitude: lat,
+          longitude: lng,
+        }));
+
+        // Ambil teks alamat dari koordinat GPS tersebut (Reverse Geocoding)
+        try {
+          const response = await fetch(
+            `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${lat}&lon=${lng}`
+          );
+
+          if (response.ok) {
+            const data = await response.json();
+            if (data?.display_name) {
+              setTempAddress(data.display_name);
+            }
+          }
+        } catch (error) {
+          console.error("Gagal mengambil alamat dari lokasi saat ini:", error);
+        } finally {
+          setIsFetchingAddress(false);
+        }
+      },
+      (error) => {
+        console.error("Gagal mendeteksi lokasi:", error);
+        alert("Gagal mendeteksi lokasi saat ini. Pastikan izin GPS diaktifkan.");
+        setIsFetchingAddress(false);
+      },
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+    );
   };
 
   /* =========================================================
@@ -933,93 +984,104 @@ export default function BookingPage() {
 
               ) : addressData ? (
 
-                isEditingAddress ? (
+               isEditingAddress ? (
 
-                  <div className="space-y-3">
+  <div className="space-y-3">
 
-                    <div className="text-xs text-gray-500 mb-1">
-                      Geser pin pada peta di bawah ini untuk mengubah titik lokasi kunjungan. Alamat akan diperbarui otomatis.
-                    </div>
+    {/* BAGIAN INI YANG DITAMBAHKAN TOMBOL LOKASI SAAT INI */}
+    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-1">
+      <div className="text-xs text-gray-500">
+        Geser pin pada peta di bawah ini untuk mengubah titik lokasi kunjungan. Alamat akan diperbarui otomatis.
+      </div>
+      <button
+        type="button"
+        onClick={handleCurrentLocation}
+        className="flex items-center justify-center gap-1.5 rounded-lg bg-blue-50 px-3 py-1.5 text-xs font-semibold text-blue-600 transition hover:bg-blue-100 shrink-0"
+      >
+        <MapPin className="h-3.5 w-3.5" />
+        Lokasi Saat Ini
+      </button>
+    </div>
 
-                    <div className="relative">
+    <div className="relative">
 
-                      <MapPicker
-                        lat={
-                          addressData.latitude
-                        }
-                        lng={
-                          addressData.longitude
-                        }
-                        onChange={
-                          handleMapChange
-                        }
-                      />
+      <MapPicker
+        lat={
+          addressData.latitude
+        }
+        lng={
+          addressData.longitude
+        }
+        onChange={
+          handleMapChange
+        }
+      />
 
-                      {isFetchingAddress && (
-                        <div className="absolute inset-0 bg-white/60 flex items-center justify-center z-10 rounded-xl">
+      {isFetchingAddress && (
+        <div className="absolute inset-0 bg-white/60 flex items-center justify-center z-10 rounded-xl">
 
-                          <span className="text-xs font-medium text-gray-600 animate-pulse">
-                            Mengambil alamat baru...
-                          </span>
+          <span className="text-xs font-medium text-gray-600 animate-pulse">
+            Mengambil alamat baru...
+          </span>
 
-                        </div>
-                      )}
+        </div>
+      )}
 
-                    </div>
+    </div>
 
-                    <textarea
-                      value={
-                        tempAddress
-                      }
-                      onChange={(e) =>
-                        setTempAddress(
-                          e.target.value
-                        )
-                      }
-                      className="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-900 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100 resize-none"
-                      rows={3}
-                      placeholder="Masukkan alamat kunjungan lengkap"
-                    />
+    <textarea
+      value={
+        tempAddress
+      }
+      onChange={(e) =>
+        setTempAddress(
+          e.target.value
+        )
+      }
+      className="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-900 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100 resize-none"
+      rows={3}
+      placeholder="Masukkan alamat kunjungan lengkap"
+    />
 
-                    <div className="flex gap-2 justify-end">
+    <div className="flex gap-2 justify-end">
 
-                      <button
-                        type="button"
-                        onClick={() =>
-                          setIsEditingAddress(
-                            false
-                          )
-                        }
-                        className="rounded-lg px-3 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-100"
-                      >
-                        Batal
-                      </button>
+      <button
+        type="button"
+        onClick={() =>
+          setIsEditingAddress(
+            false
+          )
+        }
+        className="rounded-lg px-3 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-100"
+      >
+        Batal
+      </button>
 
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setAddressData(
-                            (prev) => ({
-                              ...prev,
-                              address:
-                                tempAddress,
-                            })
-                          );
+      <button
+        type="button"
+        onClick={() => {
+          setAddressData(
+            (prev) => ({
+              ...prev,
+              address:
+                tempAddress,
+            })
+          );
 
-                          setIsEditingAddress(
-                            false
-                          );
-                        }}
-                        className="rounded-lg bg-blue-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-blue-700"
-                      >
-                        Simpan
-                      </button>
+          setIsEditingAddress(
+            false
+          );
+        }}
+        className="rounded-lg bg-blue-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-blue-700"
+      >
+        Simpan
+      </button>
 
-                    </div>
+    </div>
 
-                  </div>
+  </div>
 
-                ) : (
+) : (
 
                   <div className="space-y-2">
 

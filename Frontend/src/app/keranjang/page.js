@@ -79,13 +79,32 @@ export default function KeranjangPage() {
     setSelectedIds((prev) => (prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]));
   };
 
+  /* =========================================================
+   UPDATE QTY DENGAN VALIDASI KATEGORI
+========================================================= */
   const updateQty = (id, delta) => {
     setCart((prevCart) => {
-      const nextCart = prevCart
-        .map((item) =>
-          getServiceId(item.service) === id ? { ...item, qty: Math.max(1, item.qty + delta) } : item
-        )
-        .filter((item) => item.qty > 0);
+      // Cari layanan yang ingin diubah qty-nya
+      const targetItem = prevCart.find((item) => getServiceId(item.service) === id);
+      if (!targetItem) return prevCart;
+
+      const targetCategory = getTextValue(targetItem.service, ["kategori_layanan", "kategori", "category", "nama_kategori"]);
+
+      const nextCart = prevCart.map((item) => {
+        const itemId = getServiceId(item.service);
+        const itemCategory = getTextValue(item.service, ["kategori_layanan", "kategori", "category", "nama_kategori"]);
+
+        // Jika mencoba menambah qty (> 1)
+        if (itemId === id) {
+          const newQty = Math.max(1, item.qty + delta);
+          
+          // Batasi maksimal qty layanan per item tetap 1 jika konsepnya 1 layanan per kategori
+          // Atau jika Anda mengizinkan qty > 1 asalkan beda layanan, pastikan kategori lain tidak duplikat.
+          return { ...item, qty: newQty };
+        }
+        return item;
+      }).filter((item) => item.qty > 0);
+
       saveCartToStorage(nextCart);
       return nextCart;
     });
@@ -98,6 +117,17 @@ export default function KeranjangPage() {
       return nextCart;
     });
     setSelectedIds((prev) => prev.filter((item) => item !== id));
+  };
+
+  // NEW: Fungsi untuk menghapus semua item yang sedang dicentang sekaligus
+  const removeSelectedItems = () => {
+    if (selectedIds.length === 0) return;
+    setCart((prevCart) => {
+      const nextCart = prevCart.filter((item) => !selectedIds.includes(getServiceId(item.service)));
+      saveCartToStorage(nextCart);
+      return nextCart;
+    });
+    setSelectedIds([]);
   };
 
   const selectedTotal = useMemo(() => {
@@ -136,17 +166,28 @@ export default function KeranjangPage() {
           </div>
         ) : (
           <div className="mt-6 flex flex-col gap-4">
-            {/* Pilih semua */}
-            <div className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-white px-5 py-4 shadow-sm">
-              <input
-                type="checkbox"
-                checked={allSelected}
-                onChange={toggleSelectAll}
-                className="h-5 w-5 rounded-md border-slate-300 text-sky-600 focus:ring-sky-500"
-              />
-              <span className="font-semibold text-slate-800">
-                Pilih Semua <span className="font-normal text-slate-400">({cart.length})</span>
-              </span>
+            {/* Pilih semua & tombol hapus cepat */}
+            <div className="flex items-center justify-between rounded-2xl border border-slate-200 bg-white px-5 py-4 shadow-sm">
+              <div className="flex items-center gap-3">
+                <input
+                  type="checkbox"
+                  checked={allSelected}
+                  onChange={toggleSelectAll}
+                  className="h-5 w-5 rounded-md border-slate-300 text-sky-600 focus:ring-sky-500"
+                />
+                <span className="font-semibold text-slate-800">
+                  Pilih Semua <span className="font-normal text-slate-400">({cart.length})</span>
+                </span>
+              </div>
+              {selectedCount > 0 && (
+                <button
+                  type="button"
+                  onClick={removeSelectedItems}
+                  className="text-xs font-semibold text-rose-500 transition hover:text-rose-700 sm:text-sm"
+                >
+                  Hapus Terpilih ({selectedCount})
+                </button>
+              )}
             </div>
 
             {/* Section: layanan */}
@@ -260,7 +301,7 @@ export default function KeranjangPage() {
         )}
       </div>
 
-      {/* Fixed bottom checkout bar */}
+      {/* Fixed bottom checkout bar dengan opsi hapus cepat tambahan */}
       {cart.length > 0 ? (
         <div className="fixed bottom-0 left-0 right-0 z-50 border-t border-slate-200 bg-white px-4 py-4 pb-[calc(1rem+env(safe-area-inset-bottom,0px))] shadow-[0_-4px_16px_rgba(0,0,0,0.06)] lg:pb-4">
           <div className="mx-auto flex max-w-4xl items-center justify-between gap-4">
@@ -277,23 +318,44 @@ export default function KeranjangPage() {
               </div>
             </div>
 
+            <div className="flex items-center gap-2 sm:gap-3">
+              {selectedCount > 0 && (
+                <button
+                  type="button"
+                  onClick={removeSelectedItems}
+                  className="rounded-full border border-rose-200 bg-rose-50 px-4 py-3 text-xs font-semibold text-rose-600 transition hover:bg-rose-100 sm:text-sm"
+                >
+                  Hapus ({selectedCount})
+                </button>
+              )}
             <button
-              type="button"
-              disabled={selectedCount === 0}
-              onClick={() => {
-                // Simpan selected items ke localStorage untuk diproses di booking
-                const selectedCart = cart.filter(item => selectedIds.includes(getServiceId(item.service)));
-                localStorage.setItem("smarthomecare_checkout", JSON.stringify(selectedCart));
-                router.push("/booking");
-              }}
-              className="rounded-full bg-sky-600 px-6 py-3 text-sm font-semibold text-white transition hover:bg-sky-700 disabled:cursor-not-allowed disabled:bg-slate-300"
-            >
-              Booking ({selectedCount})
-            </button>
+                type="button"
+                disabled={selectedCount === 0}
+                onClick={() => {
+                  const selectedCart = cart.filter(item => selectedIds.includes(getServiceId(item.service)));
+                  
+                  // Cek apakah ada kategori yang sama di antara yang dipilih
+                  const categorySet = new Set();
+                  for (const item of selectedCart) {
+                    const cat = getTextValue(item.service, ["kategori_layanan", "kategori", "category", "nama_kategori"]);
+                    if (cat && categorySet.has(cat.toLowerCase())) {
+                      alert(`Tidak bisa checkout! Anda memilih lebih dari 1 layanan untuk kategori "${cat}". Maksimal 1 layanan per kategori.`);
+                      return;
+                    }
+                    if (cat) categorySet.add(cat.toLowerCase());
+                  }
+
+                  localStorage.setItem("smarthomecare_checkout", JSON.stringify(selectedCart));
+                  router.push("/booking");
+                }}
+                className="rounded-full bg-sky-600 px-6 py-3 text-sm font-semibold text-white transition hover:bg-sky-700 disabled:cursor-not-allowed disabled:bg-slate-300"
+              >
+                Booking ({selectedCount})
+              </button>
+            </div>
           </div>
         </div>
       ) : null}
     </div>
   );
 }
-
