@@ -197,26 +197,7 @@ export default function AdminLayout() {
 
           {/* User dropdown */}
           <div className="relative" ref={menuRef}>
-            <button
-              className="flex items-center gap-2.5 rounded-xl px-2.5 py-1.5 hover:bg-slate-100 transition-colors cursor-pointer"
-              onClick={() => setOpen((o) => !o)}
-            >
-              <span className="hidden text-[13px] font-semibold text-slate-700 sm:inline">
-                Hi, {session?.name?.split(" ")[0] || "Admin"}
-              </span>
-              
-              {avatarSrc ? (
-                <img
-                  src={avatarSrc}
-                  alt="Profile"
-                  className="h-8 w-8 rounded-full object-cover border border-emerald-500/20"
-                />
-              ) : (
-                <div className="flex h-8 w-8 items-center justify-center rounded-full bg-gradient-to-br from-emerald-100 to-green-100 border border-emerald-500/20 text-base font-bold text-emerald-800">
-                  {(session?.name?.[0] || "A").toUpperCase()}
-                </div>
-              )}
-            </button>
+           
 
             {open && (
               <div className="absolute right-0 top-[calc(100%+8px)] w-72 rounded-2xl border border-slate-200 bg-white p-4 shadow-xl shadow-slate-200/60 z-50">
