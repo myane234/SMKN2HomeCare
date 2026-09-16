@@ -2,15 +2,58 @@
 
 import { useState, useEffect } from "react";
 import { createHubungiKami, getHubungiKamiInfo } from "@/services/hubungiKamiService";
+import { getUserInfoForUlasan } from "@/services/ulasanService";
 import { getGlobalConfig } from "@/services/configService";
-import { FiMail, FiPhone, FiMapPin, FiSend, FiMessageSquare } from "react-icons/fi";
+import { FiMail, FiPhone, FiMapPin, FiSend, FiMessageSquare, FiCheckCircle, FiAlertCircle, FiLock } from "react-icons/fi";
 import { FaWhatsapp } from "react-icons/fa";
+
+function verifyIndonesianPhone(rawPhone) {
+  if (!rawPhone || typeof rawPhone !== "string") {
+    return { valid: false, message: "Nomor WhatsApp wajib diisi." };
+  }
+
+  let clean = rawPhone.replace(/\D/g, "");
+
+  if (clean.startsWith("628")) {
+    clean = "08" + clean.slice(3);
+  } else if (clean.startsWith("6208")) {
+    clean = "08" + clean.slice(4);
+  } else if (clean.startsWith("8")) {
+    clean = "0" + clean;
+  }
+
+  if (!clean.startsWith("08")) {
+    return {
+      valid: false,
+      message: "Nomor WhatsApp harus diawali dengan 08 (contoh: 081234567890)."
+    };
+  }
+
+  if (clean.length < 10 || clean.length > 15) {
+    return {
+      valid: false,
+      message: `Panjang nomor WhatsApp minimal 10 sampai 15 digit (saat ini ${clean.length} digit).`
+    };
+  }
+
+  return {
+    valid: true,
+    normalized: clean
+  };
+}
 
 export default function HubungiKamiPage() {
   const [config, setConfig] = useState({});
   const [submitting, setSubmitting] = useState(false);
   const [successMsg, setSuccessMsg] = useState("");
   const [errorMsg, setErrorMsg] = useState("");
+
+  // Auth User Status
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [userInfo, setUserInfo] = useState(null);
+
+  // Live validation states
+  const [phoneFeedback, setPhoneFeedback] = useState(null);
 
   const [form, setForm] = useState({
     nama: "",
@@ -20,6 +63,30 @@ export default function HubungiKamiPage() {
     pesan: ""
   });
 
+  // 1. Load User Profile jika sudah login
+  useEffect(() => {
+    async function checkAuth() {
+      try {
+        const uInfo = await getUserInfoForUlasan();
+        if (uInfo && (uInfo.email || uInfo.nama_pengulas)) {
+          setIsLoggedIn(true);
+          setUserInfo(uInfo);
+          setForm((prev) => ({
+            ...prev,
+            nama: uInfo.nama_pengulas || prev.nama,
+            email: uInfo.email || prev.email
+          }));
+        } else {
+          setIsLoggedIn(false);
+        }
+      } catch {
+        setIsLoggedIn(false);
+      }
+    }
+    checkAuth();
+  }, []);
+
+  // 2. Load Config Halaman
   useEffect(() => {
     async function loadConfig() {
       try {
@@ -45,6 +112,18 @@ export default function HubungiKamiPage() {
     loadConfig();
   }, []);
 
+  // Live Phone Validation Handler - Khusus Angka
+  const handlePhoneChange = (val) => {
+    const numericVal = val.replace(/\D/g, "");
+    setForm((prev) => ({ ...prev, no_hp: numericVal }));
+    if (!numericVal.trim()) {
+      setPhoneFeedback(null);
+      return;
+    }
+    const check = verifyIndonesianPhone(numericVal);
+    setPhoneFeedback(check);
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setSuccessMsg("");
@@ -55,13 +134,32 @@ export default function HubungiKamiPage() {
       return;
     }
 
+    // A. Verifikasi Nomor Telepon / WhatsApp
+    if (form.no_hp.trim()) {
+      const phoneCheck = verifyIndonesianPhone(form.no_hp.trim());
+      if (!phoneCheck.valid) {
+        setErrorMsg(phoneCheck.message);
+        return;
+      }
+    } else {
+      setErrorMsg("Mohon isi nomor WhatsApp Anda agar tim kami dapat menghubungi.");
+      return;
+    }
+
     try {
       setSubmitting(true);
       await createHubungiKami(form);
-      setSuccessMsg("Pesan Anda berhasil terkirim! Tim kami akan menghubungi Anda sesegera mungkin.");
-      setForm({ nama: "", email: "", no_hp: "", subjek: "", pesan: "" });
+      setSuccessMsg("Pesan Anda berhasil terkirim! Tim medis kami akan segera menghubungi Anda.");
+      setForm((prev) => ({
+        nama: isLoggedIn && userInfo?.nama_pengulas ? userInfo.nama_pengulas : "",
+        email: isLoggedIn && userInfo?.email ? userInfo.email : "",
+        no_hp: "",
+        subjek: "",
+        pesan: ""
+      }));
+      setPhoneFeedback(null);
     } catch {
-      setErrorMsg("Gagal mengirim pesan. Silakan coba lagi atau hubungi via WhatsApp.");
+      setErrorMsg("Gagal mengirim pesan. Silakan coba lagi atau hubungi langsung via WhatsApp.");
     } finally {
       setSubmitting(false);
     }
@@ -165,41 +263,97 @@ export default function HubungiKamiPage() {
 
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                {/* Nama Lengkap */}
                 <div>
-                  <label className="block text-xs font-semibold text-slate-600 mb-1">Nama Lengkap *</label>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1 flex items-center justify-between">
+                    <span>Nama Lengkap *</span>
+                    {isLoggedIn && (
+                      <span className="text-[10px] text-sky-600 font-medium bg-sky-50 px-2 py-0.5 rounded-md">
+                        Auto dari Akun
+                      </span>
+                    )}
+                  </label>
                   <input
                     type="text"
-                    placeholder="Nama Anda"
+                    placeholder="Nama Lengkap Anda"
                     value={form.nama}
                     onChange={(e) => setForm({ ...form, nama: e.target.value })}
-                    className="w-full rounded-xl border border-slate-200 px-3.5 py-2 text-xs focus:border-sky-500 focus:outline-none"
+                    className="w-full rounded-xl border border-slate-200 px-3.5 py-2.5 text-xs text-slate-800 placeholder:text-slate-400 focus:border-sky-500 focus:outline-none transition"
                     required
                   />
                 </div>
 
+                {/* Alamat Email */}
                 <div>
-                  <label className="block text-xs font-semibold text-slate-600 mb-1">Alamat Email *</label>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1 flex items-center justify-between">
+                    <span>Alamat Email *</span>
+                    {isLoggedIn && (
+                      <span className="text-[10px] text-slate-400 font-normal flex items-center gap-1">
+                        <FiLock className="text-[9px]" /> Terkunci Akun
+                      </span>
+                    )}
+                  </label>
                   <input
                     type="email"
-                    placeholder="email@domain.com"
+                    placeholder="nama@domain.com"
                     value={form.email}
+                    disabled={isLoggedIn}
                     onChange={(e) => setForm({ ...form, email: e.target.value })}
-                    className="w-full rounded-xl border border-slate-200 px-3.5 py-2 text-xs focus:border-sky-500 focus:outline-none"
+                    className={`w-full rounded-xl border px-3.5 py-2.5 text-xs transition ${
+                      isLoggedIn
+                        ? "border-slate-200 bg-slate-100/80 text-slate-500 font-medium cursor-not-allowed"
+                        : "border-slate-200 text-slate-800 placeholder:text-slate-400 focus:border-sky-500 focus:outline-none"
+                    } focus:outline-none`}
                     required
                   />
                 </div>
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                {/* Nomor WhatsApp / HP */}
                 <div>
-                  <label className="block text-xs font-semibold text-slate-600 mb-1">Nomor WhatsApp / HP</label>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">
+                    Nomor WhatsApp *
+                  </label>
                   <input
                     type="tel"
-                    placeholder="0812xxx"
+                    inputMode="numeric"
+                    pattern="[0-9]*"
+                    placeholder="Contoh: 081234567890"
                     value={form.no_hp}
-                    onChange={(e) => setForm({ ...form, no_hp: e.target.value })}
-                    className="w-full rounded-xl border border-slate-200 px-3.5 py-2 text-xs focus:border-sky-500 focus:outline-none"
+                    onChange={(e) => handlePhoneChange(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (
+                        ["Backspace", "Delete", "Tab", "ArrowLeft", "ArrowRight", "Home", "End", "Enter"].includes(
+                          e.key
+                        ) ||
+                        (e.ctrlKey || e.metaKey)
+                      ) {
+                        return;
+                      }
+                      if (!/^[0-9]$/.test(e.key)) {
+                        e.preventDefault();
+                      }
+                    }}
+                    className={`w-full rounded-xl border px-3.5 py-2.5 text-xs transition ${
+                      phoneFeedback && !phoneFeedback.valid
+                        ? "border-rose-400 bg-rose-50/30 text-rose-900 focus:border-rose-500"
+                        : phoneFeedback && phoneFeedback.valid
+                        ? "border-emerald-400 bg-emerald-50/30 text-emerald-900 focus:border-emerald-500"
+                        : "border-slate-200 text-slate-800 placeholder:text-slate-400 focus:border-sky-500"
+                    } focus:outline-none`}
+                    required
                   />
+                  {phoneFeedback && !phoneFeedback.valid && (
+                    <p className="mt-1 text-[11px] text-rose-600 flex items-center gap-1">
+                      <FiAlertCircle className="shrink-0 text-xs" /> {phoneFeedback.message}
+                    </p>
+                  )}
+                  {phoneFeedback && phoneFeedback.valid && (
+                    <p className="mt-1 text-[11px] text-emerald-600 flex items-center gap-1">
+                      <FiCheckCircle className="shrink-0 text-xs" /> Nomor WhatsApp valid
+                    </p>
+                  )}
                 </div>
 
                 <div>

@@ -134,17 +134,30 @@ const DEFAULT_STORE = {
   ]
 };
 
+function getDataFilePath() {
+  const candidates = [
+    path.join(process.cwd(), 'src', 'data', 'cms_mock_store.json'),
+    path.join(process.cwd(), 'Frontend', 'src', 'data', 'cms_mock_store.json'),
+    path.resolve(process.cwd(), '..', 'Frontend', 'src', 'data', 'cms_mock_store.json')
+  ];
+  for (const candidate of candidates) {
+    if (fs.existsSync(candidate)) return candidate;
+  }
+  return path.join(process.cwd(), 'src', 'data', 'cms_mock_store.json');
+}
+
 function readStore() {
+  const targetFile = getDataFilePath();
   try {
-    if (!fs.existsSync(DATA_FILE)) {
-      const dir = path.dirname(DATA_FILE);
+    if (!fs.existsSync(targetFile)) {
+      const dir = path.dirname(targetFile);
       if (!fs.existsSync(dir)) {
         fs.mkdirSync(dir, { recursive: true });
       }
-      fs.writeFileSync(DATA_FILE, JSON.stringify(DEFAULT_STORE, null, 2), 'utf-8');
+      fs.writeFileSync(targetFile, JSON.stringify(DEFAULT_STORE, null, 2), 'utf-8');
       return DEFAULT_STORE;
     }
-    const raw = fs.readFileSync(DATA_FILE, 'utf-8');
+    const raw = fs.readFileSync(targetFile, 'utf-8');
     return JSON.parse(raw);
   } catch (err) {
     console.error('Error reading cms_mock_store.json:', err);
@@ -153,12 +166,13 @@ function readStore() {
 }
 
 function writeStore(store) {
+  const targetFile = getDataFilePath();
   try {
-    const dir = path.dirname(DATA_FILE);
+    const dir = path.dirname(targetFile);
     if (!fs.existsSync(dir)) {
       fs.mkdirSync(dir, { recursive: true });
     }
-    fs.writeFileSync(DATA_FILE, JSON.stringify(store, null, 2), 'utf-8');
+    fs.writeFileSync(targetFile, JSON.stringify(store, null, 2), 'utf-8');
   } catch (err) {
     console.error('Error writing cms_mock_store.json:', err);
   }
@@ -280,7 +294,7 @@ export function updateUlasanHeader({ ulasan_heading, ulasan_subheading }) {
 
 export function getPublicUlasanList({ rating, search, per_page, page } = {}) {
   const store = readStore();
-  let list = (store.ulasan_list || []).filter((u) => u.is_published === true);
+  let list = (store.ulasan_list || []).filter((u) => Boolean(u.is_published) === true);
 
   if (rating && String(rating) !== 'all') {
     list = list.filter((u) => Number(u.rating) === Number(rating));
@@ -297,15 +311,21 @@ export function getPublicUlasanList({ rating, search, per_page, page } = {}) {
   }
 
   const header = getUlasanHeader();
+  const total = list.length;
+  const resolvedPerPage = per_page === 'all' ? total : Math.max(1, Number(per_page) || 10);
+  const resolvedPage = Math.max(1, Number(page) || 1);
+  const startIndex = (resolvedPage - 1) * resolvedPerPage;
+  const sliced = total === 0 ? [] : list.slice(startIndex, startIndex + resolvedPerPage);
 
   return {
     ulasan_heading: header.ulasan_heading,
     ulasan_subheading: header.ulasan_subheading,
     data: {
-      current_page: Number(page) || 1,
-      data: list,
-      total: list.length,
-      per_page: per_page === 'all' ? list.length : Number(per_page) || 10
+      current_page: resolvedPage,
+      data: sliced,
+      total: total,
+      per_page: resolvedPerPage,
+      last_page: Math.max(1, Math.ceil(total / resolvedPerPage))
     }
   };
 }
@@ -333,11 +353,18 @@ export function getAdminUlasanList({ is_published, rating, search, per_page, pag
     );
   }
 
+  const total = list.length;
+  const resolvedPerPage = per_page === 'all' ? total : Math.max(1, Number(per_page) || 10);
+  const resolvedPage = Math.max(1, Number(page) || 1);
+  const startIndex = (resolvedPage - 1) * resolvedPerPage;
+  const sliced = total === 0 ? [] : list.slice(startIndex, startIndex + resolvedPerPage);
+
   return {
-    current_page: Number(page) || 1,
-    data: list,
-    total: list.length,
-    per_page: per_page === 'all' ? list.length : Number(per_page) || 10
+    current_page: resolvedPage,
+    data: sliced,
+    total: total,
+    per_page: resolvedPerPage,
+    last_page: Math.max(1, Math.ceil(total / resolvedPerPage))
   };
 }
 
