@@ -11,8 +11,8 @@ import ActiveBookingBubble from "@/components/ActiveBookingBubble";
 export default function LayoutShell({ children }) {
   const pathname = usePathname();
 
-  const hideLayout =
-    pathname.startsWith("/nakes/dashboard");
+  // Sembunyikan top navbar pasien, footer pasien, dan active booking bubble pasien untuk seluruh route Nakes (/nakes/*)
+  const hideLayout = pathname.startsWith("/nakes");
 
   useEffect(() => {
     // Fetch and store profile data in cookies when page loads,
