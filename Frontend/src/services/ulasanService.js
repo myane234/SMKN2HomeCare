@@ -140,6 +140,9 @@ export const createUlasan = async (data) => {
   if (data.layanan_id) {
     formData.append("layanan_id", String(data.layanan_id));
   }
+  if (data.transaksi_id) {
+    formData.append("transaksi_id", String(data.transaksi_id));
+  }
   if (data.foto instanceof File) {
     formData.append("foto", data.foto);
   }
