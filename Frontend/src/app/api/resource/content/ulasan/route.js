@@ -7,10 +7,11 @@ export async function GET(request) {
     const { searchParams } = new URL(request.url);
     const rating = searchParams.get('rating');
     const search = searchParams.get('search');
+    const sort = searchParams.get('sort') || 'terbaru';
     const per_page = searchParams.get('per_page') || 10;
     const page = searchParams.get('page') || 1;
 
-    const result = getPublicUlasanList({ rating, search, per_page, page });
+    const result = getPublicUlasanList({ rating, search, per_page, page, sort });
 
     return NextResponse.json({
       success: true,
@@ -118,6 +119,7 @@ export async function POST(request) {
       if (payload.nama_pengulas) remoteForm.append('nama_pengulas', String(payload.nama_pengulas));
       if (payload.profesi_peran) remoteForm.append('profesi_peran', String(payload.profesi_peran));
       if (payload.layanan_id) remoteForm.append('layanan_id', String(payload.layanan_id));
+      if (payload.transaksi_id) remoteForm.append('transaksi_id', String(payload.transaksi_id));
 
       fetch('https://citra.faaruq.com/api/resource/content/ulasan', {
         method: 'POST',
@@ -138,9 +140,10 @@ export async function POST(request) {
       { status: 201 }
     );
   } catch (error) {
+    const statusCode = error.statusCode || (error.message?.includes('Batas maksimal') ? 422 : 500);
     return NextResponse.json(
       { success: false, message: error.message || 'Gagal mengirim ulasan' },
-      { status: 500 }
+      { status: statusCode }
     );
   }
 }
