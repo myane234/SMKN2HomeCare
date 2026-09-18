@@ -18,7 +18,7 @@ function extractData(body) {
 }
 
 export async function getAllActiveNakes() {
-  const res = await fetch(`${URL}/super-admin/nakes`, {
+  const res = await fetch(`${URL}/admin/nakes`, {
     method: 'GET',
     headers: getAuthHeaders({
       'Content-Type': 'application/json',
@@ -47,7 +47,7 @@ export async function getKategoriLayanan() {
 
 export async function updateNakesData(id, formData) {
   // Use FormData because we might upload a file
-  const res = await fetch(`${URL}/super-admin/nakes/${id}`, {
+  const res = await fetch(`${URL}/admin/nakes/${id}`, {
     method: 'POST', // POST with _method=PUT to handle multipart/form-data
     headers: getAuthHeaders({
         'Accept': 'application/json',
@@ -59,11 +59,30 @@ export async function updateNakesData(id, formData) {
 }
 
 export async function deleteNakesData(id) {
-  const res = await fetch(`${URL}/super-admin/nakes/${id}`, {
+  const res = await fetch(`${URL}/admin/nakes/${id}`, {
     method: 'DELETE',
     headers: getAuthHeaders({
         'Accept': 'application/json',
     }),
+  });
+
+  return await parseJsonResponse(res);
+}
+
+/**
+ * Tambah Data Nakes Baru oleh Super Admin
+ * Endpoint: POST /api/admin/nakes/pendaftaran
+ */
+export async function registerNakesByAdmin(formData) {
+  const headers = getAuthHeaders();
+  // Hapus Content-Type agar browser otomatis memasang boundary multipart/form-data
+  delete headers['Content-Type'];
+  headers['Accept'] = 'application/json';
+
+  const res = await fetch(`${URL}/admin/nakes/pendaftaran`, {
+    method: 'POST',
+    headers: headers,
+    body: formData,
   });
 
   return await parseJsonResponse(res);

@@ -113,7 +113,7 @@ export default function NakesLayout({ children }) {
 
   const navItems = [
     { label: "Beranda", href: "/nakes/dashboard", icon: Home },
-    { label: "Riwayat Booking", href: "/nakes/riwayat-booking", icon: ClipboardList },
+    { label: "Riwayat Kunjungan", href: "/nakes/riwayat-kunjungan", icon: ClipboardList },
   ];
 
   const isActiveRoute = (href) => {
