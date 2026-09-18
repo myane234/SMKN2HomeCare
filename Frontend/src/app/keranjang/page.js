@@ -82,28 +82,20 @@ export default function KeranjangPage() {
   /* =========================================================
    UPDATE QTY DENGAN VALIDASI KATEGORI
 ========================================================= */
-  const updateQty = (id, delta) => {
+const updateQty = (id, delta) => {
     setCart((prevCart) => {
-      // Cari layanan yang ingin diubah qty-nya
-      const targetItem = prevCart.find((item) => getServiceId(item.service) === id);
-      if (!targetItem) return prevCart;
-
-      const targetCategory = getTextValue(targetItem.service, ["kategori_layanan", "kategori", "category", "nama_kategori"]);
-
       const nextCart = prevCart.map((item) => {
         const itemId = getServiceId(item.service);
-        const itemCategory = getTextValue(item.service, ["kategori_layanan", "kategori", "category", "nama_kategori"]);
-
-        // Jika mencoba menambah qty (> 1)
         if (itemId === id) {
-          const newQty = Math.max(1, item.qty + delta);
-          
-          // Batasi maksimal qty layanan per item tetap 1 jika konsepnya 1 layanan per kategori
-          // Atau jika Anda mengizinkan qty > 1 asalkan beda layanan, pastikan kategori lain tidak duplikat.
-          return { ...item, qty: newQty };
+          const newQty = item.qty + delta;
+          if (newQty > 1) {
+            alert("1 jenis layanan yang sama hanya bisa dipesan 1 kali!");
+            return item; // Tetap 1, tidak boleh bertambah
+          }
+          return { ...item, qty: Math.max(1, newQty) };
         }
         return item;
-      }).filter((item) => item.qty > 0);
+      });
 
       saveCartToStorage(nextCart);
       return nextCart;
@@ -328,30 +320,28 @@ export default function KeranjangPage() {
                   Hapus ({selectedCount})
                 </button>
               )}
-            <button
-                type="button"
-                disabled={selectedCount === 0}
-                onClick={() => {
-                  const selectedCart = cart.filter(item => selectedIds.includes(getServiceId(item.service)));
-                  
-                  // Cek apakah ada kategori yang sama di antara yang dipilih
-                  const categorySet = new Set();
-                  for (const item of selectedCart) {
-                    const cat = getTextValue(item.service, ["kategori_layanan", "kategori", "category", "nama_kategori"]);
-                    if (cat && categorySet.has(cat.toLowerCase())) {
-                      alert(`Tidak bisa checkout! Anda memilih lebih dari 1 layanan untuk kategori "${cat}". Maksimal 1 layanan per kategori.`);
-                      return;
-                    }
-                    if (cat) categorySet.add(cat.toLowerCase());
+      <button
+              type="button"
+              disabled={selectedCount === 0}
+              onClick={() => {
+                const selectedCart = cart.filter(item => selectedIds.includes(getServiceId(item.service)));
+                
+                // Cek apakah ada layanan yang kuantitasnya lebih dari 1
+                for (const item of selectedCart) {
+                  if (item.qty > 1) {
+                    const title = getTextValue(item.service, ["nama_layanan", "nama", "title"]);
+                    alert(`Layanan "${title}" hanya bisa dipesan 1 kali!`);
+                    return;
                   }
+                }
 
-                  localStorage.setItem("smarthomecare_checkout", JSON.stringify(selectedCart));
-                  router.push("/booking");
-                }}
-                className="rounded-full bg-sky-600 px-6 py-3 text-sm font-semibold text-white transition hover:bg-sky-700 disabled:cursor-not-allowed disabled:bg-slate-300"
-              >
-                Booking ({selectedCount})
-              </button>
+                localStorage.setItem("smarthomecare_checkout", JSON.stringify(selectedCart));
+                router.push("/booking");
+              }}
+              className="rounded-full bg-sky-600 px-6 py-3 text-sm font-semibold text-white transition hover:bg-sky-700 disabled:cursor-not-allowed disabled:bg-slate-300"
+            >
+              Booking ({selectedCount})
+            </button>
             </div>
           </div>
         </div>
