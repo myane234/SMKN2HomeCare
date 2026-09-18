@@ -1,8 +1,15 @@
-﻿"use client";
+"use client";
 
 import { useEffect, useState, useCallback, useRef, Suspense } from "react";
-import { useRouter } from "next/navigation";
-import { getBookingAktif, sendBookingChat, getWebSocketConfig, getBookingChatHistory } from "@/services/bookingService";
+import { useRouter, useSearchParams } from "next/navigation";
+import {
+  getBookingAktif,
+  getSemuaBookingAktif,
+  getDetailBookingById,
+  sendBookingChat,
+  getWebSocketConfig,
+  getBookingChatHistory,
+} from "@/services/bookingService";
 import { resolveImageUrl } from "@/services/resolveImage";
 
 /* ── helpers ── */
@@ -526,32 +533,74 @@ function ChatModal({ isOpen, onClose, bookingId, nakesName, nakesPhoto }) {
 /* ── Main content ── */
 function BookingAktifContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const targetId = searchParams.get("id");
 
+  const [activeList, setActiveList] = useState([]);
+  const [selectedId, setSelectedId] = useState(targetId || null);
   const [data, setData]       = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError]     = useState(null);
   const [lastAt, setLastAt]   = useState(null);
   const [isChatOpen, setIsChatOpen] = useState(false);
 
+  const currentBookingId = selectedId || targetId;
+
   const fetchData = useCallback(async () => {
     try {
-      const res = await getBookingAktif();
-      if (!res?.data?.booking) { setError("Tidak ada booking aktif saat ini."); setData(null); return; }
-      setData(res.data);
+      // 1. Ambil seluruh booking aktif
+      const list = await getSemuaBookingAktif();
+      setActiveList(list);
+
+      // 2. Tentukan target booking
+      let targetBooking = null;
+
+      if (currentBookingId && Array.isArray(list) && list.length > 0) {
+        targetBooking = list.find(
+          (item) => String(item.booking?.id_booking || item.booking?.id) === String(currentBookingId)
+        );
+      }
+
+      if (!targetBooking && Array.isArray(list) && list.length > 0) {
+        targetBooking = list[0];
+      }
+
+      if (targetBooking) {
+        const bId = targetBooking.booking?.id_booking || targetBooking.booking?.id;
+        const detail = await getDetailBookingById(bId);
+        setData(detail || targetBooking);
+        setError(null);
+      } else {
+        const res = await getBookingAktif();
+        if (res?.data?.booking) {
+          setData(res.data);
+          setError(null);
+        } else {
+          setError("Tidak ada booking aktif saat ini.");
+          setData(null);
+        }
+      }
+
       setLastAt(new Date());
-      setError(null);
     } catch (err) {
       if (err?.response?.status === 401) { router.push("/login"); return; }
       setError("Gagal memuat data. Silakan coba lagi.");
     } finally {
       setLoading(false);
     }
-  }, [router]);
+  }, [currentBookingId, router]);
 
   useEffect(() => {
-    fetchData();
+    let isMounted = true;
+    const run = async () => {
+      await fetchData();
+    };
+    run();
     const id = setInterval(fetchData, 15_000);
-    return () => clearInterval(id);
+    return () => {
+      isMounted = false;
+      clearInterval(id);
+    };
   }, [fetchData]);
 
   /* ── loading ── */
@@ -600,8 +649,8 @@ function BookingAktifContent() {
     <div className="min-h-screen bg-slate-50" style={{ fontFamily: '"Poppins","Inter","Segoe UI",sans-serif' }}>
 
       {/* ── HERO BANNER STATUS (Dibuat ringkas, tidak terlalu tinggi/gepeng, dan rapi) ── */}
-      <div className={`bg-gradient-to-r ${cfg.accent} px-4 sm:px-6 pt-5 pb-5 relative rounded-b-2xl sm:rounded-b-3xl shadow-sm text-white`}>
-        <div className="max-w-lg mx-auto flex items-center justify-between gap-3">
+      <div className={`bg-gradient-to-r ${cfg.accent} px-4 sm:px-6 lg:px-8 pt-5 pb-5 relative rounded-b-2xl sm:rounded-b-3xl shadow-sm text-white`}>
+        <div className="max-w-lg lg:max-w-4xl xl:max-w-5xl mx-auto flex items-center justify-between gap-3">
           {/* Back button */}
           <button
             type="button"
@@ -640,8 +689,58 @@ function BookingAktifContent() {
         </div>
       </div>
 
+      {/* ── TABS MULTI ACTIVE BOOKING (Jika terdapat lebih dari 1 booking aktif) ── */}
+      {activeList.length > 1 && (
+        <div className="bg-white border-b border-slate-200/80 shadow-xs px-4 sm:px-6 lg:px-8 py-2.5 sticky top-0 z-30">
+          <div className="max-w-lg lg:max-w-4xl xl:max-w-5xl mx-auto">
+            <div className="flex items-center justify-between mb-1.5">
+              <p className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">
+                Pesanan Aktif ({activeList.length})
+              </p>
+              <span className="text-[10px] text-slate-400">Pilih untuk melihat detail</span>
+            </div>
+            <div className="flex items-center gap-2 overflow-x-auto pb-1 no-scrollbar">
+              {activeList.map((item, idx) => {
+                const b = item.booking || {};
+                const bId = String(b.id_booking || b.id || idx);
+                const isSelected = String(bId) === String(booking.id_booking || booking.id);
+                const sName = Array.isArray(b.layanan)
+                  ? b.layanan.map((l) => l.nama_layanan || l.nama).filter(Boolean).join(", ")
+                  : b.layanan?.nama_layanan || b.nama_layanan || `Booking #${bId}`;
+                const bStatus = b.status_booking || "Pending";
+                const bCfg = STATUS_CFG[bStatus] ?? STATUS_CFG.Pending;
+
+                return (
+                  <button
+                    key={bId}
+                    type="button"
+                    onClick={() => {
+                      setSelectedId(bId);
+                      router.replace(`/booking/aktif?id=${bId}`, { scroll: false });
+                    }}
+                    className={`
+                      shrink-0 flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-semibold transition-all cursor-pointer
+                      ${isSelected
+                        ? "bg-emerald-600 text-white shadow-sm ring-2 ring-emerald-600/30"
+                        : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                      }
+                    `}
+                  >
+                    <span className={`w-2 h-2 rounded-full ${isSelected ? "bg-white" : bCfg.dot}`} />
+                    <span className="max-w-[130px] truncate">{sName}</span>
+                    <span className={`text-[10px] px-1.5 py-0.5 rounded-md ${isSelected ? "bg-white/20 text-white" : bCfg.badge}`}>
+                      {b.status_label ?? bStatus}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* ── BODY CONTENT (Diberi margin-top mt-5 lega, sama sekali TIDAK overlap/mepet dengan banner atas) ── */}
-      <div className="px-4 sm:px-6 mt-5 pb-24 space-y-4 max-w-lg mx-auto">
+      <div className="px-4 sm:px-6 lg:px-8 mt-5 pb-24 space-y-4 max-w-lg lg:max-w-4xl xl:max-w-5xl mx-auto">
 
         {/* Nakes Card (Gojek Driver Style dengan Call & Chat Action) */}
         {nakesData.nama_lengkap && (
