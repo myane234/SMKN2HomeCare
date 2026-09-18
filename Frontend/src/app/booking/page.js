@@ -189,7 +189,8 @@ export default function BookingPage() {
   const [checkoutItems, setCheckoutItems] = useState([]);
   const [durationInputs, setDurationInputs] = useState({});
   const [isSubmitting, setIsSubmitting] = useState(false);
-
+  
+  const [promoDetails, setPromoDetails] = useState(null);
   /* =========================================================
      ADDRESS
   ========================================================= */
@@ -251,40 +252,63 @@ export default function BookingPage() {
     };
   }, [isScheduleManuallyChanged]);
 
-  /* =========================================================
-     LOAD CHECKOUT
+/* =========================================================
+     LOAD CHECKOUT (BERDASARKAN API CONTRACT PROMO)
   ========================================================= */
 
-  useEffect(() => {
+useEffect(() => {
     if (typeof window === "undefined") {
       return;
     }
 
+   const loadPromoCheckout = async () => {
     try {
-      const raw = localStorage.getItem(
-        CHECKOUT_STORAGE_KEY
-      );
+      const params = new URLSearchParams(window.location.search);
+      // Mendukung pencarian dari id_layanan ataupun id_promo di URL
+      const targetPromoId = params.get("id_layanan") || params.get("id_promo");
 
-      const parsed = raw
-        ? JSON.parse(raw)
-        : [];
+      if (targetPromoId) {
+        const response = await fetch("/api/promo");
+        const json = await response.json();
+        
+        if (json?.success && Array.isArray(json.data)) {
+          const matchedPromo = json.data.find(
+            (p) => String(p.id_promo) === String(targetPromoId) || 
+                   (p.layanan && String(p.layanan.id_layanan) === String(targetPromoId))
+          );
 
-      if (
-        Array.isArray(parsed) &&
-        parsed.length > 0
-      ) {
+          if (matchedPromo && matchedPromo.layanan) {
+            setPromoDetails(matchedPromo);
+            setCheckoutItems([
+              {
+                service: {
+                  id_layanan: matchedPromo.layanan.id_layanan,
+                  nama_layanan: matchedPromo.layanan.nama_layanan,
+                  harga: matchedPromo.layanan.sl_sebelum_diskon || matchedPromo.layanan.harga || 0,
+                  tipe_layanan: matchedPromo.layanan.tipe_layanan || "biasa"
+                },
+                qty: 1
+              }
+            ]);
+            return;
+          }
+        }
+      }
+
+      const raw = localStorage.getItem(CHECKOUT_STORAGE_KEY);
+      const parsed = raw ? JSON.parse(raw) : [];
+
+      if (Array.isArray(parsed) && parsed.length > 0) {
         setCheckoutItems(parsed);
       } else {
         router.push("/keranjang");
       }
     } catch (error) {
-      console.error(
-        "Gagal membaca item checkout:",
-        error
-      );
-
+      console.error("Gagal memuat data checkout promo:", error);
       router.push("/keranjang");
     }
+  };
+    loadPromoCheckout();
   }, [router]);
 
   useEffect(() => {
@@ -580,18 +604,36 @@ export default function BookingPage() {
     }, 0);
   }, [checkoutItems, durationInputs]);
 
-  const totalPrice = useMemo(() => {
-    return checkoutItems.reduce(
-      (acc, item) => {
-        const price = getCheckoutItemPrice(item);
+  const priceBreakdown = useMemo(() => {
+    const totalSebelumDiskon = checkoutItems.reduce((acc, item) => {
+      const price = getCheckoutItemPrice(item);
+      const qty = item.qty || item.jumlah || 1;
+      return acc + (price * qty);
+    }, 0);
 
-        const qty = item.qty || item.jumlah || 1;
+    let diskonNominal = 0;
 
-        return acc + price * qty;
-      },
-      0
-    );
-  }, [checkoutItems, durationInputs]);
+    if (promoDetails) {
+      const nilai = Number(promoDetails.nilai_diskon) || 0;
+      if (promoDetails.tipe_diskon === "persen") {
+        diskonNominal = (totalSebelumDiskon * nilai) / 100;
+      } else if (promoDetails.tipe_diskon === "nominal") {
+        diskonNominal = nilai;
+      }
+    }
+
+    const totalSetelahDiskon = Math.max(0, totalSebelumDiskon - diskonNominal);
+
+    return {
+      sl_sebelum_diskon: totalSebelumDiskon,
+      diskon_promo: diskonNominal,
+      sl: totalSetelahDiskon,
+      total_sl_sebelum_diskon: totalSebelumDiskon,
+      total_sl: totalSetelahDiskon,
+    };
+  }, [checkoutItems, durationInputs, promoDetails]);
+
+  const totalPrice = priceBreakdown.total_sl;
 
   /* =========================================================
      HANDLE INPUT
@@ -664,8 +706,9 @@ export default function BookingPage() {
       );
 
       const response = await createBooking({
-        layanan_ids: rawIds,
-        id_layanan: rawIds.length > 1 ? rawIds : rawIds[0],
+    layanan_ids: rawIds,
+      
+       
         durasi_layanan: durasiLayanan,
         tanggal_kunjungan: form.date,
         jam_kunjungan: form.time,
