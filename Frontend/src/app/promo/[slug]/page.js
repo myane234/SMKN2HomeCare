@@ -21,9 +21,11 @@ export default async function PromoDetail({ params, searchParams }) {
   const cookieStore = await cookies();
   const isLoggedIn = cookieStore.get("is_logged_in")?.value === "true";
 
-  // Cari promo berdasarkan slug atau ID
+  
+ // Cari promo berdasarkan slug, id_promo, atau id
   const promo = promos.find((item) => {
-    const name = getTextValue(item, ["nama_paket", "nama", "title", "judul"]);
+    // Sesuaikan pencarian nama ke relasi layanan.nama_layanan
+    const name = item.layanan?.nama_layanan || getTextValue(item, ["nama", "title", "judul"]);
     const itemSlug = generatePromoSlug(name);
     const id = getTextValue(item, ["id_promo", "id"]);
     return itemSlug === String(slug) || id === String(slug);
@@ -40,9 +42,31 @@ export default async function PromoDetail({ params, searchParams }) {
       </main>
     );
   }
+  const handlePesanPromoClick = () => {
+    if (!isLoggedIn) {
+      router.push(`/promo/${slug}?showLoginModal=true`);
+      return;
+    }
 
-  const name = getTextValue(promo, ["nama_paket", "nama", "title", "judul"]);
-  const rawImage = getTextValue(promo, ["gambar_promo", "gambar", "image", "foto"]);
+    const checkoutData = [
+      {
+        service: {
+          id_layanan: promo.layanan?.id_layanan || promo.id_layanan,
+          nama_layanan: promo.layanan?.nama_layanan || name,
+          harga: promo.layanan?.harga || 0,
+        },
+        qty: 1
+      }
+    ];
+
+    localStorage.setItem("smarthomecare_checkout", JSON.stringify(checkoutData));
+    localStorage.setItem("selected_promo_id", promo.id_promo);
+    router.push("/booking");
+  };
+
+ // Ambil nama dari relasi layanan.nama_layanan
+  const name = promo.layanan?.nama_layanan || getTextValue(promo, ["nama", "title", "judul"]) || "Promo Layanan";
+  const rawImage = getTextValue(promo, ["gambar_promo_url", "gambar_promo", "gambar", "image", "foto"]);
   const image = resolveImageUrl(rawImage);
   
   const expiredDate = new Date(
@@ -86,9 +110,10 @@ export default async function PromoDetail({ params, searchParams }) {
         {/* RIGHT */}
         <div className="lg:col-span-6">
           <div className="rounded-[32px] border border-slate-200 bg-white p-6 sm:p-10 shadow-sm">
-            {promo.diskon_persen && (
+        {/* Ganti diskon_persen dengan tipe_diskon & nilai_diskon */}
+            {promo.tipe_diskon && (
               <span className="rounded-full bg-emerald-100 px-4 py-2 text-sm font-semibold text-emerald-700">
-                Hemat {Number(promo.diskon_persen)}%
+                Hemat {promo.tipe_diskon === "persen" ? `${Number(promo.nilai_diskon)}%` : formatCurrency(promo.nilai_diskon)}
               </span>
             )}
 
@@ -96,15 +121,12 @@ export default async function PromoDetail({ params, searchParams }) {
               <h2 className="mt-2 text-3xl sm:text-4xl lg:text-5xl font-black tracking-tight text-sky-700">
                 Layanan Termasuk
               </h2>
-              {promo.layanans && promo.layanans.length > 0 && (
-                <ul className="mt-4 space-y-2">
-                  {promo.layanans.map(layanan => (
-                    <li key={layanan.id_layanan || layanan.id} className="flex items-center gap-2">
-                      <FiCheckCircle className="text-emerald-500" /> 
-                      <span className="text-slate-600 font-medium">{layanan.nama_layanan || layanan.nama}</span>
-                    </li>
-                  ))}
-                </ul>
+              {/* Karena API baru mengembalikan objek tunggal 'layanan', kita render langsung */}
+              {promo.layanan && (
+                <div className="mt-4 flex items-center gap-2">
+                  <FiCheckCircle className="text-emerald-500" /> 
+                  <span className="text-slate-600 font-medium">{promo.layanan.nama_layanan}</span>
+                </div>
               )}
             </div>
 
@@ -142,11 +164,25 @@ export default async function PromoDetail({ params, searchParams }) {
               </div>
             </div>
 
-            <Link href={isLoggedIn ? "/booking" : "?showLoginModal=true"}>
-              <button className="mt-10 w-full rounded-2xl bg-sky-600 py-4 text-lg font-semibold text-white transition-all duration-300 hover:-translate-y-1 hover:bg-sky-700 hover:shadow-lg cursor-pointer">
-                Pesan Sekarang
-              </button>
-            </Link>
+ {isLoggedIn ? (
+              <Link href={`/booking?id_promo=${promo.id_promo}&id_layanan=${promo.layanan?.id_layanan || promo.id_layanan}`}>
+                <button 
+                  type="button"
+                  className="mt-10 w-full rounded-2xl bg-sky-600 py-4 text-lg font-semibold text-white transition-all duration-300 hover:-translate-y-1 hover:bg-sky-700 hover:shadow-lg cursor-pointer"
+                >
+                  Pesan Sekarang
+                </button>
+              </Link>
+            ) : (
+              <Link href={`/promo/${slug}?showLoginModal=true`}>
+                <button 
+                  type="button"
+                  className="mt-10 w-full rounded-2xl bg-sky-600 py-4 text-lg font-semibold text-white transition-all duration-300 hover:-translate-y-1 hover:bg-sky-700 hover:shadow-lg cursor-pointer"
+                >
+                  Pesan Sekarang
+                </button>
+              </Link>
+            )}
           </div>
         </div>
       </section>
