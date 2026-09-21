@@ -123,7 +123,16 @@ export const getSemuaBookingAktif = async () => {
       const bId = b.id_booking || b.id;
       if (bId && ACTIVE_BOOKING_STATUSES.includes(b.status_booking)) {
         map.set(String(bId), {
-          booking: b,
+          booking: {
+            ...b,
+            booking_code:
+              b.booking_code ||
+              b.kode_booking ||
+              (bId ? (String(bId).startsWith('B-') ? bId : `B-${bId}`) : ''),
+            layanan:
+              b.layanan_items ||
+              (Array.isArray(b.layanan) ? b.layanan : (b.layanan ? [b.layanan] : [])),
+          },
           tenaga_medis_tracking: terkiniData.data.tenaga_medis_tracking ?? null,
           tracking_info: terkiniData.data.tracking_info ?? null,
         });
@@ -141,8 +150,14 @@ export const getSemuaBookingAktif = async () => {
             booking: {
               ...t,
               status_booking: status,
-              layanan: t.layanan_items || (t.layanan ? [t.layanan] : []),
-              booking_code: t.booking_code || `#${bId}`,
+              layanan:
+                t.layanan_items ||
+                (Array.isArray(t.layanan) ? t.layanan : (t.layanan ? [t.layanan] : [])),
+              booking_code:
+                t.booking_code ||
+                t.kode_booking ||
+                t.booking?.booking_code ||
+                (bId ? (bId.startsWith('B-') ? bId : `B-${bId}`) : `B-${bId}`),
             },
             tenaga_medis_tracking: t.tenaga_medis || null,
             tracking_info: null,
@@ -161,7 +176,13 @@ export const getSemuaBookingAktif = async () => {
         const status = local.status_booking || 'Pending';
         if (ACTIVE_BOOKING_STATUSES.includes(status)) {
           map.set(bId, {
-            booking: local,
+            booking: {
+              ...local,
+              booking_code:
+                local.booking_code ||
+                local.kode_booking ||
+                (bId ? (bId.startsWith('B-') ? bId : `B-${bId}`) : `B-${bId}`),
+            },
             tenaga_medis_tracking: null,
             tracking_info: null,
           });
@@ -183,7 +204,20 @@ export const getDetailBookingById = async (bookingId) => {
     const terkini = await getBookingAktif();
     const tId = terkini?.data?.booking?.id_booking || terkini?.data?.booking?.id;
     if (String(tId) === String(bookingId)) {
-      return terkini.data;
+      const b = terkini.data.booking;
+      return {
+        ...terkini.data,
+        booking: {
+          ...b,
+          booking_code:
+            b.booking_code ||
+            b.kode_booking ||
+            (tId ? (String(tId).startsWith('B-') ? tId : `B-${tId}`) : ''),
+          layanan:
+            b.layanan_items ||
+            (Array.isArray(b.layanan) ? b.layanan : (b.layanan ? [b.layanan] : [])),
+        },
+      };
     }
   } catch {}
 
@@ -193,10 +227,22 @@ export const getDetailBookingById = async (bookingId) => {
     const data = res.data?.data || res.data;
     if (data) {
       const b = data.booking || data;
+      const bId = b.id_booking || b.id || bookingId;
       return {
         booking: {
           ...b,
-          layanan: data.layanan_items || (b.layanan ? [b.layanan] : []),
+          booking_code:
+            b.booking_code ||
+            b.kode_booking ||
+            data.booking_code ||
+            data.kode_booking ||
+            (bId ? (String(bId).startsWith('B-') ? bId : `B-${bId}`) : `B-${bookingId}`),
+          layanan:
+            b.layanan_items ||
+            data.layanan_items ||
+            (Array.isArray(b.layanan)
+              ? b.layanan
+              : (b.layanan ? [b.layanan] : (Array.isArray(data.layanan) ? data.layanan : (data.layanan ? [data.layanan] : [])))),
           transaksi: data.transaksi || b.transaksi || null,
         },
         tenaga_medis_tracking: data.tenaga_medis || b.tenaga_medis || null,

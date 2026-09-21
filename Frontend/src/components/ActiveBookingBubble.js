@@ -106,12 +106,16 @@ export default function ActiveBookingBubble() {
   const cfg = STATUS_CFG[status] ?? STATUS_CFG.DiPerjalanan;
   const stepIdx = cfg.progress - 1; // 0-based
 
-  // Nama layanan (mendukung array maupun single object)
-  const serviceName = Array.isArray(booking.layanan)
-    ? booking.layanan.map((l) => l.nama_layanan || l.nama).filter(Boolean).join(", ")
-    : booking.layanan?.nama_layanan || booking.nama_layanan || "Booking Aktif";
-
   const bookingId = booking.id_booking || booking.id;
+  const rawLayanan = booking.layanan_items || booking.layanan;
+
+  // Nama layanan (mendukung array, single object, maupun fallback booking_code)
+  const serviceName = Array.isArray(rawLayanan) && rawLayanan.length > 0
+    ? rawLayanan.map((l) => l.nama_layanan || l.nama).filter(Boolean).join(", ")
+    : rawLayanan?.nama_layanan ||
+      rawLayanan?.nama ||
+      booking.booking_code ||
+      (bookingId ? (String(bookingId).startsWith("B-") ? bookingId : `B-${bookingId}`) : "Booking Aktif");
 
   return (
     <div
