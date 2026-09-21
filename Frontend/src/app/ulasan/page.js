@@ -38,6 +38,7 @@ export default function UlasanPage() {
   const [userInfo, setUserInfo] = useState(null);
   const [showLoginModal, setShowLoginModal] = useState(false);
 
+  /*
   // Cara C: Kuota Ulasan Berdasarkan Jumlah Transaksi Selesai (1 Ulasan per Transaksi)
   const [userQuotaInfo, setUserQuotaInfo] = useState({
     completedTrxCount: 0,
@@ -46,6 +47,7 @@ export default function UlasanPage() {
     loadingQuota: false,
     nextTransactionToReview: null
   });
+  */
 
   const [layananOptions, setLayananOptions] = useState([]);
 
@@ -107,6 +109,7 @@ export default function UlasanPage() {
     return list;
   };
 
+  /*
   // Cara C: Hitung Kuota Ulasan (1 Ulasan per 1 Transaksi Selesai)
   const refreshUserQuota = async (uInfo, currentUlasanList = []) => {
     const resolvedUser = uInfo || userInfo;
@@ -182,6 +185,7 @@ export default function UlasanPage() {
       nextTransactionToReview: unreviewedTrx.length > 0 ? unreviewedTrx[0] : null
     });
   };
+  */
 
   // 1. Inisialisasi Data & Cek Login Status
   useEffect(() => {
@@ -220,10 +224,12 @@ export default function UlasanPage() {
         // Ambil Daftar Ulasan Publik (header + list sekaligus dari service)
         const latestUlasanList = await loadUlasanList(starFilter, sortBy, currentPage);
 
+        /*
         // Jika user login, hitung kuota ulasan pasien (Cara C)
         if (activeUserInfo) {
           await refreshUserQuota(activeUserInfo, latestUlasanList);
         }
+        */
       } catch (err) {
         console.error("Gagal menginisialisasi ulasan:", err);
       } finally {
@@ -294,6 +300,7 @@ export default function UlasanPage() {
       return;
     }
 
+    /*
     // Validasi Kuota Ulasan (Cara C: 1 Ulasan per Transaksi Selesai)
     if (!userQuotaInfo.loadingQuota) {
       if (userQuotaInfo.completedTrxCount === 0) {
@@ -309,6 +316,7 @@ export default function UlasanPage() {
         return;
       }
     }
+    */
 
     if (!form.komentar.trim()) {
       setErrorMsg("Mohon tuliskan komentar ulasan Anda.");
@@ -317,15 +325,15 @@ export default function UlasanPage() {
 
     try {
       setSubmitting(true);
-      const nextTrx = userQuotaInfo.nextTransactionToReview;
+      // const nextTrx = userQuotaInfo.nextTransactionToReview;
 
       await createUlasan({
         rating: form.rating,
         komentar: form.komentar,
         nama_pengulas: form.nama_pengulas,
         profesi_peran: form.profesi_peran,
-        layanan_id: form.layanan_id || nextTrx?.layanan?.id_layanan || nextTrx?.layanan_id || null,
-        transaksi_id: nextTrx ? (nextTrx.id_booking || nextTrx.id) : null
+        layanan_id: form.layanan_id || null,
+        // transaksi_id: nextTrx ? (nextTrx.id_booking || nextTrx.id) : null
       });
 
       setSuccessMsg("Terima kasih! Ulasan Anda berhasil dikirim dan akan ditinjau oleh tim kami.");
@@ -338,7 +346,7 @@ export default function UlasanPage() {
 
       // Segarkan daftar ulasan & kuota
       const refreshedList = await loadUlasanList(starFilter, sortBy);
-      await refreshUserQuota(userInfo, refreshedList);
+      // await refreshUserQuota(userInfo, refreshedList);
     } catch (err) {
       if (err?.status === 401 || err?.response?.status === 401) {
         setIsLoggedIn(false);
@@ -444,7 +452,7 @@ export default function UlasanPage() {
             </div>
           )}
 
-          {/* Status Kuota Ulasan (Cara C: 1 Ulasan per Transaksi Selesai) */}
+          {/* Status Kuota Ulasan (Cara C: 1 Ulasan per Transaksi Selesai)
           {isLoggedIn && (
             <div>
               {userQuotaInfo.loadingQuota ? (
@@ -491,6 +499,7 @@ export default function UlasanPage() {
               )}
             </div>
           )}
+          */}
 
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -610,16 +619,20 @@ export default function UlasanPage() {
               <button
                 type="submit"
                 disabled={
-                  submitting ||
-                  (isLoggedIn &&
+                  submitting
+                  /* Cara C: Batasan kuota ulasan dinonaktifkan
+                  || (isLoggedIn &&
                     !userQuotaInfo.loadingQuota &&
                     (userQuotaInfo.completedTrxCount === 0 || userQuotaInfo.remainingQuota <= 0))
+                  */
                 }
                 className={`w-full sm:w-auto inline-flex items-center justify-center gap-2 rounded-xl px-6 py-3 text-xs font-bold text-white shadow-sm transition active:scale-95 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed ${
                   !isLoggedIn
                     ? "bg-amber-600 hover:bg-amber-700 shadow-amber-600/20"
+                    /* Cara C: Batasan kuota ulasan dinonaktifkan
                     : userQuotaInfo.completedTrxCount === 0 || userQuotaInfo.remainingQuota <= 0
                     ? "bg-slate-400 cursor-not-allowed"
+                    */
                     : "bg-sky-600 hover:bg-sky-700 shadow-sky-600/20"
                 }`}
               >
@@ -627,6 +640,7 @@ export default function UlasanPage() {
                   <>
                     <FiLogIn /> Masuk untuk Mengirim Ulasan
                   </>
+                /* Cara C: Batasan kuota ulasan dinonaktifkan
                 ) : userQuotaInfo.completedTrxCount === 0 ? (
                   <>
                     <FiAlertCircle /> Belum Ada Transaksi Selesai
@@ -635,6 +649,7 @@ export default function UlasanPage() {
                   <>
                     <FiCheckCircle /> Batas Kuota Ulasan Tercapai
                   </>
+                */
                 ) : (
                   <>
                     <FiSend /> {submitting ? "Mengirim Ulasan..." : "Kirim Ulasan"}

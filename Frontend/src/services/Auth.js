@@ -90,7 +90,9 @@ export async function registerUser({ email, password, nama_lengkap, no_hp, nik, 
       const validationErrors = err.response.data.errors;
       if (validationErrors) {
         const firstError = Object.values(validationErrors)[0];
-        throw new Error(Array.isArray(firstError) ? firstError[0] : firstError);
+        const errorObj = new Error(Array.isArray(firstError) ? firstError[0] : firstError);
+        errorObj.fieldErrors = validationErrors;
+        throw errorObj;
       }
       throw new Error(err.response.data.message || 'Registrasi gagal');
     }

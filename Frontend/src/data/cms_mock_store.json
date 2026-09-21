@@ -139,6 +139,24 @@
   },
   "ulasan_list": [
     {
+      "id": 14,
+      "id_user": null,
+      "transaksi_id": null,
+      "email": null,
+      "nama_pengulas": "Pengunjung",
+      "profesi_peran": "Pasien",
+      "foto": null,
+      "foto_url": null,
+      "rating": 5,
+      "komentar": "Test ulasan berjalan baik",
+      "layanan_id": null,
+      "is_published": false,
+      "urutan": 14,
+      "created_at": "2026-09-21T10:52:15.320Z",
+      "updated_at": "2026-09-21T10:52:15.321Z",
+      "layanan": null
+    },
+    {
       "id": 13,
       "id_user": null,
       "email": "xavierval07@gmail.com",

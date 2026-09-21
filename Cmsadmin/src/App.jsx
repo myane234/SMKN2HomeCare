@@ -1,5 +1,6 @@
 import { Routes, Route, Navigate } from "react-router-dom";
 import LoginAdminCms from "./pages/LoginAdminCms";
+import ForgotPasswordAdmin from "./pages/ForgotPasswordAdmin";
 import Dashboard from "./pages/Dashboard";
 import DataNakes from "./pages/admin/DataNakes";
 import AdminProfile from "./pages/AdminProfile";
@@ -64,6 +65,7 @@ function App() {
     <Routes>
       {/* Public routes */}
       <Route path="/login" element={<LoginAdminCms />} />
+      <Route path="/forgot-password" element={<ForgotPasswordAdmin />} />
       <Route
         path="/admindashboard"
         element={<Navigate to="/dashboard" replace />}

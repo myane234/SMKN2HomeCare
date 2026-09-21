@@ -402,8 +402,9 @@ export function getUlasanById(id) {
 export function createUlasan(data) {
   const store = readStore();
 
-  // Batas maksimal 1 ulasan per transaksi (Cara C: 1 ulasan per transaksi)
   const resolvedTransaksiId = data.transaksi_id || data.id_transaksi || data.id_booking || null;
+  /*
+  // Batas maksimal 1 ulasan per transaksi (Cara C: 1 ulasan per transaksi)
   if (resolvedTransaksiId) {
     const existingCount = (store.ulasan_list || []).filter(
       (u) => String(u.transaksi_id) === String(resolvedTransaksiId)
@@ -415,6 +416,7 @@ export function createUlasan(data) {
       throw err;
     }
   }
+  */
 
   const newId = (store.ulasan_list || []).reduce((max, u) => Math.max(max, Number(u.id) || 0), 0) + 1;
   

@@ -56,6 +56,7 @@ export default function MasukPage() {
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
+  const [showForgotLink, setShowForgotLink] = useState(false);
   const router = useRouter();
 
   const rawClientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID;
@@ -83,7 +84,8 @@ export default function MasukPage() {
       await createSession(data);
       redirectAfterLogin(data);
     } catch (err) {
-      setErrorMsg(err.message || "Login gagal");
+      setErrorMsg(err.message || "Login gagal. Email atau password salah.");
+      setShowForgotLink(true);
     } finally {
       setLoading(false);
     }
@@ -122,7 +124,18 @@ export default function MasukPage() {
 
       {errorMsg && (
         <div className="mb-4 rounded-xl p-3.5 border bg-red-50 border-red-200 text-red-600">
-          <p className="text-xs font-semibold">{errorMsg}</p>
+          <p className="text-xs font-semibold leading-relaxed">{errorMsg}</p>
+          {showForgotLink && (
+            <div className="mt-2.5 pt-2.5 border-t border-red-200/70 flex items-center justify-between text-xs">
+              <span className="text-red-700 font-medium">Lupa kata sandi Anda?</span>
+              <Link
+                href="/forgot-password"
+                className="font-bold text-[#004fa4] hover:underline shrink-0 ml-2"
+              >
+                Reset Password &rarr;
+              </Link>
+            </div>
+          )}
         </div>
       )}
 
@@ -141,7 +154,17 @@ export default function MasukPage() {
         </div>
 
         <div>
-          <label className="text-xs font-bold text-slate-600 mb-1.5 block">Password</label>
+          <div className="flex items-center justify-between mb-1.5">
+            <label className="text-xs font-bold text-slate-600 block">Password</label>
+            {showForgotLink && (
+              <Link
+                href="/forgot-password"
+                className="text-xs font-semibold text-[#004fa4] hover:underline"
+              >
+                Lupa Password?
+              </Link>
+            )}
+          </div>
           <div className="relative">
             <input
               type={showPassword ? "text" : "password"}

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { login } from '../utils/auth';
 import logo from '../assets/logo.png';
 import { FaShieldAlt } from 'react-icons/fa';
@@ -10,6 +10,7 @@ export default function LoginAdminCms() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [showForgotLink, setShowForgotLink] = useState(false);
 
   function handleChange(e) {
     const { name, value } = e.target;
@@ -32,7 +33,8 @@ export default function LoginAdminCms() {
     if (result.success) {
       navigate('/dashboard', { replace: true });
     } else {
-      setError(result.message);
+      setError(result.message || 'Login gagal. Email atau password salah.');
+      setShowForgotLink(true);
     }
   }
 
@@ -59,7 +61,17 @@ export default function LoginAdminCms() {
           autoComplete="username"
         />
 
-        <label className="text-xs font-bold text-slate-600 mb-1.5">Password</label>
+        <div className="flex items-center justify-between mb-1.5">
+          <label className="text-xs font-bold text-slate-600">Password</label>
+          {showForgotLink && (
+            <Link
+              to="/forgot-password"
+              className="text-xs font-semibold text-[#004fa4] hover:underline"
+            >
+              Lupa Password?
+            </Link>
+          )}
+        </div>
         <div className="relative">
           <input
             type={showPassword ? 'text' : 'password'}
@@ -81,8 +93,19 @@ export default function LoginAdminCms() {
         </div>
 
         {error && (
-          <div className="mt-1 mb-3 rounded-xl bg-red-50 text-red-600 px-3 py-2.5 text-xs">
-            {error}
+          <div className="mt-1 mb-3 rounded-xl bg-red-50 text-red-600 px-3.5 py-2.5 text-xs border border-red-200">
+            <p className="font-semibold">{error}</p>
+            {showForgotLink && (
+              <div className="mt-2 pt-2 border-t border-red-200/70 flex items-center justify-between">
+                <span className="text-red-700">Lupa password akun admin?</span>
+                <Link
+                  to="/forgot-password"
+                  className="font-bold text-[#004fa4] hover:underline ml-2"
+                >
+                  Reset Password &rarr;
+                </Link>
+              </div>
+            )}
           </div>
         )}
 

@@ -23,6 +23,14 @@ server: {
         target: 'http://localhost:3000',
         changeOrigin: true,
       },
+      '/api/admin/forgot-password': {
+        target: 'http://localhost:3000',
+        changeOrigin: true,
+      },
+      '/api/forgot-password': {
+        target: 'http://localhost:3000',
+        changeOrigin: true,
+      },
       '/api': {
         target: 'https://citra.faaruq.com',
         changeOrigin: true,
