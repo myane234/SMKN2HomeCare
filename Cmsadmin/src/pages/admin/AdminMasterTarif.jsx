@@ -17,10 +17,6 @@ import {
 } from '../../data/masterTarifData';
 import { getAllLayanan, getKategoriLayanan } from '../../data/layananData';
 import { getAllKomponenTarif } from '../../data/masterKomponenTarifData';
-import {
-  getAllWilayahLayanan,
-  getAllKotaKabupaten,
-} from '../../data/wilayahLayananData';
 import Swal from 'sweetalert2';
 
 export default function AdminMasterTarif() {
@@ -31,8 +27,6 @@ export default function AdminMasterTarif() {
   const [kategoriLayananList, setKategoriLayananList] = useState([]);
   const [kategoriTarifList, setKategoriTarifList] = useState([]);
   const [komponenList, setKomponenList] = useState([]);
-  const [provinsiList, setProvinsiList] = useState([]);
-  const [kotaList, setKotaList] = useState([]);
 
   const [loading, setLoading] = useState(true);
   const [errorMsg, setErrorMsg] = useState('');
@@ -47,10 +41,9 @@ export default function AdminMasterTarif() {
   const [formLayanan, setFormLayanan] = useState('');
   const [formLayananIds, setFormLayananIds] = useState([]);
   const [formKategoriLayananIds, setFormKategoriLayananIds] = useState([]);
+  const [layananSearch, setLayananSearch] = useState('');
   const [formKategoriTarif, setFormKategoriTarif] = useState('');
   const [formKomponenIds, setFormKomponenIds] = useState([]);
-  const [formIdProvinsi, setFormIdProvinsi] = useState('');
-  const [formIdKota, setFormIdKota] = useState('');
   const [formFeeNakesTipe, setFormFeeNakesTipe] = useState('nominal');
   const [formFeeNakesNilai, setFormFeeNakesNilai] = useState('');
   const [formIsTransport, setFormIsTransport] = useState(false);
@@ -236,30 +229,28 @@ const parseFormattedNumber = (val) => {
     return `ID: ${ids.join(', ')}`;
   };
 
-  const getProvinsiName = (id) => {
-    if (!id) {
-      return 'Nasional';
-    }
-
-    const found = provinsiList.find(
-      (provinsi) =>
-        String(provinsi.id_provinsi) === String(id)
-    );
-
-    return found?.nama_provinsi || id;
+  const getTarifServiceIds = (item) => {
+    const included = item?.layanan_termasuk || item?.layananTermasuk || [];
+    return Array.from(new Set([
+      Number(item?.id_layanan),
+      ...(Array.isArray(included) ? included.map((layanan) => Number(layanan.id_layanan ?? layanan.id)) : []),
+    ].filter((id) => !Number.isNaN(id))));
   };
 
-  const getKotaName = (id) => {
-    if (!id) {
-      return 'Semua Kota';
-    }
+  const getLayananCategoryId = (layanan) => (
+    layanan?.kategori
+      ?? layanan?.id_kategori_layanan
+      ?? layanan?.kategori_layanan?.id_kategori_layanan
+      ?? layanan?.kategori?.id_kategori_layanan
+  );
 
-    const found = kotaList.find(
-      (kota) => String(kota.id_kota) === String(id)
-    );
-
-    return found?.nama_kota || id;
-  };
+  const selectedTarifId = selectedTarif?.id_master_tarif || selectedTarif?.id;
+  const hasTransportConflict = formLayananIds.some((serviceId) => tarifList.some((item) => {
+    const itemId = item?.id_master_tarif || item?.id;
+    return Boolean(item?.is_transport)
+      && itemId !== selectedTarifId
+      && getTarifServiceIds(item).includes(Number(serviceId));
+  }));
 
   /* =========================================================
      FETCH DATA
@@ -274,8 +265,6 @@ const parseFormattedNumber = (val) => {
         tarifRes,
         layananRes,
         komponenRes,
-        provinsiRes,
-        kotaRes,
         kategoriLayananRes,
         kategoriTarifRes,
       ] = await Promise.all([
@@ -292,16 +281,6 @@ const parseFormattedNumber = (val) => {
         getAllKomponenTarif().catch((error) => {
           console.error('Gagal GET komponen tarif:', error);
           return { data: [] };
-        }),
-
-        getAllWilayahLayanan().catch((error) => {
-          console.error('Gagal GET wilayah layanan:', error);
-          return [];
-        }),
-
-        getAllKotaKabupaten().catch((error) => {
-          console.error('Gagal GET kota kabupaten:', error);
-          return [];
         }),
 
         getKategoriLayanan().catch((error) => {
@@ -364,65 +343,6 @@ const parseFormattedNumber = (val) => {
         );
 
       /* -----------------------------------------
-         KOTA
-      ----------------------------------------- */
-
-      const rawKota = Array.isArray(kotaRes)
-        ? kotaRes
-        : kotaRes?.data || [];
-
-      const normalizedKota = rawKota
-        .map((kota) => ({
-          ...kota,
-
-          id_kota: Number(
-            kota.id_kota ??
-              kota.id
-          ),
-
-          id_provinsi:
-            kota.id_provinsi ??
-            kota.provinsi_id,
-
-          nama_kota:
-            kota.nama_kota ||
-            kota.nama ||
-            '',
-        }))
-        .filter(
-          (kota) =>
-            !Number.isNaN(kota.id_kota)
-        );
-
-      /* -----------------------------------------
-         PROVINSI
-      ----------------------------------------- */
-
-      const rawProvinsi = Array.isArray(provinsiRes)
-        ? provinsiRes
-        : provinsiRes?.data || [];
-
-      const normalizedProvinsi = rawProvinsi
-        .map((provinsi) => ({
-          ...provinsi,
-
-          id_provinsi: Number(
-            provinsi.id_provinsi ??
-              provinsi.provinsi_id ??
-              provinsi.id
-          ),
-
-          nama_provinsi:
-            provinsi.nama_provinsi ||
-            provinsi.nama ||
-            '',
-        }))
-        .filter(
-          (provinsi) =>
-            !Number.isNaN(provinsi.id_provinsi)
-        );
-
-      /* -----------------------------------------
          LAYANAN
       ----------------------------------------- */
 
@@ -455,8 +375,6 @@ const parseFormattedNumber = (val) => {
       setKategoriLayananList(Array.isArray(kategoriLayananRes) ? kategoriLayananRes : []);
       setKategoriTarifList(Array.isArray(kategoriTarifRes) ? kategoriTarifRes : []);
       setKomponenList(normalizedKomponen);
-      setProvinsiList(normalizedProvinsi);
-      setKotaList(normalizedKota);
 
       console.log('=== MASTER TARIF ===', normalizedTarif);
       console.log(
@@ -472,7 +390,8 @@ const parseFormattedNumber = (val) => {
   };
 
   useEffect(() => {
-    fetchData();
+    const timer = window.setTimeout(() => { fetchData(); }, 0);
+    return () => window.clearTimeout(timer);
   }, []);
 
   /* =========================================================
@@ -486,10 +405,9 @@ const parseFormattedNumber = (val) => {
     setFormLayanan('');
     setFormLayananIds([]);
     setFormKategoriLayananIds([]);
+    setLayananSearch('');
     setFormKategoriTarif('');
     setFormKomponenIds([]);
-    setFormIdProvinsi('');
-    setFormIdKota('');
     setFormFeeNakesTipe('nominal');
     setFormFeeNakesNilai('');
     setFormIsTransport(false);
@@ -533,6 +451,7 @@ const parseFormattedNumber = (val) => {
     ].filter((id) => !Number.isNaN(id))));
     setFormLayananIds(layananIds);
     setFormKategoriLayananIds([]);
+    setLayananSearch('');
     setFormKategoriTarif(String(item?.id_kategori_tarif ?? item?.kategoriTarif?.id_kategori_tarif ?? ''));
 
     /*
@@ -559,20 +478,6 @@ const parseFormattedNumber = (val) => {
 
     setFormKomponenIds(
       validKomponenIds
-    );
-
-    setFormIdProvinsi(
-      (
-        item?.id_provinsi ??
-        ''
-      ).toString()
-    );
-
-    setFormIdKota(
-      (
-        item?.id_kota ??
-        ''
-      ).toString()
     );
 
     setFormFeeNakesTipe(
@@ -645,6 +550,12 @@ const parseFormattedNumber = (val) => {
 
     setIsSubmitting(true);
 
+    if (formIsTransport && hasTransportConflict) {
+      Swal.fire('Transport sudah digunakan', 'Salah satu layanan yang dipilih sudah memiliki Master Tarif transport.', 'warning');
+      setIsSubmitting(false);
+      return;
+    }
+
     /*
      * Validasi utama
      */
@@ -690,12 +601,6 @@ const parseFormattedNumber = (val) => {
           .filter(
             (id) => !Number.isNaN(id)
           ),
-
-      id_provinsi:
-        formIdProvinsi || null,
-
-      id_kota:
-        formIdKota || null,
 
       fee_nakes_tipe:
         formFeeNakesTipe,
@@ -871,6 +776,10 @@ const parseFormattedNumber = (val) => {
         itemsPerPage
     );
 
+    const filteredLayanan = layananList.filter((layanan) => (
+      layanan.nama.toLowerCase().includes(layananSearch.trim().toLowerCase())
+    ));
+
   /* =========================================================
      FORM VIEW
   ========================================================= */
@@ -979,11 +888,11 @@ const parseFormattedNumber = (val) => {
                               setFormKategoriLayananIds(newKatIds);
                               // Auto-select all layanan from selected kategori(s)
                               const autoLayananIds = layananList
-                                .filter((l) => newKatIds.includes(String(l.kategori)))
+                                .filter((l) => newKatIds.includes(String(getLayananCategoryId(l))))
                                 .map((l) => l.id);
                               // Merge with manually selected ones not from any kategori
                               const manualIds = formLayananIds.filter(
-                                (id) => !layananList.find((l) => l.id === id && formKategoriLayananIds.includes(String(l.kategori)))
+                                (id) => !layananList.find((l) => l.id === id && formKategoriLayananIds.includes(String(getLayananCategoryId(l))))
                               );
                               setFormLayananIds([...new Set([...autoLayananIds, ...manualIds])]);
                             }}
@@ -998,13 +907,39 @@ const parseFormattedNumber = (val) => {
                 </div>
 
                 <div>
-                  <label className="mb-2 block text-xs font-semibold uppercase tracking-wider text-slate-600">
-                    Layanan (centang satu / beberapa) <span className="text-red-500">*</span>
-                  </label>
-                  <div className="max-h-44 space-y-1 overflow-y-auto rounded-xl border border-slate-200 bg-slate-50/50 p-2">
-                    {layananList.map((layanan) => {
+                  <div className="mb-2 flex items-center justify-between gap-3">
+                    <label className="block text-xs font-semibold uppercase tracking-wider text-slate-600">
+                      Layanan <span className="text-red-500">*</span>
+                    </label>
+                    <span className="shrink-0 text-xs font-semibold text-emerald-600">{formLayananIds.length} dipilih</span>
+                  </div>
+                  <div className="mb-2 flex gap-2">
+                    <input
+                      type="search"
+                      value={layananSearch}
+                      onChange={(event) => setLayananSearch(event.target.value)}
+                      placeholder="Cari layanan..."
+                      className="min-w-0 flex-1 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs text-slate-700 outline-none focus:border-green-500 focus:ring-2 focus:ring-green-500/20"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setFormLayananIds((current) => [...new Set([...current, ...filteredLayanan.map((layanan) => layanan.id)])])}
+                      className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs font-semibold text-emerald-700 hover:bg-emerald-100"
+                    >
+                      Pilih hasil
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setFormLayananIds((current) => current.filter((id) => !filteredLayanan.some((layanan) => layanan.id === id)))}
+                      className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-50"
+                    >
+                      Hapus hasil
+                    </button>
+                  </div>
+                  <div className="max-h-56 space-y-1 overflow-y-auto rounded-xl border border-slate-200 bg-slate-50/50 p-2">
+                    {filteredLayanan.map((layanan) => {
                       const checked = formLayananIds.includes(layanan.id);
-                      const fromKat = formKategoriLayananIds.includes(String(layanan.kategori));
+                      const fromKat = formKategoriLayananIds.includes(String(getLayananCategoryId(layanan)));
                       return (
                         <label key={layanan.id} className={`flex cursor-pointer items-center gap-2 rounded-lg border px-3 py-2 text-sm ${checked ? (fromKat ? 'border-blue-200 bg-blue-50/60 text-blue-800' : 'border-green-300 bg-green-50 text-green-800') : 'border-transparent bg-white text-slate-600 hover:border-slate-200'}`}>
                           <input type="checkbox" checked={checked} onChange={() => setFormLayananIds((current) => checked ? current.filter((id) => id !== layanan.id) : [...current, layanan.id])} className="h-4 w-4 rounded border-gray-300 text-green-600 focus:ring-green-500" />
@@ -1014,7 +949,8 @@ const parseFormattedNumber = (val) => {
                       );
                     })}
                   </div>
-                  <p className="mt-1 text-xs text-slate-500">{formLayananIds.length} layanan dipilih.</p>
+                  {filteredLayanan.length === 0 && <p className="px-2 py-4 text-center text-xs text-slate-400">Layanan tidak ditemukan.</p>}
+                  <p className="mt-1 text-xs text-slate-500">{formLayananIds.length} layanan dipilih. Gunakan pencarian untuk memilih banyak layanan dengan cepat.</p>
                 </div>
               </div>
             </div>
@@ -1111,103 +1047,6 @@ const parseFormattedNumber = (val) => {
               </div>
             </div>
 
-            {/* PROVINSI + KOTA */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-              {/* PROVINSI */}
-              <div>
-                <label className="block text-xs font-semibold uppercase tracking-wider text-slate-600 mb-2">
-                  Provinsi (Opsional)
-                </label>
-
-                <select
-                  className="w-full rounded-xl border border-slate-200 px-4 py-2.5 text-sm text-slate-800 focus:border-green-500 focus:outline-none focus:ring-2 focus:ring-green-500/20 transition-all bg-white"
-                  value={
-                    formIdProvinsi
-                  }
-                  onChange={(e) => {
-                    setFormIdProvinsi(
-                      e.target.value
-                    );
-
-                    setFormIdKota('');
-                  }}
-                >
-                  <option value="">
-                    Nasional / Semua Provinsi
-                  </option>
-
-                  {provinsiList.map(
-                    (provinsi) => (
-                      <option
-                        key={
-                          provinsi.id_provinsi
-                        }
-                        value={
-                          provinsi.id_provinsi
-                        }
-                      >
-                        {
-                          provinsi.nama_provinsi
-                        }
-                      </option>
-                    )
-                  )}
-                </select>
-              </div>
-
-              {/* KOTA */}
-              <div>
-                <label className="block text-xs font-semibold uppercase tracking-wider text-slate-600 mb-2">
-                  Kota/Kabupaten (Opsional)
-                </label>
-
-                <select
-                  className="w-full rounded-xl border border-slate-200 px-4 py-2.5 text-sm text-slate-800 focus:border-green-500 focus:outline-none focus:ring-2 focus:ring-green-500/20 transition-all bg-white"
-                  value={formIdKota}
-                  onChange={(e) =>
-                    setFormIdKota(
-                      e.target.value
-                    )
-                  }
-                  disabled={
-                    !formIdProvinsi
-                  }
-                >
-                  <option value="">
-                    Semua Kota di Provinsi
-                  </option>
-
-                  {kotaList
-                    .filter(
-                      (kota) =>
-                        !formIdProvinsi ||
-                        String(
-                          kota.id_provinsi
-                        ) ===
-                          String(
-                            formIdProvinsi
-                          )
-                    )
-                    .map(
-                      (kota) => (
-                        <option
-                          key={
-                            kota.id_kota
-                          }
-                          value={
-                            kota.id_kota
-                          }
-                        >
-                          {
-                            kota.nama_kota
-                          }
-                        </option>
-                      )
-                    )}
-                </select>
-              </div>
-            </div>
-
             {/* FEE NAKES */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
               {/* TIPE */}
@@ -1290,11 +1129,14 @@ const parseFormattedNumber = (val) => {
                 <div className="flex gap-3">
                   <button
                     type="button"
+                    disabled={hasTransportConflict}
                     className={
                       'flex-1 rounded-xl border px-4 py-2.5 text-sm font-semibold transition-all cursor-pointer ' +
                       (formIsTransport === true
                         ? 'border-teal-500 bg-teal-50 text-teal-700 shadow-sm'
-                        : 'border-slate-200 bg-white text-slate-500 hover:bg-slate-50')
+                        : hasTransportConflict
+                          ? 'cursor-not-allowed border-slate-200 bg-slate-100 text-slate-400 opacity-70'
+                          : 'border-slate-200 bg-white text-slate-500 hover:bg-slate-50')
                     }
                     onClick={() => setFormIsTransport(true)}
                   >
@@ -1313,6 +1155,11 @@ const parseFormattedNumber = (val) => {
                     Tidak
                   </button>
                 </div>
+                {hasTransportConflict && (
+                  <p className="mt-2 text-xs text-amber-600">
+                    Salah satu layanan sudah memiliki Master Tarif transport.
+                  </p>
+                )}
               </div>
 
               {/* STATUS */}
@@ -1482,10 +1329,6 @@ const parseFormattedNumber = (val) => {
                     Komponen Tarif
                   </th>
 
-                  <th className="px-5 py-4">
-                    Provinsi
-                  </th>
-
                   <th className="px-5 py-4 text-center">
                     Fee Nakes
                   </th>
@@ -1505,7 +1348,7 @@ const parseFormattedNumber = (val) => {
                 0 ? (
                   <tr>
                     <td
-                      colSpan="8"
+                      colSpan="7"
                       className="px-5 py-8 text-center text-sm text-slate-400"
                     >
                       Tidak ada template
@@ -1527,34 +1370,15 @@ const parseFormattedNumber = (val) => {
                         index +
                         1;
 
-                      const namaLayanan =
-                        layananList.find(
-                          (layanan) =>
-                            String(
-                              layanan.id
-                            ) ===
-                            String(
-                              item?.id_layanan
-                            )
-                        )?.nama ||
-                        item?.layanan
-                          ?.nama_layanan ||
-                        item?.id_layanan ||
-                        'Tidak ditemukan';
+                      const namaLayananList = getTarifServiceIds(item).map((serviceId) => (
+                        layananList.find((layanan) => layanan.id === serviceId)?.nama
+                          || (serviceId === Number(item?.id_layanan) ? item?.layanan?.nama_layanan : null)
+                          || `Layanan #${serviceId}`
+                      ));
 
                       const komponenText =
                         getKomponenNames(
                           item
-                        );
-
-                      const namaProvinsi =
-                        getProvinsiName(
-                          item?.id_provinsi
-                        );
-
-                      const namaKota =
-                        getKotaName(
-                          item?.id_kota
                         );
 
                       const isActive =
@@ -1578,18 +1402,18 @@ const parseFormattedNumber = (val) => {
                           {/* NAMA */}
                           <td className="px-5 py-4">
                             <div className="font-semibold text-slate-900">
-                              {
-                                item?.nama_template
-                              }
+                              {item?.nama_template}
                             </div>
                           </td>
 
                           {/* LAYANAN */}
                           <td className="px-5 py-4">
-                            <div className="text-teal-600 font-medium">
-                              {
-                                namaLayanan
-                              }
+                            <div className="flex max-w-sm flex-wrap gap-1.5">
+                              {namaLayananList.map((nama) => (
+                                <span key={nama} className="rounded-md bg-teal-50 px-2 py-1 text-xs font-medium text-teal-700">
+                                  {nama}
+                                </span>
+                              ))}
                             </div>
                           </td>
 
@@ -1599,19 +1423,6 @@ const parseFormattedNumber = (val) => {
                               {
                                 komponenText
                               }
-                            </div>
-                          </td>
-
-                          {/* PROVINSI */}
-                          <td className="px-5 py-4">
-                            <div className="text-xs text-slate-700">
-                              {
-                                namaProvinsi
-                              }
-
-                              {item?.id_kota
-                                ? ` - ${namaKota}`
-                                : ''}
                             </div>
                           </td>
 

@@ -10,6 +10,10 @@ import {
 } from '../../data/masterKategoriTarifData';
 
 const ITEMS_PER_PAGE = 10;
+const DAYS = [
+  ['senin', 'Senin'], ['selasa', 'Selasa'], ['rabu', 'Rabu'],
+  ['kamis', 'Kamis'], ['jumat', 'Jumat'], ['sabtu', 'Sabtu'], ['minggu', 'Minggu'],
+];
 const formatRupiah = (value) => new Intl.NumberFormat('id-ID', {
   style: 'currency', currency: 'IDR', maximumFractionDigits: 0,
 }).format(Number(value) || 0);
@@ -24,6 +28,10 @@ export default function AdminMasterKategoriTarif() {
   const [selected, setSelected] = useState(null);
   const [name, setName] = useState('');
   const [additionalCost, setAdditionalCost] = useState('0');
+  const [defaultCategory, setDefaultCategory] = useState(false);
+  const [days, setDays] = useState([]);
+  const [startTime, setStartTime] = useState('');
+  const [endTime, setEndTime] = useState('');
   const [saving, setSaving] = useState(false);
 
   const fetchItems = async () => {
@@ -50,10 +58,10 @@ export default function AdminMasterKategoriTarif() {
   const pageItems = filteredItems.slice((page - 1) * ITEMS_PER_PAGE, page * ITEMS_PER_PAGE);
 
   const openCreate = () => {
-    setSelected(null); setName(''); setAdditionalCost('0'); setModalOpen(true);
+    setSelected(null); setName(''); setAdditionalCost('0'); setDefaultCategory(false); setDays([]); setStartTime(''); setEndTime(''); setModalOpen(true);
   };
   const openEdit = (item) => {
-    setSelected(item); setName(item.nama_kategori || ''); setAdditionalCost(String(item.biaya_tambahan ?? 0)); setModalOpen(true);
+    setSelected(item); setName(item.nama_kategori || ''); setAdditionalCost(String(item.biaya_tambahan ?? 0)); setDefaultCategory(Boolean(item.is_default)); setDays(item.hari_berlaku || []); setStartTime(item.jam_mulai?.slice(0, 5) || ''); setEndTime(item.jam_selesai?.slice(0, 5) || ''); setModalOpen(true);
   };
   const closeModal = () => { setModalOpen(false); setSelected(null); };
 
@@ -61,9 +69,16 @@ export default function AdminMasterKategoriTarif() {
     event.preventDefault();
     const cost = Number(additionalCost);
     if (!name.trim() || !Number.isFinite(cost) || cost < 0) return;
+    if (!defaultCategory && (!days.length || !startTime || !endTime)) {
+      Swal.fire('Trigger belum lengkap', 'Pilih minimal satu hari serta jam mulai dan jam selesai.', 'warning');
+      return;
+    }
     setSaving(true);
     try {
-      const payload = { nama_kategori: name.trim(), biaya_tambahan: cost };
+      const payload = {
+        nama_kategori: name.trim(), biaya_tambahan: cost, is_default: defaultCategory,
+        hari_berlaku: defaultCategory ? null : days, jam_mulai: defaultCategory ? null : startTime, jam_selesai: defaultCategory ? null : endTime,
+      };
       if (selected) await updateKategoriTarif(selected.id_kategori_tarif, payload);
       else await createKategoriTarif(payload);
       closeModal();
@@ -101,10 +116,10 @@ export default function AdminMasterKategoriTarif() {
       {error && <div className="rounded-xl border border-red-100 bg-red-50 px-4 py-3 text-sm text-red-600">{error}</div>}
       <div className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-500 shadow-sm"><FaSearch /><input value={search} onChange={(event) => { setSearch(event.target.value); setPage(1); }} placeholder="Cari nama kategori..." className="w-full bg-transparent outline-none" /></div>
       <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-        <div className="overflow-x-auto"><table className="w-full min-w-[620px] border-collapse text-left text-sm"><thead><tr className="border-b border-slate-200 bg-slate-50 text-xs font-semibold uppercase tracking-wide text-slate-500"><th className="px-5 py-4 text-center">No.</th><th className="px-5 py-4">Nama Kategori</th><th className="px-5 py-4 text-right">Biaya Tambahan</th><th className="px-5 py-4 text-center">Aksi</th></tr></thead><tbody className="divide-y divide-slate-100">{loading ? <tr><td colSpan="4" className="px-5 py-10 text-center text-slate-500">Memuat data kategori tarif...</td></tr> : pageItems.length === 0 ? <tr><td colSpan="4" className="px-5 py-10 text-center text-slate-500">Kategori tarif tidak ditemukan.</td></tr> : pageItems.map((item, index) => <tr key={item.id_kategori_tarif} className="hover:bg-slate-50"><td className="px-5 py-4 text-center text-slate-500">{(page - 1) * ITEMS_PER_PAGE + index + 1}</td><td className="px-5 py-4"><p className="font-semibold text-slate-900">{item.nama_kategori}</p>{item.is_default && <span className="mt-1 inline-flex rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-semibold text-emerald-700">Default</span>}</td><td className="px-5 py-4 text-right font-semibold text-slate-800">{formatRupiah(item.biaya_tambahan)}</td><td className="px-5 py-4"><div className="flex justify-center gap-2"><button type="button" onClick={() => openEdit(item)} title="Edit kategori" className="rounded-lg border border-slate-200 bg-white p-2 text-slate-600 hover:bg-slate-50"><FaEdit /></button><button type="button" onClick={() => handleDelete(item)} title="Hapus kategori" className="rounded-lg border border-red-200 bg-red-50 p-2 text-red-600 hover:bg-red-100"><FaTrash /></button></div></td></tr>)}</tbody></table></div>
+        <div className="overflow-x-auto"><table className="w-full min-w-[760px] border-collapse text-left text-sm"><thead><tr className="border-b border-slate-200 bg-slate-50 text-xs font-semibold uppercase tracking-wide text-slate-500"><th className="px-5 py-4 text-center">No.</th><th className="px-5 py-4">Nama Kategori</th><th className="px-5 py-4">Trigger Hari & Jam</th><th className="px-5 py-4 text-right">Biaya Tambahan</th><th className="px-5 py-4 text-center">Aksi</th></tr></thead><tbody className="divide-y divide-slate-100">{loading ? <tr><td colSpan="5" className="px-5 py-10 text-center text-slate-500">Memuat data kategori tarif...</td></tr> : pageItems.length === 0 ? <tr><td colSpan="5" className="px-5 py-10 text-center text-slate-500">Kategori tarif tidak ditemukan.</td></tr> : pageItems.map((item, index) => <tr key={item.id_kategori_tarif} className="hover:bg-slate-50"><td className="px-5 py-4 text-center text-slate-500">{(page - 1) * ITEMS_PER_PAGE + index + 1}</td><td className="px-5 py-4"><p className="font-semibold text-slate-900">{item.nama_kategori}</p>{item.is_default && <span className="mt-1 inline-flex rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-semibold text-emerald-700">Default</span>}</td><td className="px-5 py-4 text-slate-600">{item.is_default ? 'Fallback jika tidak ada trigger' : item.hari_berlaku?.length && item.jam_mulai && item.jam_selesai ? `${item.hari_berlaku.map((day) => day.slice(0, 3)).join(', ')} | ${item.jam_mulai.slice(0, 5)}-${item.jam_selesai.slice(0, 5)}` : 'Belum ada trigger'}</td><td className="px-5 py-4 text-right font-semibold text-slate-800">{formatRupiah(item.biaya_tambahan)}</td><td className="px-5 py-4"><div className="flex justify-center gap-2"><button type="button" onClick={() => openEdit(item)} title="Edit kategori" className="rounded-lg border border-slate-200 bg-white p-2 text-slate-600 hover:bg-slate-50"><FaEdit /></button><button type="button" onClick={() => handleDelete(item)} title="Hapus kategori" className="rounded-lg border border-red-200 bg-red-50 p-2 text-red-600 hover:bg-red-100"><FaTrash /></button></div></td></tr>)}</tbody></table></div>
         {!loading && filteredItems.length > 0 && <div className="border-t border-slate-100 px-5 py-1"><Pagination currentPage={page} totalPages={totalPages} onPageChange={setPage} /></div>}
       </div>
-      {modalOpen && <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/40 p-4"><form onSubmit={handleSubmit} className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl"><h2 className="text-lg font-bold text-slate-900">{selected ? 'Edit Kategori Tarif' : 'Tambah Kategori Tarif'}</h2><div className="mt-5 space-y-4"><div><label className="form-label" htmlFor="kategori-tarif-name">Nama Kategori</label><input id="kategori-tarif-name" required maxLength="100" value={name} onChange={(event) => setName(event.target.value)} className="form-input" placeholder="Contoh: Reguler" /></div><div><label className="form-label" htmlFor="kategori-tarif-cost">Biaya Tambahan (Rp)</label><input id="kategori-tarif-cost" required min="0" step="0.01" type="number" value={additionalCost} onChange={(event) => setAdditionalCost(event.target.value)} className="form-input" placeholder="0" /><p className="mt-1 text-xs text-slate-500">Isi 0 jika tidak ada biaya tambahan.</p></div></div><div className="mt-6 flex justify-end gap-3 border-t border-slate-100 pt-4"><button type="button" onClick={closeModal} className="btn-outline btn-sm">Batal</button><button type="submit" disabled={saving} className="btn-primary btn-sm">{saving ? 'Menyimpan...' : 'Simpan'}</button></div></form></div>}
+      {modalOpen && <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/40 p-4"><form onSubmit={handleSubmit} className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl"><h2 className="text-lg font-bold text-slate-900">{selected ? 'Edit Kategori Tarif' : 'Tambah Kategori Tarif'}</h2><div className="mt-5 space-y-4"><div><label className="form-label" htmlFor="kategori-tarif-name">Nama Kategori</label><input id="kategori-tarif-name" required maxLength="100" value={name} onChange={(event) => setName(event.target.value)} className="form-input" placeholder="Contoh: Reguler" /></div><div><label className="form-label" htmlFor="kategori-tarif-cost">Biaya Tambahan (Rp)</label><input id="kategori-tarif-cost" required min="0" step="0.01" type="number" value={additionalCost} onChange={(event) => setAdditionalCost(event.target.value)} className="form-input" placeholder="0" /></div><label className="flex items-center gap-2 text-sm font-medium text-slate-700"><input type="checkbox" checked={defaultCategory} onChange={(event) => setDefaultCategory(event.target.checked)} /> Jadikan fallback / Reguler</label>{!defaultCategory && <><div><p className="form-label">Hari berlaku</p><div className="grid grid-cols-2 gap-2">{DAYS.map(([value, label]) => <label key={value} className="flex items-center gap-2 text-sm text-slate-700"><input type="checkbox" checked={days.includes(value)} onChange={() => setDays((current) => current.includes(value) ? current.filter((day) => day !== value) : [...current, value])} />{label}</label>)}</div></div><div className="grid grid-cols-2 gap-3"><div><label className="form-label" htmlFor="kategori-tarif-start">Jam mulai</label><input id="kategori-tarif-start" required type="time" value={startTime} onChange={(event) => setStartTime(event.target.value)} className="form-input" /></div><div><label className="form-label" htmlFor="kategori-tarif-end">Jam selesai</label><input id="kategori-tarif-end" required type="time" value={endTime} onChange={(event) => setEndTime(event.target.value)} className="form-input" /></div></div></>}</div><div className="mt-6 flex justify-end gap-3 border-t border-slate-100 pt-4"><button type="button" onClick={closeModal} className="btn-outline btn-sm">Batal</button><button type="submit" disabled={saving} className="btn-primary btn-sm">{saving ? 'Menyimpan...' : 'Simpan'}</button></div></form></div>}
     </div>
   );
 }
