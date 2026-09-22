@@ -1337,6 +1337,22 @@ const parseFormattedNumber = (val) => {
                     Status
                   </th>
 
+                  <th className="px-5 py-4 whitespace-nowrap">
+                    Updated At
+                  </th>
+
+                  <th className="px-5 py-4">
+                    Updated By
+                  </th>
+
+                  <th className="px-5 py-4 whitespace-nowrap">
+                    Deleted At
+                  </th>
+
+                  <th className="px-5 py-4">
+                    Deleted By
+                  </th>
+
                   <th className="px-5 py-4 text-center w-24">
                     Aksi
                   </th>
@@ -1348,7 +1364,7 @@ const parseFormattedNumber = (val) => {
                 0 ? (
                   <tr>
                     <td
-                      colSpan="7"
+                      colSpan="11"
                       className="px-5 py-8 text-center text-sm text-slate-400"
                     >
                       Tidak ada template
@@ -1451,6 +1467,30 @@ const parseFormattedNumber = (val) => {
                                 ? 'Aktif'
                                 : 'Nonaktif'}
                             </span>
+                          </td>
+
+                          {/* UPDATED AT */}
+                          <td className="px-5 py-4 text-xs text-slate-500 whitespace-nowrap">
+                            {item?.updated_at
+                              ? new Date(item.updated_at).toLocaleString('id-ID', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })
+                              : '—'}
+                          </td>
+
+                          {/* UPDATED BY */}
+                          <td className="px-5 py-4 text-xs text-slate-500">
+                            {item?.updated_by ?? '—'}
+                          </td>
+
+                          {/* DELETED AT */}
+                          <td className="px-5 py-4 text-xs text-slate-500 whitespace-nowrap">
+                            {item?.deleted_at
+                              ? new Date(item.deleted_at).toLocaleString('id-ID', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })
+                              : '—'}
+                          </td>
+
+                          {/* DELETED BY */}
+                          <td className="px-5 py-4 text-xs text-slate-500">
+                            {item?.deleted_by ?? '—'}
                           </td>
 
                           {/* AKSI */}

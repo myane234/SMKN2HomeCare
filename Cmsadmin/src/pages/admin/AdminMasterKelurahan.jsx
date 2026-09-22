@@ -273,13 +273,17 @@ export default function AdminMasterKelurahan() {
                   <th className="py-4 px-4 sm:px-6">KECAMATAN</th>
                   <th className="py-4 px-4 sm:px-6">KOTA / KABUPATEN</th>
                   <th className="py-4 px-4 sm:px-6">KODE KELURAHAN</th>
+                  <th className="py-4 px-4 sm:px-6 whitespace-nowrap">UPDATED AT</th>
+                  <th className="py-4 px-4 sm:px-6">UPDATED BY</th>
+                  <th className="py-4 px-4 sm:px-6 whitespace-nowrap">DELETED AT</th>
+                  <th className="py-4 px-4 sm:px-6">DELETED BY</th>
                   <th className="py-4 px-4 sm:px-6 text-right">AKSI</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 text-slate-700">
                 {kelurahanList.length === 0 ? (
                   <tr>
-                    <td colSpan="6" className="text-center py-8 text-slate-400">
+                    <td colSpan="10" className="text-center py-8 text-slate-400">
                       Tidak ada data kelurahan ditemukan.
                     </td>
                   </tr>
@@ -300,6 +304,22 @@ export default function AdminMasterKelurahan() {
                         </td>
                         <td className="py-4 px-4 sm:px-6 font-mono text-xs text-slate-500">
                           {item.id_kelurahan}
+                        </td>
+                        <td className="py-4 px-4 sm:px-6 text-xs text-slate-500 whitespace-nowrap">
+                          {item.updated_at
+                            ? new Date(item.updated_at).toLocaleString('id-ID', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })
+                            : '—'}
+                        </td>
+                        <td className="py-4 px-4 sm:px-6 text-xs text-slate-500">
+                          {item.updated_by ?? '—'}
+                        </td>
+                        <td className="py-4 px-4 sm:px-6 text-xs text-slate-500 whitespace-nowrap">
+                          {item.deleted_at
+                            ? new Date(item.deleted_at).toLocaleString('id-ID', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })
+                            : '—'}
+                        </td>
+                        <td className="py-4 px-4 sm:px-6 text-xs text-slate-500">
+                          {item.deleted_by ?? '—'}
                         </td>
                         <td className="py-4 px-4 sm:px-6 text-right">
                           <div className="flex items-center justify-end gap-2">

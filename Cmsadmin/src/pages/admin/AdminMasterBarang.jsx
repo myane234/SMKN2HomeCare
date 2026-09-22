@@ -238,13 +238,17 @@ export default function DataBarang() {
                   <th className="border-b border-slate-200 px-4 py-3 text-right">Margin</th>
                   <th className="border-b border-slate-200 px-4 py-3 text-right">Harga Jual</th>
                   <th className="border-b border-slate-200 px-4 py-3 text-center">Status</th>
+                  <th className="border-b border-slate-200 px-4 py-3 whitespace-nowrap">Updated At</th>
+                  <th className="border-b border-slate-200 px-4 py-3">Updated By</th>
+                  <th className="border-b border-slate-200 px-4 py-3 whitespace-nowrap">Deleted At</th>
+                  <th className="border-b border-slate-200 px-4 py-3">Deleted By</th>
                   <th className="border-b border-slate-200 px-4 py-3 text-center">Aksi</th>
                 </tr>
               </thead>
               <tbody>
                 {paginatedData.length === 0 ? (
                   <tr>
-                    <td colSpan="7" className="px-4 py-8 text-center text-sm text-slate-500">
+                    <td colSpan="11" className="px-4 py-8 text-center text-sm text-slate-500">
                       Tidak ada data barang yang ditemukan.
                     </td>
                   </tr>
@@ -282,6 +286,22 @@ export default function DataBarang() {
                           ) : (
                             <span className="badge badge-nonaktif">Nonaktif</span>
                           )}
+                        </td>
+                        <td className="border-b border-slate-200 px-4 py-3.5 text-xs text-slate-500 whitespace-nowrap">
+                          {item.updated_at
+                            ? new Date(item.updated_at).toLocaleString('id-ID', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })
+                            : '—'}
+                        </td>
+                        <td className="border-b border-slate-200 px-4 py-3.5 text-xs text-slate-500">
+                          {item.updated_by ?? '—'}
+                        </td>
+                        <td className="border-b border-slate-200 px-4 py-3.5 text-xs text-slate-500 whitespace-nowrap">
+                          {item.deleted_at
+                            ? new Date(item.deleted_at).toLocaleString('id-ID', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })
+                            : '—'}
+                        </td>
+                        <td className="border-b border-slate-200 px-4 py-3.5 text-xs text-slate-500">
+                          {item.deleted_by ?? '—'}
                         </td>
                         <td className="border-b border-slate-200 px-4 py-3.5 text-sm text-center">
                           <div className="flex items-center justify-center gap-1.5">
