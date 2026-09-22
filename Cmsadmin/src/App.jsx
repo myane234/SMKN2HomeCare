@@ -21,6 +21,7 @@ import PageHubungiKami from "./pages/PageHubungiKami";
 import PageNakesRequest from "./pages/admin/RegisterNakes/PageNakesRequest";
 import PageNakesRequestDetail from "./pages/admin/RegisterNakes/PageNakesRequestDetail";
 import PageOperasionalNakes from "./pages/admin/PageOperasionalNakes";
+import TambahNakes from "./pages/admin/TambahNakes";
 import PageBooking, { PageBookingDetail } from "./pages/admin/PageBooking";
 import AdminLayout from "./components/AdminLayout";
 import ProtectedRoute from "./components/ProtectedRoute";
@@ -241,6 +242,14 @@ function App() {
           element={
             <ProtectedRoute requiredPath="/operasional-nakes">
               <PageOperasionalNakes />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/nakes/pendaftaran"
+          element={
+            <ProtectedRoute requiredPath="/nakes/pendaftaran">
+              <TambahNakes />
             </ProtectedRoute>
           }
         />

@@ -286,3 +286,33 @@ export const deleteBookingChatRoom = async (bookingId) => {
     return null;
   }
 };
+
+/** Get Riwayat Kunjungan Nakes */
+export const getRiwayatKunjungan = async (params = {}) => {
+  try {
+    const response = await api.get("/api/nakes/riwayat-kunjungan", {
+      params: {
+        ...(params.status && { status: params.status }),
+        ...(params.per_page && { per_page: params.per_page }),
+        ...(params.page && { page: params.page }),
+      },
+    });
+    return response.data;
+  } catch (error) {
+    console.error("Gagal mengambil riwayat kunjungan:", error);
+    throw error;
+  }
+};
+
+/** Get Detail Single Riwayat Kunjungan */
+export const getDetailRiwayatKunjungan = async (id) => {
+  try {
+    const response = await api.get(
+      `/api/nakes/riwayat-kunjungan/${encodeURIComponent(id)}`
+    );
+    return response.data;
+  } catch (error) {
+    console.error("Gagal mengambil detail riwayat kunjungan:", error);
+    throw error;
+  }
+};
