@@ -7,7 +7,7 @@ const MapPicker = dynamic(() => import("@/components/MapPicker"), {
   ssr: false,
 });
 
-import { createBooking } from "@/services/bookingService";
+import { createBooking, saveLocalActiveBooking } from "@/services/bookingService";
 import { fetchAndStoreProfile } from "@/services/profileService";
 import { resolveImageUrl } from "@/services/resolveImage";
 import { useRouter } from "next/navigation";
@@ -16,6 +16,8 @@ import {
   Home,
   PenSquare,
   ShoppingBag,
+  Calendar,
+  Clock,
 } from "lucide-react";
 
 const CHECKOUT_STORAGE_KEY = "smarthomecare_checkout";
@@ -183,6 +185,13 @@ export default function BookingPage() {
   });
 
   /* =========================================================
+     MULTI SCHEDULE MODE
+  ========================================================= */
+
+  const [scheduleMode, setScheduleMode] = useState("same"); // "same" | "custom"
+  const [itemSchedules, setItemSchedules] = useState({});
+
+  /* =========================================================
      CHECKOUT
   ========================================================= */
 
@@ -312,24 +321,58 @@ useEffect(() => {
   }, [router]);
 
   useEffect(() => {
-    setDurationInputs((current) => {
-      const next = { ...current };
-      let changed = false;
+    if (checkoutItems.length === 0) return;
 
-      checkoutItems.forEach((item) => {
-        const service = item.service || {};
-        const serviceId = getServiceId(service);
+    const t = setTimeout(() => {
+      setDurationInputs((current) => {
+        const next = { ...current };
+        let changed = false;
 
-        if (service?.tipe_layanan === "durasi" && serviceId && !next[serviceId]) {
-          const baseDuration = getBaseDurationMinutes(service.durasi_menit || service.durasi || 60);
-          next[serviceId] = baseDuration;
-          changed = true;
-        }
+        checkoutItems.forEach((item) => {
+          const service = item.service || {};
+          const serviceId = getServiceId(service);
+
+          if (service?.tipe_layanan === "durasi" && serviceId && !next[serviceId]) {
+            const baseDuration = getBaseDurationMinutes(service.durasi_menit || service.durasi || 60);
+            next[serviceId] = baseDuration;
+            changed = true;
+          }
+        });
+
+        return changed ? next : current;
       });
 
-      return changed ? next : current;
-    });
-  }, [checkoutItems]);
+      setItemSchedules((current) => {
+        const next = { ...current };
+        let changed = false;
+        const defaultDate = form.date || getLocalDateTime().date;
+        const defaultTime = form.time || getLocalDateTime().time;
+
+        checkoutItems.forEach((item) => {
+          const service = item.service || {};
+          const serviceId = getServiceId(service);
+          if (serviceId && !next[serviceId]) {
+            next[serviceId] = { date: defaultDate, time: defaultTime };
+            changed = true;
+          }
+        });
+
+        return changed ? next : current;
+      });
+    }, 0);
+
+    return () => clearTimeout(t);
+  }, [checkoutItems, form.date, form.time]);
+
+  const handleItemScheduleChange = (serviceId, field, value) => {
+    setItemSchedules((prev) => ({
+      ...prev,
+      [serviceId]: {
+        ...(prev[serviceId] || { date: form.date, time: form.time }),
+        [field]: value,
+      },
+    }));
+  };
 
   /* =========================================================
      LOAD ADDRESS
@@ -666,8 +709,13 @@ useEffect(() => {
   const isFormValid =
     Boolean(addressData) &&
     checkoutItems.length > 0 &&
-    form.date.trim() !== "" &&
-    form.time.trim() !== "";
+    (scheduleMode === "same" || checkoutItems.length === 1
+      ? form.date.trim() !== "" && form.time.trim() !== ""
+      : checkoutItems.every((item) => {
+          const sId = getServiceId(item.service);
+          const sched = itemSchedules[sId];
+          return Boolean(sched && sched.date && sched.date.trim() !== "" && sched.time && sched.time.trim() !== "");
+        }));
 
   /* =========================================================
      SUBMIT BOOKING (DIARAHKAN KE PILIH METODE)
@@ -686,65 +734,120 @@ useEffect(() => {
     setIsSubmitting(true);
 
     try {
-      const rawIds = checkoutItems
-        .map((item) => Number(getServiceId(item.service)))
-        .filter((id) => !Number.isNaN(id));
+      // Kelompokkan item berdasarkan jadwal kunjungan
+      let scheduleGroups = [];
 
-      const durasiLayanan = Object.fromEntries(
-        checkoutItems
-          .filter((item) => item.service?.tipe_layanan === "durasi")
-          .map((item) => {
-            const service = item.service || {};
-            const serviceId = getServiceId(service);
-            const baseDuration = getBaseDurationMinutes(service.durasi_menit || service.durasi || 60);
+      if (scheduleMode === "same" || checkoutItems.length === 1) {
+        scheduleGroups = [
+          {
+            date: form.date,
+            time: form.time,
+            items: checkoutItems,
+          },
+        ];
+      } else {
+        const groupMap = {};
+        checkoutItems.forEach((item) => {
+          const sId = getServiceId(item.service);
+          const sched = itemSchedules[sId] || { date: form.date, time: form.time };
+          const key = `${sched.date}_${sched.time}`;
+          if (!groupMap[key]) {
+            groupMap[key] = {
+              date: sched.date,
+              time: sched.time,
+              items: [],
+            };
+          }
+          groupMap[key].items.push(item);
+        });
+        scheduleGroups = Object.values(groupMap);
+      }
 
-            return [
-              serviceId,
-              normalizeDurationMinutes(durationInputs[serviceId], baseDuration),
-            ];
-          })
+      // Buat booking untuk setiap kelompok jadwal secara serentak
+      const createdResults = await Promise.all(
+        scheduleGroups.map(async (group) => {
+          const rawIds = group.items
+            .map((item) => Number(getServiceId(item.service)))
+            .filter((id) => !Number.isNaN(id));
+
+          const durasiLayanan = Object.fromEntries(
+            group.items
+              .filter((item) => item.service?.tipe_layanan === "durasi")
+              .map((item) => {
+                const service = item.service || {};
+                const serviceId = getServiceId(service);
+                const baseDuration = getBaseDurationMinutes(service.durasi_menit || service.durasi || 60);
+
+                return [
+                  serviceId,
+                  normalizeDurationMinutes(durationInputs[serviceId], baseDuration),
+                ];
+              })
+          );
+
+          const response = await createBooking({
+            layanan_ids: rawIds,
+            id_layanan: rawIds.length > 1 ? rawIds : rawIds[0],
+            durasi_layanan: durasiLayanan,
+            tanggal_kunjungan: group.date,
+            jam_kunjungan: group.time,
+            alamat_kunjungan: addressData.address,
+            latitude_kunjungan: addressData.latitude,
+            longitude_kunjungan: addressData.longitude,
+            catatan: form.notes,
+          });
+
+          const payload =
+            response?.data?.data ??
+            response?.data ??
+            {};
+
+          const bookingId =
+            payload?.booking?.id_booking || payload?.id_booking || payload?.id;
+
+          const groupTotal = group.items.reduce((acc, item) => {
+            const price = getCheckoutItemPrice(item);
+            const qty = item.qty || item.jumlah || 1;
+            return acc + price * qty;
+          }, 0);
+
+          if (bookingId) {
+            saveLocalActiveBooking({
+              id_booking: bookingId,
+              booking_code: payload?.booking?.booking_code || `#${bookingId}`,
+              status_booking: "Pending",
+              layanan: group.items.map((i) => i.service),
+              tanggal_kunjungan: group.date,
+              jam_kunjungan: group.time,
+              alamat_kunjungan: addressData.address,
+            });
+          }
+
+          return {
+            bookingId,
+            total: groupTotal,
+            date: group.date,
+            time: group.time,
+            items: group.items,
+          };
+        })
       );
 
-      const response = await createBooking({
-    layanan_ids: rawIds,
-      
-       
-        durasi_layanan: durasiLayanan,
-        tanggal_kunjungan: form.date,
-        jam_kunjungan: form.time,
+      const firstResult = createdResults[0];
+      const validFirstId = firstResult?.bookingId;
 
-        alamat_kunjungan:
-          addressData.address,
-
-        latitude_kunjungan:
-          addressData.latitude,
-
-        longitude_kunjungan:
-          addressData.longitude,
-
-        catatan: form.notes,
-      });
-
-      const payload =
-        response?.data?.data ??
-        response?.data ??
-        {};
-
-      const bookingId =
-        payload?.booking?.id_booking || payload?.id_booking || payload?.id;
-
-      // Oper variabel state kalkulasi total yang tampil di UI (1.225.000)
-      const uiTotal = (totalPrice && Number(totalPrice) > 0) ? Number(totalPrice) : 1225000;
-
-      if (!bookingId) {
+      if (!validFirstId) {
         throw new Error(
           "ID Booking tidak ditemukan dari respons server."
         );
       }
 
+      // Oper variabel state kalkulasi total yang tampil di UI
+      const uiTotal = (totalPrice && Number(totalPrice) > 0) ? Number(totalPrice) : (firstResult.total || 1225000);
+
       // Simpan data booking terakhir ke localStorage sebagai cadangan fallback
       try {
-        localStorage.setItem('last_booking', JSON.stringify({ booking_id: bookingId, total: uiTotal }));
+        localStorage.setItem('last_booking', JSON.stringify({ booking_id: validFirstId, total: firstResult.total || uiTotal }));
       } catch (e) {}
 
       // Bersihkan keranjang setelah booking berhasil dibuat
@@ -752,9 +855,9 @@ useEffect(() => {
         CHECKOUT_STORAGE_KEY
       );
 
-      // Langsung arahkan ke halaman pilih metode pembayaran dengan parameter total dari state UI (1225000)
+      // Langsung arahkan ke halaman pilih metode pembayaran dengan parameter total dari state UI
       router.push(
-        `/pembayaran/pilih-metode?booking_id=${bookingId}&total=${uiTotal}`
+        `/pembayaran/pilih-metode?booking_id=${validFirstId}&total=${firstResult.total || uiTotal}`
       );
 
     } catch (error) {
@@ -1156,54 +1259,140 @@ useEffect(() => {
           </div>
 
           {/* =====================================================
-              TANGGAL
+              PENGATURAN JADWAL
           ====================================================== */}
 
-          <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white">
-            <div className="p-5">
-
-              <h2 className="text-sm font-semibold text-gray-900 mb-3">
-                Pilih Tanggal Kedatangan
-              </h2>
-
-              <input
-                type="date"
-                value={form.date}
-                onChange={
-                  handleChange("date")
-                }
-                min={
-                  getLocalDateTime()
-                    .date
-                }
-                className="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-900 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
-              />
-
+          {checkoutItems.length > 1 && (
+            <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white p-5">
+              <div className="flex items-center justify-between gap-2 mb-2">
+                <div className="flex items-center gap-2">
+                  <Calendar className="h-5 w-5 text-blue-600" />
+                  <h2 className="text-sm font-semibold text-gray-900">
+                    Pengaturan Jadwal Kunjungan
+                  </h2>
+                </div>
+                <span className="text-xs font-medium text-gray-500">
+                  {checkoutItems.length} Layanan
+                </span>
+              </div>
+              <p className="text-xs text-gray-500 mb-3">
+                Tentukan apakah seluruh layanan dijadwalkan bersamaan atau di hari/jam berbeda.
+              </p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 p-1.5 bg-gray-100 rounded-xl">
+                <button
+                  type="button"
+                  onClick={() => setScheduleMode("same")}
+                  className={`py-2 px-3 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+                    scheduleMode === "same"
+                      ? "bg-white text-blue-600 shadow-sm"
+                      : "text-gray-600 hover:text-gray-900"
+                  }`}
+                >
+                  Jadwal Serentak (Sama)
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setScheduleMode("custom")}
+                  className={`py-2 px-3 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+                    scheduleMode === "custom"
+                      ? "bg-white text-blue-600 shadow-sm"
+                      : "text-gray-600 hover:text-gray-900"
+                  }`}
+                >
+                  Jadwal Berbeda per Layanan
+                </button>
+              </div>
             </div>
-          </div>
+          )}
 
-          {/* =====================================================
-              JAM
-          ====================================================== */}
+          {scheduleMode === "custom" && checkoutItems.length > 1 ? (
+            <div className="space-y-3">
+              {checkoutItems.map((item, idx) => {
+                const s = item.service || {};
+                const sId = getServiceId(s);
+                const title = s.nama_layanan || s.nama || s.title || `Layanan ${idx + 1}`;
+                const img = resolveImageUrl(s.foto_layanan || s.foto || s.image);
+                const sched = itemSchedules[sId] || { date: form.date, time: form.time };
 
-          <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white">
-            <div className="p-5">
+                return (
+                  <div key={sId || idx} className="overflow-hidden rounded-2xl border border-gray-200 bg-white p-5">
+                    <div className="flex items-center gap-3 mb-4 pb-3 border-b border-gray-100">
+                      <div className="h-11 w-11 shrink-0 overflow-hidden rounded-xl bg-gray-100 border border-gray-200">
+                        <img src={img} alt={title} className="h-full w-full object-cover" />
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <p className="text-sm font-semibold text-gray-900 truncate">{title}</p>
+                        <p className="text-xs text-gray-500">Atur hari dan jam untuk layanan ini</p>
+                      </div>
+                    </div>
 
-              <h2 className="text-sm font-semibold text-gray-900 mb-3">
-                Pilih Jam Kedatangan
-              </h2>
-
-              <input
-                type="time"
-                value={form.time}
-                onChange={
-                  handleChange("time")
-                }
-                className="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-900 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
-              />
-
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-xs font-medium text-gray-700 mb-1.5 flex items-center gap-1.5">
+                          <Calendar className="w-3.5 h-3.5 text-blue-600" />
+                          Tanggal Kunjungan
+                        </label>
+                        <input
+                          type="date"
+                          value={sched.date || ""}
+                          onChange={(e) => handleItemScheduleChange(sId, "date", e.target.value)}
+                          min={getLocalDateTime().date}
+                          className="w-full rounded-xl border border-gray-200 bg-gray-50 px-3.5 py-2.5 text-sm text-gray-900 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-medium text-gray-700 mb-1.5 flex items-center gap-1.5">
+                          <Clock className="w-3.5 h-3.5 text-blue-600" />
+                          Jam Kunjungan
+                        </label>
+                        <input
+                          type="time"
+                          value={sched.time || ""}
+                          onChange={(e) => handleItemScheduleChange(sId, "time", e.target.value)}
+                          className="w-full rounded-xl border border-gray-200 bg-gray-50 px-3.5 py-2.5 text-sm text-gray-900 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
             </div>
-          </div>
+          ) : (
+            <>
+              {/* TANGGAL */}
+              <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white">
+                <div className="p-5">
+                  <h2 className="text-sm font-semibold text-gray-900 mb-3 flex items-center gap-2">
+                    <Calendar className="w-4 h-4 text-blue-600" />
+                    Pilih Tanggal Kedatangan
+                  </h2>
+                  <input
+                    type="date"
+                    value={form.date}
+                    onChange={handleChange("date")}
+                    min={getLocalDateTime().date}
+                    className="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-900 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                  />
+                </div>
+              </div>
+
+              {/* JAM */}
+              <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white">
+                <div className="p-5">
+                  <h2 className="text-sm font-semibold text-gray-900 mb-3 flex items-center gap-2">
+                    <Clock className="w-4 h-4 text-blue-600" />
+                    Pilih Jam Kedatangan
+                  </h2>
+                  <input
+                    type="time"
+                    value={form.time}
+                    onChange={handleChange("time")}
+                    className="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-900 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                  />
+                </div>
+              </div>
+            </>
+          )}
 
           {/* =====================================================
               CATATAN

@@ -1,8 +1,15 @@
-﻿"use client";
+"use client";
 
 import { useEffect, useState, useCallback, useRef, Suspense } from "react";
-import { useRouter } from "next/navigation";
-import { getBookingAktif, sendBookingChat, getWebSocketConfig, getBookingChatHistory } from "@/services/bookingService";
+import { useRouter, useSearchParams } from "next/navigation";
+import {
+  getBookingAktif,
+  getSemuaBookingAktif,
+  getDetailBookingById,
+  sendBookingChat,
+  getWebSocketConfig,
+  getBookingChatHistory,
+} from "@/services/bookingService";
 import { resolveImageUrl } from "@/services/resolveImage";
 
 /* ── helpers ── */
@@ -12,9 +19,13 @@ function formatCurrency(v) {
   return new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", maximumFractionDigits: 0 }).format(n);
 }
 
-function normalizeLayananList(layanan) {
-  if (!layanan) return [];
-  return Array.isArray(layanan) ? layanan : [layanan];
+function normalizeLayananList(layanan, booking = null) {
+  if (Array.isArray(layanan) && layanan.length > 0) return layanan;
+  if (layanan && typeof layanan === "object" && !Array.isArray(layanan)) return [layanan];
+  if (booking?.layanan_items && Array.isArray(booking.layanan_items) && booking.layanan_items.length > 0) {
+    return booking.layanan_items;
+  }
+  return [];
 }
 
 /* ── Status config (palette konsisten hijau SmartCare) ── */
@@ -526,32 +537,74 @@ function ChatModal({ isOpen, onClose, bookingId, nakesName, nakesPhoto }) {
 /* ── Main content ── */
 function BookingAktifContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const targetId = searchParams.get("id");
 
+  const [activeList, setActiveList] = useState([]);
+  const [selectedId, setSelectedId] = useState(targetId || null);
   const [data, setData]       = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError]     = useState(null);
   const [lastAt, setLastAt]   = useState(null);
   const [isChatOpen, setIsChatOpen] = useState(false);
 
+  const currentBookingId = selectedId || targetId;
+
   const fetchData = useCallback(async () => {
     try {
-      const res = await getBookingAktif();
-      if (!res?.data?.booking) { setError("Tidak ada booking aktif saat ini."); setData(null); return; }
-      setData(res.data);
+      // 1. Ambil seluruh booking aktif
+      const list = await getSemuaBookingAktif();
+      setActiveList(list);
+
+      // 2. Tentukan target booking
+      let targetBooking = null;
+
+      if (currentBookingId && Array.isArray(list) && list.length > 0) {
+        targetBooking = list.find(
+          (item) => String(item.booking?.id_booking || item.booking?.id) === String(currentBookingId)
+        );
+      }
+
+      if (!targetBooking && Array.isArray(list) && list.length > 0) {
+        targetBooking = list[0];
+      }
+
+      if (targetBooking) {
+        const bId = targetBooking.booking?.id_booking || targetBooking.booking?.id;
+        const detail = await getDetailBookingById(bId);
+        setData(detail || targetBooking);
+        setError(null);
+      } else {
+        const res = await getBookingAktif();
+        if (res?.data?.booking) {
+          setData(res.data);
+          setError(null);
+        } else {
+          setError("Tidak ada booking aktif saat ini.");
+          setData(null);
+        }
+      }
+
       setLastAt(new Date());
-      setError(null);
     } catch (err) {
       if (err?.response?.status === 401) { router.push("/login"); return; }
       setError("Gagal memuat data. Silakan coba lagi.");
     } finally {
       setLoading(false);
     }
-  }, [router]);
+  }, [currentBookingId, router]);
 
   useEffect(() => {
-    fetchData();
+    let isMounted = true;
+    const run = async () => {
+      await fetchData();
+    };
+    run();
     const id = setInterval(fetchData, 15_000);
-    return () => clearInterval(id);
+    return () => {
+      isMounted = false;
+      clearInterval(id);
+    };
   }, [fetchData]);
 
   /* ── loading ── */
@@ -590,7 +643,7 @@ function BookingAktifContent() {
   const nakesData = nakes ?? booking.tenaga_medis ?? {};
   const nakesPhoto = resolveImageUrl(nakesData.foto_profile ?? null);
 
-  const layananList = normalizeLayananList(booking.layanan);
+  const layananList = normalizeLayananList(booking.layanan, booking);
   const layananSummary = layananList.map((l) => l.nama_layanan).filter(Boolean).join(", ") || "-";
   const totalLayanan = layananList.reduce((sum, l) => sum + Number(l.s1 || 0), 0);
 
@@ -599,14 +652,14 @@ function BookingAktifContent() {
   return (
     <div className="min-h-screen bg-slate-50" style={{ fontFamily: '"Poppins","Inter","Segoe UI",sans-serif' }}>
 
-      {/* ── HERO BANNER STATUS (Dibuat ringkas, tidak terlalu tinggi/gepeng, dan rapi) ── */}
-      <div className={`bg-gradient-to-r ${cfg.accent} px-4 sm:px-6 pt-5 pb-5 relative rounded-b-2xl sm:rounded-b-3xl shadow-sm text-white`}>
-        <div className="max-w-lg mx-auto flex items-center justify-between gap-3">
+      {/* ── HERO BANNER STATUS (Ringkas, rapi, dan melebar di desktop) ── */}
+      <div className={`bg-gradient-to-r ${cfg.accent} px-4 sm:px-6 lg:px-8 xl:px-12 pt-5 pb-5 relative rounded-b-2xl sm:rounded-b-3xl shadow-sm text-white`}>
+        <div className="max-w-lg lg:max-w-6xl xl:max-w-7xl mx-auto flex items-center justify-between gap-3">
           {/* Back button */}
           <button
             type="button"
             onClick={() => router.back()}
-            className="w-9 h-9 rounded-full bg-white/20 hover:bg-white/30 backdrop-blur-sm flex items-center justify-center shrink-0 transition active:scale-90"
+            className="w-9 h-9 rounded-full bg-white/20 hover:bg-white/30 backdrop-blur-sm flex items-center justify-center shrink-0 transition active:scale-90 cursor-pointer"
             aria-label="Kembali"
           >
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} className="w-4 h-4">
@@ -616,8 +669,8 @@ function BookingAktifContent() {
 
           {/* Info Status Tengah */}
           <div className="text-center flex-1 min-w-0">
-            <p className="text-[11px] text-white/80 font-medium tracking-wide leading-tight">
-              {booking.booking_code}
+            <p className="text-[11px] text-white/85 font-semibold font-mono tracking-wide leading-tight">
+              {booking.booking_code || (booking.id_booking ? `B-${booking.id_booking}` : "-")}
             </p>
             <h1 className="text-sm sm:text-base font-bold truncate leading-snug mt-0.5">
               {booking.status_label ?? status}
@@ -640,140 +693,216 @@ function BookingAktifContent() {
         </div>
       </div>
 
-      {/* ── BODY CONTENT (Diberi margin-top mt-5 lega, sama sekali TIDAK overlap/mepet dengan banner atas) ── */}
-      <div className="px-4 sm:px-6 mt-5 pb-24 space-y-4 max-w-lg mx-auto">
+      {/* ── TABS MULTI ACTIVE BOOKING (Bisa lebih dari 1 booking, tidak horizontal-scroll, susun ke bawah rapi) ── */}
+      {activeList.length > 1 && (
+        <div className="bg-white border-b border-slate-200/80 shadow-xs px-4 sm:px-6 lg:px-8 xl:px-12 py-3 sticky top-0 z-30">
+          <div className="max-w-lg lg:max-w-6xl xl:max-w-7xl mx-auto">
+            <div className="flex items-center justify-between mb-2">
+              <p className="text-[11px] font-bold text-slate-700 uppercase tracking-wider">
+                Pesanan Aktif ({activeList.length})
+              </p>
+              <span className="text-[10px] text-slate-400 font-medium">Pilih pesanan untuk melihat rincian</span>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5">
+              {activeList.map((item, idx) => {
+                const b = item.booking || {};
+                const bId = String(b.id_booking || b.id || idx);
+                const isSelected = String(bId) === String(booking.id_booking || booking.id);
+                const bCode =
+                  b.booking_code ||
+                  b.kode_booking ||
+                  (bId ? (String(bId).startsWith("B-") ? bId : `B-${bId}`) : `B-${idx + 1}`);
 
-        {/* Nakes Card (Gojek Driver Style dengan Call & Chat Action) */}
-        {nakesData.nama_lengkap && (
-          <Section>
-            <div className="flex items-center gap-3">
-              <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-2xl overflow-hidden bg-slate-100 shrink-0 border border-slate-200 shadow-xs">
-                {nakesPhoto
-                  ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img src={nakesPhoto} alt={nakesData.nama_lengkap} className="w-full h-full object-cover" />
-                  ) : (
-                    <div className="w-full h-full flex items-center justify-center bg-emerald-50">
-                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} className="w-6 h-6 sm:w-7 sm:h-7 text-emerald-500">
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                const rawLayanan = b.layanan_items || b.layanan;
+                const sName = Array.isArray(rawLayanan) && rawLayanan.length > 0
+                  ? rawLayanan.map((l) => l.nama_layanan || l.nama).filter(Boolean).join(", ")
+                  : rawLayanan?.nama_layanan || rawLayanan?.nama || "";
+
+                const bStatus = b.status_booking || "Pending";
+                const bCfg = STATUS_CFG[bStatus] ?? STATUS_CFG.Pending;
+
+                return (
+                  <button
+                    key={bId}
+                    type="button"
+                    onClick={() => {
+                      setSelectedId(bId);
+                      router.replace(`/booking/aktif?id=${bId}`, { scroll: false });
+                    }}
+                    className={`
+                      w-full flex items-center justify-between gap-3 px-3.5 py-2.5 rounded-xl text-xs font-medium transition-all cursor-pointer text-left border
+                      ${isSelected
+                        ? "bg-emerald-600 text-white border-emerald-600 shadow-sm ring-2 ring-emerald-600/30"
+                        : "bg-slate-50 text-slate-700 border-slate-200 hover:border-slate-300 hover:bg-slate-100"
+                      }
+                    `}
+                  >
+                    <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                      <span className={`w-2.5 h-2.5 rounded-full shrink-0 ${isSelected ? "bg-white" : bCfg.dot}`} />
+                      <div className="min-w-0 flex-1">
+                        <span className={`font-bold font-mono tracking-tight text-xs ${isSelected ? "text-white" : "text-emerald-800"}`}>
+                          {bCode}
+                        </span>
+                        {sName ? (
+                          <p className={`text-[11px] truncate mt-0.5 ${isSelected ? "text-emerald-100" : "text-slate-500"}`}>
+                            {sName}
+                          </p>
+                        ) : null}
+                      </div>
+                    </div>
+                    <span className={`shrink-0 text-[10px] font-semibold px-2 py-0.5 rounded-md ${isSelected ? "bg-white/20 text-white" : bCfg.badge}`}>
+                      {b.status_label ?? bStatus}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── BODY CONTENT (Desktop 2-column grid, mobile single-column stacked) ── */}
+      <div className="px-4 sm:px-6 lg:px-8 xl:px-12 mt-5 pb-24 max-w-lg lg:max-w-6xl xl:max-w-7xl mx-auto">
+        <div className="space-y-4 lg:space-y-0 lg:grid lg:grid-cols-12 lg:gap-6 items-start">
+          
+          {/* Kolom Kiri: Nakes Card & Status Timeline */}
+          <div className="space-y-4 lg:col-span-5">
+            {/* Nakes Card (Gojek Driver Style dengan Call & Chat Action) */}
+            {nakesData.nama_lengkap && (
+              <Section>
+                <div className="flex items-center gap-3">
+                  <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-2xl overflow-hidden bg-slate-100 shrink-0 border border-slate-200 shadow-xs">
+                    {nakesPhoto
+                      ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img src={nakesPhoto} alt={nakesData.nama_lengkap} className="w-full h-full object-cover" />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center bg-emerald-50">
+                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} className="w-6 h-6 sm:w-7 sm:h-7 text-emerald-500">
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                          </svg>
+                        </div>
+                      )
+                    }
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm sm:text-base font-bold text-slate-900 truncate">{nakesData.nama_lengkap}</p>
+                    <p className="text-[11px] sm:text-xs text-slate-500 truncate mt-0.5">{nakesData.jenis_tenaga_medis}</p>
+                  </div>
+
+                  {/* Action Buttons: Chat & Phone Call (Gojek / Grab Pattern) */}
+                  <div className="flex items-center gap-2 shrink-0">
+                    {/* Chat Button (Hijau Gojek/SmartCare Style) */}
+                    <button
+                      type="button"
+                      onClick={() => setIsChatOpen(true)}
+                      className="w-10 h-10 sm:w-11 sm:h-11 rounded-full bg-emerald-50 hover:bg-emerald-100 border border-emerald-300 text-emerald-700 flex items-center justify-center shadow-xs active:scale-90 transition-all cursor-pointer"
+                      title="Chat Tenaga Medis"
+                      aria-label="Chat Tenaga Medis"
+                    >
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="w-4 h-4 sm:w-5 sm:h-5">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                      </svg>
+                    </button>
+
+                    {/* Call Button */}
+                    {nakesData.no_telp && (
+                      <a href={`tel:${nakesData.no_telp}`}
+                        className="w-10 h-10 sm:w-11 sm:h-11 rounded-full bg-emerald-600 hover:bg-emerald-700 text-white flex items-center justify-center shadow-md active:scale-90 transition-all cursor-pointer"
+                        title="Telepon Tenaga Medis"
+                        aria-label="Telepon Tenaga Medis">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="w-4 h-4 sm:w-5 sm:h-5">
+                          <path strokeLinecap="round" strokeLinejoin="round"
+                            d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.948V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
+                        </svg>
+                      </a>
+                    )}
+                  </div>
+                </div>
+              </Section>
+            )}
+
+            {/* Progress Timeline */}
+            <Section title="Status Pesanan">
+              <StepTimeline stepIdx={cfg.stepIdx} />
+            </Section>
+          </div>
+
+          {/* Kolom Kanan: Layanan, Lokasi, dan Detail Pesanan */}
+          <div className="space-y-4 lg:col-span-7">
+            {/* Layanan yang dipesan */}
+            <Section title={`Layanan Dipesan${layananList.length > 1 ? ` (${layananList.length})` : ""}`}>
+              {layananList.length > 0 ? (
+                <>
+                  {layananList.map((l, idx) => (
+                    <LayananItem key={l.id_layanan ?? idx} layanan={l} />
+                  ))}
+                  {layananList.length > 1 && (
+                    <div className="flex justify-between items-center pt-3 mt-1 border-t border-slate-100">
+                      <span className="text-xs sm:text-sm font-semibold text-slate-500">Subtotal Layanan</span>
+                      <span className="text-sm font-bold text-slate-800">{formatCurrency(totalLayanan)}</span>
+                    </div>
+                  )}
+                </>
+              ) : (
+                <p className="text-xs sm:text-sm text-slate-400">Data layanan tidak tersedia.</p>
+              )}
+            </Section>
+
+            {/* Lokasi */}
+            <Section title="Lokasi">
+              {info?.lokasi_nakes?.alamat && (
+                <>
+                  <div className="flex items-start gap-3 mb-4">
+                    <div className="mt-0.5 w-8 h-8 rounded-xl bg-blue-50 border border-blue-100 flex items-center justify-center shrink-0">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="w-4 h-4 text-blue-500">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/>
                       </svg>
                     </div>
-                  )
-                }
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="text-sm sm:text-base font-bold text-slate-900 truncate">{nakesData.nama_lengkap}</p>
-                <p className="text-[11px] sm:text-xs text-slate-500 truncate mt-0.5">{nakesData.jenis_tenaga_medis}</p>
-              </div>
-
-              {/* Action Buttons: Chat & Phone Call (Gojek / Grab Pattern) */}
-              <div className="flex items-center gap-2 shrink-0">
-                {/* Chat Button (Hijau Gojek/SmartCare Style) */}
-                <button
-                  type="button"
-                  onClick={() => setIsChatOpen(true)}
-                  className="w-10 h-10 sm:w-11 sm:h-11 rounded-full bg-emerald-50 hover:bg-emerald-100 border border-emerald-300 text-emerald-700 flex items-center justify-center shadow-xs active:scale-90 transition-all cursor-pointer"
-                  title="Chat Tenaga Medis"
-                  aria-label="Chat Tenaga Medis"
-                >
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="w-4 h-4 sm:w-5 sm:h-5">
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
-                  </svg>
-                </button>
-
-                {/* Call Button */}
-                {nakesData.no_telp && (
-                  <a href={`tel:${nakesData.no_telp}`}
-                    className="w-10 h-10 sm:w-11 sm:h-11 rounded-full bg-emerald-600 hover:bg-emerald-700 text-white flex items-center justify-center shadow-md active:scale-90 transition-all cursor-pointer"
-                    title="Telepon Tenaga Medis"
-                    aria-label="Telepon Tenaga Medis">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="w-4 h-4 sm:w-5 sm:h-5">
-                      <path strokeLinecap="round" strokeLinejoin="round"
-                        d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.948V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
-                    </svg>
-                  </a>
-                )}
-              </div>
-            </div>
-          </Section>
-        )}
-
-        {/* Progress Timeline */}
-        <Section title="Status Pesanan">
-          <StepTimeline stepIdx={cfg.stepIdx} />
-        </Section>
-
-        {/* Layanan yang dipesan */}
-        <Section title={`Layanan Dipesan${layananList.length > 1 ? ` (${layananList.length})` : ""}`}>
-          {layananList.length > 0 ? (
-            <>
-              {layananList.map((l, idx) => (
-                <LayananItem key={l.id_layanan ?? idx} layanan={l} />
-              ))}
-              {layananList.length > 1 && (
-                <div className="flex justify-between items-center pt-3 mt-1 border-t border-slate-100">
-                  <span className="text-xs sm:text-sm font-semibold text-slate-500">Subtotal Layanan</span>
-                  <span className="text-sm font-bold text-slate-800">{formatCurrency(totalLayanan)}</span>
-                </div>
+                    <div>
+                      <p className="text-xs font-semibold text-slate-500 mb-0.5">Posisi Nakes Sekarang</p>
+                      <p className="text-xs sm:text-sm text-slate-700 leading-relaxed">{info.lokasi_nakes.alamat}</p>
+                    </div>
+                  </div>
+                  <div className="ml-4 border-l-2 border-dashed border-slate-200 h-4 mb-4" />
+                </>
               )}
-            </>
-          ) : (
-            <p className="text-xs sm:text-sm text-slate-400">Data layanan tidak tersedia.</p>
-          )}
-        </Section>
 
-        {/* Lokasi */}
-        <Section title="Lokasi">
-          {info?.lokasi_nakes?.alamat && (
-            <>
-              <div className="flex items-start gap-3 mb-4">
-                <div className="mt-0.5 w-8 h-8 rounded-xl bg-blue-50 border border-blue-100 flex items-center justify-center shrink-0">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="w-4 h-4 text-blue-500">
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/>
+              <div className="flex items-start gap-3">
+                <div className="mt-0.5 w-8 h-8 rounded-xl bg-emerald-50 border border-emerald-100 flex items-center justify-center shrink-0">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="w-4 h-4 text-emerald-600">
+                    <path strokeLinecap="round" strokeLinejoin="round"
+                      d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/>
                   </svg>
                 </div>
                 <div>
-                  <p className="text-xs font-semibold text-slate-500 mb-0.5">Posisi Nakes Sekarang</p>
-                  <p className="text-xs sm:text-sm text-slate-700 leading-relaxed">{info.lokasi_nakes.alamat}</p>
+                  <p className="text-xs font-semibold text-slate-500 mb-0.5">Tujuan Kunjungan</p>
+                  <p className="text-xs sm:text-sm text-slate-700 leading-relaxed">{alamatKunjungan}</p>
                 </div>
               </div>
-              <div className="ml-4 border-l-2 border-dashed border-slate-200 h-4 mb-4" />
-            </>
-          )}
+            </Section>
 
-          <div className="flex items-start gap-3">
-            <div className="mt-0.5 w-8 h-8 rounded-xl bg-emerald-50 border border-emerald-100 flex items-center justify-center shrink-0">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="w-4 h-4 text-emerald-600">
-                <path strokeLinecap="round" strokeLinejoin="round"
-                  d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/>
-              </svg>
-            </div>
-            <div>
-              <p className="text-xs font-semibold text-slate-500 mb-0.5">Tujuan Kunjungan</p>
-              <p className="text-xs sm:text-sm text-slate-700 leading-relaxed">{alamatKunjungan}</p>
-            </div>
+            {/* Detail Booking */}
+            <Section title="Detail Pesanan">
+              <InfoRow label="Layanan"          value={layananSummary} />
+              <InfoRow label="Tanggal"          value={booking.tanggal_kunjungan ?? "-"} />
+              <InfoRow label="Jam"              value={booking.jam_kunjungan?.slice ? booking.jam_kunjungan.slice(0, 5) : (booking.jam_kunjungan ?? "-")} />
+              <InfoRow label="Pasien"           value={booking.pasien?.nama_lengkap ?? "-"} />
+              <InfoRow label="No. Rekam Medis"  value={booking.medical_record_number ?? "-"} />
+              {booking.transaksi?.jumlah_total_format && (
+                <InfoRow label="Total Bayar" value={booking.transaksi.jumlah_total_format} />
+              )}
+              {booking.transaksi?.metode_pembayaran && (
+                <InfoRow label="Metode Pembayaran" value={booking.transaksi.metode_pembayaran} />
+              )}
+              {booking.transaksi?.status_transaksi && (
+                <InfoRow label="Status Bayar" value={booking.transaksi.status_transaksi} />
+              )}
+            </Section>
           </div>
-        </Section>
 
-        {/* Detail Booking */}
-        <Section title="Detail Pesanan">
-          <InfoRow label="Layanan"          value={layananSummary} />
-          <InfoRow label="Tanggal"          value={booking.tanggal_kunjungan ?? "-"} />
-          <InfoRow label="Jam"              value={booking.jam_kunjungan?.slice ? booking.jam_kunjungan.slice(0, 5) : (booking.jam_kunjungan ?? "-")} />
-          <InfoRow label="Pasien"           value={booking.pasien?.nama_lengkap ?? "-"} />
-          <InfoRow label="No. Rekam Medis"  value={booking.medical_record_number ?? "-"} />
-          {booking.transaksi?.jumlah_total_format && (
-            <InfoRow label="Total Bayar" value={booking.transaksi.jumlah_total_format} />
-          )}
-          {booking.transaksi?.metode_pembayaran && (
-            <InfoRow label="Metode Pembayaran" value={booking.transaksi.metode_pembayaran} />
-          )}
-          {booking.transaksi?.status_transaksi && (
-            <InfoRow label="Status Bayar" value={booking.transaksi.status_transaksi} />
-          )}
-        </Section>
-
+        </div>
       </div>
 
       {/* Popup / Modal Chat */}

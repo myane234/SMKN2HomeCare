@@ -1,8 +1,8 @@
-﻿"use client";
+"use client";
 
 import { useEffect, useState, useCallback } from "react";
 import { useRouter, usePathname } from "next/navigation";
-import { getBookingAktif } from "@/services/bookingService";
+import { getSemuaBookingAktif } from "@/services/bookingService";
 
 const ACTIVE_STATUSES = ["Pending", "Dikonfirmasi", "DiPerjalanan", "Tindakan"];
 
@@ -43,50 +43,79 @@ const HIDDEN_ON = ["/booking/aktif", "/pembayaran", "/nakes/dashboard", "/login"
 export default function ActiveBookingBubble() {
   const router = useRouter();
   const pathname = usePathname();
-  const [data, setData] = useState(null);
+  const [activeList, setActiveList] = useState([]);
+  const [currentIndex, setCurrentIndex] = useState(0);
   const [shown, setShown] = useState(false);
 
   const shouldHide = HIDDEN_ON.some((p) => pathname.startsWith(p));
 
-  const fetchAktif = useCallback(async () => {
-    if (typeof document === "undefined") return;
-    const loggedIn =
+  const checkLoggedIn = useCallback(() => {
+    if (typeof document === "undefined") return false;
+    return (
       document.cookie.includes("auth_token=") ||
       document.cookie.includes("smarthomecare-session=") ||
-      document.cookie.includes("is_logged_in=true");
-    if (!loggedIn) { setData(null); return; }
-
-    try {
-      const res = await getBookingAktif();
-      const booking = res?.data?.booking ?? null;
-      if (booking && ACTIVE_STATUSES.includes(booking.status_booking)) {
-        setData({ booking, info: res?.data?.tracking_info ?? null });
-      } else {
-        setData(null);
-      }
-    } catch {
-      setData(null);
-    }
+      document.cookie.includes("is_logged_in=true")
+    );
   }, []);
 
   useEffect(() => {
-    fetchAktif();
-    const id = setInterval(fetchAktif, 30_000);
-    return () => clearInterval(id);
-  }, [fetchAktif]);
+    let isMounted = true;
+
+    const runFetch = async () => {
+      if (!checkLoggedIn()) {
+        if (isMounted) setActiveList([]);
+        return;
+      }
+      try {
+        const list = await getSemuaBookingAktif();
+        if (isMounted) {
+          setActiveList(Array.isArray(list) ? list : []);
+        }
+      } catch {
+        if (isMounted) setActiveList([]);
+      }
+    };
+
+    runFetch();
+    const id = setInterval(runFetch, 20_000);
+    return () => {
+      isMounted = false;
+      clearInterval(id);
+    };
+  }, [checkLoggedIn]);
 
   // Slide-up animation trigger
   useEffect(() => {
-    if (data) { const t = setTimeout(() => setShown(true), 60); return () => clearTimeout(t); }
-    setShown(false);
-  }, [data]);
+    if (activeList.length > 0) {
+      const t = setTimeout(() => setShown(true), 60);
+      return () => clearTimeout(t);
+    } else {
+      const t = setTimeout(() => setShown(false), 0);
+      return () => clearTimeout(t);
+    }
+  }, [activeList.length]);
 
-  if (!data || shouldHide) return null;
+  if (activeList.length === 0 || shouldHide) return null;
 
-  const { booking, info } = data;
-  const status = booking.status_booking;
+  const safeIndex = currentIndex < activeList.length ? currentIndex : 0;
+  const currentItem = activeList[safeIndex] || activeList[0];
+  if (!currentItem) return null;
+
+  const { booking, info } = currentItem;
+  const status = booking.status_booking || "Pending";
   const cfg = STATUS_CFG[status] ?? STATUS_CFG.DiPerjalanan;
   const stepIdx = cfg.progress - 1; // 0-based
+
+  const bookingId = booking.id_booking || booking.id;
+  const rawLayanan = booking.layanan_items || booking.layanan;
+
+  // Nama layanan (mendukung array, single object, maupun fallback booking_code)
+  const serviceName = Array.isArray(rawLayanan) && rawLayanan.length > 0
+    ? rawLayanan.map((l) => l.nama_layanan || l.nama).filter(Boolean).join(", ")
+    : rawLayanan?.nama_layanan ||
+      rawLayanan?.nama ||
+      booking.booking_code ||
+      (bookingId ? (String(bookingId).startsWith("B-") ? bookingId : `B-${bookingId}`) : "Booking Aktif");
 
   return (
     <div
@@ -100,7 +129,7 @@ export default function ActiveBookingBubble() {
       {/* Card — klik seluruh area */}
       <button
         type="button"
-        onClick={() => router.push(`/booking/aktif?id=${booking.id_booking}`)}
+        onClick={() => router.push(`/booking/aktif?id=${bookingId}`)}
         className="
           pointer-events-auto w-full max-w-sm
           bg-white rounded-2xl shadow-[0_8px_30px_rgba(0,0,0,0.12)] border border-slate-100
@@ -113,6 +142,59 @@ export default function ActiveBookingBubble() {
         <div className={`h-1 w-full ${cfg.dot}`} />
 
         <div className="px-4 pt-3 pb-3.5">
+          {/* Multi-booking switcher bar (muncul jika ada lebih dari 1 booking aktif) */}
+          {activeList.length > 1 && (
+            <div className="flex items-center justify-between mb-2 pb-1.5 border-b border-slate-100">
+              <div className="flex items-center gap-1.5">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md">
+                  {activeList.length} Booking Aktif
+                </span>
+                <div className="flex items-center gap-1">
+                  {activeList.map((_, i) => (
+                    <span
+                      key={i}
+                      className={`transition-all duration-300 rounded-full ${
+                        i === currentIndex ? "w-3 h-1.5 bg-emerald-500" : "w-1.5 h-1.5 bg-slate-200"
+                      }`}
+                    />
+                  ))}
+                </div>
+              </div>
+
+              <div className="flex items-center gap-1">
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setCurrentIndex((prev) => (prev > 0 ? prev - 1 : activeList.length - 1));
+                  }}
+                  className="w-5 h-5 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-600 flex items-center justify-center transition active:scale-90 cursor-pointer"
+                  aria-label="Booking Sebelumnya"
+                >
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={3} className="w-2.5 h-2.5">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
+                  </svg>
+                </button>
+                <span className="text-[10px] font-semibold text-slate-500 tabular-nums">
+                  {currentIndex + 1}/{activeList.length}
+                </span>
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setCurrentIndex((prev) => (prev < activeList.length - 1 ? prev + 1 : 0));
+                  }}
+                  className="w-5 h-5 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-600 flex items-center justify-center transition active:scale-90 cursor-pointer"
+                  aria-label="Booking Selanjutnya"
+                >
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={3} className="w-2.5 h-2.5">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+                  </svg>
+                </button>
+              </div>
+            </div>
+          )}
+
           {/* Row atas: icon + nama layanan + status pill + chevron */}
           <div className="flex items-center gap-2.5">
             {/* Animated dot */}
@@ -122,7 +204,7 @@ export default function ActiveBookingBubble() {
             </span>
 
             <p className="flex-1 text-sm font-semibold text-slate-800 truncate leading-tight">
-              {booking.layanan?.nama_layanan ?? "Booking Aktif"}
+              {serviceName}
             </p>
 
             <span className={`shrink-0 text-[11px] font-medium px-2 py-0.5 rounded-full ${cfg.pill}`}>
@@ -173,6 +255,13 @@ export default function ActiveBookingBubble() {
               </svg>
               Estimasi tiba&nbsp;<span className="font-semibold text-slate-700">~{info.estimasi_menit_sampai} menit</span>
               &nbsp;·&nbsp;{info.jarak_km} km
+            </p>
+          ) : booking.tanggal_kunjungan ? (
+            <p className="mt-2.5 text-[11px] text-slate-500 flex items-center gap-1">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="w-3 h-3 text-emerald-500 shrink-0">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+              </svg>
+              Jadwal:&nbsp;<span className="font-medium text-slate-700">{booking.tanggal_kunjungan} {booking.jam_kunjungan ? `· ${booking.jam_kunjungan}` : ''}</span>
             </p>
           ) : (
             <p className="mt-2.5 text-[11px] text-slate-400">Ketuk untuk melihat detail</p>
