@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate, Link, useSearchParams } from 'react-router-dom';
 import logo from '../assets/logo.png';
 import { FaShieldAlt } from 'react-icons/fa';
 import {
@@ -16,6 +16,7 @@ import {
 
 export default function ForgotPasswordAdmin() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
 
   // Steps: 1 = Email, 2 = OTP, 3 = Reset, 4 = Selesai
   const [step, setStep] = useState(1);
@@ -34,6 +35,13 @@ export default function ForgotPasswordAdmin() {
   const [successMsg, setSuccessMsg] = useState('');
 
   const [resendTimer, setResendTimer] = useState(0);
+
+  useEffect(() => {
+    const emailParam = searchParams.get('email');
+    if (emailParam) {
+      setEmail(emailParam);
+    }
+  }, [searchParams]);
 
   useEffect(() => {
     let timer;

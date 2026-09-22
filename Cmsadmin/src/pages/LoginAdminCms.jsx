@@ -65,7 +65,7 @@ export default function LoginAdminCms() {
           <label className="text-xs font-bold text-slate-600">Password</label>
           {showForgotLink && (
             <Link
-              to="/forgot-password"
+              to={form.email ? `/forgot-password?email=${encodeURIComponent(form.email)}` : "/forgot-password"}
               className="text-xs font-semibold text-[#004fa4] hover:underline"
             >
               Lupa Password?
@@ -95,17 +95,6 @@ export default function LoginAdminCms() {
         {error && (
           <div className="mt-1 mb-3 rounded-xl bg-red-50 text-red-600 px-3.5 py-2.5 text-xs border border-red-200">
             <p className="font-semibold">{error}</p>
-            {showForgotLink && (
-              <div className="mt-2 pt-2 border-t border-red-200/70 flex items-center justify-between">
-                <span className="text-red-700">Lupa password akun admin?</span>
-                <Link
-                  to="/forgot-password"
-                  className="font-bold text-[#004fa4] hover:underline ml-2"
-                >
-                  Reset Password &rarr;
-                </Link>
-              </div>
-            )}
           </div>
         )}
 

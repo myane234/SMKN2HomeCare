@@ -125,17 +125,6 @@ export default function MasukPage() {
       {errorMsg && (
         <div className="mb-4 rounded-xl p-3.5 border bg-red-50 border-red-200 text-red-600">
           <p className="text-xs font-semibold leading-relaxed">{errorMsg}</p>
-          {showForgotLink && (
-            <div className="mt-2.5 pt-2.5 border-t border-red-200/70 flex items-center justify-between text-xs">
-              <span className="text-red-700 font-medium">Lupa kata sandi Anda?</span>
-              <Link
-                href="/forgot-password"
-                className="font-bold text-[#004fa4] hover:underline shrink-0 ml-2"
-              >
-                Reset Password &rarr;
-              </Link>
-            </div>
-          )}
         </div>
       )}
 
@@ -158,7 +147,7 @@ export default function MasukPage() {
             <label className="text-xs font-bold text-slate-600 block">Password</label>
             {showForgotLink && (
               <Link
-                href="/forgot-password"
+                href={email ? `/forgot-password?email=${encodeURIComponent(email)}` : "/forgot-password"}
                 className="text-xs font-semibold text-[#004fa4] hover:underline"
               >
                 Lupa Password?

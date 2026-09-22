@@ -40,6 +40,17 @@ export default function ForgotPasswordPage() {
   // Countdown timer untuk kirim ulang OTP
   const [resendTimer, setResendTimer] = useState(0);
 
+  // Auto-fill email dari URL query params (misal: /forgot-password?email=...)
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const params = new URLSearchParams(window.location.search);
+      const emailParam = params.get("email");
+      if (emailParam) {
+        setEmail(emailParam);
+      }
+    }
+  }, []);
+
   useEffect(() => {
     let timer;
     if (resendTimer > 0) {
