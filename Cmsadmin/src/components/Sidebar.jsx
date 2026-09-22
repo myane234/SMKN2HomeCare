@@ -187,13 +187,23 @@ const rawSuperAdminMenus = [
       { to: "/syarat-ketentuan-nakes", label: "Syarat & Ketentuan Nakes", icon: <FaUserMd /> },
     ],
   },
-  {
+ {
     type: "group",
     label: "Statistik, Laporan & Log",
     icon: <FaChartLine />,
     children: [
       { to: "/statistik-artikel", label: "Statistik View Artikel", icon: <FaChartLine /> },
-      { to: "/laporan", label: "Laporan & Export Data", icon: <FaFileExcel /> },
+      {
+        type: "subgroup",
+        label: "Laporan & Export Data",
+        icon: <FaFileExcel />,
+        children: [
+          // Ubah path ke masing-masing halaman terpisah
+          { to: "/laporan-transaksi", label: "Transaksi Keuangan", icon: <FaFileExcel />, end: true },
+          { to: "/laporan-booking", label: "Rekap Booking", icon: <FaFileExcel />, end: true },
+          { to: "/laporan-nakes", label: "Kinerja Tenaga Medis", icon: <FaFileExcel />, end: true },
+        ],
+      },
       { to: "/aktivitas-log", label: "Log Aktivitas", icon: <FaHistory /> },
     ],
   },
