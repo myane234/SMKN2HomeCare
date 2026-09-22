@@ -79,13 +79,24 @@ export default function KeranjangPage() {
     setSelectedIds((prev) => (prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]));
   };
 
-  const updateQty = (id, delta) => {
+  /* =========================================================
+   UPDATE QTY DENGAN VALIDASI KATEGORI
+========================================================= */
+const updateQty = (id, delta) => {
     setCart((prevCart) => {
-      const nextCart = prevCart
-        .map((item) =>
-          getServiceId(item.service) === id ? { ...item, qty: Math.max(1, item.qty + delta) } : item
-        )
-        .filter((item) => item.qty > 0);
+      const nextCart = prevCart.map((item) => {
+        const itemId = getServiceId(item.service);
+        if (itemId === id) {
+          const newQty = item.qty + delta;
+          if (newQty > 1) {
+            alert("1 jenis layanan yang sama hanya bisa dipesan 1 kali!");
+            return item; // Tetap 1, tidak boleh bertambah
+          }
+          return { ...item, qty: Math.max(1, newQty) };
+        }
+        return item;
+      });
+
       saveCartToStorage(nextCart);
       return nextCart;
     });
@@ -98,6 +109,17 @@ export default function KeranjangPage() {
       return nextCart;
     });
     setSelectedIds((prev) => prev.filter((item) => item !== id));
+  };
+
+  // NEW: Fungsi untuk menghapus semua item yang sedang dicentang sekaligus
+  const removeSelectedItems = () => {
+    if (selectedIds.length === 0) return;
+    setCart((prevCart) => {
+      const nextCart = prevCart.filter((item) => !selectedIds.includes(getServiceId(item.service)));
+      saveCartToStorage(nextCart);
+      return nextCart;
+    });
+    setSelectedIds([]);
   };
 
   const selectedTotal = useMemo(() => {
@@ -136,17 +158,28 @@ export default function KeranjangPage() {
           </div>
         ) : (
           <div className="mt-6 flex flex-col gap-4">
-            {/* Pilih semua */}
-            <div className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-white px-5 py-4 shadow-sm">
-              <input
-                type="checkbox"
-                checked={allSelected}
-                onChange={toggleSelectAll}
-                className="h-5 w-5 rounded-md border-slate-300 text-sky-600 focus:ring-sky-500"
-              />
-              <span className="font-semibold text-slate-800">
-                Pilih Semua <span className="font-normal text-slate-400">({cart.length})</span>
-              </span>
+            {/* Pilih semua & tombol hapus cepat */}
+            <div className="flex items-center justify-between rounded-2xl border border-slate-200 bg-white px-5 py-4 shadow-sm">
+              <div className="flex items-center gap-3">
+                <input
+                  type="checkbox"
+                  checked={allSelected}
+                  onChange={toggleSelectAll}
+                  className="h-5 w-5 rounded-md border-slate-300 text-sky-600 focus:ring-sky-500"
+                />
+                <span className="font-semibold text-slate-800">
+                  Pilih Semua <span className="font-normal text-slate-400">({cart.length})</span>
+                </span>
+              </div>
+              {selectedCount > 0 && (
+                <button
+                  type="button"
+                  onClick={removeSelectedItems}
+                  className="text-xs font-semibold text-rose-500 transition hover:text-rose-700 sm:text-sm"
+                >
+                  Hapus Terpilih ({selectedCount})
+                </button>
+              )}
             </div>
 
             {/* Section: layanan */}
@@ -260,7 +293,7 @@ export default function KeranjangPage() {
         )}
       </div>
 
-      {/* Fixed bottom checkout bar */}
+      {/* Fixed bottom checkout bar dengan opsi hapus cepat tambahan */}
       {cart.length > 0 ? (
         <div className="fixed bottom-0 left-0 right-0 z-50 border-t border-slate-200 bg-white px-4 py-4 pb-[calc(1rem+env(safe-area-inset-bottom,0px))] shadow-[0_-4px_16px_rgba(0,0,0,0.06)] lg:pb-4">
           <div className="mx-auto flex max-w-4xl items-center justify-between gap-4">
@@ -277,12 +310,31 @@ export default function KeranjangPage() {
               </div>
             </div>
 
-            <button
+            <div className="flex items-center gap-2 sm:gap-3">
+              {selectedCount > 0 && (
+                <button
+                  type="button"
+                  onClick={removeSelectedItems}
+                  className="rounded-full border border-rose-200 bg-rose-50 px-4 py-3 text-xs font-semibold text-rose-600 transition hover:bg-rose-100 sm:text-sm"
+                >
+                  Hapus ({selectedCount})
+                </button>
+              )}
+      <button
               type="button"
               disabled={selectedCount === 0}
               onClick={() => {
-                // Simpan selected items ke localStorage untuk diproses di booking
                 const selectedCart = cart.filter(item => selectedIds.includes(getServiceId(item.service)));
+                
+                // Cek apakah ada layanan yang kuantitasnya lebih dari 1
+                for (const item of selectedCart) {
+                  if (item.qty > 1) {
+                    const title = getTextValue(item.service, ["nama_layanan", "nama", "title"]);
+                    alert(`Layanan "${title}" hanya bisa dipesan 1 kali!`);
+                    return;
+                  }
+                }
+
                 localStorage.setItem("smarthomecare_checkout", JSON.stringify(selectedCart));
                 router.push("/booking");
               }}
@@ -290,10 +342,10 @@ export default function KeranjangPage() {
             >
               Booking ({selectedCount})
             </button>
+            </div>
           </div>
         </div>
       ) : null}
     </div>
   );
 }
-

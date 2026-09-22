@@ -332,6 +332,24 @@ function LayananPageContent() {
   const [articles, setArticles] = useState([]);
   const [loadingArticles, setLoadingArticles] = useState(true);
 
+  const handleRemoveFromCart = (event, service) => {
+    event.stopPropagation();
+    const serviceId = getServiceId(service);
+
+    setCart((prevCart) => {
+      const nextCart = prevCart.filter((item) => getServiceId(item.service) !== serviceId);
+      saveCartToStorage(nextCart);
+      return nextCart;
+    });
+
+    const title = getTextValue(service, ["nama_layanan", "nama", "title"]);
+    showToast(`${title} dibatalkan dari keranjang`, "info");
+  };
+
+  // Fungsi handleAddToCart yang sudah ada sebelumnya...
+  
+  
+
   useEffect(() => {
     setIsLoggedIn(document.cookie.includes("is_logged_in=true"));
     setCart(loadCartFromStorage());
@@ -565,7 +583,7 @@ function LayananPageContent() {
     window.setTimeout(() => setSelectedService(null), 180);
   };
 
-  const handleAddToCart = (event, service) => {
+const handleAddToCart = (event, service) => {
     event.stopPropagation();
 
     if (!isLoggedIn) {
@@ -574,30 +592,33 @@ function LayananPageContent() {
     }
 
     const serviceId = getServiceId(service);
+    const title = getTextValue(service, ["nama_layanan", "nama", "title"]);
+    
+    // Ambil data keranjang langsung dari storage/state saat ini
+    const currentCart = loadCartFromStorage();
+    
+    // Cek apakah layanan spesifik ini sudah ada di keranjang
+    const existing = currentCart.find((item) => getServiceId(item.service) === serviceId);
+    
+    if (existing) {
+      showToast(`"${title}" sudah ada di keranjang dan maksimal 1x pemesanan per layanan`, "info");
+      return; 
+    }
 
-    setCart((prevCart) => {
-      const existing = prevCart.find((item) => getServiceId(item.service) === serviceId);
-      let nextCart;
-
-      if (existing) {
-        nextCart = prevCart.map((item) =>
-          getServiceId(item.service) === serviceId ? { ...item, qty: item.qty + 1 } : item
-        );
-      } else {
-        nextCart = [...prevCart, { service, qty: 1 }];
-      }
-
-      saveCartToStorage(nextCart);
-      return nextCart;
-    });
-
+    // Buat keranjang baru
+    const nextCart = [...currentCart, { service, qty: 1 }];
+    
+    // Jalankan efek samping (storage, state, dan toast) di luar updater
+    saveCartToStorage(nextCart);
+    setCart(nextCart);
+    
     setAddedServiceId(serviceId);
     window.setTimeout(() => setAddedServiceId(null), 1200);
 
     setCartBump(true);
     window.setTimeout(() => setCartBump(false), 500);
 
-    const title = getTextValue(service, ["nama_layanan", "nama", "title"]);
+    // Toast aman dipanggil sekali di sini
     showToast(`${title} berhasil ditambahkan ke keranjang`, "success");
   };
 
@@ -756,95 +777,108 @@ function LayananPageContent() {
                   </button>
                 </div>
               ) : (
-                <div className="divide-y divide-slate-100 overflow-hidden rounded-xl border border-slate-200 bg-white">
-                  {filteredServices.map((service, index) => {
-                    const title = getTextValue(service, ["nama_layanan", "nama", "title"]);
-                    const description = getTextValue(service, ["deskripsi_layanan", "deskripsi", "keterangan", "description"]);
-                    const imageUrl = resolveImageUrl(getTextValue(service, ["foto_layanan", "foto", "image"]));
-                    const category = getTextValue(service, ["kategori_layanan", "kategori", "category", "nama_kategori"]);
-                    const price = getTextValue(service, ["harga", "price"]);
-                    const duration = getTextValue(service, ["durasi_menit", "durasi", "duration"]);
-                    const serviceId = getServiceId(service);
-                    const justAdded = addedServiceId === serviceId;
-                    const isPressed = pressedServiceId === serviceId;
-                    const transportIncluded = isTransportIncluded(service);
+              <div className="divide-y divide-slate-100 overflow-hidden rounded-xl border border-slate-200 bg-white">
+                {filteredServices.map((service, index) => {
+  const title = getTextValue(service, ["nama_layanan", "nama", "title"]);
+  const description = getTextValue(service, ["deskripsi_layanan", "deskripsi", "keterangan", "description"]);
+  const imageUrl = resolveImageUrl(getTextValue(service, ["foto_layanan", "foto", "image"]));
+  const category = getTextValue(service, ["kategori_layanan", "kategori", "category", "nama_kategori"]);
+  const price = getTextValue(service, ["harga", "price"]);
+  const duration = getTextValue(service, ["durasi_menit", "durasi", "duration"]);
+  const serviceId = getServiceId(service);
+  
+  const isInCart = cart.some((item) => getServiceId(item.service) === serviceId);
+  const isPressed = pressedServiceId === serviceId;
+  const transportIncluded = isTransportIncluded(service);
 
-                    return (
-                      <article
-                        key={`${title}-${index}`}
-                        role="article"
-                        tabIndex={0}
-                        onClick={() => setSelectedService(service)}
-                        onKeyDown={(event) => {
-                          if (event.key === "Enter" || event.key === " ") {
-                            event.preventDefault();
-                            setSelectedService(service);
-                          }
-                        }}
-                        onPointerDown={() => setPressedServiceId(serviceId)}
-                        onPointerUp={() => setPressedServiceId(null)}
-                        onPointerLeave={() => setPressedServiceId(null)}
-                        className={`group flex cursor-pointer gap-3 p-3 transition-all duration-150 hover:bg-slate-50 focus-visible:bg-slate-50 focus-visible:outline-none sm:gap-4 sm:p-4 ${
-                          isPressed ? "scale-[0.99] bg-slate-50" : ""
-                        }`}
-                      >
-                        <div className="relative h-20 w-20 shrink-0 overflow-hidden rounded-lg bg-slate-100 sm:h-24 sm:w-24">
-                          <img
-                            src={imageUrl}
-                            alt={title || "Layanan"}
-                            loading="lazy"
-                            className="h-full w-full object-cover transition duration-300 group-hover:scale-105"
-                          />
-                        </div>
+  return (
+    <article
+      key={`${title}-${index}`}
+      role="article"
+      tabIndex={0}
+      onClick={() => setSelectedService(service)}
+      onKeyDown={(event) => {
+        if (event.key === "Enter" || event.key === " ") {
+          event.preventDefault();
+          setSelectedService(service);
+        }
+      }}
+      className={`group flex cursor-pointer gap-3 p-3 transition-all duration-150 hover:bg-slate-50 focus-visible:bg-slate-50 focus-visible:outline-none sm:gap-4 sm:p-4 ${
+        isPressed ? "scale-[0.99] bg-slate-50" : ""
+      }`}
+    >
+      <div className="relative h-20 w-20 shrink-0 overflow-hidden rounded-lg bg-slate-100 sm:h-24 sm:w-24">
+        <img
+          src={imageUrl}
+          alt={title || "Layanan"}
+          loading="lazy"
+          className="h-full w-full object-cover transition duration-300 group-hover:scale-105"
+        />
+      </div>
 
-                        <div className="flex min-w-0 flex-1 flex-col justify-center">
-                          <div className="flex items-start justify-between gap-2">
-                            <div className="min-w-0">
-                              <div className="flex items-center gap-1.5 text-[11px] font-medium text-blue-600">
-                                <CategoryIcon name={category} className="h-3.5 w-3.5" />
-                                <span className="truncate">{category || "Layanan"}</span>
-                              </div>
-                              <h2 className="mt-0.5 truncate text-sm font-semibold text-slate-900 sm:text-base">
-                                {title || "Layanan"}
-                              </h2>
-                            </div>
-                            <ChevronRightIcon className="mt-1 hidden h-4 w-4 shrink-0 text-slate-300 transition-transform duration-200 group-hover:translate-x-0.5 group-hover:text-blue-400 sm:block" />
-                          </div>
+      <div className="flex min-w-0 flex-1 flex-col justify-center">
+        <div className="flex items-start justify-between gap-2">
+          <div className="min-w-0">
+            <div className="flex items-center gap-1.5 text-[11px] font-medium text-blue-600">
+              <CategoryIcon name={category} className="h-3.5 w-3.5" />
+              <span className="truncate">{category || "Layanan"}</span>
+            </div>
+            <h2 className="mt-0.5 truncate text-sm font-semibold text-slate-900 sm:text-base">
+              {title || "Layanan"}
+            </h2>
+          </div>
+          <ChevronRightIcon className="mt-1 hidden h-4 w-4 shrink-0 text-slate-300 transition-transform duration-200 group-hover:translate-x-0.5 group-hover:text-blue-400 sm:block" />
+        </div>
 
-                          {description ? (
-                            <p className="mt-1 line-clamp-1 text-xs text-slate-500 sm:text-sm">{description}</p>
-                          ) : null}
+        {description ? (
+          <p className="mt-1 line-clamp-1 text-xs text-slate-500 sm:text-sm">{description}</p>
+        ) : null}
 
-                          <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-slate-500 sm:text-xs">
-                            {duration ? (
-                              <span className="flex items-center gap-1">
-                                <ClockIcon className="h-3.5 w-3.5" />
-                                {formatDuration(duration)}
-                              </span>
-                            ) : null}
-                            <span className="flex items-center gap-1">
-                              <TruckIcon className="h-3.5 w-3.5" />
-                              {transportIncluded ? "Transport termasuk" : "Transport terpisah"}
-                            </span>
-                          </div>
+        <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-slate-500 sm:text-xs">
+          {duration ? (
+            <span className="flex items-center gap-1">
+              <ClockIcon className="h-3.5 w-3.5" />
+              {formatDuration(duration)}
+            </span>
+          ) : null}
+          <span className="flex items-center gap-1">
+            <TruckIcon className="h-3.5 w-3.5" />
+            {transportIncluded ? "Transport termasuk" : "Transport terpisah"}
+          </span>
+        </div>
 
-                          <div className="mt-2 flex items-center justify-between">
-                            <span className="text-sm font-bold text-slate-900 sm:text-base">{formatCurrency(price)}</span>
-                            <button
-                              type="button"
-                              onClick={(event) => handleAddToCart(event, service)}
-                              aria-label="Tambah ke keranjang"
-                              className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-white transition-all duration-200 active:scale-90 sm:h-9 sm:w-9 ${
-                                justAdded ? "scale-110 bg-emerald-600" : "bg-blue-600 hover:scale-105 hover:bg-blue-700"
-                              }`}
-                            >
-                              {justAdded ? <CheckIcon className="h-4 w-4" /> : <PlusIcon className="h-4 w-4" />}
-                            </button>
-                          </div>
-                        </div>
-                      </article>
-                    );
-                  })}
+        <div className="mt-2 flex items-center justify-between">
+          <span className="text-sm font-bold text-slate-900 sm:text-base">{formatCurrency(price)}</span>
+          
+          {/* BUNGKUS TOMBOL DENGAN ONCLICK STOP PROPAGATION YANG KETAT */}
+          <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
+            {isInCart && (
+              <button
+                type="button"
+                onClick={(event) => handleRemoveFromCart(event, service)}
+                className="rounded-full bg-rose-50 px-3 py-1 text-xs font-semibold text-rose-600 transition hover:bg-rose-100"
+                title="Batalkan layanan ini"
+              >
+                Batalkan
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={(event) => handleAddToCart(event, service)}
+              aria-label="Tambah ke keranjang"
+              className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-white transition-all duration-200 active:scale-90 sm:h-9 sm:w-9 ${
+                isInCart ? "bg-emerald-600 hover:bg-emerald-700" : "bg-blue-600 hover:scale-105 hover:bg-blue-700"
+              }`}
+            >
+              <PlusIcon className="h-4 w-4" />
+            </button>
+          </div>
+        </div>
+      </div>
+    </article>
+  );
+})}
+              
                 </div>
               )}
             </>
@@ -1144,13 +1178,37 @@ function LayananPageContent() {
                 </div>
               </div>
 
-              <div className="mt-6 flex flex-wrap gap-3">
-                <Link
-                  href="/booking"
-                  className="inline-flex items-center justify-center rounded-full bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white transition-all duration-200 hover:-translate-y-0.5 hover:bg-blue-700 hover:shadow-md active:translate-y-0"
+            <div className="mt-6 flex flex-wrap gap-3">
+                <button
+                  type="button"
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    if (!isLoggedIn) {
+                      setShowLoginModal(true);
+                      return;
+                    }
+
+                    const serviceId = getServiceId(selectedService);
+                    const title = getTextValue(selectedService, ["nama_layanan", "nama", "title"]);
+                    const currentCart = loadCartFromStorage();
+                    
+                    // Validasi: Cek apakah LAYANAN SPESIFIK ini sudah ada di keranjang
+                    const existing = currentCart.find((item) => getServiceId(item.service) === serviceId);
+                    
+                    if (existing) {
+                      showToast(`"${title}" sudah ada di keranjang dan maksimal 1x pemesanan per layanan`, "info");
+                      return;
+                    }
+
+                    // Jika belum ada, masukkan ke keranjang lalu arahkan ke halaman booking/keranjang
+                    const nextCart = [...currentCart, { service: selectedService, qty: 1 }];
+                    saveCartToStorage(nextCart);
+                    router.push("/booking");
+                  }}
+                  className="inline-flex items-center justify-center rounded-full bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white transition-all duration-200 hover:-translate-y-0.5 hover:bg-blue-700 hover:shadow-md active:translate-y-0 cursor-pointer"
                 >
                   Booking Sekarang
-                </Link>
+                </button>
                 <button
                   type="button"
                   onClick={(event) => handleAddToCart(event, selectedService)}
