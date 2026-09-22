@@ -134,12 +134,18 @@ const DEFAULT_STORE = {
   ]
 };
 
-function getDataFilePath() {
-  const candidates = [
+function getCandidateStoreFilePaths() {
+  const paths = [
     path.join(process.cwd(), 'src', 'data', 'cms_mock_store.json'),
     path.join(process.cwd(), 'Frontend', 'src', 'data', 'cms_mock_store.json'),
-    path.resolve(process.cwd(), '..', 'Frontend', 'src', 'data', 'cms_mock_store.json')
+    path.resolve(process.cwd(), '..', 'Frontend', 'src', 'data', 'cms_mock_store.json'),
+    path.resolve(process.cwd(), '..', 'src', 'data', 'cms_mock_store.json')
   ];
+  return paths;
+}
+
+function getDataFilePath() {
+  const candidates = getCandidateStoreFilePaths();
   for (const candidate of candidates) {
     if (fs.existsSync(candidate)) return candidate;
   }
@@ -166,15 +172,22 @@ function readStore() {
 }
 
 function writeStore(store) {
-  const targetFile = getDataFilePath();
-  try {
-    const dir = path.dirname(targetFile);
-    if (!fs.existsSync(dir)) {
-      fs.mkdirSync(dir, { recursive: true });
+  const candidates = getCandidateStoreFilePaths();
+  const existingTargets = [...new Set(candidates.filter((c) => fs.existsSync(c)))];
+  if (existingTargets.length === 0) {
+    existingTargets.push(getDataFilePath());
+  }
+
+  for (const targetFile of existingTargets) {
+    try {
+      const dir = path.dirname(targetFile);
+      if (!fs.existsSync(dir)) {
+        fs.mkdirSync(dir, { recursive: true });
+      }
+      fs.writeFileSync(targetFile, JSON.stringify(store, null, 2), 'utf-8');
+    } catch (err) {
+      console.error('Error writing cms_mock_store.json to', targetFile, err);
     }
-    fs.writeFileSync(targetFile, JSON.stringify(store, null, 2), 'utf-8');
-  } catch (err) {
-    console.error('Error writing cms_mock_store.json:', err);
   }
 }
 
@@ -292,7 +305,7 @@ export function updateUlasanHeader({ ulasan_heading, ulasan_subheading }) {
   return store.ulasan_header;
 }
 
-export function getPublicUlasanList({ rating, search, per_page, page } = {}) {
+export function getPublicUlasanList({ rating, search, per_page, page, sort } = {}) {
   const store = readStore();
   let list = (store.ulasan_list || []).filter((u) => Boolean(u.is_published) === true);
 
@@ -308,6 +321,19 @@ export function getPublicUlasanList({ rating, search, per_page, page } = {}) {
         (u.profesi_peran && u.profesi_peran.toLowerCase().includes(q)) ||
         (u.komentar && u.komentar.toLowerCase().includes(q))
     );
+  }
+
+  // Opsi Urutkan (Sorting): Terbaru, Terlama, Rating Tertinggi, Rating Terendah
+  const resolvedSort = sort || 'terbaru';
+  if (resolvedSort === 'terlama') {
+    list.sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
+  } else if (resolvedSort === 'rating_tertinggi') {
+    list.sort((a, b) => (Number(b.rating) || 0) - (Number(a.rating) || 0) || new Date(b.created_at) - new Date(a.created_at));
+  } else if (resolvedSort === 'rating_terendah') {
+    list.sort((a, b) => (Number(a.rating) || 0) - (Number(b.rating) || 0) || new Date(b.created_at) - new Date(a.created_at));
+  } else {
+    // Default 'terbaru'
+    list.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
   }
 
   const header = getUlasanHeader();
@@ -375,6 +401,21 @@ export function getUlasanById(id) {
 
 export function createUlasan(data) {
   const store = readStore();
+
+  // Batas maksimal 1 ulasan per transaksi (Cara C: 1 ulasan per transaksi)
+  const resolvedTransaksiId = data.transaksi_id || data.id_transaksi || data.id_booking || null;
+  if (resolvedTransaksiId) {
+    const existingCount = (store.ulasan_list || []).filter(
+      (u) => String(u.transaksi_id) === String(resolvedTransaksiId)
+    ).length;
+
+    if (existingCount >= 1) {
+      const err = new Error("Batas maksimal 1 ulasan per transaksi telah tercapai.");
+      err.statusCode = 422;
+      throw err;
+    }
+  }
+
   const newId = (store.ulasan_list || []).reduce((max, u) => Math.max(max, Number(u.id) || 0), 0) + 1;
   
   let resolvedLayanan = null;
@@ -395,6 +436,7 @@ export function createUlasan(data) {
   const newUlasan = {
     id: newId,
     id_user: data.id_user || null,
+    transaksi_id: resolvedTransaksiId ? String(resolvedTransaksiId) : null,
     email: data.email || null,
     nama_pengulas: data.nama_pengulas || data.nama_pasien || 'Pengunjung',
     profesi_peran: data.profesi_peran || 'Pasien',
