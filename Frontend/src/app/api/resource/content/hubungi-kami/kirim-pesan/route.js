@@ -7,9 +7,32 @@ export async function POST(request) {
   try {
     const body = await request.json();
 
+    // 1. Proteksi Honeypot (Anti-Bot): jika field jebakan bot terisi, tolak secara senyap
+    if (body.website_hp) {
+      return NextResponse.json(
+        {
+          success: true,
+          message: 'Pesan Anda berhasil terkirim. Tim kami akan segera menghubungi Anda.',
+          data: body
+        },
+        { status: 201 }
+      );
+    }
+
     if (!body.nama || !body.email || !body.pesan) {
       return NextResponse.json(
         { success: false, message: 'Field nama, email, dan pesan wajib diisi' },
+        { status: 422 }
+      );
+    }
+
+    // 2. Batasan minimal 50 karakter untuk isi pesan
+    if (body.pesan.trim().length < 50) {
+      return NextResponse.json(
+        {
+          success: false,
+          message: 'Isi pesan minimal 50 karakter agar tim kami dapat memahami kebutuhan Anda dengan baik.'
+        },
         { status: 422 }
       );
     }

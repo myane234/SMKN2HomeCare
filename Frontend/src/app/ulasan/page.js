@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { getUlasan, createUlasan, getUserInfoForUlasan } from "@/services/ulasanService";
 import { getLayanan } from "@/services/layananService";
+import { getTransaksiPasien } from "@/services/transaksiService";
 import LoginRequiredModal from "@/components/LoginRequiredModal";
 import {
   FiStar,
@@ -37,6 +38,15 @@ export default function UlasanPage() {
   const [userInfo, setUserInfo] = useState(null);
   const [showLoginModal, setShowLoginModal] = useState(false);
 
+  // Cara C: Kuota Ulasan Berdasarkan Jumlah Transaksi Selesai (1 Ulasan per Transaksi)
+  const [userQuotaInfo, setUserQuotaInfo] = useState({
+    completedTrxCount: 0,
+    userReviewsCount: 0,
+    remainingQuota: 0,
+    loadingQuota: false,
+    nextTransactionToReview: null
+  });
+
   const [layananOptions, setLayananOptions] = useState([]);
 
   const [headerInfo, setHeaderInfo] = useState({
@@ -45,6 +55,7 @@ export default function UlasanPage() {
   });
 
   const [starFilter, setStarFilter] = useState("all");
+  const [sortBy, setSortBy] = useState("terbaru"); // Opsi Urutkan
   const [currentPage, setCurrentPage] = useState(1);
   const ITEMS_PER_PAGE = 5;
 
@@ -58,15 +69,131 @@ export default function UlasanPage() {
     komentar: ""
   });
 
+  const loadUlasanList = async (filter = starFilter, sortVal = sortBy, page = currentPage) => {
+    const params = {
+      per_page: ITEMS_PER_PAGE,
+      page: Math.max(1, Number(page) || 1),
+      sort: sortVal
+    };
+    if (filter !== "all") {
+      params.rating = filter;
+    }
+    const data = await getUlasan(params);
+    let list = data.list || [];
+
+    // Fallback sorting client-side agar hasil selalu terurut rapi
+    if (sortVal === "terlama") {
+      list = [...list].sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
+    } else if (sortVal === "rating_tertinggi") {
+      list = [...list].sort(
+        (a, b) => (Number(b.rating) || 0) - (Number(a.rating) || 0) || new Date(b.created_at) - new Date(a.created_at)
+      );
+    } else if (sortVal === "rating_terendah") {
+      list = [...list].sort(
+        (a, b) => (Number(a.rating) || 0) - (Number(b.rating) || 0) || new Date(b.created_at) - new Date(a.created_at)
+      );
+    } else {
+      list = [...list].sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+    }
+
+    setUlasanList(list);
+    setPagination(data.pagination || { current_page: 1, per_page: ITEMS_PER_PAGE, total: 0, last_page: 1 });
+    if (data.heading) {
+      setHeaderInfo({
+        ulasan_heading: data.heading,
+        ulasan_subheading: data.subheading || ""
+      });
+    }
+    return list;
+  };
+
+  // Cara C: Hitung Kuota Ulasan (1 Ulasan per 1 Transaksi Selesai)
+  const refreshUserQuota = async (uInfo, currentUlasanList = []) => {
+    const resolvedUser = uInfo || userInfo;
+    if (!resolvedUser || (!resolvedUser.email && !resolvedUser.nama_pengulas)) {
+      setUserQuotaInfo({
+        completedTrxCount: 0,
+        userReviewsCount: 0,
+        remainingQuota: 0,
+        loadingQuota: false,
+        nextTransactionToReview: null
+      });
+      return;
+    }
+
+    setUserQuotaInfo((prev) => ({ ...prev, loadingQuota: true }));
+
+    let completedTrx = [];
+    try {
+      const trxRes = await getTransaksiPasien({ per_page: 100 });
+      const rawList = Array.isArray(trxRes?.data)
+        ? trxRes.data
+        : Array.isArray(trxRes)
+        ? trxRes
+        : [];
+
+      completedTrx = rawList.filter((t) => {
+        const st = String(t.status_booking || t.status || "").toLowerCase();
+        return st === "selesai" || st === "completed";
+      });
+    } catch (err) {
+      console.warn("Gagal memuat data transaksi pasien:", err);
+    }
+
+    const userEmail = (resolvedUser.email || "").toLowerCase();
+    const userName = (resolvedUser.nama_pengulas || "").toLowerCase();
+    const completedTrxIds = new Set(completedTrx.map((t) => String(t.id_booking || t.id)));
+
+    const reviewedTrxIds = new Set();
+    let userReviewsTotal = 0;
+
+    const listToCheck = currentUlasanList.length > 0 ? currentUlasanList : ulasanList;
+    listToCheck.forEach((u) => {
+      const uEmail = (u.email || "").toLowerCase();
+      const uNama = (u.nama_pengulas || u.nama_pasien || "").toLowerCase();
+      const uTrxId = u.transaksi_id ? String(u.transaksi_id) : null;
+
+      const isMatchUser =
+        (userEmail && uEmail === userEmail) ||
+        (userName && uNama === userName) ||
+        (uTrxId && completedTrxIds.has(uTrxId));
+
+      if (isMatchUser) {
+        userReviewsTotal += 1;
+        if (uTrxId) reviewedTrxIds.add(uTrxId);
+      }
+    });
+
+    // Cari transaksi berstatus selesai yang belum pernah diulas
+    const unreviewedTrx = completedTrx.filter(
+      (t) => !reviewedTrxIds.has(String(t.id_booking || t.id))
+    );
+
+    const completedCount = completedTrx.length;
+    // Cara C: Maksimal 1 Ulasan per Transaksi Selesai
+    const maxQuota = completedCount * 1;
+    const remaining = Math.max(0, maxQuota - userReviewsTotal);
+
+    setUserQuotaInfo({
+      completedTrxCount: completedCount,
+      userReviewsCount: userReviewsTotal,
+      remainingQuota: remaining,
+      loadingQuota: false,
+      nextTransactionToReview: unreviewedTrx.length > 0 ? unreviewedTrx[0] : null
+    });
+  };
+
   // 1. Inisialisasi Data & Cek Login Status
   useEffect(() => {
     async function initData() {
       setLoading(true);
       try {
+        let activeUserInfo = null;
         // Cek login & auto-load user info dari endpoint /api/resource/content/ulasan/user-info
         try {
           const uInfo = await getUserInfoForUlasan();
           if (uInfo && (uInfo.email || uInfo.nama_pengulas)) {
+            activeUserInfo = uInfo;
             setIsLoggedIn(true);
             setUserInfo(uInfo);
             setForm((prev) => ({
@@ -90,8 +217,13 @@ export default function UlasanPage() {
           console.warn("Gagal memuat master data layanan:", lErr);
         }
 
-        // Ambil Daftar Ulasan Publik (header + list sekaligus dari service, service return {list, heading, subheading})
-        await loadUlasanList(starFilter, currentPage);
+        // Ambil Daftar Ulasan Publik (header + list sekaligus dari service)
+        const latestUlasanList = await loadUlasanList(starFilter, sortBy, currentPage);
+
+        // Jika user login, hitung kuota ulasan pasien (Cara C)
+        if (activeUserInfo) {
+          await refreshUserQuota(activeUserInfo, latestUlasanList);
+        }
       } catch (err) {
         console.error("Gagal menginisialisasi ulasan:", err);
       } finally {
@@ -103,31 +235,23 @@ export default function UlasanPage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentPage]);
 
-  const loadUlasanList = async (filter = starFilter, page = currentPage) => {
-    const params = {
-      per_page: ITEMS_PER_PAGE,
-      page: Math.max(1, Number(page) || 1)
-    };
-    if (filter !== "all") {
-      params.rating = filter;
-    }
-    const data = await getUlasan(params);
-    setUlasanList(data.list || []);
-    setPagination(data.pagination || { current_page: 1, per_page: ITEMS_PER_PAGE, total: 0, last_page: 1 });
-    if (data.heading) {
-      setHeaderInfo({
-        ulasan_heading: data.heading,
-        ulasan_subheading: data.subheading || ""
-      });
-    }
-  };
-
   const handleFilterChange = async (ratingVal) => {
     setStarFilter(ratingVal);
     setCurrentPage(1);
     setLoading(true);
     try {
-      await loadUlasanList(ratingVal, 1);
+      await loadUlasanList(ratingVal, sortBy, 1);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleSortChange = async (sortVal) => {
+    setSortBy(sortVal);
+    setCurrentPage(1);
+    setLoading(true);
+    try {
+      await loadUlasanList(starFilter, sortVal, 1);
     } finally {
       setLoading(false);
     }
@@ -170,6 +294,22 @@ export default function UlasanPage() {
       return;
     }
 
+    // Validasi Kuota Ulasan (Cara C: 1 Ulasan per Transaksi Selesai)
+    if (!userQuotaInfo.loadingQuota) {
+      if (userQuotaInfo.completedTrxCount === 0) {
+        setErrorMsg(
+          "Anda belum memiliki riwayat transaksi layanan yang selesai. Ulasan hanya dapat diberikan setelah layanan perawatan selesai."
+        );
+        return;
+      }
+      if (userQuotaInfo.remainingQuota <= 0) {
+        setErrorMsg(
+          "Batas kuota ulasan Anda telah tercapai (maksimal 1 ulasan per transaksi selesai)."
+        );
+        return;
+      }
+    }
+
     if (!form.komentar.trim()) {
       setErrorMsg("Mohon tuliskan komentar ulasan Anda.");
       return;
@@ -177,12 +317,15 @@ export default function UlasanPage() {
 
     try {
       setSubmitting(true);
+      const nextTrx = userQuotaInfo.nextTransactionToReview;
+
       await createUlasan({
         rating: form.rating,
         komentar: form.komentar,
         nama_pengulas: form.nama_pengulas,
         profesi_peran: form.profesi_peran,
-        layanan_id: form.layanan_id || null
+        layanan_id: form.layanan_id || nextTrx?.layanan?.id_layanan || nextTrx?.layanan_id || null,
+        transaksi_id: nextTrx ? (nextTrx.id_booking || nextTrx.id) : null
       });
 
       setSuccessMsg("Terima kasih! Ulasan Anda berhasil dikirim dan akan ditinjau oleh tim kami.");
@@ -193,8 +336,9 @@ export default function UlasanPage() {
         layanan_id: ""
       }));
 
-      // Segarkan daftar ulasan
-      await loadUlasanList(starFilter);
+      // Segarkan daftar ulasan & kuota
+      const refreshedList = await loadUlasanList(starFilter, sortBy);
+      await refreshUserQuota(userInfo, refreshedList);
     } catch (err) {
       if (err?.status === 401 || err?.response?.status === 401) {
         setIsLoggedIn(false);
@@ -225,7 +369,7 @@ export default function UlasanPage() {
   const displayedUlasan = ulasanList;
 
   return (
-    <div className="min-h-screen bg-slate-50 font-sans text-slate-800 py-10 px-4 sm:px-6 lg:px-8">
+    <div className="min-h-screen bg-slate-50 font-sans text-slate-800 py-6 sm:py-10 px-3.5 sm:px-6 lg:px-8">
       {/* Modal Wajib Login */}
       <LoginRequiredModal
         isOpen={showLoginModal}
@@ -300,6 +444,54 @@ export default function UlasanPage() {
             </div>
           )}
 
+          {/* Status Kuota Ulasan (Cara C: 1 Ulasan per Transaksi Selesai) */}
+          {isLoggedIn && (
+            <div>
+              {userQuotaInfo.loadingQuota ? (
+                <div className="flex items-center gap-2 p-3.5 bg-slate-50 border border-slate-200/80 rounded-2xl text-xs text-slate-400 animate-pulse">
+                  <FiClock className="shrink-0" />
+                  <span>Memeriksa kuota ulasan dari riwayat transaksi Anda...</span>
+                </div>
+              ) : userQuotaInfo.completedTrxCount === 0 ? (
+                <div className="flex items-start gap-3 p-3.5 sm:p-4 bg-amber-50/90 border border-amber-200/90 rounded-2xl text-xs text-amber-900">
+                  <FiAlertCircle className="text-amber-600 text-base shrink-0 mt-0.5" />
+                  <div className="flex-1 space-y-1">
+                    <p className="font-bold text-amber-900 flex items-center gap-1.5">
+                      Ketentuan Ulasan (1 Ulasan per Transaksi Selesai)
+                    </p>
+                    <p className="text-amber-800/90 text-[11px] leading-relaxed">
+                      Anda belum memiliki riwayat transaksi layanan yang selesai. Ulasan hanya dapat dikirim setelah layanan perawatan Anda berstatus selesai.
+                    </p>
+                  </div>
+                </div>
+              ) : userQuotaInfo.remainingQuota <= 0 ? (
+                <div className="flex items-start gap-3 p-3.5 sm:p-4 bg-slate-100/90 border border-slate-200 rounded-2xl text-xs text-slate-700">
+                  <FiCheckCircle className="text-emerald-600 text-base shrink-0 mt-0.5" />
+                  <div className="flex-1 space-y-1">
+                    <p className="font-bold text-slate-800 flex items-center gap-1.5">
+                      Semua Transaksi Selesai Telah Diulas
+                    </p>
+                    <p className="text-slate-500 text-[11px] leading-relaxed">
+                      Anda telah menggunakan seluruh kuota ulasan ({userQuotaInfo.userReviewsCount}/{userQuotaInfo.completedTrxCount} transaksi selesai telah diulas). Terima kasih banyak atas kepercayaan dan testimoni Anda!
+                    </p>
+                  </div>
+                </div>
+              ) : (
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 p-3 sm:p-3.5 bg-sky-50/90 border border-sky-200/80 rounded-2xl text-xs text-sky-900">
+                  <div className="flex items-center gap-2">
+                    <FiCheckCircle className="text-sky-600 text-base shrink-0" />
+                    <span>
+                      <strong>Kuota Ulasan Aktif:</strong> Anda memiliki <strong>{userQuotaInfo.remainingQuota} ulasan</strong> tersisa dari total <strong>{userQuotaInfo.completedTrxCount}</strong> transaksi selesai.
+                    </span>
+                  </div>
+                  <span className="self-start sm:self-auto text-[11px] font-semibold bg-sky-100 text-sky-700 px-2.5 py-0.5 rounded-full shrink-0">
+                    Batas: 1 Ulasan / Transaksi
+                  </span>
+                </div>
+              )}
+            </div>
+          )}
+
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               {/* Email (Disable & Auto-load dari Akun Login) */}
@@ -334,7 +526,7 @@ export default function UlasanPage() {
               </div>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 sm:gap-4">
               {/* Jenis Layanan (Load dari Master Data Layanan) */}
               <div>
                 <label className="block text-xs font-semibold text-slate-700 mb-1.5">
@@ -377,17 +569,17 @@ export default function UlasanPage() {
               <label className="block text-xs font-semibold text-slate-700 mb-1.5">
                 Rating Kepuasan *
               </label>
-              <div className="flex items-center gap-1.5">
+              <div className="flex items-center gap-1 sm:gap-1.5">
                 {[1, 2, 3, 4, 5].map((star) => (
                   <button
                     key={star}
                     type="button"
                     onClick={() => setForm({ ...form, rating: star })}
-                    className="p-1 cursor-pointer transition transform hover:scale-115 active:scale-95"
+                    className="p-1 sm:p-1.5 cursor-pointer transition transform hover:scale-110 active:scale-95"
                     title={`${star} Bintang`}
                   >
                     <FiStar
-                      size={22}
+                      size={24}
                       className={star <= form.rating ? "text-amber-400 fill-amber-400" : "text-slate-200"}
                     />
                   </button>
@@ -417,20 +609,35 @@ export default function UlasanPage() {
             <div className="pt-1 flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
               <button
                 type="submit"
-                disabled={submitting}
-                className={`inline-flex items-center justify-center gap-2 rounded-xl px-6 py-3 text-xs font-bold text-white shadow-sm transition active:scale-95 cursor-pointer disabled:opacity-50 ${
-                  isLoggedIn
-                    ? "bg-sky-600 hover:bg-sky-700 shadow-sky-600/20"
-                    : "bg-amber-600 hover:bg-amber-700 shadow-amber-600/20"
+                disabled={
+                  submitting ||
+                  (isLoggedIn &&
+                    !userQuotaInfo.loadingQuota &&
+                    (userQuotaInfo.completedTrxCount === 0 || userQuotaInfo.remainingQuota <= 0))
+                }
+                className={`w-full sm:w-auto inline-flex items-center justify-center gap-2 rounded-xl px-6 py-3 text-xs font-bold text-white shadow-sm transition active:scale-95 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed ${
+                  !isLoggedIn
+                    ? "bg-amber-600 hover:bg-amber-700 shadow-amber-600/20"
+                    : userQuotaInfo.completedTrxCount === 0 || userQuotaInfo.remainingQuota <= 0
+                    ? "bg-slate-400 cursor-not-allowed"
+                    : "bg-sky-600 hover:bg-sky-700 shadow-sky-600/20"
                 }`}
               >
-                {isLoggedIn ? (
+                {!isLoggedIn ? (
                   <>
-                    <FiSend /> {submitting ? "Mengirim Ulasan..." : "Kirim Ulasan"}
+                    <FiLogIn /> Masuk untuk Mengirim Ulasan
+                  </>
+                ) : userQuotaInfo.completedTrxCount === 0 ? (
+                  <>
+                    <FiAlertCircle /> Belum Ada Transaksi Selesai
+                  </>
+                ) : userQuotaInfo.remainingQuota <= 0 ? (
+                  <>
+                    <FiCheckCircle /> Batas Kuota Ulasan Tercapai
                   </>
                 ) : (
                   <>
-                    <FiLogIn /> Masuk untuk Mengirim Ulasan
+                    <FiSend /> {submitting ? "Mengirim Ulasan..." : "Kirim Ulasan"}
                   </>
                 )}
               </button>
@@ -459,32 +666,56 @@ export default function UlasanPage() {
               </p>
             </div>
 
-            {/* Filter by Bintang */}
-            <div className="flex items-center gap-1.5 overflow-x-auto pb-1 sm:pb-0 scrollbar-none">
-              <span className="text-xs font-medium text-slate-400 mr-1 flex items-center gap-1 shrink-0">
-                <FiFilter /> Filter:
-              </span>
-              {[
-                { label: "Semua", val: "all" },
-                { label: "5 ★", val: "5" },
-                { label: "4 ★", val: "4" },
-                { label: "3 ★", val: "3" },
-                { label: "2 ★", val: "2" },
-                { label: "1 ★", val: "1" }
-              ].map((btn) => (
-                <button
-                  key={btn.val}
-                  type="button"
-                  onClick={() => handleFilterChange(btn.val)}
-                  className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition cursor-pointer shrink-0 ${
-                    starFilter === btn.val
-                      ? "bg-sky-600 text-white shadow-xs"
-                      : "bg-white text-slate-600 border border-slate-200 hover:bg-slate-50"
-                  }`}
-                >
-                  {btn.label}
-                </button>
-              ))}
+            {/* Filter Bintang & Urutkan (Sorting) */}
+            <div className="flex flex-col sm:flex-row sm:items-center gap-2.5 sm:gap-3">
+              {/* Filter by Bintang */}
+              <div className="flex items-center gap-1.5 overflow-x-auto pb-1 sm:pb-0 scrollbar-none -mx-1 px-1">
+                <span className="text-xs font-medium text-slate-400 mr-1 flex items-center gap-1 shrink-0">
+                  <FiFilter /> Filter:
+                </span>
+                {[
+                  { label: "Semua", val: "all" },
+                  { label: "5 ★", val: "5" },
+                  { label: "4 ★", val: "4" },
+                  { label: "3 ★", val: "3" },
+                  { label: "2 ★", val: "2" },
+                  { label: "1 ★", val: "1" }
+                ].map((btn) => (
+                  <button
+                    key={btn.val}
+                    type="button"
+                    onClick={() => handleFilterChange(btn.val)}
+                    className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition cursor-pointer shrink-0 ${
+                      starFilter === btn.val
+                        ? "bg-sky-600 text-white shadow-xs"
+                        : "bg-white text-slate-600 border border-slate-200 hover:bg-slate-50"
+                    }`}
+                  >
+                    {btn.label}
+                  </button>
+                ))}
+              </div>
+
+              {/* Opsi Urutkan (Sorting) Berdampingan dengan Filter Bintang */}
+              <div className="flex items-center justify-between sm:justify-start gap-2 pt-1 sm:pt-0 border-t sm:border-t-0 border-slate-100">
+                <label htmlFor="sort-select" className="text-xs font-medium text-slate-400 shrink-0">
+                  Urutkan:
+                </label>
+                <div className="relative flex-1 sm:flex-none">
+                  <select
+                    id="sort-select"
+                    value={sortBy}
+                    onChange={(e) => handleSortChange(e.target.value)}
+                    className="w-full sm:w-auto rounded-xl border border-slate-200 bg-white px-3 py-1.5 pr-7 text-xs font-semibold text-slate-700 focus:border-sky-500 focus:outline-none transition appearance-none cursor-pointer shadow-2xs"
+                  >
+                    <option value="terbaru">🕒 Terbaru</option>
+                    <option value="terlama">⏳ Terlama</option>
+                    <option value="rating_tertinggi">⭐ Rating Tertinggi</option>
+                    <option value="rating_terendah">📉 Rating Terendah</option>
+                  </select>
+                  <FiChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none text-xs" />
+                </div>
+              </div>
             </div>
           </div>
 
@@ -508,10 +739,10 @@ export default function UlasanPage() {
               {displayedUlasan.map((item, idx) => (
                 <div
                   key={item.id_ulasan || idx}
-                  className="bg-white rounded-2xl border border-slate-200/80 p-4 sm:p-5 shadow-2xs space-y-2.5 transition hover:border-sky-200"
+                  className="bg-white rounded-2xl border border-slate-200/80 p-3.5 sm:p-5 shadow-2xs space-y-2.5 transition hover:border-sky-200"
                 >
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="flex items-center gap-3">
+                  <div className="flex items-start justify-between gap-2.5">
+                    <div className="flex items-center gap-2.5 sm:gap-3 min-w-0">
                       <div className="h-9 w-9 rounded-full bg-sky-100 text-sky-700 flex items-center justify-center font-bold text-xs shrink-0">
                         {item.foto_url ? (
                           <img
@@ -523,8 +754,8 @@ export default function UlasanPage() {
                           <FiUser />
                         )}
                       </div>
-                      <div>
-                        <h3 className="text-xs sm:text-sm font-bold text-slate-900 leading-tight">
+                      <div className="min-w-0">
+                        <h3 className="text-xs sm:text-sm font-bold text-slate-900 leading-tight truncate">
                           {item.nama_pasien}
                         </h3>
                         <div className="flex flex-wrap items-center gap-1.5 mt-0.5">
@@ -560,7 +791,7 @@ export default function UlasanPage() {
                   </div>
 
                   <p className="text-xs text-slate-600 leading-relaxed pt-0.5 italic">
-                    "{item.komentar}"
+                    &ldquo;{item.komentar}&rdquo;
                   </p>
 
                   {/* Tampilkan Date & Time */}

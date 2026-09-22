@@ -122,15 +122,13 @@ const SORT_FIELD_OPTIONS = [
 // ==========================================
 // FUNCTION 1: HALAMAN LIST & DASHBOARD
 // ==========================================
-// ==========================================
-// FUNCTION 1: HALAMAN LIST & DASHBOARD
-// ==========================================
 export default function PageBooking() {
   const navigate = useNavigate();
   const [bookings, setBookings] = useState([]);
   const [loading, setLoading] = useState(true);
   const [errorMsg, setErrorMsg] = useState("");
   const [showFilter, setShowFilter] = useState(true);
+  
 
   // ----- FILTER STATES -----
   const [statusBooking, setStatusBooking] = useState("all");
@@ -147,6 +145,8 @@ export default function PageBooking() {
 
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
+  const [listPasien, setListPasien] = useState([]);
+  const [patientDetailsMap, setPatientDetailsMap] = useState({});
 
   useEffect(() => {
     async function fetchBookings() {
@@ -174,6 +174,51 @@ export default function PageBooking() {
   }, []);
 
   useEffect(() => {
+    async function fetchListPasien() {
+      try {
+        const res = await fetch(BASE_URL + "/admin/pasien", {
+          headers: getAuthHeaders({ Accept: "application/json" }),
+        });
+        const data = await res.json();
+        console.log("Data Master Pasien:", data); // <-- Cek di Console browser apakah datanya ada dan berbentuk array
+        if (res.ok) {
+          const pasienArray = Array.isArray(data?.data) ? data.data : (Array.isArray(data) ? data : []);
+          setListPasien(pasienArray);
+        }
+      } catch (err) {
+        console.error("Gagal mengambil data pasien", err);
+      }
+    }
+    fetchListPasien();
+  }, []);
+
+  // Mengambil detail pasien otomatis untuk setiap ID pasien unik yang ada di list booking
+  useEffect(() => {
+    if (!bookings.length) return;
+
+    // Ambil semua ID pasien unik dari daftar booking
+    const uniqueIds = [...new Set(bookings.map(b => b.id_pasien || b.pasien_id || b.pasien?.id_pasien || b.pasien?.id || b.id_user).filter(Boolean))];
+
+    uniqueIds.forEach(async (idPasien) => {
+      // Jika sudah pernah diambil, tidak perlu fetch ulang
+      if (patientDetailsMap[idPasien]) return;
+
+      try {
+        const res = await fetch(BASE_URL + "/admin/pasien/" + idPasien, {
+          headers: getAuthHeaders({ Accept: "application/json" }),
+        });
+        const data = await res.json();
+        if (res.ok) {
+          const detail = data.data || data;
+          setPatientDetailsMap(prev => ({ ...prev, [idPasien]: detail }));
+        }
+      } catch (err) {
+        console.error("Gagal mengambil detail pasien ID:", idPasien, err);
+      }
+    });
+  }, [bookings]);
+
+  useEffect(() => {
     const timer = window.setTimeout(() => setCurrentPage(1), 0);
     return () => window.clearTimeout(timer);
   }, [statusBooking, searchQuery, dateFrom, dateTo, patientFilter, nakesFilter, monthFilter, yearFilter, rekamMedisId, sortBy, sortDir, itemsPerPage]);
@@ -186,36 +231,71 @@ export default function PageBooking() {
     return Array.from(years).sort((a, b) => b - a);
   }, [bookings]);
 
-  const filteredBookings = useMemo(() => {
+const filteredBookings = useMemo(() => {
     let result = (bookings || []).filter((booking) => {
       const bookingStatus = String(booking.status_booking || "").toLowerCase();
       const visitDate = booking.tanggal_kunjungan ? new Date(booking.tanggal_kunjungan) : null;
+      
+      // 1. Tangkap semua kemungkinan ID pasien dari booking
+      const idPasienTarget = booking.id_pasien || booking.pasien_id || booking.pasien?.id_pasien || booking.pasien?.id || booking.id_user;
+      
+      // 2. Cari di listPasien (cocokkan id_pasien, id_user, atau id)
+      const matchedPasien = listPasien.find(
+        (p) => String(p.id_pasien) === String(idPasienTarget) || 
+               String(p.id_user) === String(idPasienTarget) || 
+               String(p.id) === String(idPasienTarget)
+      );
+
+      // 3. Ambil email dan NIK dengan aman (mendukung struktur backend user.email)
+      const patientEmail = String(
+        matchedPasien?.user?.email || 
+        matchedPasien?.email || 
+        booking.pasien?.user?.email || 
+        booking.pasien?.email || ""
+      ).toLowerCase();
+
+      const patientNik = String(
+        matchedPasien?.nik || 
+        booking.pasien?.nik || ""
+      ).toLowerCase();
 
       if (statusBooking !== "all" && !bookingStatus.includes(statusBooking)) return false;
 
       const query = searchQuery.toLowerCase().trim();
       if (query) {
         const bookingCode = String(booking.booking_code || "#" + booking.id_booking).toLowerCase();
-        const patientName = String(booking.pasien?.nama_lengkap || "").toLowerCase();
-        if (!bookingCode.includes(query) && !patientName.includes(query)) return false;
+        const patientName = String(matchedPasien?.nama_lengkap || booking.pasien?.nama_lengkap || "").toLowerCase();
+        
+        if (
+          !bookingCode.includes(query) && 
+          !patientName.includes(query) && 
+          !patientEmail.includes(query) && 
+          !patientNik.includes(query)
+        ) {
+          return false;
+        }
       }
 
       if (dateFrom && visitDate && visitDate < new Date(dateFrom)) return false;
       if (dateTo && visitDate && visitDate > new Date(dateTo + "T23:59:59")) return false;
 
-      // Filter Pasien (TextBox Search)
       if (patientFilter.trim()) {
         const q = patientFilter.toLowerCase().trim();
-        const patientName = String(booking.pasien?.nama_lengkap || "").toLowerCase();
-        const patientNik = String(booking.pasien?.nik || "").toLowerCase();
-        const patientId = String(booking.pasien?.id_pasien || "").toLowerCase();
+        const patientName = String(matchedPasien?.nama_lengkap || booking.pasien?.nama_lengkap || "").toLowerCase();
+        const patientId = String(idPasienTarget || "").toLowerCase();
 
-        if (!patientName.includes(q) && !patientNik.includes(q) && !patientId.includes(q)) {
+        if (
+          !patientName.includes(q) && 
+          !patientNik.includes(q) && 
+          !patientEmail.includes(q) && 
+          !patientId.includes(q)
+        ) {
           return false;
         }
       }
 
-      // Filter Nakes (TextBox Search)
+      // ...lanjutan filter nakes dan tanggal berikutnya...
+
       if (nakesFilter.trim()) {
         const q = nakesFilter.toLowerCase().trim();
         const nakesName = String(booking.tenaga_medis?.nama_lengkap || "").toLowerCase();
@@ -258,7 +338,7 @@ export default function PageBooking() {
     });
 
     return result;
-  }, [bookings, statusBooking, searchQuery, dateFrom, dateTo, patientFilter, nakesFilter, monthFilter, yearFilter, rekamMedisId, sortBy, sortDir]);
+  }, [bookings, listPasien, statusBooking, searchQuery, dateFrom, dateTo, patientFilter, nakesFilter, monthFilter, yearFilter, rekamMedisId, sortBy, sortDir]);
 
   const totalPages = Math.ceil(filteredBookings.length / itemsPerPage);
   const startIndex = (currentPage - 1) * itemsPerPage;
@@ -533,46 +613,69 @@ export default function PageBooking() {
                   <th className="border-b border-slate-200 px-4 py-3 text-center">Aksi</th>
                 </tr>
               </thead>
-              <tbody>
-                {paginatedBookings.map((booking, index) => (
-                  <tr
-                    key={booking.id_booking}
-                    onClick={() => navigate("/bookings/" + booking.id_booking)}
-                    className="hover:bg-slate-50 transition cursor-pointer"
-                  >
-                    <td className="border-b border-slate-200 px-4 py-3 text-center text-slate-500">{startIndex + index + 1}</td>
-                    <td className="border-b border-slate-200 px-4 py-3 font-semibold text-blue-600">{booking.booking_code || "#" + booking.id_booking}</td>
-                    <td className="border-b border-slate-200 px-4 py-3 text-slate-800 font-medium">{booking.pasien?.nama_lengkap || "-"}</td>
-                    <td className="border-b border-slate-200 px-4 py-3 text-slate-700">{booking.tenaga_medis?.nama_lengkap || "-"}</td>
-                    <td className="border-b border-slate-200 px-4 py-3 text-slate-700">
-                      <div className="space-y-1">
-                        {(booking.layanan_items || (booking.layanan ? [booking.layanan] : [])).map((layanan, layananIndex) => (
-                          <div key={layanan.id_layanan || layananIndex}>{layanan.nama_layanan}</div>
-                        ))}
-                        {!booking.layanan_items?.length && !booking.layanan && "-"}
-                      </div>
-                    </td>
-                    <td className="border-b border-slate-200 px-4 py-3 text-slate-700">
-                      <div>{formatDate(booking.tanggal_kunjungan_raw || booking.tanggal_kunjungan)}</div>
-                      <div className="text-xs text-slate-400">{booking.jam_kunjungan || "-"}</div>
-                    </td>
-                    <td className="border-b border-slate-200 px-4 py-3 font-medium text-slate-900">{formatRupiah(booking.transaksi?.jumlah_total)}</td>
-                    <td className="border-b border-slate-200 px-4 py-3">{renderStatusBadge(booking.status_booking, booking.status_label, booking.status_color)}</td>
-                    <td className="border-b border-slate-200 px-4 py-3">{renderPaymentBadge(booking.transaksi?.status_transaksi)}</td>
-                    <td className="border-b border-slate-200 px-4 py-3 text-center">
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          navigate("/bookings/" + booking.id_booking);
-                        }}
-                        className="rounded-lg bg-blue-50 px-3 py-1.5 text-xs font-semibold text-blue-600 hover:bg-blue-100"
-                      >
-                        Detail &rarr;
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
+    <tbody>
+  {paginatedBookings.map((booking, index) => {
+          const idPasienTarget = booking.id_pasien || booking.pasien_id || booking.pasien?.id_pasien || booking.pasien?.id || booking.id_user;
+          
+          // Ambil dari map detail pasien yang sudah di-fetch otomatis
+          const detailPasien = patientDetailsMap[idPasienTarget] || {};
+
+          const namaPasien = detailPasien.nama_lengkap || booking.pasien?.nama_lengkap || "-";
+          
+          // NIK diambil dari endpoint /admin/pasien/{id}
+          const nikPasien = detailPasien.nik || booking.pasien?.nik || "-";
+          
+          // Email diambil dari objek user di dalam endpoint /admin/pasien/{id}
+          const emailPasien = detailPasien.user?.email || detailPasien.email || booking.pasien?.user?.email || booking.pasien?.email || "-";
+
+          return (
+            <tr
+              key={booking.id_booking || index}
+              onClick={() => navigate("/bookings/" + booking.id_booking)}
+              className="hover:bg-slate-50 transition cursor-pointer"
+            >
+              <td className="border-b border-slate-200 px-4 py-3 text-center text-slate-500">{startIndex + index + 1}</td>
+              <td className="border-b border-slate-200 px-4 py-3 font-semibold text-blue-600">{booking.booking_code || "#" + booking.id_booking}</td>
+              
+              {/* Kolom Pasien */}
+              <td className="border-b border-slate-200 px-4 py-3 text-slate-800">
+                <div className="font-medium text-slate-900">{namaPasien}</div>
+                <div className="text-xs text-slate-500">NIK: {nikPasien}</div>
+                <div className="text-xs text-slate-400">{emailPasien}</div>
+              </td>
+              {/* ...lanjutan kolom lainnya... */}
+              
+          <td className="border-b border-slate-200 px-4 py-3 text-slate-700">{booking.tenaga_medis?.nama_lengkap || "-"}</td>
+              <td className="border-b border-slate-200 px-4 py-3 text-slate-700">
+                <div className="space-y-1">
+                  {(booking.layanan_items || (booking.layanan ? [booking.layanan] : [])).map((layanan, layananIndex) => (
+                    <div key={layanan.id_layanan || layananIndex}>{layanan.nama_layanan}</div>
+                  ))}
+                  {!booking.layanan_items?.length && !booking.layanan && "-"}
+                </div>
+              </td>
+              <td className="border-b border-slate-200 px-4 py-3 text-slate-700">
+                <div>{formatDate(booking.tanggal_kunjungan_raw || booking.tanggal_kunjungan)}</div>
+                <div className="text-xs text-slate-400">{booking.jam_kunjungan || "-"}</div>
+              </td>
+              <td className="border-b border-slate-200 px-4 py-3 font-medium text-slate-900">{formatRupiah(booking.transaksi?.jumlah_total)}</td>
+              <td className="border-b border-slate-200 px-4 py-3">{renderStatusBadge(booking.status_booking, booking.status_label, booking.status_color)}</td>
+              <td className="border-b border-slate-200 px-4 py-3">{renderPaymentBadge(booking.transaksi?.status_transaksi)}</td>
+              <td className="border-b border-slate-200 px-4 py-3 text-center">
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    navigate("/bookings/" + booking.id_booking);
+                  }}
+                  className="rounded-lg bg-blue-50 px-3 py-1.5 text-xs font-semibold text-blue-600 hover:bg-blue-100"
+                >
+                  Detail &rarr;
+                </button>
+              </td>
+            </tr>
+          );
+        })}
+      </tbody>
             </table>
           </div>
 
@@ -595,10 +698,28 @@ export function PageBookingDetail() {
   const [errorMsg, setErrorMsg] = useState("");
   const [updatingStatus, setUpdatingStatus] = useState(false);
   const [statusMessage, setStatusMessage] = useState("");
+  
+  // 👉 State untuk menyimpan data lengkap dari API /admin/pasien/{id_pasien}
+  const [patientDetail, setPatientDetail] = useState(null);
 
   const availableStatuses = ["Pending", "Di Perjalanan", "Tindakan", "Selesai", "Dibatalkan"];
 
-  async function fetchDetail() {
+  // 👉 Fungsi untuk mengambil data lengkap pasien berdasarkan id_pasien
+  async function fetchPatientDetail(idPasien) {
+    try {
+      const res = await fetch(BASE_URL + "/admin/pasien/" + idPasien, {
+        headers: getAuthHeaders({ Accept: "application/json" }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setPatientDetail(data.data || data);
+      }
+    } catch (err) {
+      console.error("Gagal mengambil detail pasien", err);
+    }
+  }
+
+ async function fetchDetail() {
     try {
       setLoading(true);
       setErrorMsg("");
@@ -612,7 +733,17 @@ export function PageBookingDetail() {
         throw new Error(data.message || "Gagal mengambil detail booking");
       }
 
-      setBooking(data.data);
+      const bookingData = data.data;
+      setBooking(bookingData);
+
+      // Pastikan kita menangkap ID pasien dengan aman dari berbagai kemungkinan nama properti API
+      const idPasien = bookingData?.id_pasien || bookingData?.pasien_id || bookingData?.pasien?.id_pasien || bookingData?.pasien?.id;
+
+      if (idPasien) {
+        fetchPatientDetail(idPasien);
+      } else {
+        console.warn("ID Pasien tidak ditemukan di objek booking:", bookingData);
+      }
     } catch (err) {
       console.error("Gagal mengambil detail booking", err);
       setErrorMsg(err.message || "Gagal mengambil detail booking");
@@ -737,27 +868,50 @@ export function PageBookingDetail() {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+     <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
         <div className="lg:col-span-2 space-y-6">
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            
+            {/* 1. INFORMASI PASIEN */}
             <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
               <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400">Informasi Pasien</h3>
-              <p className="mt-3 text-base font-bold text-slate-800">{booking.pasien?.nama_lengkap || "-"}</p>
-              <div className="mt-2 space-y-1 text-xs text-slate-500">
-                <p>No. Telp: <span className="font-medium text-slate-700">{booking.pasien?.no_telp || "-"}</span></p>
-                <p>NIK: <span className="font-medium text-slate-700">{booking.pasien?.nik || "-"}</span></p>
-                <p>Alamat Utama: <span className="font-medium text-slate-700">{booking.pasien?.alamat_utama || "-"}</span></p>
-              </div>
+              <p className="mt-3 text-base font-bold text-slate-800">
+                {booking.pasien?.nama_lengkap || patientDetail?.nama_lengkap || "-"}
+              </p>
+              
+             <hr className="my-3 border-2 border-slate-300" />
+
+             <div className="space-y-1 text-xs text-slate-500">
+  <p>Email: <span className="font-medium text-slate-700">
+    {patientDetail?.user?.email || patientDetail?.email || booking.pasien?.user?.email || booking.pasien?.email || "-"}
+  </span></p>
+  <p>No. Telp: <span className="font-medium text-slate-700">
+    {patientDetail?.no_hp || patientDetail?.no_telp || booking.pasien?.no_hp || "-"}
+  </span></p>
+  <p>NIK: <span className="font-medium text-slate-700">
+    {patientDetail?.nik || booking.pasien?.nik || "-"}
+  </span></p>
+  <p>Alamat Utama: <span className="font-medium text-slate-700">
+    {patientDetail?.alamat_utama || booking.pasien?.alamat_utama || "-"}
+  </span></p>
+</div>
             </div>
 
+            {/* 2. TENAGA MEDIS */}
             <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
               <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400">Tenaga Medis</h3>
-              <p className="mt-3 text-base font-bold text-slate-800">{booking.tenaga_medis?.nama_lengkap || "-"}</p>
-              <div className="mt-2 space-y-1 text-xs text-slate-500">
+              <p className="mt-3 text-base font-bold text-slate-800">
+                {booking.tenaga_medis?.nama_lengkap || "-"}
+              </p>
+              
+            <hr className="my-3 border-2 border-slate-300" />
+
+              <div className="space-y-1 text-xs text-slate-500">
                 <p>Spesialisasi: <span className="font-medium text-slate-700">{booking.tenaga_medis?.jenis_tenaga_medis || "-"}</span></p>
                 <p>STR: <span className="font-medium text-slate-700">{booking.tenaga_medis?.no_str || "-"}</span></p>
               </div>
             </div>
+
           </div>
 
           <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm space-y-4">
@@ -769,9 +923,6 @@ export function PageBookingDetail() {
                   {(booking.layanan_items || (booking.layanan ? [booking.layanan] : [])).map((layanan, layananIndex) => (
                     <div key={layanan.id_layanan || layananIndex}>
                       <div className="text-base">{layanan.nama_layanan || "-"}</div>
-                      {/* <div className="mt-1 text-xs font-normal text-slate-500">
-                        {layanan.deskripsi || "Tidak ada deskripsi layanan."}
-                      </div> */}
                       <div className="text-xs font-normal text-slate-500">
                         Durasi {layanan.durasi_menit || 0} menit | SL {formatRupiah(layanan.sl)} | SB {formatRupiah(layanan.sb)}
                       </div>
@@ -838,9 +989,13 @@ export function PageBookingDetail() {
         </div>
 
         <div className="space-y-6">
-          {booking.transaksi && (
-            <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-              <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-4">Rincian Pembayaran</h3>
+   {booking.transaksi && (
+            <div className="rounded-2xl border border-slate-200 bg-white p-8 shadow-sm">
+             {/* Judul tanpa garis tipis di bawahnya */}
+              <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-4">
+                Rincian Pembayaran
+              </h3>
+              <hr className="my-3 border-2 border-slate-300" />
 
               {(function () {
                 const tr = booking.transaksi;
@@ -850,6 +1005,7 @@ export function PageBookingDetail() {
 
                 const sl = rincian.sl ?? tr.sl ?? 0;
                 const sb = rincian.sb ?? tr.sb ?? 0;
+                const hppBhpTambahan = rincian.hpp_bhp_tambahan ?? tr.hpp_bhp_tambahan ?? 0;
                 const st = rincian.st ?? tr.st ?? 0;
                 const ba = rincian.ba ?? tr.ba ?? 0;
                 const ppn = rincian.ppn ?? tr.ppn ?? 0;
@@ -859,7 +1015,8 @@ export function PageBookingDetail() {
                 const totalFormatted = tr.jumlah_total_format || formatRupiah(tr.jumlah_total);
 
                 return (
-                  <div className="space-y-2 text-xs">
+                  // space-y-4 membuat jarak antar baris teks semakin lega / tidak dempet
+                  <div className="space-y-4 text-xs pt-1">
                     <div className="flex justify-between text-slate-600">
                       <span>Status Transaksi</span>
                       <span className="font-semibold text-slate-800">{tr.status_transaksi || tr.status || "-"}</span>
@@ -881,6 +1038,10 @@ export function PageBookingDetail() {
                       <span>{formatRupiah(sb)}</span>
                     </div>
                     <div className="flex justify-between text-slate-600">
+                      <span>HPP BHP Tambahan</span>
+                      <span>{formatRupiah(hppBhpTambahan)}</span>
+                    </div>
+                    <div className="flex justify-between text-slate-600">
                       <span>Biaya Transportasi (ST)</span>
                       <span>{formatRupiah(st)}</span>
                     </div>
@@ -888,22 +1049,22 @@ export function PageBookingDetail() {
                       <span>Biaya Administrasi (BA)</span>
                       <span>{formatRupiah(ba)}</span>
                     </div>
-                    <div className="flex justify-between text-slate-600">
+                    <div className="flex justify-between text-slate-600 pb-3 border-b border-slate-200">
                       <span>PPN ({persenPpn}%)</span>
                       <span>{formatRupiah(ppn)}</span>
                     </div>
 
-                    <div className="border-t border-slate-200 pt-3 flex justify-between text-sm font-extrabold text-slate-900">
+                    <div className="pt-2 flex justify-between text-sm font-extrabold text-slate-900">
                       <span>Total Bayar Pasien</span>
                       <span className="text-blue-600">{totalFormatted}</span>
                     </div>
 
-                    <div className="mt-4 rounded-xl bg-slate-50 p-3 space-y-1.5 text-[11px] text-slate-500">
-                      <div className="flex justify-between">
+                    <div className="mt-5 rounded-xl bg-slate-50 p-4 space-y-2.5 text-[11px] text-slate-500 border border-slate-100">
+                      <div className="flex justify-between pb-2 border-b border-slate-200/60">
                         <span>Hak Nakes:</span>
                         <span className="font-semibold text-slate-700">{formatRupiah(hakNakes)}</span>
                       </div>
-                      <div className="flex justify-between">
+                      <div className="flex justify-between pt-0.5">
                         <span>Profit HealthCare:</span>
                         <span className="font-semibold text-green-600">{formatRupiah(profitHc)}</span>
                       </div>

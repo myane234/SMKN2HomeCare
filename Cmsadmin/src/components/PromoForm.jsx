@@ -173,17 +173,23 @@ export default function PromoForm({ initialData, onSubmit, submitting, mode }) {
 
       <form
         className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden w-full p-6 sm:p-8 lg:p-10"
-        onSubmit={(e) => {
-          e.preventDefault();
-          if (validate()) {
-            onSubmit({
-              ...form,
-              diskon_persen: Number(form.diskon_persen),
-              layanan_ids: form.layanan_ids,
-              gambar_promo: image,
-            });
-          }
-        }}
+       onSubmit={(e) => {
+        e.preventDefault();
+        if (validate()) {
+          // 👉 UBAH DI BAGIAN INI SAJA WAKTU DATA DIKIRIM KE BACKEND:
+          onSubmit({
+            id_layanan: Number(form.layanan_ids[0]), // Ubah dari array ke id_layanan tunggal
+            deskripsi: form.deskripsi,
+            tipe_diskon: "persen",                  // Tambahin field ini (atau 'nominal')
+            nilai_diskon: Number(form.diskon_persen),// Ganti diskon_persen jadi nilai_diskon
+            tanggal_mulai: form.tanggal_mulai,
+            tanggal_berakhir: form.tanggal_berakhir,
+            status_promo: form.status_promo,
+            gambar_promo: image,
+          });
+          // *Catatan: nama_paket sengaja dibuang dari objek di atas karena backend udah gak butuh.*
+        }
+      }}
       >
         <div className="grid gap-6">
           <div>
