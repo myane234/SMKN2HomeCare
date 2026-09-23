@@ -127,11 +127,7 @@ function KategoriTable({
                           </div>
                         </div>
                       </td>
-                      <td className="border-b border-slate-200 px-4 py-3.5 text-xs text-slate-500 whitespace-nowrap">
-                        {item.updated_at
-                          ? new Date(item.updated_at).toLocaleString('id-ID', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })
-                          : '—'}
-                      </td>
+
                       <td className="px-4 py-3 text-xs text-slate-500 whitespace-nowrap">
                         {item.created_at
                           ? new Date(item.created_at).toLocaleString('id-ID', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })
@@ -139,6 +135,11 @@ function KategoriTable({
                       </td>
                       <td className="px-4 py-3 text-xs text-slate-500">
                         {item.created_by ?? '—'}
+                      </td>
+                        <td className="border-b border-slate-200 px-4 py-3.5 text-xs text-slate-500 whitespace-nowrap">
+                        {item.updated_at
+                          ? new Date(item.updated_at).toLocaleString('id-ID', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })
+                          : '—'}
                       </td>
                       <td className="border-b border-slate-200 px-4 py-3.5 text-xs text-slate-500">
                         {item.updated_by ?? '—'}
