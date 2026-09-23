@@ -108,12 +108,15 @@ const rawMenuItems = [
 ];
 
 const rawSuperAdminMenus = [
+  // 1. Menu Pasien berdiri sendiri di luar Master Data
+  { to: "/users", label: "Pasien", icon: <FaUsers /> },
+
+  // 2. Grup Master Data (Hanya berisi data master murni)
   {
     type: "group",
     label: "Master Data",
     icon: <FaUserMd />,
     children: [
-      { to: "/users", label: "Pasien", icon: <FaUsers /> },
       {
         type: "subgroup",
         label: "Wilayah",
@@ -152,12 +155,22 @@ const rawSuperAdminMenus = [
           { to: "/master-metode-pembayaran", label: "Metode Pembayaran", icon: <FaCreditCard /> },
         ],
       },
+    ],
+  },
+
+  // 3. Grup khusus untuk semua menu yang ada Nakes-nya
+  {
+    type: "group",
+    label: "Manajemen Nakes",
+    icon: <FaUserMd />,
+    children: [
       { to: "/nakes", label: "Nakes", icon: <FaUserMd />, end: true },
       { to: "/nakes/requests", label: "Registrasi Nakes", icon: <FaUserPlus /> },
       { to: "/operasional-nakes", label: "Operasional Nakes", icon: <FaCalendarCheck /> },
       { to: "/nakes/pendaftaran", label: "Tambah Nakes", icon: <FaPlus /> },
     ],
   },
+
   { to: "/booking", label: "Booking", icon: <FaCalendarCheck /> },
   { to: "/chat-rooms", label: "Chat Rooms", icon: <FaEnvelope /> },
   {

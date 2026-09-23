@@ -181,11 +181,13 @@ export default function AdminMasterKategoriPembayaran() {
               <>
                 <div className="overflow-x-auto">
                   <table className="w-full text-left text-sm text-slate-600">
-                    <thead className="border-b border-slate-200 bg-slate-50 text-xs font-semibold uppercase text-slate-500">
+                                    <thead className="border-b border-slate-200 bg-slate-50 text-xs font-semibold uppercase text-slate-500">
                       <tr>
                         <th className="p-4 w-12">No</th>
                         <th className="p-4">Nama Kategori</th>
                         <th className="p-4">Status</th>
+                        <th className="p-4 whitespace-nowrap">Created At</th>
+                        <th className="p-4 whitespace-nowrap">Created By</th>
                         <th className="p-4 whitespace-nowrap">Updated At</th>
                         <th className="p-4">Updated By</th>
                         <th className="p-4 whitespace-nowrap">Deleted At</th>
@@ -212,6 +214,16 @@ export default function AdminMasterKategoriPembayaran() {
                                 {item.is_active ? 'Aktif' : 'Nonaktif'}
                               </span>
                             </td>
+                                                <td className="px-4 py-3 text-xs text-slate-500 whitespace-nowrap">
+                                {item.created_at
+                                  ? new Date(item.created_at).toLocaleString('id-ID', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })
+                                  : '—'}
+                              </td>
+                              <td className="px-4 py-3 text-xs text-slate-500">
+                                {item.created_by ?? '—'}
+                              </td>
+                             
+                                                  {/* Cuma tampilin Tanggal Update */}
                             <td className="p-4 text-xs text-slate-500 whitespace-nowrap">
                               {item.updated_at
                                 ? new Date(item.updated_at).toLocaleString('id-ID', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })
