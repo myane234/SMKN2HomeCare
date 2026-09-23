@@ -205,13 +205,17 @@ const handleDelete = async (id) => {
             <tr className="bg-slate-50 text-slate-600 text-xs uppercase tracking-wider border-b border-slate-200">
               <th className="p-4 w-16 text-center">No</th>
               <th className="p-4">Jenjang Pendidikan</th>
+              <th className="p-4 whitespace-nowrap">Updated At</th>
+              <th className="p-4">Updated By</th>
+              <th className="p-4 whitespace-nowrap">Deleted At</th>
+              <th className="p-4">Deleted By</th>
               <th className="p-4 w-32 text-right">Aksi</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100 text-sm">
             {currentData.length === 0 ? (
               <tr>
-                <td colSpan="3" className="p-8 text-center text-slate-400">Tidak ada data pendidikan.</td>
+                <td colSpan="7" className="p-8 text-center text-slate-400">Tidak ada data pendidikan.</td>
               </tr>
             ) : (
               currentData.map((item, index) => {
@@ -222,6 +226,22 @@ const handleDelete = async (id) => {
                   <tr key={itemId || index} className="hover:bg-slate-50/50">
                     <td className="p-4 text-center font-medium text-slate-500">{absoluteIndex}</td>
                     <td className="p-4 font-semibold text-slate-800">{item.nama_pendidikan}</td>
+                    <td className="p-4 text-xs text-slate-500 whitespace-nowrap">
+                      {item.updated_at
+                        ? new Date(item.updated_at).toLocaleString('id-ID', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })
+                        : '—'}
+                    </td>
+                    <td className="p-4 text-xs text-slate-500">
+                      {item.updated_by ?? '—'}
+                    </td>
+                    <td className="p-4 text-xs text-slate-500 whitespace-nowrap">
+                      {item.deleted_at
+                        ? new Date(item.deleted_at).toLocaleString('id-ID', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })
+                        : '—'}
+                    </td>
+                    <td className="p-4 text-xs text-slate-500">
+                      {item.deleted_by ?? '—'}
+                    </td>
                     <td className="p-4 text-right">
                       <div className="flex justify-end items-center gap-1.5">
                         <button

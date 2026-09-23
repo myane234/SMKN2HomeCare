@@ -222,13 +222,17 @@ export default function MasterKotaKabupaten() {
                   <th className="py-4 px-4 sm:px-6">PROVINSI</th>
                   <th className="py-4 px-4 sm:px-6">ID / KODE</th>
                   <th className="py-4 px-4 sm:px-6 text-center">STATUS</th>
+                  <th className="py-4 px-4 sm:px-6 whitespace-nowrap">UPDATED AT</th>
+                  <th className="py-4 px-4 sm:px-6">UPDATED BY</th>
+                  <th className="py-4 px-4 sm:px-6 whitespace-nowrap">DELETED AT</th>
+                  <th className="py-4 px-4 sm:px-6">DELETED BY</th>
                   <th className="py-4 px-4 sm:px-6 text-right">AKSI</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 text-slate-700">
                 {paginatedData.length === 0 ? (
                   <tr>
-                    <td colSpan="6" className="text-center py-8 text-slate-400">
+                    <td colSpan="10" className="text-center py-8 text-slate-400">
                       Tidak ada data kota / kabupaten ditemukan.
                     </td>
                   </tr>
@@ -258,6 +262,22 @@ export default function MasterKotaKabupaten() {
                           >
                             {isAktif ? 'Aktif' : 'Non-Aktif'}
                           </span>
+                        </td>
+                        <td className="py-4 px-4 sm:px-6 text-xs text-slate-500 whitespace-nowrap">
+                          {item.updated_at
+                            ? new Date(item.updated_at).toLocaleString('id-ID', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })
+                            : '—'}
+                        </td>
+                        <td className="py-4 px-4 sm:px-6 text-xs text-slate-500">
+                          {item.updated_by ?? '—'}
+                        </td>
+                        <td className="py-4 px-4 sm:px-6 text-xs text-slate-500 whitespace-nowrap">
+                          {item.deleted_at
+                            ? new Date(item.deleted_at).toLocaleString('id-ID', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })
+                            : '—'}
+                        </td>
+                        <td className="py-4 px-4 sm:px-6 text-xs text-slate-500">
+                          {item.deleted_by ?? '—'}
                         </td>
                         <td className="py-4 px-4 sm:px-6 text-right">
                           <div className="flex items-center justify-end gap-2">

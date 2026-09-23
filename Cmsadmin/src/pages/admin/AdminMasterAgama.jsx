@@ -474,6 +474,22 @@ export default function AdminMasterAgama() {
                   Status
                 </th>
 
+                <th className="p-4 w-40">
+                  Updated At
+                </th>
+
+                <th className="p-4 w-24">
+                  Updated By
+                </th>
+
+                <th className="p-4 w-40">
+                  Deleted At
+                </th>
+
+                <th className="p-4 w-24">
+                  Deleted By
+                </th>
+
                 <th className="p-4 w-36 text-right">
                   Aksi
                 </th>
@@ -490,7 +506,7 @@ export default function AdminMasterAgama() {
 
                 <tr>
                   <td
-                    colSpan="4"
+                    colSpan="8"
                     className="
                       p-8
                       text-center
@@ -583,6 +599,30 @@ export default function AdminMasterAgama() {
 
                         </span>
 
+                      </td>
+
+                      {/* UPDATED AT */}
+                      <td className="p-4 text-xs text-slate-500 whitespace-nowrap">
+                        {item.updated_at
+                          ? new Date(item.updated_at).toLocaleString('id-ID', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })
+                          : '—'}
+                      </td>
+
+                      {/* UPDATED BY */}
+                      <td className="p-4 text-xs text-slate-500">
+                        {item.updated_by ?? '—'}
+                      </td>
+
+                      {/* DELETED AT */}
+                      <td className="p-4 text-xs text-slate-500 whitespace-nowrap">
+                        {item.deleted_at
+                          ? new Date(item.deleted_at).toLocaleString('id-ID', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })
+                          : '—'}
+                      </td>
+
+                      {/* DELETED BY */}
+                      <td className="p-4 text-xs text-slate-500">
+                        {item.deleted_by ?? '—'}
                       </td>
 
                       {/* AKSI */}

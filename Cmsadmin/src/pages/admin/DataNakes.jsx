@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
-import { FaSearch, FaEdit } from 'react-icons/fa';
+import { Link } from 'react-router-dom';
+import { FaSearch, FaEdit, FaPlus } from 'react-icons/fa';
 import { resolveImageUrl } from '../../utils/resolveImage.js';
 import Pagination from '../../components/pagination';
 import { getAllActiveNakes, getKategoriLayanan, updateNakesData, deleteNakesData } from '../../data/nakesData';
@@ -74,12 +75,14 @@ export default function DataNakes() {
           }
 
           // ID primer untuk update/delete di backend Laravel admin/nakes/{id}
-          const primaryId = item.id_user ?? item.user_id ?? item.id_tenaga_medis ?? item.id_nakes ?? item.id;
+          const primaryId = item.id_tenaga_medis ?? item.id_nakes ?? item.id ?? item.id_user ?? item.user_id;
           const rawFoto = item.foto_profile || item.foto || item.pasien?.foto_profile || item.user?.foto_profile;
           const resolvedFoto = resolveImageUrl(rawFoto) || '/nakesgambar.jpg';
 
           return {
             id: primaryId,
+            id_tenaga_medis: item.id_tenaga_medis,
+            id_user: item.id_user ?? item.user_id,
             rawItem: item,
             foto: resolvedFoto,
             nama: item.nama_lengkap ?? (item.pasien?.nama_lengkap || item.user?.name || item.user?.nama || ''),
@@ -172,8 +175,9 @@ export default function DataNakes() {
   };
 
   const toggleKategoriSelection = (katId) => {
-    if (formKategori.includes(katId)) {
-      setFormKategori(formKategori.filter(id => id !== katId));
+    const exists = formKategori.some(id => String(id) === String(katId));
+    if (exists) {
+      setFormKategori(formKategori.filter(id => String(id) !== String(katId)));
     } else {
       setFormKategori([...formKategori, katId]);
     }
@@ -201,9 +205,17 @@ export default function DataNakes() {
 
   return (
     <div>
-      <div className="mb-6">
-        <h1 className="page-title">Data Nakes</h1>
-        <p className="page-subtitle">Kelola data tenaga medis, kategori layanan, dan wilayah operasional.</p>
+      <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <h1 className="page-title">Data Nakes</h1>
+          <p className="page-subtitle">Kelola data tenaga medis, kategori layanan, dan wilayah operasional.</p>
+        </div>
+        <Link 
+          to="/nakes/pendaftaran" 
+          className="inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-emerald-700 transition-colors shadow-sm"
+        >
+          <FaPlus className="text-xs" /> Tambah Nakes
+        </Link>
       </div>
 
       {/* Filter Section */}
@@ -383,7 +395,7 @@ export default function DataNakes() {
                         key={katId} 
                         onClick={() => toggleKategoriSelection(katId)}
                         className={`cursor-pointer rounded-lg border px-3 py-1.5 text-sm transition-colors ${
-                          formKategori.includes(katId) 
+                          formKategori.some(id => String(id) === String(katId)) 
                             ? 'border-primary bg-primary text-white font-medium' 
                             : 'border-slate-300 bg-white text-slate-600 hover:border-primary'
                         }`}

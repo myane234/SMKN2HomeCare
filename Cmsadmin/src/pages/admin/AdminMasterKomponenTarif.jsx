@@ -504,12 +504,16 @@ const AdminMasterKomponenTarif = () => {
                   <th className="px-4 py-3.5">Jenis Nilai</th>
                   <th className="px-4 py-3.5">Nilai</th>
                   <th className="px-4 py-3.5 text-center w-24">Status</th>
+                  <th className="px-4 py-3.5 whitespace-nowrap">Updated At</th>
+                  <th className="px-4 py-3.5">Updated By</th>
+                  <th className="px-4 py-3.5 whitespace-nowrap">Deleted At</th>
+                  <th className="px-4 py-3.5">Deleted By</th>
                   <th className="px-4 py-3.5 text-center w-36">Aksi</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
                 {filteredData.length === 0 ? (
-                  <tr><td colSpan="7" className="px-4 py-8 text-center text-sm text-slate-400">Data tidak ditemukan.</td></tr>
+                  <tr><td colSpan="11" className="px-4 py-8 text-center text-sm text-slate-400">Data tidak ditemukan.</td></tr>
                 ) : (
                   filteredData.map((item, index) => {
                     const rowNumber = startIndex + index + 1;
@@ -530,6 +534,22 @@ const AdminMasterKomponenTarif = () => {
                           <span className={`inline-flex rounded-full px-2.5 py-1 text-[11px] font-medium ${isActive ? 'bg-green-100 text-green-700' : 'bg-slate-100 text-slate-500'}`}>
                             {isActive ? 'Aktif' : 'Nonaktif'}
                           </span>
+                        </td>
+                        <td className="px-4 py-3.5 text-xs text-slate-500 whitespace-nowrap">
+                          {item.updated_at
+                            ? new Date(item.updated_at).toLocaleString('id-ID', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })
+                            : '—'}
+                        </td>
+                        <td className="px-4 py-3.5 text-xs text-slate-500">
+                          {item.updated_by ?? '—'}
+                        </td>
+                        <td className="px-4 py-3.5 text-xs text-slate-500 whitespace-nowrap">
+                          {item.deleted_at
+                            ? new Date(item.deleted_at).toLocaleString('id-ID', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })
+                            : '—'}
+                        </td>
+                        <td className="px-4 py-3.5 text-xs text-slate-500">
+                          {item.deleted_by ?? '—'}
                         </td>
                         <td className="px-4 py-3.5 text-center">
                           <div className="flex items-center justify-center gap-1.5">
