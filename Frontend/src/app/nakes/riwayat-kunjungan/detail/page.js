@@ -143,56 +143,119 @@ function DetailRiwayatContent() {
           </div>
 
           {/* Kolom Kanan: Daftar Layanan & BHP */}
-          <div className="lg:col-span-2 bg-white rounded-2xl border border-slate-200 p-5 shadow-sm space-y-4">
-            <h2 className="text-xs font-bold text-slate-400 uppercase tracking-wider border-b border-slate-100 pb-2">
-              Daftar Layanan & Alat Medis (BHP)
-            </h2>
+          <div className="lg:col-span-2 space-y-5">
+            <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm space-y-4">
+              <h2 className="text-xs font-bold text-slate-400 uppercase tracking-wider border-b border-slate-100 pb-2">
+                Daftar Layanan & Alat Medis (BHP)
+              </h2>
 
-            {layananItems.length > 0 ? (
-              <div className="space-y-3">
-                {layananItems.map((item, idx) => (
-                  <div
-                    key={item.id_layanan || idx}
-                    className="p-4 bg-slate-50 rounded-xl border border-slate-200/70 space-y-3"
-                  >
-                    <div className="flex justify-between items-start gap-2">
-                      <div>
-                        <h3 className="text-sm font-bold text-slate-900">{item.nama_layanan}</h3>
-                        {item.deskripsi && (
-                          <p className="text-xs text-slate-500 mt-1 leading-relaxed">
-                            {item.deskripsi}
-                          </p>
-                        )}
+              {layananItems.length > 0 ? (
+                <div className="space-y-3">
+                  {layananItems.map((item, idx) => (
+                    <div
+                      key={item.id_layanan || idx}
+                      className="p-4 bg-slate-50 rounded-xl border border-slate-200/70 space-y-3"
+                    >
+                      <div className="flex justify-between items-start gap-2">
+                        <div>
+                          <h3 className="text-sm font-bold text-slate-900">{item.nama_layanan}</h3>
+                          {item.deskripsi && (
+                            <p className="text-xs text-slate-500 mt-1 leading-relaxed">
+                              {item.deskripsi}
+                            </p>
+                          )}
+                        </div>
+                        <span className="text-[10px] bg-slate-200 text-slate-700 font-semibold px-2.5 py-0.5 rounded shrink-0 uppercase tracking-wider">
+                          {item.kategori?.nama_kategori || 'Medis'}
+                        </span>
                       </div>
-                      <span className="text-[10px] bg-slate-200 text-slate-700 font-semibold px-2.5 py-0.5 rounded shrink-0 uppercase tracking-wider">
-                        {item.kategori?.nama_kategori || 'Medis'}
-                      </span>
+
+                      {/* Section BHP */}
+                      {Array.isArray(item.bhp) && item.bhp.length > 0 && (
+                        <div className="pt-3 border-t border-slate-200/80">
+                          <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-2">
+                            Bahan Habis Pakai (BHP) / Peralatan:
+                          </p>
+                          <div className="flex flex-wrap gap-2">
+                            {item.bhp.map((b) => (
+                              <span
+                                key={b.id_bhp}
+                                className="text-xs bg-white text-slate-700 px-2.5 py-1 rounded-lg border border-slate-200 font-medium shadow-2xs"
+                              >
+                                {b.nama_bhp} <strong className="text-blue-600">({b.qty_default}x)</strong>
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-xs text-slate-500 italic">Tidak ada rincian layanan.</p>
+              )}
+            </div>
+
+            {/* Rincian Tambahan BHP & Grand Total */}
+            {(() => {
+              const bhpState = getBhpBookingState(id);
+              const totalLayanan = layananItems.reduce((acc, curr) => acc + Number(curr.s1 || curr.harga || curr.total_harga || 0), Number(booking?.total_harga || detail?.total_biaya || 0));
+              const totalBhp = Number(bhpState.total_tambahan || 0);
+              const grandTotal = totalLayanan + totalBhp;
+
+              return (
+                <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm space-y-3">
+                  <div className="flex justify-between items-center border-b border-slate-100 pb-2">
+                    <h2 className="text-xs font-bold text-slate-400 uppercase tracking-wider">
+                      Rincian Biaya & Status Pelunasan
+                    </h2>
+                    <span className="text-xs font-bold bg-emerald-100 text-emerald-800 px-2.5 py-0.5 rounded-full border border-emerald-300">
+                      LUNAS
+                    </span>
+                  </div>
+
+                  <div className="space-y-2 text-xs">
+                    <div className="flex justify-between text-slate-600">
+                      <span>Biaya Layanan Utama</span>
+                      <span className="font-semibold text-slate-900">Rp {totalLayanan.toLocaleString("id-ID")}</span>
                     </div>
 
-                    {/* Section BHP */}
-                    {Array.isArray(item.bhp) && item.bhp.length > 0 && (
-                      <div className="pt-3 border-t border-slate-200/80">
-                        <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-2">
-                          Bahan Habis Pakai (BHP) / Peralatan:
-                        </p>
-                        <div className="flex flex-wrap gap-2">
-                          {item.bhp.map((b) => (
-                            <span
-                              key={b.id_bhp}
-                              className="text-xs bg-white text-slate-700 px-2.5 py-1 rounded-lg border border-slate-200 font-medium shadow-2xs"
-                            >
-                              {b.nama_bhp} <strong className="text-blue-600">({b.qty_default}x)</strong>
-                            </span>
-                          ))}
+                    {totalBhp > 0 ? (
+                      <div className="p-3 bg-amber-50 rounded-xl border border-amber-200 space-y-2">
+                        <div className="flex justify-between font-bold text-amber-900">
+                          <span>Tambahan BHP oleh Nakes ({bhpState.status_pembayaran_bhp || "LUNAS"})</span>
+                          <span>Rp {totalBhp.toLocaleString("id-ID")}</span>
+                        </div>
+                        <div className="space-y-1 pl-2 border-l-2 border-amber-300">
+                          {(bhpState.items || [])
+                            .filter((item) => (item.qty_real || 0) > (item.qty_default || 0))
+                            .map((item, idx) => {
+                              const qDiff = (item.qty_real || 0) - (item.qty_default || 0);
+                              const subtotal = qDiff * (item.harga_satuan || 15000);
+                              return (
+                                <div key={idx} className="flex justify-between text-[11px] text-amber-800">
+                                  <span>{item.nama_bhp} (+{qDiff} unit)</span>
+                                  <span>Rp {subtotal.toLocaleString("id-ID")}</span>
+                                </div>
+                              );
+                            })}
                         </div>
                       </div>
+                    ) : (
+                      <div className="flex justify-between text-slate-500 italic">
+                        <span>Biaya BHP Tambahan</span>
+                        <span>Rp 0 (Tidak ada BHP Tambahan)</span>
+                      </div>
                     )}
+
+                    <div className="flex justify-between items-center pt-3 border-t border-slate-200 text-sm font-bold">
+                      <span className="text-slate-800">Grand Total LUNAS</span>
+                      <span className="text-emerald-600 text-base">Rp {grandTotal.toLocaleString("id-ID")}</span>
+                    </div>
                   </div>
-                ))}
-              </div>
-            ) : (
-              <p className="text-xs text-slate-500 italic">Tidak ada rincian layanan.</p>
-            )}
+                </div>
+              );
+            })()}
           </div>
 
         </div>

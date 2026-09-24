@@ -1,111 +1,111 @@
-import React,{useState,useEffect,useRef} from 'react';
-import {useNavigate} from 'react-router-dom';
+import React, { useState, useEffect, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import Swal from 'sweetalert2';
 
-import {getAllAgama} from '../../data/masterAgamaData.js';
-import {getAllUniversitas} from '../../data/masterUniversitasData.js';
-import {getAllWilayahLayanan} from '../../data/wilayahLayananData.js';
-import {getAllKategoriLayanan} from '../../data/kategoriData.js';
-import {getAllActiveNakes,registerNakesByAdmin} from '../../data/nakesData.js';
-import {getAuthHeaders} from '../../utils/auth.js';
+import { getAllAgama } from '../../data/masterAgamaData.js';
+import { getAllUniversitas } from '../../data/masterUniversitasData.js';
+import { getAllWilayahLayanan } from '../../data/wilayahLayananData.js';
+import { getAllKategoriLayanan } from '../../data/kategoriData.js';
+import { getAllActiveNakes, registerNakesByAdmin } from '../../data/nakesData.js';
+import { getAuthHeaders } from '../../utils/auth.js';
 import { compressImage } from '../../utils/imageCompressor.js';
 
-export default function TambahNakes(){
-  const navigate=useNavigate();
-  const [loading,setLoading]=useState(false);
-  const [loadingMaster,setLoadingMaster]=useState(true);
+export default function TambahNakes() {
+  const navigate = useNavigate();
+  const [loading, setLoading] = useState(false);
+  const [loadingMaster, setLoadingMaster] = useState(true);
 
-  const [searchQuery,setSearchQuery]=useState('');
-  const [searchResults,setSearchResults]=useState([]);
-  const [searchingPasien,setSearchingPasien]=useState(false);
-  const [showPasienDropdown,setShowPasienDropdown]=useState(false);
-  const [selectedPasien,setSelectedPasien]=useState(null);
-  const searchRef=useRef(null);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchResults, setSearchResults] = useState([]);
+  const [searchingPasien, setSearchingPasien] = useState(false);
+  const [showPasienDropdown, setShowPasienDropdown] = useState(false);
+  const [selectedPasien, setSelectedPasien] = useState(null);
+  const searchRef = useRef(null);
 
-  const [agamaOptions,setAgamaOptions]=useState([]);
-  const [wilayahOptions,setWilayahOptions]=useState([]);
-  const [kategoriOptions,setKategoriOptions]=useState([]);
-  const [universitasOptions,setUniversitasOptions]=useState([]);
+  const [agamaOptions, setAgamaOptions] = useState([]);
+  const [wilayahOptions, setWilayahOptions] = useState([]);
+  const [kategoriOptions, setKategoriOptions] = useState([]);
+  const [universitasOptions, setUniversitasOptions] = useState([]);
 
-  const [univSearch,setUnivSearch]=useState('');
-  const [filteredUniv,setFilteredUniv]=useState([]);
-  const [isUnivOpen,setIsUnivOpen]=useState(false);
-  const univRef=useRef(null);
+  const [univSearch, setUnivSearch] = useState('');
+  const [filteredUniv, setFilteredUniv] = useState([]);
+  const [isUnivOpen, setIsUnivOpen] = useState(false);
+  const univRef = useRef(null);
 
-  const [form,setForm]=useState({
-    user_id:'',email:'',status:'approved',admin_notes:'',
-    nik:'',nama_lengkap:'',nama_panggilan:'',jenis_kelamin:'',
-    tempat_lahir:'',tanggal_lahir:'',agama:'',no_telp:'',
-    id_wilayah_layanan:'',jenis_tenaga_medis:[],
-    universitas:'',program_studi:'',tahun_lulus:'',no_str:'',
-    no_sip:'',tempat_kerja:'',lama_bekerja:'',
-    alamat_lengkap:'',latitude:'-6.2088',longitude:'106.8456'
+  const [form, setForm] = useState({
+    user_id: '', email: '', status: 'approved', admin_notes: '',
+    nik: '', nama_lengkap: '', nama_panggilan: '', jenis_kelamin: '',
+    tempat_lahir: '', tanggal_lahir: '', agama: '', no_telp: '',
+    id_wilayah_layanan: '', jenis_tenaga_medis: [],
+    universitas: '', program_studi: '', tahun_lulus: '', no_str: '',
+    no_sip: '', tempat_kerja: '', lama_bekerja: '',
+    alamat_lengkap: '', latitude: '-6.2088', longitude: '106.8456'
   });
 
-  const [files,setFiles]=useState({
-    foto_profile:null,file_ktp:null,ijazah:null,
-    file_skck:null,file_cv:null,file_str:null,file_sip:null
+  const [files, setFiles] = useState({
+    foto_profile: null, file_ktp: null, ijazah: null,
+    file_skck: null, file_cv: null, file_str: null, file_sip: null
   });
 
-  const getAgamaLabel=item=>item?.nama_agama||item?.nama||item?.name||String(item||'');
-  const getKategoriLabel=item=>item?.nama_kategori||item?.nama||item?.name||String(item||'');
-  const getWilayahLabel=item=>item?.nama_provinsi||item?.nama_wilayah||item?.nama||String(item||'');
-  const getWilayahId=item=>item?.id_provinsi??item?.id_wilayah_layanan??item?.id??item?.wilayah_id??'';
-  const getUnivLabel=item=>item?.nama_universitas||item?.nama||item?.name||String(item||'');
-  const normalize=value=>String(value??'').trim().toLowerCase().replace(/\s+/g,' ');
+  const getAgamaLabel = item => item?.nama_agama || item?.nama || item?.name || String(item || '');
+  const getKategoriLabel = item => item?.nama_kategori || item?.nama || item?.name || String(item || '');
+  const getWilayahLabel = item => item?.nama_provinsi || item?.nama_wilayah || item?.nama || String(item || '');
+  const getWilayahId = item => item?.id_provinsi ?? item?.id_wilayah_layanan ?? item?.id ?? item?.wilayah_id ?? '';
+  const getUnivLabel = item => item?.nama_universitas || item?.nama || item?.name || String(item || '');
+  const normalize = value => String(value ?? '').trim().toLowerCase().replace(/\s+/g, ' ');
 
-  useEffect(()=>{
-    let mounted=true;
+  useEffect(() => {
+    let mounted = true;
 
-    const fetchAllMaster=async()=>{
+    const fetchAllMaster = async () => {
       setLoadingMaster(true);
-      try{
-        const [resAgama,resWilayah,resUniv,resKategori]=await Promise.all([
-          getAllAgama().catch(()=>[]),
-          getAllWilayahLayanan().catch(()=>[]),
-          getAllUniversitas().catch(()=>[]),
-          getAllKategoriLayanan().catch(()=>[])
+      try {
+        const [resAgama, resWilayah, resUniv, resKategori] = await Promise.all([
+          getAllAgama().catch(() => []),
+          getAllWilayahLayanan().catch(() => []),
+          getAllUniversitas().catch(() => []),
+          getAllKategoriLayanan().catch(() => [])
         ]);
 
-        if(!mounted)return;
+        if (!mounted) return;
 
-        const extract=res=>{
-          if(res&&typeof res==='object'&&res.data!==undefined)return Array.isArray(res.data)?res.data:res.data?[res.data]:[];
-          return Array.isArray(res)?res:[];
+        const extract = res => {
+          if (res && typeof res === 'object' && res.data !== undefined) return Array.isArray(res.data) ? res.data : res.data ? [res.data] : [];
+          return Array.isArray(res) ? res : [];
         };
 
         setAgamaOptions(extract(resAgama));
         setWilayahOptions(extract(resWilayah));
         setUniversitasOptions(extract(resUniv));
         setKategoriOptions(extract(resKategori));
-      }catch(err){
-        console.error('Error fetching master data:',err);
-      }finally{
-        if(mounted)setLoadingMaster(false);
+      } catch (err) {
+        console.error('Error fetching master data:', err);
+      } finally {
+        if (mounted) setLoadingMaster(false);
       }
     };
 
     fetchAllMaster();
-    return()=>{mounted=false;};
-  },[]);
+    return () => { mounted = false; };
+  }, []);
 
-  useEffect(()=>{
-    const handleClickOutside=e=>{
-      if(univRef.current&&!univRef.current.contains(e.target))setIsUnivOpen(false);
-      if(searchRef.current&&!searchRef.current.contains(e.target))setShowPasienDropdown(false);
+  useEffect(() => {
+    const handleClickOutside = e => {
+      if (univRef.current && !univRef.current.contains(e.target)) setIsUnivOpen(false);
+      if (searchRef.current && !searchRef.current.contains(e.target)) setShowPasienDropdown(false);
     };
 
-    document.addEventListener('mousedown',handleClickOutside);
-    return()=>document.removeEventListener('mousedown',handleClickOutside);
-  },[]);
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
-  const handleSearchPasien=async e=>{
+  const handleSearchPasien = async e => {
     e?.preventDefault();
 
-    const keyword=searchQuery.trim();
+    const keyword = searchQuery.trim();
 
-    if(!keyword){
-      Swal.fire('Perhatian','Masukkan kata kunci pencarian (Email, NIK, Nama, atau No. HP).','warning');
+    if (!keyword) {
+      Swal.fire('Perhatian', 'Masukkan kata kunci pencarian (Email, NIK, Nama, atau No. HP).', 'warning');
       return;
     }
 
@@ -113,50 +113,50 @@ export default function TambahNakes(){
     setShowPasienDropdown(true);
     setSearchResults([]);
 
-    try{
-      const url=`https://citra.faaruq.com/api/admin/pasien?search=${encodeURIComponent(keyword)}`;
+    try {
+      const url = `https://citra.faaruq.com/api/admin/pasien?search=${encodeURIComponent(keyword)}`;
 
-      const res=await fetch(url,{
-        method:'GET',
-        headers:getAuthHeaders({
-          'Content-Type':'application/json',
-          Accept:'application/json'
+      const res = await fetch(url, {
+        method: 'GET',
+        headers: getAuthHeaders({
+          'Content-Type': 'application/json',
+          Accept: 'application/json'
         })
       });
 
-      const response=await res.json().catch(()=>null);
+      const response = await res.json().catch(() => null);
 
-      if(!res.ok)throw new Error(response?.message||`Request gagal dengan status ${res.status}`);
+      if (!res.ok) throw new Error(response?.message || `Request gagal dengan status ${res.status}`);
 
-      const data=response?.data!==undefined?response.data:response;
-      const list=Array.isArray(data)?data:data?[data]:[];
+      const data = response?.data !== undefined ? response.data : response;
+      const list = Array.isArray(data) ? data : data ? [data] : [];
 
       setSearchResults(list);
 
-      if(!list.length){
-        Swal.fire('Informasi','Tidak ditemukan akun pasien dengan kata kunci tersebut.','info');
+      if (!list.length) {
+        Swal.fire('Informasi', 'Tidak ditemukan akun pasien dengan kata kunci tersebut.', 'info');
       }
-    }catch(err){
-      console.error('Error search pasien:',err);
+    } catch (err) {
+      console.error('Error search pasien:', err);
       setSearchResults([]);
-      Swal.fire('Gagal',err.message||'Gagal mencari akun pasien.','error');
-    }finally{
+      Swal.fire('Gagal', err.message || 'Gagal mencari akun pasien.', 'error');
+    } finally {
       setSearchingPasien(false);
     }
   };
 
-  const handleSelectPasien=pasien=>{
-    const jkRaw=String(pasien?.jenis_kelamin||'').toLowerCase();
-    const jenisKelamin=jkRaw==='p'||jkRaw.includes('perempuan')?'P':jkRaw==='l'||jkRaw.includes('laki')?'L':'';
+  const handleSelectPasien = pasien => {
+    const jkRaw = String(pasien?.jenis_kelamin || '').toLowerCase();
+    const jenisKelamin = jkRaw === 'p' || jkRaw.includes('perempuan') ? 'P' : jkRaw === 'l' || jkRaw.includes('laki') ? 'L' : '';
 
-    const namaLengkap=pasien?.nama_lengkap||pasien?.nama||pasien?.name||pasien?.user?.name||pasien?.user?.nama||'';
-    const namaPanggilan=pasien?.nama_panggilan||(namaLengkap?namaLengkap.split(' ')[0]:'');
-    const alamat=pasien?.alamat_utama||pasien?.alamat_lengkap||pasien?.alamat||'';
-    const email=pasien?.email||pasien?.user?.email||'';
-    const noHp=pasien?.no_hp||pasien?.no_telp||pasien?.no_telepon||pasien?.phone||pasien?.user?.no_hp||pasien?.user?.no_telp||pasien?.user?.no_telepon||pasien?.user?.phone||'';
-    const userId=pasien?.user_id||pasien?.id_user||pasien?.user?.id||pasien?.id_pasien||pasien?.id||'';
+    const namaLengkap = pasien?.nama_lengkap || pasien?.nama || pasien?.name || pasien?.user?.name || pasien?.user?.nama || '';
+    const namaPanggilan = pasien?.nama_panggilan || (namaLengkap ? namaLengkap.split(' ')[0] : '');
+    const alamat = pasien?.alamat_utama || pasien?.alamat_lengkap || pasien?.alamat || '';
+    const email = pasien?.email || pasien?.user?.email || '';
+    const noHp = pasien?.no_hp || pasien?.no_telp || pasien?.no_telepon || pasien?.phone || pasien?.user?.no_hp || pasien?.user?.no_telp || pasien?.user?.no_telepon || pasien?.user?.phone || '';
+    const userId = pasien?.user_id || pasien?.id_user || pasien?.user?.id || pasien?.id_pasien || pasien?.id || '';
 
-    const wilayahCandidates=[
+    const wilayahCandidates = [
       pasien?.id_wilayah_layanan,
       pasien?.id_provinsi,
       pasien?.wilayah_layanan?.id_provinsi,
@@ -164,25 +164,25 @@ export default function TambahNakes(){
       pasien?.wilayah_layanan?.id
     ];
 
-    const rawWilayahId=wilayahCandidates.find(value=>value!==null&&value!==undefined&&/^\d+$/.test(String(value)));
-    const wilayahId=rawWilayahId?String(rawWilayahId):'';
+    const rawWilayahId = wilayahCandidates.find(value => value !== null && value !== undefined && /^\d+$/.test(String(value)));
+    const wilayahId = rawWilayahId ? String(rawWilayahId) : '';
 
     setSelectedPasien(pasien);
 
-    setForm(prev=>({
+    setForm(prev => ({
       ...prev,
-      user_id:userId||prev.user_id,
-      email:email||prev.email,
-      nik:pasien?.nik||prev.nik,
-      nama_lengkap:namaLengkap||prev.nama_lengkap,
-      nama_panggilan:namaPanggilan||prev.nama_panggilan,
-      jenis_kelamin:jenisKelamin||prev.jenis_kelamin,
-      tanggal_lahir:pasien?.tanggal_lahir||prev.tanggal_lahir,
-      agama:pasien?.agama||prev.agama,
-      tempat_lahir:pasien?.tempat_lahir||prev.tempat_lahir,
-      no_telp:noHp||prev.no_telp,
-      alamat_lengkap:alamat||prev.alamat_lengkap,
-      id_wilayah_layanan:wilayahId
+      user_id: userId || prev.user_id,
+      email: email || prev.email,
+      nik: pasien?.nik || prev.nik,
+      nama_lengkap: namaLengkap || prev.nama_lengkap,
+      nama_panggilan: namaPanggilan || prev.nama_panggilan,
+      jenis_kelamin: jenisKelamin || prev.jenis_kelamin,
+      tanggal_lahir: pasien?.tanggal_lahir || prev.tanggal_lahir,
+      agama: pasien?.agama || prev.agama,
+      tempat_lahir: pasien?.tempat_lahir || prev.tempat_lahir,
+      no_telp: noHp || prev.no_telp,
+      alamat_lengkap: alamat || prev.alamat_lengkap,
+      id_wilayah_layanan: wilayahId
     }));
 
     setSearchResults([]);
@@ -190,213 +190,216 @@ export default function TambahNakes(){
     setSearchQuery('');
 
     Swal.fire({
-      icon:'success',
-      title:'Data Pasien Terpilih',
-      text:`Profil "${namaLengkap}" berhasil dimasukkan ke form Nakes.`,
-      timer:1800,
-      showConfirmButton:false
+      icon: 'success',
+      title: 'Data Pasien Terpilih',
+      text: `Profil "${namaLengkap}" berhasil dimasukkan ke form Nakes.`,
+      timer: 1800,
+      showConfirmButton: false
     });
   };
 
-  const handleInputChange=e=>{
-    const {name,value}=e.target;
-    setForm(prev=>({...prev,[name]:value}));
+  const handleInputChange = e => {
+    const { name, value } = e.target;
+    setForm(prev => ({ ...prev, [name]: value }));
   };
 
   const handleFileChange = async (e) => {
-  const { name, files: selectedFiles } = e.target;
-  const file = selectedFiles?.[0];
+    const { name, files: selectedFiles } = e.target;
+    const file = selectedFiles?.[0];
 
-  if (!file) return;
+    if (!file) return;
 
-  try {
-    const compressed = await compressImage(file, 1024, 1024, 0.7);
-    console.log(`${name}: ${file.size} -> ${compressed.size}`);
-    setFiles((prev) => ({ ...prev, [name]: compressed }));
-  } catch (error) {
-    console.error(`Gagal kompres ${name}:`, error);
-    setFiles((prev) => ({ ...prev, [name]: file }));
-  }
-};
+    try {
+      const compressed = await compressImage(file, 1024, 1024, 0.7);
+      setFiles((prev) => ({ ...prev, [name]: compressed }));
+    } catch (error) {
+      console.error(`Gagal kompres ${name}:`, error);
+      setFiles((prev) => ({ ...prev, [name]: file }));
+    }
+  };
 
-  const handleKategoriToggle=kategoriName=>{
-    setForm(prev=>{
-      const current=prev.jenis_tenaga_medis||[];
-      const updated=current.includes(kategoriName)?current.filter(item=>item!==kategoriName):[...current,kategoriName];
-      return {...prev,jenis_tenaga_medis:updated};
+  const handleKategoriToggle = kategoriName => {
+    setForm(prev => {
+      const current = prev.jenis_tenaga_medis || [];
+      const updated = current.includes(kategoriName) ? current.filter(item => item !== kategoriName) : [...current, kategoriName];
+      return { ...prev, jenis_tenaga_medis: updated };
     });
   };
 
-  const handleUnivSearch=e=>{
-    const value=e.target.value;
+  const handleUnivSearch = e => {
+    const value = e.target.value;
 
     setUnivSearch(value);
-    setForm(prev=>({...prev,universitas:value}));
+    setForm(prev => ({ ...prev, universitas: value }));
     setIsUnivOpen(true);
 
-    if(!value.trim()){
+    if (!value.trim()) {
       setFilteredUniv([]);
       return;
     }
 
-    const keyword=value.toLowerCase();
-    setFilteredUniv(universitasOptions.filter(item=>getUnivLabel(item).toLowerCase().includes(keyword)));
+    const keyword = value.toLowerCase();
+    setFilteredUniv(universitasOptions.filter(item => getUnivLabel(item).toLowerCase().includes(keyword)));
   };
 
-  const handleSelectUniv=name=>{
-    setForm(prev=>({...prev,universitas:name}));
+  const handleSelectUniv = name => {
+    setForm(prev => ({ ...prev, universitas: name }));
     setUnivSearch(name);
     setIsUnivOpen(false);
   };
 
-  const checkExistingNakes=async()=>{
-    try{
-      const result=await getAllActiveNakes();
-      const nakesList=Array.isArray(result)?result:[];
+  const checkExistingNakes = async () => {
+    try {
+      const result = await getAllActiveNakes();
+      const nakesList = Array.isArray(result) ? result : [];
 
-      const sameUser=nakesList.find(item=>{
-        const idUser=item?.id_user??item?.user_id??item?.user?.id;
-        return idUser&&String(idUser)===String(form.user_id);
+      const sameUser = nakesList.find(item => {
+        const idUser = item?.id_user ?? item?.user_id ?? item?.user?.id;
+        return idUser && String(idUser) === String(form.user_id);
       });
 
-      if(sameUser){
-        return 'Akun pasien ini sudah terdaftar sebagai Nakes.';
-      }
+      if (sameUser) return 'Akun pasien ini sudah terdaftar sebagai Nakes.';
 
-      const sameNik=nakesList.find(item=>{
-        const nik=item?.nik??item?.NIK;
-        return nik&&normalize(nik)===normalize(form.nik);
+      const sameNik = nakesList.find(item => {
+        const nik = item?.nik ?? item?.NIK;
+        return nik && normalize(nik) === normalize(form.nik);
       });
 
-      if(sameNik){
-        return 'NIK tersebut sudah digunakan oleh Nakes lain.';
-      }
+      if (sameNik) return 'NIK tersebut sudah digunakan oleh Nakes lain.';
 
-      if(form.no_str){
-        const sameStr=nakesList.find(item=>{
-          const str=item?.no_str??item?.str;
-          return str&&normalize(str)===normalize(form.no_str);
+      if (form.no_str) {
+        const sameStr = nakesList.find(item => {
+          const str = item?.no_str ?? item?.str;
+          return str && normalize(str) === normalize(form.no_str);
         });
 
-        if(sameStr)return 'Nomor STR tersebut sudah digunakan oleh Nakes lain.';
+        if (sameStr) return 'Nomor STR tersebut sudah digunakan oleh Nakes lain.';
       }
 
-      if(form.no_sip){
-        const sameSip=nakesList.find(item=>{
-          const sip=item?.no_sip??item?.sip;
-          return sip&&normalize(sip)===normalize(form.no_sip);
+      if (form.no_sip) {
+        const sameSip = nakesList.find(item => {
+          const sip = item?.no_sip ?? item?.sip;
+          return sip && normalize(sip) === normalize(form.no_sip);
         });
 
-        if(sameSip)return 'Nomor SIP tersebut sudah digunakan oleh Nakes lain.';
+        if (sameSip) return 'Nomor SIP tersebut sudah digunakan oleh Nakes lain.';
       }
 
       return '';
-    }catch(err){
-      console.warn('Gagal melakukan pengecekan Nakes existing:',err);
+    } catch (err) {
+      console.warn('Gagal melakukan pengecekan Nakes existing:', err);
       return '';
     }
   };
 
-  const handleSubmit=async e=>{
+  const handleSubmit = async e => {
     e.preventDefault();
 
-    if(!form.user_id)return Swal.fire('Perhatian','WAJIB memilih akun Pasien existing terlebih dahulu.','warning');
-    if(!form.nama_lengkap)return Swal.fire('Perhatian','Nama lengkap wajib diisi.','warning');
-    if(!form.nik||!/^\d{16}$/.test(String(form.nik)))return Swal.fire('Perhatian','NIK harus terdiri dari 16 digit angka.','warning');
-    if(!form.jenis_kelamin)return Swal.fire('Perhatian','Jenis kelamin wajib dipilih.','warning');
+    if (!form.user_id) return Swal.fire('Perhatian', 'WAJIB memilih akun Pasien existing terlebih dahulu.', 'warning');
+    if (!form.nama_lengkap) return Swal.fire('Perhatian', 'Nama lengkap wajib diisi.', 'warning');
+    if (!form.nik || !/^\d{16}$/.test(String(form.nik))) return Swal.fire('Perhatian', 'NIK harus terdiri dari 16 digit angka.', 'warning');
+    if (!form.jenis_kelamin) return Swal.fire('Perhatian', 'Jenis kelamin wajib dipilih.', 'warning');
 
-    const wilayahId=Number(form.id_wilayah_layanan);
-    if(!Number.isInteger(wilayahId)||wilayahId<=0)return Swal.fire('Perhatian','Wilayah operasional wajib dipilih.','warning');
+    const wilayahId = Number(form.id_wilayah_layanan);
+    if (!Number.isInteger(wilayahId) || wilayahId <= 0) return Swal.fire('Perhatian', 'Wilayah operasional wajib dipilih.', 'warning');
 
-    if(!form.jenis_tenaga_medis?.length)return Swal.fire('Perhatian','Pilih minimal 1 jenis/kategori tenaga medis.','warning');
+    if (!form.jenis_tenaga_medis?.length) return Swal.fire('Perhatian', 'Pilih minimal 1 jenis/kategori tenaga medis.', 'warning');
 
-    if(!files.foto_profile)return Swal.fire('Perhatian','Foto profil wajib diunggah.','warning');
-    if(!files.file_ktp)return Swal.fire('Perhatian','Foto KTP wajib diunggah.','warning');
-    if(!files.ijazah)return Swal.fire('Perhatian','Foto ijazah wajib diunggah.','warning');
-    if(!files.file_skck)return Swal.fire('Perhatian','Foto SKCK wajib diunggah.','warning');
-    if(!files.file_cv)return Swal.fire('Perhatian','File CV wajib diunggah.','warning');
-    if(!files.file_str)return Swal.fire('Perhatian','Foto STR wajib diunggah.','warning');
-    if(!files.file_sip)return Swal.fire('Perhatian','Foto SIP wajib diunggah.','warning');
+    if (!files.foto_profile) return Swal.fire('Perhatian', 'Foto profil wajib diunggah.', 'warning');
+    if (!files.file_ktp) return Swal.fire('Perhatian', 'Foto KTP wajib diunggah.', 'warning');
+    if (!files.ijazah) return Swal.fire('Perhatian', 'Foto ijazah wajib diunggah.', 'warning');
+    if (!files.file_skck) return Swal.fire('Perhatian', 'Foto SKCK wajib diunggah.', 'warning');
+    if (!files.file_cv) return Swal.fire('Perhatian', 'File CV wajib diunggah.', 'warning');
+    if (!files.file_str) return Swal.fire('Perhatian', 'Foto STR wajib diunggah.', 'warning');
+    if (!files.file_sip) return Swal.fire('Perhatian', 'Foto SIP wajib diunggah.', 'warning');
 
     const totalUploadSize = Object.values(files).filter(Boolean).reduce((total, file) => total + file.size, 0);
     const maxSafeSize = 6 * 1024 * 1024;
 
     if (totalUploadSize > maxSafeSize) {
-      return Swal.fire('Ukuran Berkas Terlalu Besar', `Total berkas setelah kompresi masih ${ (totalUploadSize / 1024 / 1024).toFixed(2) } MB. Maksimal aman sekitar 6 MB dalam satu kali pendaftaran. Silakan gunakan file PDF/dokumen dengan ukuran lebih kecil.`, 'warning');
+      return Swal.fire('Ukuran Berkas Terlalu Besar', `Total berkas setelah kompresi masih ${(totalUploadSize / 1024 / 1024).toFixed(2)} MB. Maksimal aman sekitar 6 MB.`, 'warning');
     }
 
     setLoading(true);
 
-    try{
-      const duplicateMessage=await checkExistingNakes();
+    try {
+      const duplicateMessage = await checkExistingNakes();
 
-      if(duplicateMessage){
+      if (duplicateMessage) {
         setLoading(false);
-        return Swal.fire('Tidak dapat mendaftarkan',duplicateMessage,'warning');
+        return Swal.fire('Tidak dapat mendaftarkan', duplicateMessage, 'warning');
       }
 
-      const formData=new FormData();
+      const formData = new FormData();
 
-      formData.append('user_id',String(form.user_id));
-      formData.append('email',form.email||'');
-      formData.append('nik',form.nik||'');
-      formData.append('nama_lengkap',form.nama_lengkap||'');
-      formData.append('nama_panggilan',form.nama_panggilan||'');
-      formData.append('jenis_kelamin',form.jenis_kelamin||'');
-      formData.append('tempat_lahir',form.tempat_lahir||'');
-      formData.append('tanggal_lahir',form.tanggal_lahir||'');
-      formData.append('agama',form.agama||'');
-      formData.append('no_telp',form.no_telp||'');
-      formData.append('id_wilayah_layanan',String(wilayahId));
-      formData.append('jenis_tenaga_medis',form.jenis_tenaga_medis.join(', '));
-      formData.append('universitas',form.universitas||'');
-      formData.append('program_studi',form.program_studi||'');
-      if(form.tahun_lulus)formData.append('tahun_lulus',String(form.tahun_lulus));
-      formData.append('no_str',form.no_str||'');
-      formData.append('no_sip',form.no_sip||'');
-      formData.append('tempat_kerja',form.tempat_kerja||'');
-      formData.append('lama_bekerja',form.lama_bekerja||'');
-      formData.append('alamat_lengkap',form.alamat_lengkap||'');
-      formData.append('latitude',form.latitude||'-6.2088');
-      formData.append('longitude',form.longitude||'106.8456');
-      formData.append('status','approved');
+      formData.append('user_id', String(form.user_id));
+      formData.append('email', form.email || '');
+      formData.append('nik', form.nik || '');
+      formData.append('nama_lengkap', form.nama_lengkap || '');
+      formData.append('nama_panggilan', form.nama_panggilan || '');
+      formData.append('jenis_kelamin', form.jenis_kelamin || '');
+      formData.append('tempat_lahir', form.tempat_lahir || '');
+      formData.append('tanggal_lahir', form.tanggal_lahir || '');
+      formData.append('agama', form.agama || '');
+      formData.append('no_telp', form.no_telp || '');
+      formData.append('id_wilayah_layanan', String(wilayahId));
+      formData.append('jenis_tenaga_medis', form.jenis_tenaga_medis.join(', '));
+      formData.append('universitas', form.universitas || '');
+      formData.append('program_studi', form.program_studi || '');
+      if (form.tahun_lulus) formData.append('tahun_lulus', String(form.tahun_lulus));
+      formData.append('no_str', form.no_str || '');
+      formData.append('no_sip', form.no_sip || '');
+      formData.append('tempat_kerja', form.tempat_kerja || '');
+      formData.append('lama_bekerja', form.lama_bekerja || '');
+      formData.append('alamat_lengkap', form.alamat_lengkap || '');
+      formData.append('latitude', form.latitude || '-6.2088');
+      formData.append('longitude', form.longitude || '106.8456');
+      formData.append('status', 'approved');
 
-      if(form.admin_notes)formData.append('admin_notes',form.admin_notes);
+      if (form.admin_notes) formData.append('admin_notes', form.admin_notes);
 
-      Object.entries(files).forEach(([key,file])=>{
-        if(file)formData.append(key,file);
+      Object.entries(files).forEach(([key, file]) => {
+        if (file) formData.append(key, file);
       });
 
-      const result=await registerNakesByAdmin(formData);
-      console.log('Register Nakes Response:',result);
+      await registerNakesByAdmin(formData);
 
       await Swal.fire({
-        icon:'success',
-        title:'Berhasil',
-        text:'Akun pasien berhasil didaftarkan sebagai Nakes.',
-        timer:1800,
-        showConfirmButton:false
+        icon: 'success',
+        title: 'Berhasil',
+        text: 'Akun pasien berhasil didaftarkan sebagai Nakes.',
+        timer: 1800,
+        showConfirmButton: false
       });
 
       navigate('/nakes');
-    }catch(error){
-      console.error('Gagal daftar Nakes:',error);
-
-      const rawMessage=String(error?.message||'').toLowerCase();
-      const isDuplicate=rawMessage.includes('duplicate')||rawMessage.includes('tenaga_medis_nik_unique')||rawMessage.includes('nik');
+    } catch (error) {
+      console.error('Gagal daftar Nakes:', error);
+      const rawMessage = String(error?.message || '').toLowerCase();
+      const isDuplicate = rawMessage.includes('duplicate') || rawMessage.includes('tenaga_medis_nik_unique') || rawMessage.includes('nik');
 
       Swal.fire({
-        icon:'error',
-        title:'Gagal Simpan',
-        text:isDuplicate?'NIK tersebut sudah digunakan pada data Nakes lain. Silakan periksa kembali data NIK.':error?.message||'Gagal mendaftarkan akun pasien sebagai Nakes.'
+        icon: 'error',
+        title: 'Gagal Simpan',
+        text: isDuplicate ? 'NIK tersebut sudah digunakan pada data Nakes lain.' : error?.message || 'Gagal mendaftarkan akun pasien sebagai Nakes.'
       });
-    }finally{
+    } finally {
       setLoading(false);
     }
   };
 
+  const uploadFields = [
+    { name: 'file_ktp', label: 'File KTP', required: true, accept: 'image/jpeg,image/png,image/webp,application/pdf' },
+    { name: 'file_str', label: 'File STR', required: true, accept: 'image/jpeg,image/png,image/webp,application/pdf' },
+    { name: 'ijazah', label: 'File Ijazah', required: true, accept: 'image/jpeg,image/png,image/webp,application/pdf' },
+    { name: 'file_cv', label: 'File CV', required: true, accept: '.pdf,.doc,.docx,image/jpeg,image/png' },
+    { name: 'file_skck', label: 'File SKCK', required: true, accept: 'image/jpeg,image/png,image/webp,application/pdf' },
+    { name: 'file_sip', label: 'File SIP', required: true, accept: 'image/jpeg,image/png,image/webp,application/pdf' },
+    { name: 'foto_profile', label: 'Foto Profil / Pas Foto', required: true, accept: 'image/jpeg,image/png,image/webp' },
+  ];
+
   return (
-    <div className="max-w-5xl mx-auto p-6 bg-white rounded-xl shadow-sm border border-gray-200 my-6">
+    <div className="max-w-6xl mx-auto p-4 sm:p-6 md:p-8 bg-white rounded-xl shadow-sm border border-gray-200 my-6">
       <div className="border-b pb-4 mb-6">
         <h1 className="text-2xl font-bold text-gray-800">Form Input Tenaga Kesehatan</h1>
         <p className="text-sm text-gray-500">Pilih akun Pasien eksisting untuk didaftarkan sebagai Nakes</p>
@@ -408,25 +411,25 @@ export default function TambahNakes(){
           <p className="text-xs text-amber-700">Cari berdasarkan <b>Email</b>, <b>NIK</b>, <b>Nama</b>, atau <b>No. HP</b>.</p>
         </div>
 
-        <div className="flex gap-2">
-          <input type="text" value={searchQuery} onChange={e=>setSearchQuery(e.target.value)} onKeyDown={e=>e.key==='Enter'&&handleSearchPasien(e)} placeholder="Ketik Email / NIK / Nama / No. HP..." className="w-full border rounded-lg p-2.5 text-sm bg-white" />
-          <button type="button" onClick={handleSearchPasien} disabled={searchingPasien} className="px-5 py-2.5 bg-amber-600 hover:bg-amber-700 text-white text-xs font-semibold rounded-lg shadow-sm whitespace-nowrap disabled:opacity-50">{searchingPasien?'Mencari...':'Cari Pasien'}</button>
+        <div className="flex flex-col sm:flex-row gap-2">
+          <input type="text" value={searchQuery} onChange={e => setSearchQuery(e.target.value)} onKeyDown={e => e.key === 'Enter' && handleSearchPasien(e)} placeholder="Ketik Email / NIK / Nama / No. HP..." className="w-full border rounded-lg p-2.5 text-sm bg-white" />
+          <button type="button" onClick={handleSearchPasien} disabled={searchingPasien} className="px-5 py-2.5 bg-amber-600 hover:bg-amber-700 text-white text-xs font-semibold rounded-lg shadow-sm whitespace-nowrap disabled:opacity-50">{searchingPasien ? 'Mencari...' : 'Cari Pasien'}</button>
         </div>
 
-        {showPasienDropdown&&(
+        {showPasienDropdown && (
           <div className="absolute left-0 right-0 mt-2 bg-white border border-amber-300 rounded-xl shadow-xl z-30 max-h-60 overflow-y-auto">
-            {searchingPasien?(
+            {searchingPasien ? (
               <div className="p-4 text-center text-xs text-gray-500">Mencari data pasien...</div>
-            ):searchResults.length>0?(
-              searchResults.map((pasien,index)=>{
-                const nama=pasien?.nama_lengkap||pasien?.nama||pasien?.name||pasien?.user?.name||pasien?.user?.nama||'Tanpa Nama';
-                const email=pasien?.email||pasien?.user?.email||'-';
-                const nik=pasien?.nik||'-';
-                const noHp=pasien?.no_hp||pasien?.no_telp||pasien?.phone||'-';
-                const key=pasien?.user_id||pasien?.id_user||pasien?.id_pasien||pasien?.id||index;
+            ) : searchResults.length > 0 ? (
+              searchResults.map((pasien, index) => {
+                const nama = pasien?.nama_lengkap || pasien?.nama || pasien?.name || pasien?.user?.name || pasien?.user?.nama || 'Tanpa Nama';
+                const email = pasien?.email || pasien?.user?.email || '-';
+                const nik = pasien?.nik || '-';
+                const noHp = pasien?.no_hp || pasien?.no_telp || pasien?.phone || '-';
+                const key = pasien?.user_id || pasien?.id_user || pasien?.id_pasien || pasien?.id || index;
 
-                return(
-                  <div key={key} onClick={()=>handleSelectPasien(pasien)} className="p-3 hover:bg-amber-50 cursor-pointer border-b last:border-b-0 flex justify-between items-center transition">
+                return (
+                  <div key={key} onClick={() => handleSelectPasien(pasien)} className="p-3 hover:bg-amber-50 cursor-pointer border-b last:border-b-0 flex justify-between items-center transition">
                     <div>
                       <p className="text-xs font-bold text-gray-800">{nama}</p>
                       <p className="text-[11px] text-gray-500">Email: <span className="text-gray-700">{email}</span></p>
@@ -436,13 +439,13 @@ export default function TambahNakes(){
                   </div>
                 );
               })
-            ):(
+            ) : (
               <div className="p-4 text-center text-xs text-gray-500">Data pasien tidak ditemukan.</div>
             )}
           </div>
         )}
 
-        {selectedPasien&&(
+        {selectedPasien && (
           <div className="mt-3 px-3 py-2 rounded-lg bg-white border border-amber-200 text-xs text-gray-600">
             <span className="font-semibold text-gray-800">Pasien terpilih:</span> {form.nama_lengkap}
           </div>
@@ -450,11 +453,10 @@ export default function TambahNakes(){
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-8">
-
         <div>
           <h2 className="text-sm font-bold text-sky-600 uppercase tracking-wider mb-4 border-b pb-1">2. Data Pribadi Nakes</h2>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
             <div><label className="block text-xs font-semibold text-gray-700 mb-1">Email *</label><input type="email" name="email" required value={form.email} onChange={handleInputChange} className="w-full border rounded-lg p-2.5 text-sm" /></div>
             <div><label className="block text-xs font-semibold text-gray-700 mb-1">NIK (16 Digit) *</label><input type="text" name="nik" required maxLength={16} value={form.nik} onChange={handleInputChange} className="w-full border rounded-lg p-2.5 text-sm" /></div>
             <div><label className="block text-xs font-semibold text-gray-700 mb-1">Nama Lengkap *</label><input type="text" name="nama_lengkap" required value={form.nama_lengkap} onChange={handleInputChange} className="w-full border rounded-lg p-2.5 text-sm" /></div>
@@ -471,10 +473,10 @@ export default function TambahNakes(){
               <label className="block text-xs font-semibold text-gray-700 mb-1">Tempat Lahir *</label>
               <select name="tempat_lahir" required value={form.tempat_lahir} onChange={handleInputChange} disabled={loadingMaster} className="w-full border rounded-lg p-2.5 text-sm bg-white">
                 <option value="" disabled>Pilih...</option>
-                {wilayahOptions.map((item,index)=>{
-                  const id=getWilayahId(item);
-                  const label=getWilayahLabel(item);
-                  return <option key={id||index} value={label}>{label}</option>;
+                {wilayahOptions.map((item, index) => {
+                  const id = getWilayahId(item);
+                  const label = getWilayahLabel(item);
+                  return <option key={id || index} value={label}>{label}</option>;
                 })}
               </select>
             </div>
@@ -485,47 +487,47 @@ export default function TambahNakes(){
               <label className="block text-xs font-semibold text-gray-700 mb-1">Agama *</label>
               <select name="agama" required value={form.agama} onChange={handleInputChange} disabled={loadingMaster} className="w-full border rounded-lg p-2.5 text-sm bg-white">
                 <option value="" disabled>Pilih...</option>
-                {agamaOptions.map((item,index)=>{
-                  const text=getAgamaLabel(item);
-                  return <option key={item?.id_agama||item?.id||index} value={item?.nama_agama||item?.nama||item?.name||text}>{text}</option>;
+                {agamaOptions.map((item, index) => {
+                  const text = getAgamaLabel(item);
+                  return <option key={item?.id_agama || item?.id || index} value={item?.nama_agama || item?.nama || item?.name || text}>{text}</option>;
                 })}
               </select>
             </div>
 
             <div><label className="block text-xs font-semibold text-gray-700 mb-1">No. HP / WA *</label><input type="text" name="no_telp" required value={form.no_telp} onChange={handleInputChange} className="w-full border rounded-lg p-2.5 text-sm" /></div>
 
-            <div>
+            <div className="sm:col-span-2 md:col-span-1">
               <label className="block text-xs font-semibold text-gray-700 mb-1">Wilayah Operasional *</label>
               <select name="id_wilayah_layanan" required value={form.id_wilayah_layanan} onChange={handleInputChange} disabled={loadingMaster} className="w-full border rounded-lg p-2.5 text-sm bg-white">
                 <option value="" disabled>Pilih...</option>
-                {wilayahOptions.map((item,index)=>{
-                  const id=getWilayahId(item);
-                  const label=getWilayahLabel(item);
-                  if(!id)return null;
-                  return <option key={id||index} value={id}>{label}</option>;
+                {wilayahOptions.map((item, index) => {
+                  const id = getWilayahId(item);
+                  const label = getWilayahLabel(item);
+                  if (!id) return null;
+                  return <option key={id || index} value={id}>{label}</option>;
                 })}
               </select>
             </div>
 
-            <div className="md:col-span-3 border p-3.5 rounded-xl bg-slate-50">
+            <div className="sm:col-span-2 md:col-span-3 border p-3.5 rounded-xl bg-slate-50">
               <label className="block text-xs font-bold text-gray-800 mb-1">Jenis / Kategori Tenaga Medis *</label>
               <p className="text-[11px] text-gray-500 mb-2">Bisa memilih lebih dari satu.</p>
 
               <div className="flex flex-wrap gap-2">
-                {kategoriOptions.map((item,index)=>{
-                  const text=getKategoriLabel(item);
-                  const checked=form.jenis_tenaga_medis.includes(text);
+                {kategoriOptions.map((item, index) => {
+                  const text = getKategoriLabel(item);
+                  const checked = form.jenis_tenaga_medis.includes(text);
 
-                  return(
-                    <button type="button" key={item?.id||item?.id_kategori_layanan||index} onClick={()=>handleKategoriToggle(text)} className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition flex items-center gap-1.5 border ${checked?'bg-sky-600 text-white border-sky-600 shadow-sm':'bg-white text-gray-700 border-gray-300 hover:bg-gray-100'}`}>
-                      <span>{checked?'✓':'+'}</span>{text}
+                  return (
+                    <button type="button" key={item?.id || item?.id_kategori_layanan || index} onClick={() => handleKategoriToggle(text)} className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition flex items-center gap-1.5 border ${checked ? 'bg-sky-600 text-white border-sky-600 shadow-sm' : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-100'}`}>
+                      <span>{checked ? '✓' : '+'}</span>{text}
                     </button>
                   );
                 })}
               </div>
             </div>
 
-            <div className="md:col-span-3">
+            <div className="sm:col-span-2 md:col-span-3">
               <label className="block text-xs font-semibold text-gray-700 mb-1">Alamat Lengkap *</label>
               <textarea name="alamat_lengkap" rows={2} required value={form.alamat_lengkap} onChange={handleInputChange} className="w-full border rounded-lg p-2.5 text-sm" />
             </div>
@@ -535,17 +537,17 @@ export default function TambahNakes(){
         <div>
           <h2 className="text-sm font-bold text-sky-600 uppercase tracking-wider mb-4 border-b pb-1">3. Pendidikan & Profesi</h2>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
             <div className="relative" ref={univRef}>
               <label className="block text-xs font-semibold text-gray-700 mb-1">Universitas *</label>
-              <input type="text" value={univSearch||form.universitas} onChange={handleUnivSearch} onFocus={()=>setIsUnivOpen(true)} placeholder="Ketik universitas..." className="w-full border rounded-lg p-2.5 text-sm" />
+              <input type="text" value={univSearch || form.universitas} onChange={handleUnivSearch} onFocus={() => setIsUnivOpen(true)} placeholder="Ketik universitas..." className="w-full border rounded-lg p-2.5 text-sm" />
 
-              {isUnivOpen&&(
+              {isUnivOpen && (
                 <div className="absolute z-20 w-full mt-1 bg-white border rounded-lg shadow-lg max-h-40 overflow-y-auto">
-                  {filteredUniv.length>0?filteredUniv.map((item,index)=>{
-                    const name=getUnivLabel(item);
-                    return <div key={item?.id||index} onClick={()=>handleSelectUniv(name)} className="p-2 text-xs hover:bg-sky-50 cursor-pointer border-b">{name}</div>;
-                  }):<div className="p-2 text-xs text-gray-400">Ketik untuk memilih...</div>}
+                  {filteredUniv.length > 0 ? filteredUniv.map((item, index) => {
+                    const name = getUnivLabel(item);
+                    return <div key={item?.id || index} onClick={() => handleSelectUniv(name)} className="p-2 text-xs hover:bg-sky-50 cursor-pointer border-b">{name}</div>;
+                  }) : <div className="p-2 text-xs text-gray-400">Ketik untuk memilih...</div>}
                 </div>
               )}
             </div>
@@ -555,34 +557,53 @@ export default function TambahNakes(){
             <div><label className="block text-xs font-semibold text-gray-700 mb-1">Nomor STR *</label><input type="text" name="no_str" required value={form.no_str} onChange={handleInputChange} className="w-full border rounded-lg p-2.5 text-sm" /></div>
             <div><label className="block text-xs font-semibold text-gray-700 mb-1">Nomor SIP</label><input type="text" name="no_sip" value={form.no_sip} onChange={handleInputChange} className="w-full border rounded-lg p-2.5 text-sm" /></div>
             <div><label className="block text-xs font-semibold text-gray-700 mb-1">Tempat Kerja</label><input type="text" name="tempat_kerja" value={form.tempat_kerja} onChange={handleInputChange} className="w-full border rounded-lg p-2.5 text-sm" /></div>
-            <div><label className="block text-xs font-semibold text-gray-700 mb-1">Lama Bekerja</label><input type="text" name="lama_bekerja" value={form.lama_bekerja} onChange={handleInputChange} placeholder="Contoh: 5 Tahun" className="w-full border rounded-lg p-2.5 text-sm" /></div>
+            <div className="sm:col-span-2 md:col-span-1"><label className="block text-xs font-semibold text-gray-700 mb-1">Lama Bekerja</label><input type="text" name="lama_bekerja" value={form.lama_bekerja} onChange={handleInputChange} placeholder="Contoh: 5 Tahun" className="w-full border rounded-lg p-2.5 text-sm" /></div>
           </div>
         </div>
 
+        {/* 4. UPLOAD DOKUMEN BERKAS (RATA KANAN-KIRI FULL RESPONSIVE) */}
         <div>
-          <h2 className="text-sm font-bold text-sky-600 uppercase tracking-wider mb-4 border-b pb-1">4. Upload Berkas Dokumen & Foto</h2>
-          <p className="text-xs text-gray-500 mb-4">Berkas tetap dapat dilengkapi atau diperbarui kembali oleh Nakes setelah akun berhasil dibuat.</p>
+          <h2 className="text-sm font-bold text-sky-600 uppercase tracking-wider mb-4 border-b pb-1">
+            4. UPLOAD DOKUMEN BERKAS
+          </h2>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="p-3 border rounded-lg bg-gray-50"><label className="block text-xs font-semibold text-gray-700 mb-1">Foto Profil *</label><input type="file" name="foto_profile" accept="image/jpeg,image/png,image/webp" onChange={handleFileChange} className="w-full text-xs text-gray-500" />{files.foto_profile&&<p className="mt-1 text-[11px] text-green-600">{files.foto_profile.name}</p>}</div>
-
-            <div className="p-3 border rounded-lg bg-gray-50"><label className="block text-xs font-semibold text-gray-700 mb-1">Foto KTP *</label><input type="file" name="file_ktp" accept="image/jpeg,image/png,image/webp,application/pdf" onChange={handleFileChange} className="w-full text-xs text-gray-500" />{files.file_ktp&&<p className="mt-1 text-[11px] text-green-600">{files.file_ktp.name}</p>}</div>
-
-            <div className="p-3 border rounded-lg bg-gray-50"><label className="block text-xs font-semibold text-gray-700 mb-1">Foto Ijazah *</label><input type="file" name="ijazah" accept="image/jpeg,image/png,image/webp,application/pdf" onChange={handleFileChange} className="w-full text-xs text-gray-500" />{files.ijazah&&<p className="mt-1 text-[11px] text-green-600">{files.ijazah.name}</p>}</div>
-
-            <div className="p-3 border rounded-lg bg-gray-50"><label className="block text-xs font-semibold text-gray-700 mb-1">Foto SKCK *</label><input type="file" name="file_skck" accept="image/jpeg,image/png,image/webp,application/pdf" onChange={handleFileChange} className="w-full text-xs text-gray-500" />{files.file_skck&&<p className="mt-1 text-[11px] text-green-600">{files.file_skck.name}</p>}</div>
-
-            <div className="p-3 border rounded-lg bg-gray-50"><label className="block text-xs font-semibold text-gray-700 mb-1">CV *</label><input type="file" name="file_cv" accept=".pdf,.doc,.docx,image/jpeg,image/png" onChange={handleFileChange} className="w-full text-xs text-gray-500" />{files.file_cv&&<p className="mt-1 text-[11px] text-green-600">{files.file_cv.name}</p>}</div>
-
-            <div className="p-3 border rounded-lg bg-gray-50"><label className="block text-xs font-semibold text-gray-700 mb-1">Foto STR *</label><input type="file" name="file_str" accept="image/jpeg,image/png,image/webp,application/pdf" onChange={handleFileChange} className="w-full text-xs text-gray-500" />{files.file_str&&<p className="mt-1 text-[11px] text-green-600">{files.file_str.name}</p>}</div>
-
-            <div className="p-3 border rounded-lg bg-gray-50 md:col-span-2"><label className="block text-xs font-semibold text-gray-700 mb-1">Foto SIP *</label><input type="file" name="file_sip" accept="image/jpeg,image/png,image/webp,application/pdf" onChange={handleFileChange} className="w-full text-xs text-gray-500" />{files.file_sip&&<p className="mt-1 text-[11px] text-green-600">{files.file_sip.name}</p>}</div>
+          <div className="grid grid-cols-[repeat(auto-fit,minmax(250px,1fr))] gap-4 w-full">
+            {uploadFields.map((field) => (
+              <label
+                key={field.name}
+                className="w-full border-2 border-dashed border-gray-300 hover:border-sky-500 bg-white hover:bg-sky-50/20 rounded-2xl p-5 flex flex-col items-center justify-center text-center cursor-pointer transition-all duration-200 group min-h-[140px] box-border"
+              >
+                <input
+                  type="file"
+                  name={field.name}
+                  accept={field.accept}
+                  onChange={handleFileChange}
+                  className="hidden"
+                />
+                <div className="w-10 h-10 rounded-full bg-sky-100 text-sky-600 font-bold text-xs flex items-center justify-center mb-2.5 group-hover:scale-105 transition-transform">
+                  DOC
+                </div>
+                <p className="text-xs font-bold text-gray-800">
+                  {field.label} {field.required && <span className="text-red-500">*</span>}
+                </p>
+                {files[field.name] ? (
+                  <p className="text-[11px] text-emerald-600 font-semibold mt-1 truncate max-w-full px-2">
+                    ✓ {files[field.name].name}
+                  </p>
+                ) : (
+                  <>
+                    <p className="text-[11px] text-gray-400 mt-1">Klik di sini untuk upload</p>
+                    <p className="text-[10px] text-gray-400 italic">Belum ada file</p>
+                  </>
+                )}
+              </label>
+            ))}
           </div>
         </div>
 
         <div className="flex justify-end gap-3 border-t pt-4">
-          <button type="button" onClick={()=>navigate('/nakes')} disabled={loading} className="px-5 py-2.5 rounded-lg border text-gray-600 text-sm font-semibold hover:bg-gray-100 disabled:opacity-50">Batal</button>
-          <button type="submit" disabled={loading} className="px-6 py-2.5 rounded-lg bg-sky-600 hover:bg-sky-700 text-white text-sm font-semibold shadow disabled:opacity-50">{loading?'Menyimpan Data Nakes...':'Simpan Data Nakes'}</button>
+          <button type="button" onClick={() => navigate('/nakes')} disabled={loading} className="px-5 py-2.5 rounded-lg border text-gray-600 text-sm font-semibold hover:bg-gray-100 disabled:opacity-50">Batal</button>
+          <button type="submit" disabled={loading} className="px-6 py-2.5 rounded-lg bg-sky-600 hover:bg-sky-700 text-white text-sm font-semibold shadow disabled:opacity-50">{loading ? 'Menyimpan Data Nakes...' : 'Simpan Data Nakes'}</button>
         </div>
       </form>
     </div>
