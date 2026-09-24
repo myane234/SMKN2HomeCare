@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { createHubungiKami, getHubungiKamiInfo } from "@/services/hubungiKamiService";
 import { getUserInfoForUlasan } from "@/services/ulasanService";
 import { getGlobalConfig } from "@/services/configService";
-import { FiMail, FiPhone, FiMapPin, FiSend, FiMessageSquare, FiCheckCircle, FiAlertCircle, FiLock } from "react-icons/fi";
+import { FiMail, FiPhone, FiMapPin, FiSend, FiMessageSquare, FiCheckCircle, FiAlertCircle, FiLock, FiClock } from "react-icons/fi";
 import { FaWhatsapp } from "react-icons/fa";
 
 function verifyIndonesianPhone(rawPhone) {
@@ -52,6 +52,21 @@ export default function HubungiKamiPage() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [userInfo, setUserInfo] = useState(null);
 
+  // Cooldown Submit State (Proteksi spam klik)
+  const [cooldown, setCooldown] = useState(() => {
+    if (typeof window !== "undefined") {
+      try {
+        const saved = sessionStorage.getItem("hubungi_cooldown_until");
+        if (saved) {
+          const remaining = Math.ceil((Number(saved) - Date.now()) / 1000);
+          if (remaining > 0) return remaining;
+          sessionStorage.removeItem("hubungi_cooldown_until");
+        }
+      } catch {}
+    }
+    return 0;
+  });
+
   // Live validation states
   const [phoneFeedback, setPhoneFeedback] = useState(null);
 
@@ -60,8 +75,24 @@ export default function HubungiKamiPage() {
     email: "",
     no_hp: "",
     subjek: "",
-    pesan: ""
+    pesan: "",
+    website_hp: "" // Honeypot field (anti-bot)
   });
+
+  // Interval hitung mundur cooldown submit
+  useEffect(() => {
+    if (cooldown <= 0) return;
+    const timer = setInterval(() => {
+      setCooldown((prev) => {
+        if (prev <= 1) {
+          sessionStorage.removeItem("hubungi_cooldown_until");
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [cooldown]);
 
   // 1. Load User Profile jika sudah login
   useEffect(() => {
@@ -129,12 +160,36 @@ export default function HubungiKamiPage() {
     setSuccessMsg("");
     setErrorMsg("");
 
+    // 1. Proteksi Honeypot (Anti-Bot)
+    if (form.website_hp) {
+      setSuccessMsg("Pesan Anda berhasil terkirim! Tim medis kami akan segera menghubungi Anda.");
+      setForm((prev) => ({
+        ...prev,
+        subjek: "",
+        pesan: "",
+        website_hp: ""
+      }));
+      return;
+    }
+
+    // 2. Cek Cooldown Submit
+    if (cooldown > 0) {
+      setErrorMsg(`Mohon tunggu ${cooldown} detik sebelum mengirim pesan kembali.`);
+      return;
+    }
+
     if (!form.nama.trim() || !form.email.trim() || !form.pesan.trim()) {
       setErrorMsg("Mohon lengkapi nama, email, dan pesan Anda.");
       return;
     }
 
-    // A. Verifikasi Nomor Telepon / WhatsApp
+    // 3. Batasan Karakter Pesan (Minimal 50 Karakter)
+    if (form.pesan.trim().length < 50) {
+      setErrorMsg(`Isi pesan minimal 50 karakter agar tim kami dapat memahami kebutuhan Anda dengan jelas (saat ini ${form.pesan.trim().length}/50 karakter).`);
+      return;
+    }
+
+    // 4. Verifikasi Nomor Telepon / WhatsApp
     if (form.no_hp.trim()) {
       const phoneCheck = verifyIndonesianPhone(form.no_hp.trim());
       if (!phoneCheck.valid) {
@@ -150,12 +205,21 @@ export default function HubungiKamiPage() {
       setSubmitting(true);
       await createHubungiKami(form);
       setSuccessMsg("Pesan Anda berhasil terkirim! Tim medis kami akan segera menghubungi Anda.");
+      
+      // Aktifkan cooldown 60 detik setelah pesan berhasil terkirim
+      const cooldownSec = 60;
+      setCooldown(cooldownSec);
+      if (typeof window !== "undefined") {
+        sessionStorage.setItem("hubungi_cooldown_until", String(Date.now() + cooldownSec * 1000));
+      }
+
       setForm((prev) => ({
         nama: isLoggedIn && userInfo?.nama_pengulas ? userInfo.nama_pengulas : "",
         email: isLoggedIn && userInfo?.email ? userInfo.email : "",
         no_hp: "",
         subjek: "",
-        pesan: ""
+        pesan: "",
+        website_hp: ""
       }));
       setPhoneFeedback(null);
     } catch {
@@ -171,8 +235,8 @@ export default function HubungiKamiPage() {
   const whatsapp = config.whatsapp || config.hubungi_whatsapp || "0812-3456-7890";
 
   return (
-    <div className="min-h-screen bg-slate-50 font-sans text-slate-800 py-10 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-4xl mx-auto space-y-8">
+    <div className="min-h-screen bg-slate-50 font-sans text-slate-800 py-6 sm:py-10 px-3.5 sm:px-6 lg:px-8">
+      <div className="max-w-4xl mx-auto space-y-6 sm:space-y-8">
         
         {/* Header */}
         <div className="text-center space-y-2 max-w-xl mx-auto">
@@ -188,32 +252,38 @@ export default function HubungiKamiPage() {
         </div>
 
         {/* 2-Column Content Layout */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-5 sm:gap-6">
           
           {/* Column 1: Contact Cards */}
-          <div className="space-y-4">
-            <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-2xs space-y-3">
+          <div>
+            <div className="bg-white rounded-2xl border border-slate-200/80 p-4 sm:p-5 shadow-2xs space-y-3">
               <div className="flex items-center gap-3">
-                <div className="h-9 w-9 rounded-xl bg-sky-50 text-sky-600 flex items-center justify-center font-bold">
+                <div className="h-9 w-9 rounded-xl bg-sky-50 text-sky-600 flex items-center justify-center font-bold shrink-0">
                   <FiPhone size={18} />
                 </div>
-                <div>
+                <div className="min-w-0">
                   <h3 className="text-xs font-bold text-slate-800">Telepon Official</h3>
-                  <p className="text-xs text-slate-600 mt-0.5">{phone}</p>
+                  <a
+                    href={`tel:${phone.replace(/[^0-9+]/g, "")}`}
+                    className="text-xs text-slate-600 hover:text-sky-600 font-medium hover:underline mt-0.5 inline-block truncate"
+                    title="Klik untuk menelepon"
+                  >
+                    {phone}
+                  </a>
                 </div>
               </div>
 
               <div className="flex items-center gap-3 border-t border-slate-100 pt-3">
-                <div className="h-9 w-9 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center font-bold">
+                <div className="h-9 w-9 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center font-bold shrink-0">
                   <FaWhatsapp size={18} />
                 </div>
-                <div>
+                <div className="min-w-0">
                   <h3 className="text-xs font-bold text-slate-800">WhatsApp Fast Response</h3>
                   <a
                     href={`https://wa.me/${whatsapp.replace(/[^0-9]/g, "")}`}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="text-xs text-slate-600 hover:text-emerald-600 font-medium hover:underline mt-0.5 inline-block"
+                    className="text-xs text-slate-600 hover:text-emerald-600 font-medium hover:underline mt-0.5 inline-block truncate"
                     title="Klik untuk menghubungi via WhatsApp"
                   >
                     {whatsapp}
@@ -222,12 +292,18 @@ export default function HubungiKamiPage() {
               </div>
 
               <div className="flex items-center gap-3 border-t border-slate-100 pt-3">
-                <div className="h-9 w-9 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center font-bold">
+                <div className="h-9 w-9 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center font-bold shrink-0">
                   <FiMail size={18} />
                 </div>
-                <div>
+                <div className="min-w-0">
                   <h3 className="text-xs font-bold text-slate-800">Email Resmi</h3>
-                  <p className="text-xs text-slate-600 mt-0.5">{email}</p>
+                  <a
+                    href={`mailto:${email}`}
+                    className="text-xs text-slate-600 hover:text-blue-600 font-medium hover:underline mt-0.5 inline-block truncate"
+                    title="Klik untuk kirim email"
+                  >
+                    {email}
+                  </a>
                 </div>
               </div>
 
@@ -235,7 +311,7 @@ export default function HubungiKamiPage() {
                 <div className="h-9 w-9 rounded-xl bg-slate-100 text-slate-600 flex items-center justify-center font-bold shrink-0">
                   <FiMapPin size={18} />
                 </div>
-                <div>
+                <div className="min-w-0">
                   <h3 className="text-xs font-bold text-slate-800">Alamat Kantor</h3>
                   <p className="text-xs text-slate-600 mt-0.5 leading-relaxed">{address}</p>
                 </div>
@@ -244,7 +320,7 @@ export default function HubungiKamiPage() {
           </div>
 
           {/* Column 2 & 3: Form Kirim Pesan */}
-          <div className="md:col-span-2 bg-white rounded-2xl border border-slate-200 p-5 sm:p-6 shadow-2xs space-y-4">
+          <div className="md:col-span-2 bg-white rounded-2xl border border-slate-200/80 p-4 sm:p-6 shadow-2xs space-y-4">
             <h2 className="text-sm sm:text-base font-bold text-slate-800 flex items-center gap-2">
               <FiMessageSquare className="text-sky-600" /> Kirim Pesan Langsung
             </h2>
@@ -375,18 +451,66 @@ export default function HubungiKamiPage() {
                   placeholder="Tuliskan pertanyaan atau kebutuhan perawatan Anda..."
                   value={form.pesan}
                   onChange={(e) => setForm({ ...form, pesan: e.target.value })}
-                  className="w-full rounded-xl border border-slate-200 p-3 text-xs focus:border-sky-500 focus:outline-none"
+                  className={`w-full rounded-xl border p-3 text-xs focus:outline-none transition ${
+                    form.pesan.trim().length > 0 && form.pesan.trim().length < 50
+                      ? "border-amber-300 focus:border-amber-500 bg-amber-50/20"
+                      : "border-slate-200 focus:border-sky-500"
+                  }`}
                   required
+                />
+                {/* Batasan Karakter Pesan (Minimal 50 Karakter) */}
+                <div className="flex items-center justify-between mt-1.5 text-[11px]">
+                  <span className={form.pesan.trim().length >= 50 ? "text-emerald-600 font-medium" : "text-slate-400"}>
+                    {form.pesan.trim().length >= 50 ? "✓ Panjang pesan memenuhi syarat (min. 50)" : "Minimal 50 karakter"}
+                  </span>
+                  <span
+                    className={`font-mono text-[11px] ${
+                      form.pesan.trim().length === 0
+                        ? "text-slate-400"
+                        : form.pesan.trim().length < 50
+                        ? "text-amber-600 font-semibold"
+                        : "text-emerald-600 font-medium"
+                    }`}
+                  >
+                    {form.pesan.trim().length} / 50 karakter
+                  </span>
+                </div>
+              </div>
+
+              {/* Honeypot Field: Tersembunyi dari manusia untuk menjebak bot spam */}
+              <div className="hidden" aria-hidden="true" style={{ display: "none" }}>
+                <label htmlFor="website_hp">Jangan isi input ini jika Anda manusia</label>
+                <input
+                  type="text"
+                  id="website_hp"
+                  name="website_hp"
+                  tabIndex={-1}
+                  autoComplete="off"
+                  value={form.website_hp || ""}
+                  onChange={(e) => setForm({ ...form, website_hp: e.target.value })}
                 />
               </div>
 
-              <button
-                type="submit"
-                disabled={submitting}
-                className="inline-flex items-center gap-2 rounded-xl bg-sky-600 px-6 py-2.5 text-xs font-bold text-white shadow-xs hover:bg-sky-700 transition active:scale-95 cursor-pointer disabled:opacity-50"
-              >
-                <FiSend /> {submitting ? "Sending..." : "Kirim Pesan"}
-              </button>
+              <div className="flex flex-col sm:flex-row sm:items-center gap-3 pt-1">
+                <button
+                  type="submit"
+                  disabled={submitting || cooldown > 0 || form.pesan.trim().length < 50}
+                  className="w-full sm:w-auto inline-flex items-center justify-center gap-2 rounded-xl bg-sky-600 px-6 py-3 sm:py-2.5 text-xs font-bold text-white shadow-xs hover:bg-sky-700 transition active:scale-95 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  <FiSend />{" "}
+                  {submitting
+                    ? "Mengirim..."
+                    : cooldown > 0
+                    ? `Tunggu (${cooldown}s)`
+                    : "Kirim Pesan"}
+                </button>
+
+                {cooldown > 0 && (
+                  <span className="text-[11px] text-amber-700 font-medium flex items-center gap-1.5 bg-amber-50 border border-amber-200 px-3 py-1.5 rounded-xl">
+                    <FiClock className="shrink-0" /> Mohon tunggu {cooldown} detik sebelum mengirim pesan kembali.
+                  </span>
+                )}
+              </div>
             </form>
           </div>
 

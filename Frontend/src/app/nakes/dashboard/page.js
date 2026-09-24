@@ -525,7 +525,7 @@ export default function DashboardPage() {
       });
     });
 
-  const handleBookingAction = async (booking, action) => {
+ const handleBookingAction = async (booking, action) => {
     const bookingId = getBookingId(booking);
     if (!bookingId) {
       showToast("error", "ID booking tidak valid.");
@@ -553,23 +553,8 @@ export default function DashboardPage() {
 
     try {
       if (action === "accept") {
-        let payload = {};
-        try {
-          const position = await requestGps();
-          if (position)
-            payload = {
-              latitude: position.coords.latitude,
-              longitude: position.coords.longitude,
-            };
-        } catch {
-          showToast(
-            "error",
-            "Lokasi tidak dapat diperoleh. Izinkan GPS lalu coba lagi."
-          );
-          return;
-        }
-
-        await acceptNakesBooking(bookingId, payload);
+        // GPS dilewati/dihapus, langsung kirim request terima pesanan tanpa payload koordinat
+        await acceptNakesBooking(bookingId);
         showToast("success", "Booking berhasil diterima.");
       } else {
         await rejectNakesBooking(bookingId);

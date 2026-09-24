@@ -48,6 +48,9 @@ import PageSyaratKetentuanPasien from "./pages/PageSyaratKetentuanPasien";
 import PageSyaratKetentuanNakes from "./pages/PageSyaratKetentuanNakes";
 import PageStatistikArtikel from "./pages/PageStatistikArtikel";
 import PageLaporan from "./pages/PageLaporan";
+import PageLaporanTransaksi from "./pages/PageLaporanTransaksi";
+import PageLaporanBooking from "./pages/PageLaporanBooking";
+import PageLaporanNakes from "./pages/PageLaporanNakes";
 import PageProfileAdmin from "./pages/PageProfileAdmin";
 import AdminMasterPendidikan from "./pages/admin/AdminMasterPendidikan"; 
 import AdminMasterUniversitas from "./pages/admin/AdminMasterUniversitas";
@@ -362,6 +365,30 @@ function App() {
           element={
             <ProtectedRoute requiredPath="/statistik-artikel">
               <PageStatistikArtikel />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/laporan-transaksi"
+          element={
+            <ProtectedRoute requiredPath="/laporan-transaksi">
+              <PageLaporanTransaksi />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/laporan-booking"
+          element={
+            <ProtectedRoute requiredPath="/laporan-booking">
+              <PageLaporanBooking />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/laporan-nakes"
+          element={
+            <ProtectedRoute requiredPath="/laporan-nakes">
+              <PageLaporanNakes />
             </ProtectedRoute>
           }
         />
