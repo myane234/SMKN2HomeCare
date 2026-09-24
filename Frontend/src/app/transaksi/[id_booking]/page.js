@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { FiArrowLeft, FiCalendar, FiUser, FiMapPin, FiCreditCard, FiClock, FiFileText } from "react-icons/fi";
 import { getDetailTransaksi } from "@/services/transaksiService";
+import { getBhpBookingState } from "@/services/nakesService";
 
 export default function DetailTransaksiPage({ params }) {
   // Unwrap params - key "id_booking" HARUS sama persis dengan nama folder [id_booking]
@@ -212,34 +213,54 @@ export default function DetailTransaksiPage({ params }) {
                 <h3 className="text-sm font-semibold text-gray-800 mb-3 flex items-center gap-2">
                   <FiCreditCard className="text-blue-600" /> Rincian Pembayaran
                 </h3>
-                <div className="bg-slate-50 p-4 rounded-lg space-y-2 text-sm">
-                  <div className="flex justify-between text-gray-600">
-                    <span>Biaya Layanan</span>
-                    <span>{formatRupiah(rincianBiaya.layanan?.nilai || rincianBiaya.sl)}</span>
-                  </div>
-                  <div className="flex justify-between text-gray-600">
-                    <span>Biaya Alat</span>
-                    <span>{formatRupiah(rincianBiaya.bhp?.nilai || rincianBiaya.sb)}</span>
-                  </div>
-                  <div className="flex justify-between text-gray-600">
-                    <span>Transportasi</span>
-                    <span>{formatRupiah(rincianBiaya.transportasi?.nilai || rincianBiaya.st)}</span>
-                  </div>
-                  <div className="flex justify-between text-gray-600">
-                    <span>Administrasi</span>
-                    <span>{formatRupiah(rincianBiaya.administrasi?.nilai || rincianBiaya.ba)}</span>
-                  </div>
-                  <div className="flex justify-between text-gray-600">
-                    <span>PPN ({rincianBiaya.persentase_ppn || 0}%)</span>
-                    <span>{formatRupiah(rincianBiaya.ppn?.nilai || rincianBiaya.ppn)}</span>
-                  </div>
-                  <div className="flex justify-between text-gray-900 font-bold text-base pt-2 border-t border-gray-200">
-                    <span>Total Pembayaran</span>
-                    <span className="text-blue-600">
-                      {formatRupiah(rincianBiaya.total?.nilai || detailPembayaran.jumlah_total || transaksi.total)}
-                    </span>
-                  </div>
-                </div>
+                {(() => {
+                  const bhpState = getBhpBookingState(idBooking);
+                  const totalAwal = Number(rincianBiaya.total?.nilai || detailPembayaran.jumlah_total || transaksi.total || 0);
+                  const totalBhpTambahan = Number(bhpState.total_tambahan || 0);
+                  const grandTotal = totalAwal + totalBhpTambahan;
+
+                  return (
+                    <div className="bg-slate-50 p-4 rounded-lg space-y-2 text-sm">
+                      <div className="flex justify-between text-gray-600">
+                        <span>Biaya Layanan Utama</span>
+                        <span>{formatRupiah(rincianBiaya.layanan?.nilai || rincianBiaya.sl || totalAwal)}</span>
+                      </div>
+
+                      {totalBhpTambahan > 0 && (
+                        <div className="p-2.5 bg-amber-50 rounded-lg border border-amber-200/80 space-y-1 my-1">
+                          <div className="flex justify-between text-amber-900 font-semibold text-xs">
+                            <span>Tambahan BHP oleh Nakes (LUNAS)</span>
+                            <span>{formatRupiah(totalBhpTambahan)}</span>
+                          </div>
+                          {(bhpState.items || [])
+                            .filter((item) => (item.qty_real || 0) > (item.qty_default || 0))
+                            .map((item, idx) => {
+                              const qDiff = (item.qty_real || 0) - (item.qty_default || 0);
+                              const subtotal = qDiff * (item.harga_satuan || 15000);
+                              return (
+                                <div key={idx} className="flex justify-between text-[11px] text-amber-800 pl-2">
+                                  <span>{item.nama_bhp} (+{qDiff} unit)</span>
+                                  <span>{formatRupiah(subtotal)}</span>
+                                </div>
+                              );
+                            })}
+                        </div>
+                      )}
+
+                      <div className="flex justify-between text-gray-600">
+                        <span>Transportasi & Administrasi</span>
+                        <span>{formatRupiah((rincianBiaya.transportasi?.nilai || 0) + (rincianBiaya.administrasi?.nilai || 0))}</span>
+                      </div>
+
+                      <div className="flex justify-between text-gray-900 font-bold text-base pt-2.5 border-t border-gray-200">
+                        <span>Grand Total LUNAS</span>
+                        <span className="text-emerald-600 font-bold">
+                          {formatRupiah(grandTotal)}
+                        </span>
+                      </div>
+                    </div>
+                  );
+                })()}
               </div>
             </div>
           </div>
