@@ -55,6 +55,13 @@ export function mapKategoriItem(item) {
     id: item.id_kategori_pembayaran || item.id || '',
     nama: item.nama_kategori || item.nama || '',
     is_active: Boolean(item.is_active ?? true),
+    // Tambahkan baris-baris ini:
+    created_at: item.created_at || '',
+    created_by: item.created_by || '',
+    updated_at: item.updated_at || '',
+    updated_by: item.updated_by || '',
+    deleted_at: item.deleted_at || '',
+    deleted_by: item.deleted_by || '',
   };
 }
 
