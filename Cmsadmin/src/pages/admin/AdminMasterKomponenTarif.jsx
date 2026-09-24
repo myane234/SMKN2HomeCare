@@ -7,6 +7,31 @@ import {
   deleteKomponenTarif 
 } from '../../data/masterKomponenTarifData';
 import Pagination from '../../components/pagination';
+
+const formatDate = (dateStr) => {
+  if (!dateStr) return '-';
+  try {
+    const d = new Date(dateStr);
+    if (isNaN(d.getTime())) return '-';
+    return d.toLocaleString('id-ID', {
+      day: '2-digit',
+      month: 'short',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+  } catch {
+    return '-';
+  }
+};
+
+const formatUser = (userVal) => {
+  if (userVal === null || userVal === undefined || userVal === '') return '-';
+  if (typeof userVal === 'object') {
+    return userVal.name || userVal.nama || userVal.username || userVal.email || userVal.id || '-';
+  }
+  return String(userVal);
+};
 import { 
   FaSave, FaPlus, FaSearch, 
   FaEdit, FaTrash, FaToggleOn, FaToggleOff, FaFilter
@@ -504,6 +529,8 @@ const AdminMasterKomponenTarif = () => {
                   <th className="px-4 py-3.5">Jenis Nilai</th>
                   <th className="px-4 py-3.5">Nilai</th>
                   <th className="px-4 py-3.5 text-center w-24">Status</th>
+                  <th className="px-4 py-3.5 whitespace-nowrap">Created At</th>
+                  <th className="px-4 py-3.5">Created By</th>
                   <th className="px-4 py-3.5 whitespace-nowrap">Updated At</th>
                   <th className="px-4 py-3.5">Updated By</th>
                   <th className="px-4 py-3.5 whitespace-nowrap">Deleted At</th>
@@ -513,7 +540,7 @@ const AdminMasterKomponenTarif = () => {
               </thead>
               <tbody className="divide-y divide-slate-100">
                 {filteredData.length === 0 ? (
-                  <tr><td colSpan="11" className="px-4 py-8 text-center text-sm text-slate-400">Data tidak ditemukan.</td></tr>
+                  <tr><td colSpan="13" className="px-4 py-8 text-center text-sm text-slate-400">Data tidak ditemukan.</td></tr>
                 ) : (
                   filteredData.map((item, index) => {
                     const rowNumber = startIndex + index + 1;
@@ -536,20 +563,22 @@ const AdminMasterKomponenTarif = () => {
                           </span>
                         </td>
                         <td className="px-4 py-3.5 text-xs text-slate-500 whitespace-nowrap">
-                          {item.updated_at
-                            ? new Date(item.updated_at).toLocaleString('id-ID', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })
-                            : '—'}
+                          {formatDate(item.created_at ?? item.createdAt)}
                         </td>
                         <td className="px-4 py-3.5 text-xs text-slate-500">
-                          {item.updated_by ?? '—'}
+                          {formatUser(item.created_by ?? item.created_by_user ?? item.createdBy)}
                         </td>
                         <td className="px-4 py-3.5 text-xs text-slate-500 whitespace-nowrap">
-                          {item.deleted_at
-                            ? new Date(item.deleted_at).toLocaleString('id-ID', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })
-                            : '—'}
+                          {formatDate(item.updated_at)}
                         </td>
                         <td className="px-4 py-3.5 text-xs text-slate-500">
-                          {item.deleted_by ?? '—'}
+                          {formatUser(item.updated_by ?? item.updated_by_user)}
+                        </td>
+                        <td className="px-4 py-3.5 text-xs text-slate-500 whitespace-nowrap">
+                          {formatDate(item.deleted_at)}
+                        </td>
+                        <td className="px-4 py-3.5 text-xs text-slate-500">
+                          {formatUser(item.deleted_by ?? item.deleted_by_user)}
                         </td>
                         <td className="px-4 py-3.5 text-center">
                           <div className="flex items-center justify-center gap-1.5">

@@ -7,6 +7,31 @@ import {
   deleteAgama
 } from '../../data/masterAgamaData';
 
+const formatDate = (dateStr) => {
+  if (!dateStr) return '-';
+  try {
+    const d = new Date(dateStr);
+    if (isNaN(d.getTime())) return '-';
+    return d.toLocaleString('id-ID', {
+      day: '2-digit',
+      month: 'short',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+  } catch {
+    return '-';
+  }
+};
+
+const formatUser = (userVal) => {
+  if (userVal === null || userVal === undefined || userVal === '') return '-';
+  if (typeof userVal === 'object') {
+    return userVal.name || userVal.nama || userVal.username || userVal.email || userVal.id || '-';
+  }
+  return String(userVal);
+};
+
 import Swal from 'sweetalert2';
 
 export default function AdminMasterAgama() {
@@ -475,6 +500,14 @@ export default function AdminMasterAgama() {
                 </th>
 
                 <th className="p-4 w-40">
+                  Created At
+                </th>
+
+                <th className="p-4 w-24">
+                  Created By
+                </th>
+
+                <th className="p-4 w-40">
                   Updated At
                 </th>
 
@@ -506,7 +539,7 @@ export default function AdminMasterAgama() {
 
                 <tr>
                   <td
-                    colSpan="8"
+                    colSpan="10"
                     className="
                       p-8
                       text-center
@@ -601,28 +634,34 @@ export default function AdminMasterAgama() {
 
                       </td>
 
+                      {/* CREATED AT */}
+                      <td className="p-4 text-xs text-slate-500 whitespace-nowrap">
+                        {formatDate(item.created_at ?? item.createdAt)}
+                      </td>
+
+                      {/* CREATED BY */}
+                      <td className="p-4 text-xs text-slate-500">
+                        {formatUser(item.created_by ?? item.created_by_user ?? item.createdBy)}
+                      </td>
+
                       {/* UPDATED AT */}
                       <td className="p-4 text-xs text-slate-500 whitespace-nowrap">
-                        {item.updated_at
-                          ? new Date(item.updated_at).toLocaleString('id-ID', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })
-                          : '—'}
+                        {formatDate(item.updated_at)}
                       </td>
 
                       {/* UPDATED BY */}
                       <td className="p-4 text-xs text-slate-500">
-                        {item.updated_by ?? '—'}
+                        {formatUser(item.updated_by ?? item.updated_by_user)}
                       </td>
 
                       {/* DELETED AT */}
                       <td className="p-4 text-xs text-slate-500 whitespace-nowrap">
-                        {item.deleted_at
-                          ? new Date(item.deleted_at).toLocaleString('id-ID', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })
-                          : '—'}
+                        {formatDate(item.deleted_at)}
                       </td>
 
                       {/* DELETED BY */}
                       <td className="p-4 text-xs text-slate-500">
-                        {item.deleted_by ?? '—'}
+                        {formatUser(item.deleted_by ?? item.deleted_by_user)}
                       </td>
 
                       {/* AKSI */}

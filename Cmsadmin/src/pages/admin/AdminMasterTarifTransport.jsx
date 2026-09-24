@@ -8,6 +8,31 @@ import {
   updateTarifTransport,
 } from '../../data/masterTarifTransportData';
 
+const formatDate = (dateStr) => {
+  if (!dateStr) return '-';
+  try {
+    const d = new Date(dateStr);
+    if (isNaN(d.getTime())) return '-';
+    return d.toLocaleString('id-ID', {
+      day: '2-digit',
+      month: 'short',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+  } catch {
+    return '-';
+  }
+};
+
+const formatUser = (userVal) => {
+  if (userVal === null || userVal === undefined || userVal === '') return '-';
+  if (typeof userVal === 'object') {
+    return userVal.name || userVal.nama || userVal.username || userVal.email || userVal.id || '-';
+  }
+  return String(userVal);
+};
+
 export default function AdminMasterTarifTransport() {
   const [tarif, setTarif] = useState(null);
   const [formTarif, setFormTarif] = useState('');
@@ -163,10 +188,12 @@ export default function AdminMasterTarifTransport() {
               <p className="mt-2 text-sm text-slate-500">Berlaku nasional, tanpa pengaturan tarif per kota.</p>
 
               <div className="mt-4 grid grid-cols-2 gap-2 border-t border-slate-100 pt-3 text-xs text-slate-500">
-                <div>Updated At: <span className="font-medium text-slate-700">{tarif?.updated_at ? new Date(tarif.updated_at).toLocaleString('id-ID') : '—'}</span></div>
-                <div>Updated By: <span className="font-medium text-slate-700">{tarif?.updated_by ?? '—'}</span></div>
-                <div>Deleted At: <span className="font-medium text-slate-700">{tarif?.deleted_at ? new Date(tarif.deleted_at).toLocaleString('id-ID') : '—'}</span></div>
-                <div>Deleted By: <span className="font-medium text-slate-700">{tarif?.deleted_by ?? '—'}</span></div>
+                <div>Created At: <span className="font-medium text-slate-700">{formatDate(tarif?.created_at ?? tarif?.createdAt)}</span></div>
+                <div>Created By: <span className="font-medium text-slate-700">{formatUser(tarif?.created_by ?? tarif?.created_by_user ?? tarif?.createdBy)}</span></div>
+                <div>Updated At: <span className="font-medium text-slate-700">{formatDate(tarif?.updated_at)}</span></div>
+                <div>Updated By: <span className="font-medium text-slate-700">{formatUser(tarif?.updated_by ?? tarif?.updated_by_user)}</span></div>
+                <div>Deleted At: <span className="font-medium text-slate-700">{formatDate(tarif?.deleted_at)}</span></div>
+                <div>Deleted By: <span className="font-medium text-slate-700">{formatUser(tarif?.deleted_by ?? tarif?.deleted_by_user)}</span></div>
               </div>
             </div>
           </div>

@@ -6,6 +6,31 @@ import {
   toggleStatusBank,
   deleteBank,
 } from '../../data/masterBankData.js';
+const formatDate = (dateStr) => {
+  if (!dateStr) return '-';
+  try {
+    const d = new Date(dateStr);
+    if (isNaN(d.getTime())) return '-';
+    return d.toLocaleString('id-ID', {
+      day: '2-digit',
+      month: 'short',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+  } catch {
+    return '-';
+  }
+};
+
+const formatUser = (userVal) => {
+  if (userVal === null || userVal === undefined || userVal === '') return '-';
+  if (typeof userVal === 'object') {
+    return userVal.name || userVal.nama || userVal.username || userVal.email || userVal.id || '-';
+  }
+  return String(userVal);
+};
+
 import Swal from 'sweetalert2';
 
 
@@ -354,6 +379,8 @@ async function handleDelete(item) {
                         <th className="p-4">Kode Bank</th>
                         <th className="p-4">Nama Bank</th>
                         <th className="p-4">Status</th>
+                        <th className="p-4 whitespace-nowrap">Created At</th>
+                        <th className="p-4">Created By</th>
                         <th className="p-4 whitespace-nowrap">Updated At</th>
                         <th className="p-4">Updated By</th>
                         <th className="p-4 whitespace-nowrap">Deleted At</th>
@@ -389,20 +416,22 @@ async function handleDelete(item) {
                                 </span>
                                 </td>
                                 <td className="p-4 text-xs text-slate-500 whitespace-nowrap">
-                                  {item.updated_at
-                                    ? new Date(item.updated_at).toLocaleString('id-ID', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })
-                                    : '—'}
+                                  {formatDate(item.created_at ?? item.createdAt)}
                                 </td>
                                 <td className="p-4 text-xs text-slate-500">
-                                  {item.updated_by ?? '—'}
+                                  {formatUser(item.created_by ?? item.created_by_user ?? item.createdBy)}
                                 </td>
                                 <td className="p-4 text-xs text-slate-500 whitespace-nowrap">
-                                  {item.deleted_at
-                                    ? new Date(item.deleted_at).toLocaleString('id-ID', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })
-                                    : '—'}
+                                  {formatDate(item.updated_at)}
                                 </td>
                                 <td className="p-4 text-xs text-slate-500">
-                                  {item.deleted_by ?? '—'}
+                                  {formatUser(item.updated_by ?? item.updated_by_user)}
+                                </td>
+                                <td className="p-4 text-xs text-slate-500 whitespace-nowrap">
+                                  {formatDate(item.deleted_at)}
+                                </td>
+                                <td className="p-4 text-xs text-slate-500">
+                                  {formatUser(item.deleted_by ?? item.deleted_by_user)}
                                 </td>
                                 <td className="p-4 text-right">
                                 <div className="flex justify-end items-center gap-1.5">
