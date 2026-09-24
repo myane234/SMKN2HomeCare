@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import {
   useEffect,
@@ -33,6 +33,69 @@ function formatCurrency(v) {
   }).format(n);
 }
 
+/**
+ * Ambil nilai pertama yang ada (string/number) dari beberapa sumber & beberapa nama key.
+ * Dipakai supaya UI tidak "-" hanya karena backend beda nama field / beda level nesting.
+ */
+function pickFirst(sources, keys) {
+  for (const src of sources) {
+    if (!src || typeof src !== "object") continue;
+    for (const k of keys) {
+      const v = src[k];
+      if ((typeof v === "string" && v.trim() !== "") || typeof v === "number") return v;
+    }
+  }
+  return null;
+}
+
+const TANGGAL_KEYS = [
+  "tanggal_kunjungan", "tanggal_booking", "tgl_kunjungan", "tanggal",
+  "tanggal_layanan", "jadwal_kunjungan", "waktu_kunjungan", "jadwal",
+  "scheduled_at", "visit_date", "date",
+];
+const JAM_KEYS = [
+  "jam_kunjungan", "jam_booking", "jam_mulai", "jam",
+  "waktu_kunjungan", "jadwal_kunjungan", "waktu", "scheduled_at",
+  "visit_time", "time",
+];
+const PASIEN_KEYS = ["nama_pasien", "pasien_nama", "patient_name", "nama_lengkap_pasien"];
+const RM_KEYS = ["medical_record_number", "no_rekam_medis", "nomor_rekam_medis", "no_rm"];
+const PHOTO_KEYS = [
+  "foto_layanan", "foto", "gambar", "gambar_layanan", "image", "image_url",
+  "foto_url", "url_foto", "thumbnail", "photo",
+];
+
+function formatTanggal(v) {
+  if (!v) return "-";
+  const s = String(v);
+  let d;
+  const m = s.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (m) {
+    // Hindari geser timezone untuk format yyyy-mm-dd
+    d = new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]));
+  } else {
+    d = new Date(s);
+  }
+  if (Number.isNaN(d.getTime())) return s;
+  return d.toLocaleDateString("id-ID", { day: "numeric", month: "long", year: "numeric" });
+}
+
+function formatJam(v) {
+  if (!v) return "-";
+  const s = String(v);
+  const m = s.match(/^(\d{1,2}):(\d{2})/);
+  if (m) return `${m[1].padStart(2, "0")}:${m[2]}`;
+  const d = new Date(s);
+  if (Number.isNaN(d.getTime())) return s;
+  return d
+    .toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit", hour12: false })
+    .replace(".", ":");
+}
+
+function getLayananPhoto(l) {
+  return pickFirst([l, l?.layanan, l?.service], PHOTO_KEYS);
+}
+
 function normalizeLayananList(layanan, booking = null) {
   if (Array.isArray(layanan) && layanan.length > 0) return layanan;
   if (layanan && typeof layanan === "object" && !Array.isArray(layanan)) return [layanan];
@@ -40,6 +103,25 @@ function normalizeLayananList(layanan, booking = null) {
     return booking.layanan_items;
   }
   return [];
+}
+
+/**
+ * Endpoint detail kadang tidak menyertakan foto layanan, sedangkan data list punya.
+ * Kalau foto kosong di detail, pinjam dari data list.
+ */
+function fillLayananPhotos(baseBooking, fallbackBooking) {
+  const target = normalizeLayananList(baseBooking?.layanan, baseBooking);
+  const source = normalizeLayananList(fallbackBooking?.layanan, fallbackBooking);
+  if (!target.length || !source.length) return baseBooking;
+
+  const filled = target.map((l, i) => {
+    if (getLayananPhoto(l)) return l;
+    const match =
+      source.find((s) => s.id_layanan != null && s.id_layanan === l.id_layanan) || source[i];
+    const photo = match ? getLayananPhoto(match) : null;
+    return photo ? { ...l, foto_layanan: photo } : l;
+  });
+  return { ...baseBooking, layanan: filled };
 }
 
 function normalizeBiayaTambahanResponse(response, fallback = null) {
@@ -58,7 +140,58 @@ function normalizeBiayaTambahanResponse(response, fallback = null) {
   return fallback;
 }
 
-/* ── LocalStorage helpers untuk tracking "sudah dibayar" BHP ── */
+async function attachBiaya(baseBooking) {
+  const code = baseBooking.booking_code || baseBooking.kode_booking || null;
+  let biaya = baseBooking.biaya_tambahan_pasien || null;
+  if (code) {
+    try {
+      const res = await getBiayaTambahanBooking(code);
+      biaya = normalizeBiayaTambahanResponse(res, biaya);
+    } catch (error) {
+      console.warn("Gagal memuat biaya tambahan:", error);
+    }
+  }
+  return { ...baseBooking, biaya_tambahan_pasien: biaya };
+}
+
+/**
+ * Ambil detail + biaya tambahan PARALEL (sebelumnya berurutan → terasa lag saat pindah pesanan).
+ */
+async function fetchBookingDetail(item) {
+  const listBooking = item?.booking || {};
+  const bId = listBooking.id_booking || listBooking.id;
+  const listCode = listBooking.booking_code || listBooking.kode_booking || null;
+
+  const [detail, biayaResponse] = await Promise.all([
+    getDetailBookingById(bId),
+    listCode
+      ? getBiayaTambahanBooking(listCode).catch((e) => {
+          console.warn("Gagal memuat biaya tambahan:", e);
+          return null;
+        })
+      : Promise.resolve(null),
+  ]);
+
+  const baseData = detail || item;
+  let baseBooking = baseData?.booking || {};
+
+  let biaya = normalizeBiayaTambahanResponse(biayaResponse, baseBooking.biaya_tambahan_pasien || null);
+
+  // Kode booking hanya ada di detail → ambil biaya tambahan susulan
+  if (!listCode) {
+    const withBiaya = await attachBiaya(baseBooking);
+    biaya = withBiaya.biaya_tambahan_pasien;
+  }
+
+  baseBooking = fillLayananPhotos(baseBooking, listBooking);
+
+  return {
+    ...baseData,
+    booking: { ...baseBooking, biaya_tambahan_pasien: biaya },
+  };
+}
+
+/* ── LocalStorage helpers untuk tracking "sudah dibayar" biaya tambahan ── */
 const PAID_KEY_PREFIX = "shc_bhp_paid_";
 
 function getPaidInfo(bookingCode) {
@@ -169,15 +302,29 @@ function InfoRow({ label, value }) {
 }
 
 function LayananItem({ layanan }) {
-  const photo = resolveImageUrl(layanan.foto_layanan ?? null);
+  const [imgFailed, setImgFailed] = useState(false);
+
+  const rawPhoto = getLayananPhoto(layanan);
+  // URL absolut langsung dipakai; path relatif lewat resolveImageUrl
+  const photo =
+    typeof rawPhoto === "string" && /^(https?:|data:|blob:)/i.test(rawPhoto)
+      ? rawPhoto
+      : resolveImageUrl(rawPhoto ?? null);
+
   const harga = layanan.sl ?? layanan.s1 ?? layanan.harga ?? 0;
   const durasi = Number(layanan.durasi_menit ?? 0);
 
   return (
     <div className="flex items-center gap-3 py-2.5 border-b border-slate-50 last:border-0">
       <div className="w-11 h-11 sm:w-12 sm:h-12 rounded-xl overflow-hidden bg-slate-100 shrink-0 border border-slate-200">
-        {photo ? (
-          <img src={photo} alt={layanan.nama_layanan} className="w-full h-full object-cover" />
+        {photo && !imgFailed ? (
+          <img
+            src={photo}
+            alt={layanan.nama_layanan}
+            className="w-full h-full object-cover"
+            loading="lazy"
+            onError={() => setImgFailed(true)}
+          />
         ) : (
           <div className="w-full h-full flex items-center justify-center bg-emerald-50">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} className="w-5 h-5 text-emerald-400">
@@ -520,73 +667,59 @@ function BookingAktifContent() {
   const [selectedId, setSelectedId] = useState(targetId || null);
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [isSwitching, setIsSwitching] = useState(false);
   const [error, setError] = useState(null);
   const [lastAt, setLastAt] = useState(null);
   const [isChatOpen, setIsChatOpen] = useState(false);
 
+  // Cache detail per booking → pindah pesanan langsung tampil, lalu di-refresh di background
+  const detailCache = useRef(new Map());
+  const listRef = useRef([]);
+  // Penanda request terbaru → response lama tidak menimpa pilihan terbaru
+  const reqRef = useRef(0);
+  const sliderRef = useRef(null);
+
   const currentBookingId = selectedId || targetId;
 
-  const fetchData = useCallback(async () => {
+  const fetchData = useCallback(async ({ skipList = false } = {}) => {
+    const reqId = ++reqRef.current;
     try {
-      const list = await getSemuaBookingAktif();
-      setActiveList(list);
+      let list = listRef.current;
+
+      // Saat pindah pesanan, list tidak perlu di-fetch ulang (cukup detail)
+      if (!skipList || list.length === 0) {
+        const fresh = await getSemuaBookingAktif();
+        list = Array.isArray(fresh) ? fresh : [];
+        listRef.current = list;
+        setActiveList(list);
+      }
 
       let targetBooking = null;
-      if (currentBookingId && Array.isArray(list) && list.length > 0) {
-        targetBooking = list.find(
-          (item) => String(item.booking?.id_booking || item.booking?.id) === String(currentBookingId)
-        );
-      }
-      if (!targetBooking && Array.isArray(list) && list.length > 0) {
-        targetBooking = list[0];
+      if (list.length > 0) {
+        targetBooking =
+          (currentBookingId &&
+            list.find(
+              (item) => String(item.booking?.id_booking || item.booking?.id) === String(currentBookingId)
+            )) ||
+          list[0];
       }
 
       if (targetBooking) {
-        const bId = targetBooking.booking?.id_booking || targetBooking.booking?.id;
-        const detail = await getDetailBookingById(bId);
-        const baseData = detail || targetBooking;
-        const baseBooking = baseData?.booking || {};
+        const merged = await fetchBookingDetail(targetBooking);
+        const key = String(merged.booking?.id_booking ?? merged.booking?.id ?? "");
+        if (key) detailCache.current.set(key, merged);
+        if (reqId !== reqRef.current) return;
 
-        const bookingCode =
-          baseBooking.booking_code || baseBooking.kode_booking ||
-          targetBooking?.booking?.booking_code || targetBooking?.booking?.kode_booking || null;
-
-        let biayaTambahan = baseBooking.biaya_tambahan_pasien || null;
-
-        if (bookingCode) {
-          try {
-            const biayaResponse = await getBiayaTambahanBooking(bookingCode);
-            biayaTambahan = normalizeBiayaTambahanResponse(biayaResponse, biayaTambahan);
-          } catch (error) {
-            console.warn("Gagal memuat biaya tambahan:", error);
-          }
-        }
-
-        setData({
-          ...baseData,
-          booking: { ...baseBooking, biaya_tambahan_pasien: biayaTambahan },
-        });
+        setData(merged);
         setError(null);
       } else {
         const res = await getBookingAktif();
+        if (reqId !== reqRef.current) return;
+
         if (res?.data?.booking) {
-          const baseBooking = res.data.booking;
-          const bookingCode = baseBooking.booking_code || baseBooking.kode_booking || null;
-
-          let biayaTambahan = baseBooking.biaya_tambahan_pasien || null;
-          if (bookingCode) {
-            try {
-              const biayaResponse = await getBiayaTambahanBooking(bookingCode);
-              biayaTambahan = normalizeBiayaTambahanResponse(biayaResponse, biayaTambahan);
-            } catch (error) {
-              console.warn("Gagal memuat biaya tambahan:", error);
-            }
-          }
-
-          setData({
-            ...res.data,
-            booking: { ...baseBooking, biaya_tambahan_pasien: biayaTambahan },
-          });
+          const bookingWithBiaya = await attachBiaya(res.data.booking);
+          if (reqId !== reqRef.current) return;
+          setData({ ...res.data, booking: bookingWithBiaya });
           setError(null);
         } else {
           setError("Tidak ada booking aktif saat ini.");
@@ -599,16 +732,17 @@ function BookingAktifContent() {
         router.push("/login");
         return;
       }
-      setError("Gagal memuat data. Silakan coba lagi.");
+      if (reqId === reqRef.current) setError("Gagal memuat data. Silakan coba lagi.");
     } finally {
       setLoading(false);
+      if (reqId === reqRef.current) setIsSwitching(false);
     }
   }, [currentBookingId, router]);
 
   useEffect(() => {
-    const run = async () => { await fetchData(); };
-    run();
-    const id = setInterval(fetchData, 15000);
+    // Pertama kali: ambil list. Setelah itu (ganti pesanan): cukup detail.
+    fetchData({ skipList: listRef.current.length > 0 });
+    const id = setInterval(() => fetchData(), 15000);
     return () => clearInterval(id);
   }, [fetchData]);
 
@@ -616,7 +750,6 @@ function BookingAktifContent() {
   const booking = data?.booking;
   const biayaTambahan = booking?.biaya_tambahan_pasien ?? null;
   const kodeBookingTambahan = biayaTambahan?.kode_booking_tambahan || null;
-  const biayaTambahanNominal = Number(biayaTambahan?.nominal ?? 0) || 0;
   const biayaTambahanStatusRaw = biayaTambahan?.status_transaksi || null;
 
   /* useEffect untuk mencatat Lunas ke localStorage */
@@ -634,6 +767,32 @@ function BookingAktifContent() {
       });
     }
   }, [biayaTambahan?.status_transaksi, biayaTambahan?.kode_booking_tambahan, biayaTambahan?.nominal]);
+
+  /* Geser slider supaya pesanan terpilih selalu kelihatan */
+  const shownBookingKey = String(booking?.id_booking ?? booking?.id ?? "");
+  useEffect(() => {
+    const el = sliderRef.current?.querySelector('[data-selected="true"]');
+    el?.scrollIntoView?.({ behavior: "smooth", inline: "nearest", block: "nearest" });
+  }, [shownBookingKey, activeList.length]);
+
+  const scrollSlider = (dir) => {
+    sliderRef.current?.scrollBy({ left: dir * 280, behavior: "smooth" });
+  };
+
+  /* Pindah pesanan: tampilkan dulu dari cache / data list (instan), refresh di background */
+  const handleSelectBooking = (item, bId) => {
+    if (String(bId) === shownBookingKey) return;
+
+    const cached = detailCache.current.get(String(bId));
+    setData(cached || { ...item, booking: { ...(item.booking || {}) } });
+    setIsSwitching(!cached);
+    setSelectedId(bId);
+
+    // replaceState → tanpa round-trip router Next.js (penyebab utama lag sebelumnya)
+    if (typeof window !== "undefined") {
+      window.history.replaceState(null, "", `/booking/aktif?id=${encodeURIComponent(bId)}`);
+    }
+  };
 
   if (loading) {
     return (
@@ -699,14 +858,14 @@ function BookingAktifContent() {
     biayaTambahanStatusRaw ||
     (biayaTambahanNominalFinal > 0 ? "Belum Bayar" : null);
 
-  /* ⚡ Logika "perlu bayar lagi?" — handle kasus backend tidak reset status */
+  /* Logika "perlu bayar lagi?" — handle kasus backend tidak reset status */
   const storedPaidInfo = kodeBookingTambahan ? getPaidInfo(kodeBookingTambahan) : null;
   const isStatusLunas = String(biayaTambahanStatus || "").toLowerCase() === "lunas";
   const nominalMatches =
     storedPaidInfo && Number(storedPaidInfo.nominal) === Number(biayaTambahanNominalFinal);
   const needsPayment = biayaTambahanNominalFinal > 0 && (!isStatusLunas || !nominalMatches);
 
-  const handleBayarBhp = () => {
+  const handleBayarBiayaTambahan = () => {
     if (!booking?.id_booking || biayaTambahanNominalFinal <= 0) return;
     const bookingCode = booking.booking_code || booking.kode_booking || "";
 
@@ -724,6 +883,7 @@ function BookingAktifContent() {
       } catch {}
     }
 
+    // NB: type=bhp dipertahankan karena dipakai halaman pembayaran (bukan teks yg tampil di UI)
     router.push(
       `/pembayaran/pilih-metode?booking_id=${encodeURIComponent(
         booking.id_booking
@@ -736,6 +896,21 @@ function BookingAktifContent() {
   };
 
   const alamatKunjungan = info?.lokasi_kunjungan?.alamat || booking.alamat_kunjungan || "-";
+
+  /* Detail pesanan — cari di beberapa level & nama field agar tidak "-" padahal datanya ada */
+  const detailSources = [booking, data, booking.jadwal, data.jadwal, booking.jadwal_kunjungan, info];
+  const tanggalKunjungan = formatTanggal(pickFirst(detailSources, TANGGAL_KEYS));
+  const jamKunjungan = formatJam(pickFirst(detailSources, JAM_KEYS));
+  const namaPasien =
+    (typeof booking.pasien === "string" ? booking.pasien : null) ??
+    booking.pasien?.nama_lengkap ??
+    booking.pasien?.nama ??
+    data.pasien?.nama_lengkap ??
+    data.pasien?.nama ??
+    pickFirst([booking, data], PASIEN_KEYS) ??
+    "-";
+  const noRekamMedis =
+    pickFirst([booking, booking.pasien, data, data.pasien], RM_KEYS) ?? "-";
 
   return (
     <div className="min-h-screen bg-slate-50" style={{ fontFamily: '"Poppins","Inter","Segoe UI",sans-serif' }}>
@@ -773,21 +948,40 @@ function BookingAktifContent() {
         </div>
       </div>
 
-      {/* TABS ACTIVE BOOKING */}
+      {/* SLIDER PESANAN AKTIF */}
       {activeList.length > 1 && (
         <div className="bg-white border-b border-slate-200/80 shadow-xs px-4 sm:px-6 lg:px-8 xl:px-12 py-3 sticky top-0 z-30">
           <div className="max-w-lg lg:max-w-6xl xl:max-w-7xl mx-auto">
-            <div className="flex items-center justify-between mb-2">
+            <div className="flex items-center justify-between mb-2 gap-3">
               <p className="text-[11px] font-bold text-slate-700 uppercase tracking-wider">
                 Pesanan Aktif ({activeList.length})
               </p>
-              <span className="text-[10px] text-slate-400 font-medium">Pilih pesanan untuk melihat rincian</span>
+              <div className="flex items-center gap-2">
+                <span className="text-[10px] text-slate-400 font-medium hidden sm:inline">Geser untuk melihat pesanan lain</span>
+                <div className="hidden sm:flex items-center gap-1">
+                  <button type="button" onClick={() => scrollSlider(-1)} className="w-6 h-6 rounded-full border border-slate-200 text-slate-500 hover:bg-slate-100 flex items-center justify-center transition active:scale-90 cursor-pointer" aria-label="Geser ke kiri">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} className="w-3 h-3">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
+                    </svg>
+                  </button>
+                  <button type="button" onClick={() => scrollSlider(1)} className="w-6 h-6 rounded-full border border-slate-200 text-slate-500 hover:bg-slate-100 flex items-center justify-center transition active:scale-90 cursor-pointer" aria-label="Geser ke kanan">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} className="w-3 h-3">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+                    </svg>
+                  </button>
+                </div>
+              </div>
             </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5">
+
+            <div
+              ref={sliderRef}
+              className="flex gap-2.5 overflow-x-auto snap-x snap-mandatory scroll-smooth pb-1 no-scrollbar"
+              style={{ scrollbarWidth: "none", WebkitOverflowScrolling: "touch" }}
+            >
               {activeList.map((item, idx) => {
                 const b = item.booking || {};
                 const bId = String(b.id_booking || b.id || idx);
-                const isSelected = String(bId) === String(booking.id_booking || booking.id);
+                const isSelected = bId === shownBookingKey;
                 const bCode = b.booking_code || b.kode_booking || (bId ? (String(bId).startsWith("B-") ? bId : `B-${bId}`) : `B-${idx + 1}`);
                 const rawLayanan = b.layanan_items || b.layanan;
                 const sName = Array.isArray(rawLayanan) && rawLayanan.length > 0
@@ -800,11 +994,9 @@ function BookingAktifContent() {
                   <button
                     key={bId}
                     type="button"
-                    onClick={() => {
-                      setSelectedId(bId);
-                      router.replace(`/booking/aktif?id=${bId}`, { scroll: false });
-                    }}
-                    className={`w-full flex items-center justify-between gap-3 px-3.5 py-2.5 rounded-xl text-xs font-medium transition-all cursor-pointer text-left border ${isSelected ? "bg-emerald-600 text-white border-emerald-600 shadow-sm ring-2 ring-emerald-600/30" : "bg-slate-50 text-slate-700 border-slate-200 hover:border-slate-300 hover:bg-slate-100"}`}
+                    data-selected={isSelected ? "true" : "false"}
+                    onClick={() => handleSelectBooking(item, bId)}
+                    className={`shrink-0 snap-start w-[250px] sm:w-[280px] flex items-center justify-between gap-3 px-3.5 py-2.5 rounded-xl text-xs font-medium transition-colors cursor-pointer text-left border ${isSelected ? "bg-emerald-600 text-white border-emerald-600 shadow-sm ring-2 ring-emerald-600/30" : "bg-slate-50 text-slate-700 border-slate-200 hover:border-slate-300 hover:bg-slate-100"}`}
                   >
                     <div className="flex items-center gap-2.5 min-w-0 flex-1">
                       <span className={`w-2.5 h-2.5 rounded-full shrink-0 ${isSelected ? "bg-white" : bCfg.dot}`} />
@@ -827,7 +1019,7 @@ function BookingAktifContent() {
       )}
 
       {/* BODY */}
-      <div className="px-4 sm:px-6 lg:px-8 xl:px-12 mt-5 pb-24 max-w-lg lg:max-w-6xl xl:max-w-7xl mx-auto">
+      <div className={`px-4 sm:px-6 lg:px-8 xl:px-12 mt-5 pb-24 max-w-lg lg:max-w-6xl xl:max-w-7xl mx-auto transition-opacity duration-150 ${isSwitching ? "opacity-70" : "opacity-100"}`}>
         <div className="space-y-4 lg:space-y-0 lg:grid lg:grid-cols-12 lg:gap-6 items-start">
           {/* LEFT */}
           <div className="space-y-4 lg:col-span-5">
@@ -891,8 +1083,8 @@ function BookingAktifContent() {
               )}
             </Section>
 
-            {/* BIAYA TAMBAHAN BHP */}
-            <Section title="Biaya Tambahan BHP">
+            {/* BIAYA TAMBAHAN */}
+            <Section title="Biaya Tambahan">
               {biayaTambahanNominalFinal > 0 ? (
                 <>
                   {bhpTambahanItems.length > 0 && (
@@ -929,10 +1121,10 @@ function BookingAktifContent() {
                   {needsPayment && (
                     <button
                       type="button"
-                      onClick={handleBayarBhp}
+                      onClick={handleBayarBiayaTambahan}
                       className="w-full mt-4 py-3 rounded-xl bg-amber-500 hover:bg-amber-600 text-white font-bold text-xs sm:text-sm transition-all active:scale-[0.99]"
                     >
-                      Bayar BHP Tambahan
+                      Bayar Biaya Tambahan
                     </button>
                   )}
                 </>
@@ -978,10 +1170,10 @@ function BookingAktifContent() {
             {/* DETAIL PESANAN */}
             <Section title="Detail Pesanan">
               <InfoRow label="Layanan" value={layananSummary} />
-              <InfoRow label="Tanggal" value={booking.tanggal_kunjungan ?? "-"} />
-              <InfoRow label="Jam" value={booking.jam_kunjungan?.slice ? booking.jam_kunjungan.slice(0, 5) : booking.jam_kunjungan ?? "-"} />
-              <InfoRow label="Pasien" value={booking.pasien?.nama_lengkap ?? "-"} />
-              <InfoRow label="No. Rekam Medis" value={booking.medical_record_number ?? "-"} />
+              <InfoRow label="Tanggal" value={tanggalKunjungan} />
+              <InfoRow label="Jam" value={jamKunjungan} />
+              <InfoRow label="Pasien" value={namaPasien} />
+              <InfoRow label="No. Rekam Medis" value={noRekamMedis} />
               {biayaTambahanNominalFinal > 0 && (
                 <InfoRow
                   label="Biaya Tambahan"
