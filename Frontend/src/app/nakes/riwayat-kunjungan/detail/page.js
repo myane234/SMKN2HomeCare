@@ -2,7 +2,7 @@
 
 import { useState, useEffect, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
-import { getDetailRiwayatKunjungan } from '@/services/nakesService';
+import { getBhpBookingStatus, getDetailRiwayatKunjungan } from '@/services/nakesService';
 
 function DetailRiwayatContent() {
   const searchParams = useSearchParams();
@@ -198,7 +198,7 @@ function DetailRiwayatContent() {
 
             {/* Rincian Tambahan BHP & Grand Total */}
             {(() => {
-              const bhpState = getBhpBookingState(id);
+              const bhpState = getBhpBookingStatus(id);
               const totalLayanan = layananItems.reduce((acc, curr) => acc + Number(curr.s1 || curr.harga || curr.total_harga || 0), Number(booking?.total_harga || detail?.total_biaya || 0));
               const totalBhp = Number(bhpState.total_tambahan || 0);
               const grandTotal = totalLayanan + totalBhp;
