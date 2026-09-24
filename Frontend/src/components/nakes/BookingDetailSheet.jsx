@@ -20,6 +20,7 @@ import {
 } from "lucide-react";
 import {
   getBhpBooking,
+  getBhpBookingStatus,
   addBhpBooking,
   getNakesOrderDetail,
   updateNakesLocation,
@@ -28,6 +29,7 @@ import {
   deleteBookingChatRoom,
 } from "@/services/nakesService";
 import api from "@/services/api";
+import { getBiayaTambahanBookingNakes } from "@/services/bookingService";
 
 export default function BookingDetailSheet({
   booking,
@@ -268,18 +270,33 @@ export default function BookingDetailSheet({
   );
 
   const extractBiayaTambahanFromResponse = (res) => {
-    const root = res?.data ?? res ?? {};
+    const payload = res?.data ?? res ?? {};
+    const root = payload?.data ?? payload;
     const bookingData = root?.booking ?? root;
+    const tambahan =
+      root?.biaya_tambahan_pasien ??
+      bookingData?.biaya_tambahan_pasien ??
+      root?.biaya_tambahan ??
+      bookingData?.biaya_tambahan ??
+      null;
 
     const nominal =
       Number(
+        tambahan?.nominal ??
+        tambahan?.amount ??
+        root?.nominal ??
         bookingData?.total_biaya_tambahan ??
         bookingData?.total_tambahan ??
         root?.total_biaya_tambahan ??
+        root?.total_tambahan ??
         0
       ) || 0;
 
     const rawStatus =
+      tambahan?.status_transaksi ??
+      root?.status_transaksi ??
+      root?.status_pembayaran ??
+      root?.status ??
       bookingData?.status_pembayaran_biaya_tambahan ??
       bookingData?.status_pembayaran_bhp ??
       bookingData?.status_biaya_tambahan ??
@@ -293,33 +310,31 @@ export default function BookingDetailSheet({
   };
 
   const loadBiayaTambahanStatus = useCallback(async () => {
-    if (!bookingId || checkingBiayaTambahan) return;
-    setCheckingBiayaTambahan(true);
+  if (!targetCode || checkingBiayaTambahan) return;
 
-    try {
-      const res = await getNakesOrderDetail(bookingId);
-      const parsed = extractBiayaTambahanFromResponse(res);
+  setCheckingBiayaTambahan(true);
 
-      if (parsed.nominal !== undefined && parsed.nominal !== null) {
-        setBhpMeta((prev) => ({
-          ...prev,
-          total_tambahan: parsed.nominal,
-        }));
-      }
+  try {
+    const res = await getBhpBookingStatus(targetCode);
 
-      if (parsed.status) {
-        setBiayaTambahanStatus(parsed.status);
-        setBhpMeta((prev) => ({
-          ...prev,
-          status_pembayaran_bhp: parsed.status,
-        }));
-      }
-    } catch (error) {
-      console.warn("Gagal mengecek status biaya tambahan:", error);
-    } finally {
-      setCheckingBiayaTambahan(false);
+    const nominal = Number(res?.nominal ?? res?.total_tambahan ?? 0) || 0;
+    const status = normalizeStatus(res?.status_transaksi);
+
+    setBhpMeta((prev) => ({
+      ...prev,
+      total_tambahan: nominal || prev.total_tambahan || 0,
+      ...(status ? { status_pembayaran_bhp: status } : {}),
+    }));
+
+    if (status) {
+      setBiayaTambahanStatus(status);
     }
-  }, [bookingId, checkingBiayaTambahan]);
+  } catch (error) {
+    console.warn("Gagal mengecek status biaya tambahan:", error);
+  } finally {
+    setCheckingBiayaTambahan(false);
+  }
+}, [targetCode, checkingBiayaTambahan]);
 
   useEffect(() => {
     const updateViewport = () => {
@@ -698,8 +713,7 @@ export default function BookingDetailSheet({
     if (!bookingId || finishing) return;
     setFinishing(true);
     try {
-      const paymentRes = await getNakesOrderDetail(bookingId);
-      const latest = extractBiayaTambahanFromResponse(paymentRes);
+      const latest = await getBhpBookingStatus(targetCode);
 
       const calculated = bhpItems.reduce((acc, item) => {
         const d = Number(item?.qty_default) || 0;
@@ -998,9 +1012,9 @@ export default function BookingDetailSheet({
                   <button
                     type="button"
                     onClick={() => setIsChatOpen(true)}
-                    className="w-full py-2 rounded-xl bg-blue-600 hover:bg-blue-700 active:scale-[0.99] transition-all text-white font-bold text-xs flex items-center justify-center gap-2 shadow-sm"
+                    className="w-full py-3 px-4 rounded-2xl bg-blue-600 hover:bg-blue-700 active:scale-[0.99] transition-all text-white font-bold text-sm sm:text-base flex items-center justify-center gap-2.5 shadow-md hover:shadow-lg cursor-pointer"
                   >
-                    <MessageSquare className="w-3.5 h-3.5" /> Chat Pasien (In-App)
+                    <MessageSquare className="w-4 h-4 sm:w-5 sm:h-5" /> Chat Pasien
                   </button>
                 </div>
 
@@ -1062,10 +1076,13 @@ export default function BookingDetailSheet({
                           type="button"
                           disabled={savingBhp}
                           onClick={handleSaveBhp}
-                          className="px-2.5 py-1 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-[11px] font-bold disabled:opacity-50 transition-colors cursor-pointer"
+                          className="px-3.5 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold disabled:opacity-50 transition-all cursor-pointer flex items-center gap-1.5 shadow-md hover:shadow-lg active:scale-95"
                         >
                           {savingBhp ? (
-                            <Loader2 className="w-3 h-3 animate-spin" />
+                            <>
+                              <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                              <span>Menyimpan...</span>
+                            </>
                           ) : (
                             "Simpan"
                           )}
@@ -1211,30 +1228,27 @@ export default function BookingDetailSheet({
 
       {isChatOpen && (
         <div className="fixed inset-0 z-[500] flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4">
-          <div className="w-full max-w-md bg-white rounded-3xl shadow-2xl overflow-hidden flex flex-col h-[500px]">
+          <div className="w-full max-w-xl sm:max-w-2xl bg-white rounded-3xl shadow-2xl overflow-hidden flex flex-col h-[550px] sm:h-[600px]">
             <div className="p-4 bg-blue-600 text-white flex items-center justify-between shadow-md">
               <div className="flex items-center gap-3 min-w-0">
-                <div className="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center font-bold shrink-0 text-xs">
+                <div className="w-9 h-9 rounded-full bg-white/20 flex items-center justify-center font-bold shrink-0 text-sm">
                   {safeGetPatientName(booking).charAt(0).toUpperCase()}
                 </div>
                 <div className="min-w-0">
-                  <h4 className="font-bold text-xs truncate">
+                  <h4 className="font-bold text-sm sm:text-base truncate">
                     {safeGetPatientName(booking)}
                   </h4>
-                  <p className="text-[9px] text-blue-100 font-medium">
-                    Chat Kunjungan Direct
-                  </p>
                 </div>
               </div>
               <button
                 type="button"
                 onClick={() => setIsChatOpen(false)}
-                className="p-1.5 rounded-lg hover:bg-white/20 shrink-0"
+                className="p-2 rounded-xl hover:bg-white/20 shrink-0 transition-colors cursor-pointer"
               >
-                <X className="w-4 h-4" />
+                <X className="w-5 h-5" />
               </button>
             </div>
-            <div className="flex-1 p-3 overflow-y-auto space-y-3 bg-slate-50">
+            <div className="flex-1 p-4 overflow-y-auto space-y-3.5 bg-slate-50">
               {messages.length > 0 ? (
                 messages.map((message, index) => {
                   const sType = String(
@@ -1271,34 +1285,34 @@ export default function BookingDetailSheet({
                         isNakes ? "items-end" : "items-start"
                       }`}
                     >
-                      <div className="px-1 mb-1 text-[10px] text-slate-400 font-medium">
+                      <div className="px-1 mb-1 text-xs text-slate-500 font-semibold">
                         <span>{senderName}</span>
                       </div>
                       <div
-                        className={`max-w-[80%] px-3 py-2 rounded-2xl shadow-sm relative group ${
+                        className={`max-w-[85%] sm:max-w-[75%] px-4 py-2.5 rounded-2xl shadow-sm relative group ${
                           isNakes
                             ? "bg-blue-600 text-white rounded-tr-none"
                             : "bg-white text-slate-800 border border-slate-200/80 rounded-tl-none"
                         }`}
                       >
-                        <p className="text-xs leading-relaxed break-words pr-10 pb-0.5">
+                        <p className="text-sm leading-relaxed break-words font-medium">
                           {message?.content ?? message?.message ?? ""}
                         </p>
                         {fTime && (
-                          <span
-                            className={`absolute bottom-1.5 right-2 text-[9px] font-medium leading-none ${
-                              isNakes ? "text-blue-100/90" : "text-slate-400"
+                          <div
+                            className={`text-[11px] font-bold mt-1 text-right tracking-tight ${
+                              isNakes ? "text-blue-100" : "text-slate-500"
                             }`}
                           >
-                            {fTime.replace(":", ".")}
-                          </span>
+                            {fTime.replace(":", ".")} WIB
+                          </div>
                         )}
                       </div>
                     </div>
                   );
                 })
               ) : (
-                <div className="h-full flex items-center justify-center text-center text-xs text-slate-400">
+                <div className="h-full flex items-center justify-center text-center text-sm text-slate-400 font-medium">
                   Belum ada pesan.
                 </div>
               )}
@@ -1306,24 +1320,24 @@ export default function BookingDetailSheet({
             </div>
             <form
               onSubmit={handleSendChat}
-              className="p-3 bg-white border-t border-slate-100 flex gap-2 items-center"
+              className="p-3 sm:p-4 bg-white border-t border-slate-100 flex gap-2.5 items-center"
             >
               <input
                 type="text"
                 value={chatInput}
                 onChange={(e) => setChatInput(e.target.value)}
                 placeholder="Ketik pesan..."
-                className="flex-1 min-w-0 rounded-xl border border-slate-200 px-3 py-2 text-xs outline-none focus:border-blue-500 transition-all"
+                className="flex-1 min-w-0 rounded-2xl border border-slate-200 px-4 py-2.5 text-sm outline-none focus:border-blue-500 transition-all"
               />
               <button
                 type="submit"
                 disabled={sendingChat || !chatInput.trim()}
-                className="p-2 rounded-xl bg-blue-600 text-white disabled:opacity-40 shrink-0"
+                className="p-3 rounded-2xl bg-blue-600 hover:bg-blue-700 text-white disabled:opacity-40 shrink-0 cursor-pointer transition-colors shadow-md"
               >
                 {sendingChat ? (
-                  <Loader2 className="w-4 h-4 animate-spin" />
+                  <Loader2 className="w-5 h-5 animate-spin" />
                 ) : (
-                  <Send className="w-4 h-4" />
+                  <Send className="w-5 h-5" />
                 )}
               </button>
             </form>

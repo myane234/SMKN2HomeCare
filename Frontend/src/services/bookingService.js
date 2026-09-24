@@ -243,6 +243,22 @@ export const getBiayaTambahanBooking = async (bookingCode) => {
     throw error;
   }
 };
+/* =========================================================
+ * GET BHP BOOKING - NAKES
+ * =======================================================*/
+export const getBiayaTambahanBookingNakes = async (bookingCode) => {
+  if (!bookingCode) throw new Error("Booking code tidak tersedia.");
+
+  try {
+    const res = await api.get(
+      `/api/nakes/booking/${encodeURIComponent(bookingCode)}/bhp`
+    );
+    return res.data;
+  } catch (error) {
+    console.error("Error mengambil BHP booking nakes:", error);
+    throw error;
+  }
+};
 
 /* =========================================================
  * POST CHARGE PEMBAYARAN BHP TAMBAHAN

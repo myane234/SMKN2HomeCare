@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import {
   useEffect,
@@ -56,26 +56,6 @@ function normalizeBiayaTambahanResponse(response, fallback = null) {
     return value;
   }
   return fallback;
-}
-
-/* ── LocalStorage helpers untuk tracking "sudah dibayar" BHP ── */
-const PAID_KEY_PREFIX = "shc_bhp_paid_";
-
-function getPaidInfo(bookingCode) {
-  if (typeof window === "undefined" || !bookingCode) return null;
-  try {
-    const raw = localStorage.getItem(PAID_KEY_PREFIX + bookingCode);
-    return raw ? JSON.parse(raw) : null;
-  } catch {
-    return null;
-  }
-}
-
-function setPaidInfo(bookingCode, info) {
-  if (typeof window === "undefined" || !bookingCode) return;
-  try {
-    localStorage.setItem(PAID_KEY_PREFIX + bookingCode, JSON.stringify(info));
-  } catch {}
 }
 
 /* ── Status config ── */
@@ -619,22 +599,6 @@ function BookingAktifContent() {
   const biayaTambahanNominal = Number(biayaTambahan?.nominal ?? 0) || 0;
   const biayaTambahanStatusRaw = biayaTambahan?.status_transaksi || null;
 
-  /* useEffect untuk mencatat Lunas ke localStorage */
-  useEffect(() => {
-    if (!biayaTambahan?.status_transaksi) return;
-    if (String(biayaTambahan.status_transaksi).toLowerCase() !== "lunas") return;
-    const code = biayaTambahan.kode_booking_tambahan;
-    if (!code) return;
-
-    const stored = getPaidInfo(code);
-    if (!stored || Number(stored.nominal) !== Number(biayaTambahan?.nominal || 0)) {
-      setPaidInfo(code, {
-        nominal: Number(biayaTambahan?.nominal || 0),
-        paidAt: new Date().toISOString(),
-      });
-    }
-  }, [biayaTambahan?.status_transaksi, biayaTambahan?.kode_booking_tambahan, biayaTambahan?.nominal]);
-
   if (loading) {
     return (
       <div className="min-h-screen bg-slate-50 flex items-center justify-center">
@@ -699,30 +663,13 @@ function BookingAktifContent() {
     biayaTambahanStatusRaw ||
     (biayaTambahanNominalFinal > 0 ? "Belum Bayar" : null);
 
-  /* ⚡ Logika "perlu bayar lagi?" — handle kasus backend tidak reset status */
-  const storedPaidInfo = kodeBookingTambahan ? getPaidInfo(kodeBookingTambahan) : null;
+  /* Status pembayaran BHP mengikuti endpoint /biaya-tambahan sebagai sumber data utama. */
   const isStatusLunas = String(biayaTambahanStatus || "").toLowerCase() === "lunas";
-  const nominalMatches =
-    storedPaidInfo && Number(storedPaidInfo.nominal) === Number(biayaTambahanNominalFinal);
-  const needsPayment = biayaTambahanNominalFinal > 0 && (!isStatusLunas || !nominalMatches);
+  const needsPayment = biayaTambahanNominalFinal > 0 && !isStatusLunas;
 
   const handleBayarBhp = () => {
     if (!booking?.id_booking || biayaTambahanNominalFinal <= 0) return;
     const bookingCode = booking.booking_code || booking.kode_booking || "";
-
-    // Simpan info pembayaran yg sedang berjalan
-    if (typeof window !== "undefined" && kodeBookingTambahan) {
-      try {
-        localStorage.setItem(
-          "shc_bhp_pending_" + bookingCode,
-          JSON.stringify({
-            kode: kodeBookingTambahan,
-            nominal: biayaTambahanNominalFinal,
-            at: new Date().toISOString(),
-          })
-        );
-      } catch {}
-    }
 
     router.push(
       `/pembayaran/pilih-metode?booking_id=${encodeURIComponent(
@@ -840,7 +787,7 @@ function BookingAktifContent() {
                     ) : (
                       <div className="w-full h-full flex items-center justify-center bg-emerald-50">
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} className="w-6 h-6 sm:w-7 sm:h-7 text-emerald-500">
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7-7h14a7 7 0 00-7 7z" />
                         </svg>
                       </div>
                     )}

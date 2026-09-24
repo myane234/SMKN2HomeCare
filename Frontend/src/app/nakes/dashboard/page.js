@@ -629,15 +629,6 @@ export default function DashboardPage() {
                   >
                     <span>{isOnline ? "Status: Online" : "Status: Offline"}</span>
                   </div>
-
-                  <button
-                    type="button"
-                    onClick={refreshAll}
-                    title="Refresh Data"
-                    className="p-1.5 rounded-full bg-white/10 hover:bg-white/20 text-white transition-colors"
-                  >
-                    <RefreshCw className="w-3.5 h-3.5" />
-                  </button>
                 </div>
 
                 <h2 className="text-2xl sm:text-3xl font-extrabold mt-4">

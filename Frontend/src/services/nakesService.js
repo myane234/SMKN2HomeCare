@@ -155,7 +155,9 @@ export const startTindakanBooking = async (bookingId) => {
  */
 export const getBhpBooking = async (bookingCode) => {
   if (!bookingCode) return { data: [] };
+
   const cleanCode = String(bookingCode).trim();
+
   try {
     const response = await api.get(
       `/api/nakes/booking/${encodeURIComponent(cleanCode)}/bhp`
@@ -163,17 +165,7 @@ export const getBhpBooking = async (bookingCode) => {
     return response.data;
   } catch (error) {
     if (error?.response?.status === 404) {
-      try {
-        const response = await api.get(
-          `/api/booking/${encodeURIComponent(cleanCode)}/bhp`
-        );
-        return response.data;
-      } catch (fallbackError) {
-        if (fallbackError?.response?.status === 404) {
-          return { data: [] };
-        }
-        throw fallbackError;
-      }
+      return { data: [] };
     }
     throw error;
   }
@@ -183,23 +175,78 @@ export const getBhpBooking = async (bookingCode) => {
  * Helper untuk polling status BHP ringan.
  */
 export const getBhpBookingStatus = async (bookingCode) => {
+  if (!bookingCode) {
+    return {
+      items: [],
+      total_tambahan: 0,
+      status_transaksi: null,
+      nominal: 0,
+      order_id: null,
+      kode_booking_tambahan: null,
+      dapat_dibayar: false,
+    };
+  }
+
   try {
     const res = await api.get(
-      `/api/nakes/booking/${encodeURIComponent(bookingCode)}/bhp`
+      `/api/nakes/booking/${encodeURIComponent(String(bookingCode).trim())}/bhp`
     );
-    const data = res.data?.data ?? res.data ?? {};
+
+    const root = res.data?.data ?? res.data ?? {};
+    const meta = res.data?.meta ?? {};
+
+    const status =
+      root?.status_transaksi ??
+      root?.status_pembayaran_bhp ??
+      root?.status_pembayaran_biaya_tambahan ??
+      root?.biaya_tambahan_pasien?.status_transaksi ??
+      meta?.status_transaksi ??
+      meta?.status_pembayaran_bhp ??
+      null;
+
+    const nominal =
+      Number(
+        root?.nominal ??
+          root?.total_tambahan ??
+          root?.sb_tambahan ??
+          root?.biaya_tambahan_pasien?.nominal ??
+          meta?.total_tambahan ??
+          0
+      ) || 0;
+
     return {
-      items: Array.isArray(data?.items) ? data.items : [],
-      total_tambahan:
-        Number(data?.total_tambahan ?? res.data?.meta?.total_tambahan ?? 0) || 0,
-      status_transaksi:
-        data?.status_transaksi ??
-        res.data?.meta?.status_pembayaran_bhp ??
+      items: Array.isArray(root?.items)
+        ? root.items
+        : Array.isArray(root?.bhp_items)
+        ? root.bhp_items
+        : Array.isArray(res.data)
+        ? res.data
+        : [],
+      total_tambahan: nominal,
+      nominal,
+      status_transaksi: status,
+      order_id:
+        root?.order_id ??
+        root?.biaya_tambahan_pasien?.order_id ??
         null,
+      kode_booking_tambahan:
+        root?.kode_booking_tambahan ??
+        root?.biaya_tambahan_pasien?.kode_booking_tambahan ??
+        null,
+      dapat_dibayar: root?.dapat_dibayar ?? false,
     };
   } catch (error) {
     console.warn("getBhpBookingStatus gagal:", error);
-    return { items: [], total_tambahan: 0, status_transaksi: null };
+
+    return {
+      items: [],
+      total_tambahan: 0,
+      status_transaksi: null,
+      nominal: 0,
+      order_id: null,
+      kode_booking_tambahan: null,
+      dapat_dibayar: false,
+    };
   }
 };
 
