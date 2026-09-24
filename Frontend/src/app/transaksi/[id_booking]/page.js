@@ -5,7 +5,8 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { FiArrowLeft, FiCalendar, FiUser, FiMapPin, FiCreditCard, FiClock, FiFileText } from "react-icons/fi";
 import { getDetailTransaksi } from "@/services/transaksiService";
-import { getBhpBookingState } from "@/services/nakesService";
+import { getBhpBookingStatus } from "@/services/nakesService";
+
 
 export default function DetailTransaksiPage({ params }) {
   // Unwrap params - key "id_booking" HARUS sama persis dengan nama folder [id_booking]
@@ -214,7 +215,9 @@ export default function DetailTransaksiPage({ params }) {
                   <FiCreditCard className="text-blue-600" /> Rincian Pembayaran
                 </h3>
                 {(() => {
-                  const bhpState = getBhpBookingState(idBooking);
+
+                  const bhpState = getBhpBookingStatus(idBooking);
+
                   const totalAwal = Number(rincianBiaya.total?.nilai || detailPembayaran.jumlah_total || transaksi.total || 0);
                   const totalBhpTambahan = Number(bhpState.total_tambahan || 0);
                   const grandTotal = totalAwal + totalBhpTambahan;
@@ -260,6 +263,7 @@ export default function DetailTransaksiPage({ params }) {
                       </div>
                     </div>
                   );
+
                 })()}
               </div>
             </div>

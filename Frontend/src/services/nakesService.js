@@ -153,20 +153,29 @@ export const startTindakanBooking = async (bookingId) => {
  * GET BHP list untuk 1 booking.
  * Endpoint: GET /api/nakes/booking/{booking_code}/bhp
  */
-export const getBhpBooking = async (bookingId) => {
+export const getBhpBooking = async (bookingCode) => {
+  if (!bookingCode) return { data: [] };
+  const cleanCode = String(bookingCode).trim();
   try {
     const response = await api.get(
-      `/api/nakes/booking/${encodeURIComponent(bookingId)}/bhp`
+      `/api/nakes/booking/${encodeURIComponent(cleanCode)}/bhp`
     );
     return response.data;
   } catch (error) {
-    console.warn("Gagal fetch BHP booking:", error);
-    // Kembalikan struktur kosong (bukan dummy) agar UI handle dgn aman.
-    return {
-      success: false,
-      data: [],
-      meta: { total_tambahan: 0, status_pembayaran_bhp: "Lunas" },
-    };
+    if (error?.response?.status === 404) {
+      try {
+        const response = await api.get(
+          `/api/booking/${encodeURIComponent(cleanCode)}/bhp`
+        );
+        return response.data;
+      } catch (fallbackError) {
+        if (fallbackError?.response?.status === 404) {
+          return { data: [] };
+        }
+        throw fallbackError;
+      }
+    }
+    throw error;
   }
 };
 
@@ -200,7 +209,9 @@ export const getBhpBookingStatus = async (bookingCode) => {
  *
  * WAJIB kirim SEMUA item (semua layanan). Backend akan replace seluruh list BHP booking.
  */
-export const addBhpBooking = async (bookingId, payload = {}) => {
+export const addBhpBooking = async (bookingCode, payload = {}) => {
+  if (!bookingCode) return null;
+  const cleanCode = String(bookingCode).trim();
   const rawItems = Array.isArray(payload)
     ? payload
     : Array.isArray(payload?.items)
@@ -252,7 +263,7 @@ export const addBhpBooking = async (bookingId, payload = {}) => {
   }
 
   const response = await api.post(
-    `/api/nakes/booking/${encodeURIComponent(bookingId)}/bhp`,
+    `/api/nakes/booking/${encodeURIComponent(cleanCode)}/bhp`,
     postBody
   );
   return response.data;

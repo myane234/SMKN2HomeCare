@@ -1,7 +1,8 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import Link from "next/link";
+import useSWR from "swr";
 import {
   X,
   Loader2,
@@ -9,9 +10,8 @@ import {
   CheckCircle2,
   AlertCircle,
   Play,
-  ToggleLeft,
-  ToggleRight,
   ArrowRight,
+  RefreshCw,
 } from "lucide-react";
 import { getProfileMe } from "@/services/profileService";
 import {
@@ -24,197 +24,388 @@ import {
   getDataOperasional,
 } from "@/services/nakesService";
 
+const unwrapData = (value) => {
+  let current = value;
+  for (let i = 0; i < 8; i += 1) {
+    if (
+      current &&
+      typeof current === "object" &&
+      !Array.isArray(current) &&
+      Object.prototype.hasOwnProperty.call(current, "data")
+    )
+      current = current.data;
+    else break;
+  }
+  return current;
+};
+
+const getApprovedOperational = (value) => {
+  const data = unwrapData(value);
+  if (!data) return null;
+
+  if (Array.isArray(data)) {
+    const approvedList = data
+      .filter(
+        (item) => String(item?.status ?? "").toLowerCase() === "approved"
+      )
+      .sort((a, b) => {
+        const dateA = new Date(
+          a?.updated_at || a?.created_at || 0
+        ).getTime();
+        const dateB = new Date(
+          b?.updated_at || b?.created_at || 0
+        ).getTime();
+        return dateB - dateA;
+      });
+
+    return approvedList[0] || null;
+  }
+
+  if (data?.data_aktif && typeof data.data_aktif === "object")
+    return data.data_aktif;
+  if (data?.operasional_aktif && typeof data.operasional_aktif === "object")
+    return data.operasional_aktif;
+  if (data?.operasional && typeof data.operasional === "object") {
+    if (
+      String(data.operasional?.status ?? "").toLowerCase() === "approved"
+    ) {
+      return data.operasional;
+    }
+  }
+  if (String(data?.status ?? "").toLowerCase() === "approved") return data;
+
+  return null;
+};
+
+const getLatestOperationalRecord = (value) => {
+  const data = unwrapData(value);
+  if (!data) return null;
+
+  if (Array.isArray(data)) {
+    const sorted = [...data].sort((a, b) => {
+      const dateA = new Date(a?.updated_at || a?.created_at || 0).getTime();
+      const dateB = new Date(b?.updated_at || b?.created_at || 0).getTime();
+      return dateB - dateA;
+    });
+    return sorted[0] || null;
+  }
+
+  if (data?.data_aktif && typeof data.data_aktif === "object")
+    return data.data_aktif;
+  if (data?.operasional_aktif && typeof data.operasional_aktif === "object")
+    return data.operasional_aktif;
+  if (data?.operasional && typeof data.operasional === "object")
+    return data.operasional;
+
+  return data;
+};
+
+const checkIsWithinSchedule = (record) => {
+  if (!record) return false;
+  const opWaktu = record?.waktu_layanan;
+  if (!opWaktu) return false;
+
+  let parsedWaktu = opWaktu;
+  if (typeof parsedWaktu === "string") {
+    try {
+      parsedWaktu = JSON.parse(parsedWaktu);
+    } catch {
+      parsedWaktu = null;
+    }
+  }
+
+  if (!Array.isArray(parsedWaktu) || parsedWaktu.length === 0) return false;
+
+  const daysMap = {
+    minggu: 0,
+    senin: 1,
+    selasa: 2,
+    rabu: 3,
+    kamis: 4,
+    jumat: 5,
+    sabtu: 6,
+  };
+
+  const now = new Date();
+  const currentDay = now.getDay();
+  const currentMinutes = now.getHours() * 60 + now.getMinutes();
+
+  return parsedWaktu.some((slot) => {
+    const hMulaiStr = String(
+      slot?.hari_mulai || slot?.hari || ""
+    ).toLowerCase();
+    const hSelesaiStr = String(
+      slot?.hari_selesai || slot?.hari || ""
+    ).toLowerCase();
+
+    let startDay = daysMap[hMulaiStr];
+    let endDay = daysMap[hSelesaiStr];
+
+    if (startDay === undefined) return false;
+    if (endDay === undefined) endDay = startDay;
+
+    let isDayMatched = false;
+    if (startDay <= endDay) {
+      isDayMatched = currentDay >= startDay && currentDay <= endDay;
+    } else {
+      isDayMatched = currentDay >= startDay || currentDay <= endDay;
+    }
+
+    if (!isDayMatched) return false;
+
+    const jMulai = slot?.jam_mulai;
+    const jSelesai = slot?.jam_selesai;
+
+    if (!jMulai || !jSelesai) return true;
+
+    const [mHour, mMin] = jMulai.split(":").map(Number);
+    const [sHour, sMin] = jSelesai.split(":").map(Number);
+
+    const startTotal = mHour * 60 + (mMin || 0);
+    const endTotal = sHour * 60 + (sMin || 0);
+
+    return currentMinutes >= startTotal && currentMinutes <= endTotal;
+  });
+};
+
+const extractList = (value) => {
+  const data = unwrapData(value);
+  if (Array.isArray(data)) return data;
+  if (Array.isArray(data?.data)) return data.data;
+  if (Array.isArray(data?.bookings)) return data.bookings;
+  if (Array.isArray(data?.orders)) return data.orders;
+  return [];
+};
+
+const extractBookingDetail = (res) => {
+  const data = res?.data || res;
+  return data?.booking || data;
+};
+
+const getBookingId = (booking) =>
+  booking?.id_booking ?? booking?.booking_id ?? booking?.id ?? null;
+const getBookingStatus = (booking) =>
+  String(booking?.status_booking ?? booking?.status ?? "")
+    .trim()
+    .toLowerCase();
+const isPending = (booking) => getBookingStatus(booking) === "pending";
+const isActiveVisit = (booking) =>
+  [
+    "tindakan",
+    "sedang tindakan",
+    "sedang_dalam_tindakan",
+    "sedang_tindakan",
+    "in_progress",
+    "processing",
+    "diproses",
+    "berjalan",
+  ].includes(getBookingStatus(booking));
+const isFinished = (booking) =>
+  ["selesai", "completed", "finished"].includes(getBookingStatus(booking));
+const isRejected = (booking) =>
+  ["ditolak", "rejected", "dibatalkan", "cancelled"].includes(
+    getBookingStatus(booking)
+  );
+const getBookingCode = (booking) =>
+  booking?.booking_code ||
+  booking?.kode_booking ||
+  (getBookingId(booking) ? `#${getBookingId(booking)}` : "-");
+const getPatientName = (booking) =>
+  booking?.pasien?.nama_lengkap ||
+  booking?.pasien?.nama ||
+  booking?.nama_pasien ||
+  booking?.user?.name ||
+  "Pasien";
+const getPatientPhone = (booking) =>
+  booking?.pasien?.no_telp ||
+  booking?.pasien?.no_hp ||
+  booking?.pasien?.phone ||
+  booking?.user?.phone ||
+  booking?.user?.no_telp ||
+  "-";
+const getPatientAddress = (booking) =>
+  booking?.alamat_kunjungan ||
+  booking?.pasien?.alamat_utama ||
+  booking?.alamat_tujuan ||
+  booking?.pasien?.alamat ||
+  "-";
+
+const getServiceName = (booking) => {
+  if (
+    Array.isArray(booking?.layanan_items) &&
+    booking.layanan_items.length > 0
+  ) {
+    return booking.layanan_items
+      .map(
+        (item) =>
+          item?.nama_layanan || item?.layanan?.nama_layanan || item?.nama
+      )
+      .filter(Boolean)
+      .join(", ");
+  }
+  return booking?.layanan?.nama_layanan || booking?.nama_layanan || "-";
+};
+
+const getVisitDate = (booking) => {
+  const rawDate =
+    booking?.tanggal_kunjungan_raw ||
+    booking?.tanggal_kunjungan ||
+    booking?.tanggal_booking;
+  const jam = booking?.jam_kunjungan || "";
+  if (!rawDate) return "-";
+  let formattedDate = String(rawDate);
+  if (/^\d{4}-\d{2}-\d{2}$/.test(String(rawDate))) {
+    const [year, month, day] = String(rawDate).split("-").map(Number);
+    const date = new Date(year, month - 1, day);
+    if (!Number.isNaN(date.getTime()))
+      formattedDate = date.toLocaleDateString("id-ID", {
+        day: "2-digit",
+        month: "short",
+        year: "numeric",
+      });
+  }
+  return jam
+    ? `${formattedDate}, ${String(jam).slice(0, 5)}`
+    : formattedDate;
+};
+
+const dedupeBookings = (list) => {
+  const map = new Map();
+  list.forEach((booking) => {
+    const id = getBookingId(booking);
+    if (!id) return;
+    const key = String(id);
+    if (!map.has(key)) map.set(key, booking);
+  });
+  return Array.from(map.values());
+};
+
+// SWR Fetchers
+const fetcherProfile = async () => unwrapData(await getProfileMe());
+const fetcherOperational = async () => unwrapData(await getDataOperasional());
+const fetcherBookingsData = async () => {
+  const [ordersRes, bookingsRes] = await Promise.allSettled([
+    getNakesOrders(),
+    getNakesBookings(),
+  ]);
+
+  const orders =
+    ordersRes.status === "fulfilled" ? extractList(ordersRes.value) : [];
+  const bookings =
+    bookingsRes.status === "fulfilled" ? extractList(bookingsRes.value) : [];
+
+  const incomingBookings = dedupeBookings([...orders, ...bookings]).filter(
+    isPending
+  );
+  const activeVisits = bookings.filter(isActiveVisit);
+  const myBookings = bookings.filter(
+    (booking) =>
+      !isPending(booking) &&
+      !isRejected(booking) &&
+      !isFinished(booking) &&
+      !isActiveVisit(booking)
+  );
+
+  return {
+    incomingBookings,
+    myBookings,
+    activeVisitBooking: activeVisits[0] || null,
+  };
+};
+
 export default function DashboardPage() {
-  const [loading, setLoading] = useState(true);
-  const [bookingLoading, setBookingLoading] = useState(true);
-  const [incomingBookings, setIncomingBookings] = useState([]);
-  const [myBookings, setMyBookings] = useState([]);
-  const [activeVisitBooking, setActiveVisitBooking] = useState(null);
   const [selectedBooking, setSelectedBooking] = useState(null);
   const [bookingDetailLoading, setBookingDetailLoading] = useState(false);
   const [bookingActionId, setBookingActionId] = useState(null);
   const [startingTindakanId, setStartingTindakanId] = useState(null);
   const [toast, setToast] = useState(null);
 
-  // Status operasional & keaktifan Nakes
-  const [profile, setProfile] = useState(null);
-  const [operationalData, setOperationalData] = useState(null);
-  const [isOperationalApproved, setIsOperationalApproved] = useState(false);
-  const [isOnline, setIsOnline] = useState(true);
-  const [isWithinSchedule, setIsWithinSchedule] = useState(true);
+  // Fetch SWR
+  const {
+    data: profileData,
+    isLoading: isProfileLoading,
+    mutate: mutateProfile,
+  } = useSWR("nakes_profile", fetcherProfile, {
+    revalidateOnFocus: false,
+    dedupingInterval: 10000,
+  });
 
-  const mountedRef = useRef(true);
-  const refreshLockRef = useRef(false);
+  const {
+    data: operationalData,
+    isLoading: isOpLoading,
+    mutate: mutateOp,
+  } = useSWR("nakes_operational", fetcherOperational, {
+    revalidateOnFocus: false,
+    dedupingInterval: 10000,
+  });
 
-  useEffect(() => {
-    mountedRef.current = true;
-    return () => {
-      mountedRef.current = false;
-    };
+  const {
+    data: bookingsData,
+    isLoading: isBookingsLoading,
+    mutate: mutateBookings,
+  } = useSWR("nakes_bookings", fetcherBookingsData, {
+    revalidateOnFocus: false,
+    dedupingInterval: 5000,
+    refreshInterval: 15000, // Refresh background setiap 15 detik secara efisien
+  });
+
+  const showToast = useCallback((type, text) => {
+    setToast({ type, text });
+    window.clearTimeout(showToast.timeoutId);
+    showToast.timeoutId = window.setTimeout(() => {
+      setToast(null);
+    }, 4500);
   }, []);
 
-  const unwrapData = (value) => {
-    let current = value;
-    for (let i = 0; i < 8; i += 1) {
-      if (
-        current &&
-        typeof current === "object" &&
-        !Array.isArray(current) &&
-        Object.prototype.hasOwnProperty.call(current, "data")
-      )
-        current = current.data;
-      else break;
-    }
-    return current;
-  };
+  const refreshAll = useCallback(() => {
+    mutateProfile();
+    mutateOp();
+    mutateBookings();
+  }, [mutateProfile, mutateOp, mutateBookings]);
 
-  /* HELPER CEK JADWAL OPERASIONAL */
-  const checkIsWithinSchedule = useCallback((record) => {
-    if (!record) return true;
-    const opWaktu = record?.waktu_layanan;
-    if (!opWaktu) return true;
-
-    let parsedWaktu = opWaktu;
-    if (typeof parsedWaktu === "string") {
-      try {
-        parsedWaktu = JSON.parse(parsedWaktu);
-      } catch {
-        parsedWaktu = null;
-      }
-    }
-
-    if (!Array.isArray(parsedWaktu) || parsedWaktu.length === 0) return true;
-
-    const daysMap = {
-      minggu: 0,
-      senin: 1,
-      selasa: 2,
-      rabu: 3,
-      kamis: 4,
-      jumat: 5,
-      sabtu: 6,
-    };
-
-    const now = new Date();
-    const currentDay = now.getDay();
-    const currentMinutes = now.getHours() * 60 + now.getMinutes();
-
-    return parsedWaktu.some((slot) => {
-      const hMulaiStr = String(
-        slot?.hari_mulai || slot?.hari || ""
-      ).toLowerCase();
-      const hSelesaiStr = String(
-        slot?.hari_selesai || slot?.hari || ""
-      ).toLowerCase();
-
-      let startDay = daysMap[hMulaiStr];
-      let endDay = daysMap[hSelesaiStr];
-
-      if (startDay === undefined) return true;
-      if (endDay === undefined) endDay = startDay;
-
-      let isDayMatched = false;
-      if (startDay <= endDay) {
-        isDayMatched = currentDay >= startDay && currentDay <= endDay;
-      } else {
-        isDayMatched = currentDay >= startDay || currentDay <= endDay;
-      }
-
-      if (!isDayMatched) return false;
-
-      const jMulai = slot?.jam_mulai;
-      const jSelesai = slot?.jam_selesai;
-
-      if (!jMulai || !jSelesai) return true;
-
-      const [mHour, mMin] = jMulai.split(":").map(Number);
-      const [sHour, sMin] = jSelesai.split(":").map(Number);
-
-      const startTotal = mHour * 60 + (mMin || 0);
-      const endTotal = sHour * 60 + (sMin || 0);
-
-      return currentMinutes >= startTotal && currentMinutes <= endTotal;
-    });
-  }, []);
-
-  /* GET APPROVED OPERATIONAL RECORD */
-  const getApprovedOperational = useCallback((value) => {
-    const data = unwrapData(value);
-    if (!data) return null;
-
-    if (Array.isArray(data)) {
-      const approvedList = data
-        .filter(
-          (item) => String(item?.status ?? "").toLowerCase() === "approved"
-        )
-        .sort((a, b) => {
-          const dateA = new Date(
-            a?.updated_at || a?.created_at || 0
-          ).getTime();
-          const dateB = new Date(
-            b?.updated_at || b?.created_at || 0
-          ).getTime();
-          return dateB - dateA;
-        });
-
-      return approvedList[0] || null;
-    }
-
-    if (data?.data_aktif && typeof data.data_aktif === "object")
-      return data.data_aktif;
-    if (data?.operasional_aktif && typeof data.operasional_aktif === "object")
-      return data.operasional_aktif;
-    if (data?.operasional && typeof data.operasional === "object") {
-      if (
-        String(data.operasional?.status ?? "").toLowerCase() === "approved"
-      ) {
-        return data.operasional;
-      }
-    }
-    if (String(data?.status ?? "").toLowerCase() === "approved") return data;
-
-    return null;
-  }, []);
-
-  /* GET LATEST OPERATIONAL RECORD */
-  const getLatestOperationalRecord = useCallback((value) => {
-    const data = unwrapData(value);
-    if (!data) return null;
-
-    if (Array.isArray(data)) {
-      const sorted = [...data].sort((a, b) => {
-        const dateA = new Date(a?.updated_at || a?.created_at || 0).getTime();
-        const dateB = new Date(b?.updated_at || b?.created_at || 0).getTime();
-        return dateB - dateA;
-      });
-      return sorted[0] || null;
-    }
-
-    if (data?.data_aktif && typeof data.data_aktif === "object")
-      return data.data_aktif;
-    if (data?.operasional_aktif && typeof data.operasional_aktif === "object")
-      return data.operasional_aktif;
-    if (data?.operasional && typeof data.operasional === "object")
-      return data.operasional;
-
-    return data;
-  }, []);
-
-  /* TARGET OPERATIONAL RECORD */
+  // Operational Record Evaluation
   const targetOperationalRecord = useMemo(() => {
     const approved =
       getApprovedOperational(operationalData) ||
-      getApprovedOperational(profile);
+      getApprovedOperational(profileData);
     const latest =
       getLatestOperationalRecord(operationalData) ||
-      getLatestOperationalRecord(profile);
+      getLatestOperationalRecord(profileData);
     return approved || latest;
-  }, [
-    operationalData,
-    profile,
-    getApprovedOperational,
-    getLatestOperationalRecord,
-  ]);
+  }, [operationalData, profileData]);
+
+  const isOperationalApproved = useMemo(() => {
+    const approvedFromOp = getApprovedOperational(operationalData);
+    const approvedFromProf = getApprovedOperational(profileData);
+    const approved = approvedFromOp || approvedFromProf;
+
+    const tm =
+      profileData?.tenaga_medis ||
+      profileData?.nakes ||
+      profileData ||
+      {};
+    const statusOpStr = String(
+      approved?.status ||
+        targetOperationalRecord?.status ||
+        tm?.status_operasional ||
+        profileData?.status_operasional ||
+        ""
+    ).toLowerCase();
+
+    return (
+      Boolean(approved) ||
+      statusOpStr === "approved" ||
+      Boolean(profileData?.is_operasional_approved)
+    );
+  }, [operationalData, profileData, targetOperationalRecord]);
+
+  // Read-only online status calculation
+  const isWithinSchedule = useMemo(() => {
+    if (!isOperationalApproved || !targetOperationalRecord) return false;
+    return checkIsWithinSchedule(targetOperationalRecord);
+  }, [isOperationalApproved, targetOperationalRecord]);
+
+  const isOnline = isOperationalApproved && isWithinSchedule;
 
   /* FORMATTED SCHEDULE DISPLAY */
   const formattedScheduleDisplay = useMemo(() => {
@@ -258,274 +449,11 @@ export default function DashboardPage() {
     return "-";
   }, [targetOperationalRecord]);
 
-  const extractList = (value) => {
-    const data = unwrapData(value);
-    if (Array.isArray(data)) return data;
-    if (Array.isArray(data?.data)) return data.data;
-    if (Array.isArray(data?.bookings)) return data.bookings;
-    if (Array.isArray(data?.orders)) return data.orders;
-    return [];
-  };
+  const incomingBookings = bookingsData?.incomingBookings || [];
+  const myBookings = bookingsData?.myBookings || [];
+  const activeVisitBooking = bookingsData?.activeVisitBooking || null;
 
-  const extractBookingDetail = (res) => {
-    const data = res?.data || res;
-    return data?.booking || data;
-  };
-
-  const getBookingId = (booking) =>
-    booking?.id_booking ?? booking?.booking_id ?? booking?.id ?? null;
-  const getBookingStatus = (booking) =>
-    String(booking?.status_booking ?? booking?.status ?? "")
-      .trim()
-      .toLowerCase();
-  const isPending = (booking) => getBookingStatus(booking) === "pending";
-  const isActiveVisit = (booking) =>
-    [
-      "tindakan",
-      "sedang tindakan",
-      "sedang_dalam_tindakan",
-      "sedang_tindakan",
-      "in_progress",
-      "processing",
-      "diproses",
-      "berjalan",
-    ].includes(getBookingStatus(booking));
-  const isFinished = (booking) =>
-    ["selesai", "completed", "finished"].includes(getBookingStatus(booking));
-  const isRejected = (booking) =>
-    ["ditolak", "rejected", "dibatalkan", "cancelled"].includes(
-      getBookingStatus(booking)
-    );
-  const getBookingCode = (booking) =>
-    booking?.booking_code ||
-    booking?.kode_booking ||
-    (getBookingId(booking) ? `#${getBookingId(booking)}` : "-");
-  const getPatientName = (booking) =>
-    booking?.pasien?.nama_lengkap ||
-    booking?.pasien?.nama ||
-    booking?.nama_pasien ||
-    booking?.user?.name ||
-    "Pasien";
-  const getPatientPhone = (booking) =>
-    booking?.pasien?.no_telp ||
-    booking?.pasien?.no_hp ||
-    booking?.pasien?.phone ||
-    booking?.user?.phone ||
-    booking?.user?.no_telp ||
-    "-";
-  const getPatientAddress = (booking) =>
-    booking?.alamat_kunjungan ||
-    booking?.pasien?.alamat_utama ||
-    booking?.alamat_tujuan ||
-    booking?.pasien?.alamat ||
-    "-";
-
-  const getServiceName = (booking) => {
-    if (
-      Array.isArray(booking?.layanan_items) &&
-      booking.layanan_items.length > 0
-    ) {
-      return booking.layanan_items
-        .map(
-          (item) =>
-            item?.nama_layanan || item?.layanan?.nama_layanan || item?.nama
-        )
-        .filter(Boolean)
-        .join(", ");
-    }
-    return booking?.layanan?.nama_layanan || booking?.nama_layanan || "-";
-  };
-
-  const getVisitDate = (booking) => {
-    const rawDate =
-      booking?.tanggal_kunjungan_raw ||
-      booking?.tanggal_kunjungan ||
-      booking?.tanggal_booking;
-    const jam = booking?.jam_kunjungan || "";
-    if (!rawDate) return "-";
-    let formattedDate = String(rawDate);
-    if (/^\d{4}-\d{2}-\d{2}$/.test(String(rawDate))) {
-      const [year, month, day] = String(rawDate).split("-").map(Number);
-      const date = new Date(year, month - 1, day);
-      if (!Number.isNaN(date.getTime()))
-        formattedDate = date.toLocaleDateString("id-ID", {
-          day: "2-digit",
-          month: "short",
-          year: "numeric",
-        });
-    }
-    return jam
-      ? `${formattedDate}, ${String(jam).slice(0, 5)}`
-      : formattedDate;
-  };
-
-  const dedupeBookings = (list) => {
-    const map = new Map();
-    list.forEach((booking) => {
-      const id = getBookingId(booking);
-      if (!id) return;
-      const key = String(id);
-      if (!map.has(key)) map.set(key, booking);
-    });
-    return Array.from(map.values());
-  };
-
-  const showToast = useCallback((type, text) => {
-    if (!mountedRef.current) return;
-    setToast({ type, text });
-    window.clearTimeout(showToast.timeoutId);
-    showToast.timeoutId = window.setTimeout(() => {
-      if (mountedRef.current) setToast(null);
-    }, 4500);
-  }, []);
-
-  const fetchDashboardData = useCallback(
-    async (initial = false) => {
-      if (refreshLockRef.current && !initial) return;
-      refreshLockRef.current = true;
-
-      try {
-        if (initial) setLoading(true);
-        setBookingLoading(true);
-
-        const [
-          profileResult,
-          operationalResult,
-          ordersResult,
-          bookingsResult,
-        ] = await Promise.allSettled([
-          getProfileMe(),
-          getDataOperasional(),
-          getNakesOrders(),
-          getNakesBookings(),
-        ]);
-
-        let profData = null;
-        let rawOperational = null;
-
-        if (profileResult.status === "fulfilled") {
-          profData = unwrapData(profileResult.value);
-          setProfile(profData);
-        }
-
-        if (operationalResult.status === "fulfilled") {
-          rawOperational = unwrapData(operationalResult.value);
-          setOperationalData(rawOperational);
-        }
-
-        const approvedFromOp = getApprovedOperational(rawOperational);
-        const approvedFromProf = getApprovedOperational(profData);
-        const approved = approvedFromOp || approvedFromProf;
-
-        const latestFromOp = getLatestOperationalRecord(rawOperational);
-        const latestFromProf = getLatestOperationalRecord(profData);
-        const latestOperational = approved || latestFromOp || latestFromProf;
-
-        const tm = profData?.tenaga_medis || profData?.nakes || profData || {};
-        const statusOpStr = String(
-          approved?.status ||
-            latestOperational?.status ||
-            tm?.status_operasional ||
-            profData?.status_operasional ||
-            ""
-        ).toLowerCase();
-
-        const isApproved =
-          Boolean(approved) ||
-          statusOpStr === "approved" ||
-          Boolean(profData?.is_operasional_approved);
-        setIsOperationalApproved(isApproved);
-
-        if (!isApproved) {
-          setIsOnline(false);
-        }
-
-        const orders =
-          ordersResult.status === "fulfilled"
-            ? extractList(ordersResult.value)
-            : [];
-        const bookings =
-          bookingsResult.status === "fulfilled"
-            ? extractList(bookingsResult.value)
-            : [];
-
-        const pendingBookings = dedupeBookings([
-          ...orders,
-          ...bookings,
-        ]).filter(isPending);
-        const activeVisits = bookings.filter(isActiveVisit);
-        const accepted = bookings.filter(
-          (booking) =>
-            !isPending(booking) &&
-            !isRejected(booking) &&
-            !isFinished(booking) &&
-            !isActiveVisit(booking)
-        );
-
-        if (!mountedRef.current) return;
-
-        setIncomingBookings(pendingBookings);
-        setMyBookings(accepted);
-
-        if (activeVisits.length > 0) {
-          setActiveVisitBooking(activeVisits[0]);
-        } else {
-          setActiveVisitBooking(null);
-        }
-      } catch (error) {
-        console.error("Gagal memuat dashboard nakes:", error);
-        showToast(
-          "error",
-          error?.response?.data?.message || "Gagal memuat dashboard."
-        );
-      } finally {
-        if (mountedRef.current) {
-          setBookingLoading(false);
-          setLoading(false);
-        }
-        refreshLockRef.current = false;
-      }
-    },
-    [showToast, getApprovedOperational, getLatestOperationalRecord]
-  );
-
-  useEffect(() => {
-    if (!isOperationalApproved || !targetOperationalRecord) {
-      setIsWithinSchedule(true);
-      return;
-    }
-
-    const checkSchedule = () => {
-      const within = checkIsWithinSchedule(targetOperationalRecord);
-      setIsWithinSchedule((prev) => (prev !== within ? within : prev));
-    };
-
-    checkSchedule();
-    const intervalId = setInterval(checkSchedule, 30000);
-    return () => clearInterval(intervalId);
-  }, [isOperationalApproved, targetOperationalRecord, checkIsWithinSchedule]);
-
-  useEffect(() => {
-    fetchDashboardData(true);
-    const handleFocus = () => fetchDashboardData(false);
-    window.addEventListener("focus", handleFocus);
-    return () => window.removeEventListener("focus", handleFocus);
-  }, [fetchDashboardData]);
-
-  const requestGps = () =>
-    new Promise((resolve, reject) => {
-      if (typeof window === "undefined" || !navigator.geolocation) {
-        resolve(null);
-        return;
-      }
-      navigator.geolocation.getCurrentPosition(resolve, reject, {
-        enableHighAccuracy: true,
-        timeout: 10000,
-        maximumAge: 0,
-      });
-    });
-
- const handleBookingAction = async (booking, action) => {
+  const handleBookingAction = async (booking, action) => {
     const bookingId = getBookingId(booking);
     if (!bookingId) {
       showToast("error", "ID booking tidak valid.");
@@ -540,9 +468,7 @@ export default function DashboardPage() {
         "error",
         !isOperationalApproved
           ? "Operasional Anda belum aktif/disetujui. Lengkapi pengajuan operasional di menu Profile."
-          : !isWithinSchedule
-          ? "Saat ini di luar jam operasional Anda. Anda tidak dapat menerima booking."
-          : "Status Anda sedang Offline. Aktifkan status Online terlebih dahulu untuk menerima booking."
+          : "Saat ini di luar jam operasional Anda. Anda tidak dapat menerima booking."
       );
       return;
     }
@@ -553,7 +479,6 @@ export default function DashboardPage() {
 
     try {
       if (action === "accept") {
-        // GPS dilewati/dihapus, langsung kirim request terima pesanan tanpa payload koordinat
         await acceptNakesBooking(bookingId);
         showToast("success", "Booking berhasil diterima.");
       } else {
@@ -562,7 +487,7 @@ export default function DashboardPage() {
       }
 
       setSelectedBooking(null);
-      await fetchDashboardData(false);
+      await mutateBookings();
     } catch (error) {
       console.error("Gagal memperbarui booking:", error);
       showToast(
@@ -617,8 +542,7 @@ export default function DashboardPage() {
     try {
       await startTindakanBooking(bookingId);
       showToast("success", "Kunjungan berhasil dimulai.");
-      await fetchDashboardData(false);
-      window.dispatchEvent(new Event("focus"));
+      await mutateBookings();
     } catch (error) {
       console.error("Gagal memulai kunjungan:", error);
       showToast(
@@ -630,7 +554,9 @@ export default function DashboardPage() {
     }
   };
 
-  if (loading) {
+  const initialLoading = isProfileLoading || isOpLoading || (isBookingsLoading && !bookingsData);
+
+  if (initialLoading) {
     return (
       <div className="min-h-screen bg-slate-50 flex items-center justify-center">
         <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
@@ -674,16 +600,14 @@ export default function DashboardPage() {
                 <div className="flex flex-wrap items-center justify-center sm:justify-start gap-3">
                   <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/15 border border-white/20 text-xs font-semibold">
                     <span
-                      className={`w-2 h-2 rounded-full ${
+                      className={`w-2.5 h-2.5 rounded-full ${
                         hasActiveVisit
                           ? "bg-amber-300 animate-pulse"
                           : !isOperationalApproved
                           ? "bg-rose-400"
                           : !isWithinSchedule
                           ? "bg-amber-300"
-                          : isOnline
-                          ? "bg-emerald-400"
-                          : "bg-rose-400"
+                          : "bg-emerald-400 animate-pulse"
                       }`}
                     />
                     {hasActiveVisit
@@ -692,45 +616,27 @@ export default function DashboardPage() {
                       ? "Operasional Belum Aktif"
                       : !isWithinSchedule
                       ? "Di Luar Jam Operasional"
-                      : isOnline
-                      ? "Online - Siap Menerima Pesanan"
-                      : "Offline - Tidak Menerima Pesanan"}
+                      : "Online - Siap Menerima Pesanan"}
+                  </div>
+
+                  {/* READ-ONLY BADGE STATUS ONLINE / OFFLINE */}
+                  <div
+                    className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold border transition ${
+                      isOnline
+                        ? "bg-emerald-500/20 text-emerald-200 border-emerald-400/40"
+                        : "bg-rose-500/20 text-rose-200 border-rose-400/40"
+                    }`}
+                  >
+                    <span>{isOnline ? "Status: Online" : "Status: Offline"}</span>
                   </div>
 
                   <button
                     type="button"
-                    disabled={!isOperationalApproved || !isWithinSchedule}
-                    onClick={() => {
-                      if (!isOperationalApproved) {
-                        showToast(
-                          "error",
-                          "Operasional Anda belum aktif/disetujui. Lengkapi pengajuan operasional terlebih dahulu."
-                        );
-                        return;
-                      }
-                      if (!isWithinSchedule) {
-                        showToast(
-                          "error",
-                          "Saat ini di luar jam operasional Nakes Anda."
-                        );
-                        return;
-                      }
-                      setIsOnline((prev) => !prev);
-                    }}
-                    className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold transition ${
-                      !isOperationalApproved || !isWithinSchedule
-                        ? "bg-white/10 text-slate-300 cursor-not-allowed opacity-60"
-                        : isOnline
-                        ? "bg-emerald-500/30 text-emerald-200 border border-emerald-400/40 hover:bg-emerald-500/40"
-                        : "bg-white/10 text-slate-100 border border-white/20 hover:bg-white/20"
-                    }`}
+                    onClick={refreshAll}
+                    title="Refresh Data"
+                    className="p-1.5 rounded-full bg-white/10 hover:bg-white/20 text-white transition-colors"
                   >
-                    {isOnline ? (
-                      <ToggleRight className="w-4 h-4 text-emerald-300" />
-                    ) : (
-                      <ToggleLeft className="w-4 h-4 text-slate-300" />
-                    )}
-                    <span>{isOnline ? "Mode Online" : "Mode Offline"}</span>
+                    <RefreshCw className="w-3.5 h-3.5" />
                   </button>
                 </div>
 
@@ -739,19 +645,15 @@ export default function DashboardPage() {
                     ? "Operasional Belum Aktif"
                     : !isWithinSchedule
                     ? "Di Luar Jam Operasional"
-                    : isOnline
-                    ? "Menunggu Pesanan"
-                    : "Status Offline"}
+                    : "Menunggu Pesanan"}
                 </h2>
 
                 <p className="mt-2 max-w-md text-sm text-blue-100 leading-relaxed">
                   {!isOperationalApproved
                     ? "Pengajuan operasional Anda masih pending atau belum diajukan. Silakan atur di menu Profil Operasional."
                     : !isWithinSchedule
-                    ? "Saat ini di luar jadwal operasional yang Anda ajukan. Sistem secara otomatis mengunci penerimaan booking."
-                    : isOnline
-                    ? "Pesanan yang masuk berasal dari penugasan layanan pada sistem."
-                    : "Anda sedang dalam status Offline. Aktifkan saklar di atas untuk mulai menerima pesanan."}
+                    ? "Saat ini di luar jadwal operasional yang Anda ajukan. Sistem secara otomatis menonaktifkan status penerimaan booking."
+                    : "Status Anda Online sesuai jadwal operasional. Pesanan yang masuk dapat Anda konfirmasi secara langsung."}
                 </p>
 
                 <div className="mt-4 pt-3 border-t border-white/15 flex flex-wrap items-center gap-2 text-xs font-medium text-blue-100">
@@ -791,7 +693,7 @@ export default function DashboardPage() {
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             {/* PANEL BOOKING MASUK */}
             <section className="rounded-3xl bg-white border border-slate-200 overflow-hidden relative">
-              {(!isOperationalApproved || !isOnline || !isWithinSchedule) && (
+              {(!isOperationalApproved || !isOnline) && (
                 <div className="absolute inset-0 z-20 bg-slate-900/40 backdrop-blur-[2px] p-6 flex flex-col items-center justify-center text-center text-white">
                   <div className="w-12 h-12 rounded-2xl bg-amber-500/90 text-white flex items-center justify-center mb-3 shadow-lg">
                     <AlertCircle className="w-6 h-6" />
@@ -799,16 +701,12 @@ export default function DashboardPage() {
                   <h4 className="font-extrabold text-base sm:text-lg">
                     {!isOperationalApproved
                       ? "Operasional Belum Aktif"
-                      : !isWithinSchedule
-                      ? "Di Luar Jam Operasional"
-                      : "Anda Sedang Offline"}
+                      : "Di Luar Jam Operasional"}
                   </h4>
                   <p className="text-xs text-slate-100 max-w-xs mt-1 leading-relaxed">
                     {!isOperationalApproved
                       ? "Daftar booking masuk terkunci sampai pengajuan operasional Anda disetujui oleh Admin."
-                      : !isWithinSchedule
-                      ? "Penerimaan booking terkunci secara otomatis karena saat ini berada di luar jadwal operasional yang Anda tentukan."
-                      : "Aktifkan status Online pada kartu di atas untuk menerima pesanan masuk."}
+                      : "Penerimaan booking terkunci secara otomatis karena saat ini berada di luar jadwal operasional yang Anda tentukan."}
                   </p>
                   {!isOperationalApproved && (
                     <Link
@@ -834,7 +732,7 @@ export default function DashboardPage() {
               </div>
 
               <div className="p-4 space-y-3 max-h-[560px] overflow-y-auto">
-                {bookingLoading ? (
+                {isBookingsLoading && incomingBookings.length === 0 ? (
                   <div className="py-10 flex justify-center">
                     <Loader2 className="w-5 h-5 animate-spin text-blue-600" />
                   </div>
@@ -894,7 +792,7 @@ export default function DashboardPage() {
               </div>
 
               <div className="p-4 space-y-3 max-h-[560px] overflow-y-auto">
-                {bookingLoading ? (
+                {isBookingsLoading && myBookings.length === 0 ? (
                   <div className="py-10 flex justify-center">
                     <Loader2 className="w-5 h-5 animate-spin text-blue-600" />
                   </div>
@@ -1127,4 +1025,4 @@ export default function DashboardPage() {
       )}
     </div>
   );
-}
+}
