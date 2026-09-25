@@ -160,6 +160,8 @@ const rawSuperAdminMenus = [
   },
   { to: "/booking", label: "Booking", icon: <FaCalendarCheck /> },
   { to: "/chat-rooms", label: "Chat Rooms", icon: <FaEnvelope /> },
+  { to: "/point-settings", label: "Pengaturan Poin", icon: <FaStar /> },
+  { to: "/point-history", label: "Riwayat Poin", icon: <FaHistory /> }, 
   {
     type: "group",
     label: "Konfigurasi",
