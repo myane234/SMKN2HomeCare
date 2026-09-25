@@ -49,6 +49,9 @@ function PilihMetodePembayaranContent() {
 
   const paymentType = searchParams.get("type") || "booking";
   const isBhp = paymentType === "bhp";
+  // --- TAMBAHKAN STATE INI ---
+  const [pointBalance, setPointBalance] = useState(0);
+  const [usePoints, setUsePoints] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -60,6 +63,11 @@ function PilihMetodePembayaranContent() {
 
         await api.get("/api/profile/me");
 
+        // --- TAMBAHKAN KODE INI SAAT FETCH PROFILE ---
+        const profileRes = await api.get("/api/profile/me");
+        const userData = profileRes?.data?.data ?? profileRes?.data ?? {};
+        const availablePoints = Number(userData.points ?? userData.point ?? userData.saldo_poin ?? 0);
+        setPointBalance(availablePoints);
         const urlBookingId = searchParams.get("booking_id") || searchParams.get("id_booking") || searchParams.get("id") || searchParams.get("bookingId") || "";
         const urlBookingCode = searchParams.get("booking_code") || searchParams.get("kode_booking") || "";
 
@@ -186,7 +194,7 @@ function PilihMetodePembayaranContent() {
     setError("");
   };
 
-  const handleLanjutkanPembayaran = () => {
+ const handleLanjutkanPembayaran = () => {
     if (!accessAllowed) return setError("Akses pembayaran tidak valid.");
     if (!selectedMetode) return setError("Silakan pilih metode pembayaran terlebih dahulu.");
     if (!bookingId) return setError("Booking ID tidak ditemukan.");
@@ -197,8 +205,14 @@ function PilihMetodePembayaranContent() {
     const paymentMethod = selectedMetode.payment_type || selectedMetode.id_metode || selectedMetode.id || "qris";
     const typeParam = isBhp ? "&type=bhp" : "";
     const codeParam = bookingCode ? `&booking_code=${encodeURIComponent(bookingCode)}` : "";
-
-    router.push(`/pembayaran/payment?metode=${encodeURIComponent(paymentMethod)}&booking_id=${encodeURIComponent(bookingId)}${codeParam}&total=${encodeURIComponent(totalAmount)}${typeParam}`);
+    
+    // --- 1. SIAPKAN PARAMETER POIN DARI STATE ---
+   const shouldUsePoints = pointBalance > 0; 
+    const pointParam = shouldUsePoints 
+      ? `&use_points=true&points_to_use=${pointBalance}` 
+      : `&use_points=false`;
+    // --- 2. SERTAKAN pointParam KE DALAM ROUTER.PUSH ---
+    router.push(`/pembayaran/payment?metode=${encodeURIComponent(paymentMethod)}&booking_id=${encodeURIComponent(bookingId)}${codeParam}&total=${encodeURIComponent(totalAmount)}${typeParam}${pointParam}`);
   };
 
   const formatCurrency = (value) => {
@@ -225,13 +239,13 @@ function PilihMetodePembayaranContent() {
     if (metode.keterangan) return metode.keterangan;
 
     const nilai = Number(metode.nilai_potongan);
-    if (!nilai || nilai <= 0) return "Pembayaran instan & praktis";
+    if (!nilai || nilai <= 0) return 'Pembayaran instan & praktis';
 
-    return metode.tipe_potongan === "persen"
-      ? `Biaya / Potongan: ${nilai}%`
-      : `Biaya / Potongan: Rp ${nilai.toLocaleString("id-ID")}`;
+    if (metode.tipe_potongan === 'persen') {
+      return `Admin: ${nilai}%`;
+    }
+    return `Admin: Rp ${nilai.toLocaleString('id-ID')}`;
   };
-
   const groupedMetode = groupByCategory(metodeList);
 
   if (isCheckingAccess || !accessAllowed) {
