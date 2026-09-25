@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import {
   useEffect,
@@ -324,32 +324,8 @@ function ChatModal({ isOpen, onClose, bookingId, nakesName, nakesPhoto }) {
 
     initWS();
 
-    const pollingInterval = setInterval(async () => {
-      try {
-        const res = await getBookingChatHistory(bookingId);
-        const rawList =
-          res?.data?.messages || res?.messages ||
-          (Array.isArray(res?.data) ? res.data : null) ||
-          (Array.isArray(res) ? res : []);
-
-        if (Array.isArray(rawList) && rawList.length > 0) {
-          const parsed = rawList.map((m, i) => normalizeMessage(m, i)).filter(Boolean);
-          if (parsed.length > 0) {
-            setMessages((prev) => {
-              if (parsed.length !== prev.filter((m) => m.sender !== "system").length) {
-                try { localStorage.setItem(cacheKey, JSON.stringify(parsed)); } catch {}
-                return parsed;
-              }
-              return prev;
-            });
-          }
-        }
-      } catch {}
-    }, 4000);
-
     return () => {
       isSubscribed = false;
-      clearInterval(pollingInterval);
       if (wsRef.current) wsRef.current.close();
     };
   }, [isOpen, bookingId, nakesName]);
@@ -586,10 +562,10 @@ function BookingAktifContent() {
   }, [currentBookingId, router]);
 
   useEffect(() => {
-    const run = async () => { await fetchData(); };
-    run();
-    const id = setInterval(fetchData, 15000);
-    return () => clearInterval(id);
+    fetchData();
+    const handleFocus = () => fetchData();
+    window.addEventListener("focus", handleFocus);
+    return () => window.removeEventListener("focus", handleFocus);
   }, [fetchData]);
 
   /* Ambil data yg dibutuhkan sebelum render hooks tambahan */

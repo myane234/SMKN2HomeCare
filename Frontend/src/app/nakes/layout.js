@@ -92,13 +92,11 @@ export default function NakesLayout({ children }) {
   useEffect(() => {
     fetchActiveBooking();
 
-    // Polling berkala & sync saat tab/halaman di-focus
-    const interval = window.setInterval(fetchActiveBooking, 10000);
+    // Sync saat tab/halaman di-focus
     const handleFocus = () => fetchActiveBooking();
     window.addEventListener("focus", handleFocus);
 
     return () => {
-      window.clearInterval(interval);
       window.removeEventListener("focus", handleFocus);
     };
   }, [fetchActiveBooking]);

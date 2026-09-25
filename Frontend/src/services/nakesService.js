@@ -172,7 +172,10 @@ export const getBhpBooking = async (bookingCode) => {
 };
 
 /**
- * Helper untuk polling status BHP ringan.
+ * GET BHP + rincian tambahan untuk 1 booking.
+ *
+ * bookingCode WAJIB berupa booking_code,
+ * bukan id riwayat kunjungan.
  */
 export const getBhpBookingStatus = async (bookingCode) => {
   if (!bookingCode) {
@@ -187,22 +190,83 @@ export const getBhpBookingStatus = async (bookingCode) => {
     };
   }
 
+  const cleanCode = String(bookingCode).trim();
+
   try {
     const res = await api.get(
-      `/api/nakes/booking/${encodeURIComponent(String(bookingCode).trim())}/bhp`
+      `/api/nakes/booking/${encodeURIComponent(cleanCode)}/bhp`
     );
 
     const root = res.data?.data ?? res.data ?? {};
     const meta = res.data?.meta ?? {};
 
-    const status =
-      root?.status_transaksi ??
-      root?.status_pembayaran_bhp ??
-      root?.status_pembayaran_biaya_tambahan ??
-      root?.biaya_tambahan_pasien?.status_transaksi ??
-      meta?.status_transaksi ??
-      meta?.status_pembayaran_bhp ??
-      null;
+    const rawItems =
+      Array.isArray(root?.items)
+        ? root.items
+        : Array.isArray(root?.booking_bhp)
+        ? root.booking_bhp
+        : Array.isArray(root?.bhp_items)
+        ? root.bhp_items
+        : Array.isArray(root)
+        ? root
+        : [];
+
+    const items = rawItems.map((item) => {
+      const qtyDefault =
+        Number(
+          item?.qty_default ??
+            item?.default_qty ??
+            item?.jumlah_default ??
+            0
+        ) || 0;
+
+      const qtyReal =
+        Math.max(
+          qtyDefault,
+          Number(
+            item?.qty_real ??
+              item?.jumlah_real ??
+              item?.qty ??
+              item?.jumlah ??
+              qtyDefault
+          ) || 0
+        );
+
+      const qtyTambahan =
+        Math.max(
+          0,
+          Number(
+            item?.qty_tambahan ??
+              item?.jumlah_tambahan ??
+              qtyReal - qtyDefault
+          ) || 0
+        );
+
+      const hargaSatuan =
+        Number(
+          item?.harga_satuan ??
+            item?.harga_jual ??
+            item?.harga ??
+            0
+        ) || 0;
+
+      const subtotalTambahan =
+        Number(
+          item?.total_sb_tambahan ??
+            item?.subtotal_tambahan ??
+            item?.subtotal ??
+            qtyTambahan * hargaSatuan
+        ) || 0;
+
+      return {
+        ...item,
+        qty_default: qtyDefault,
+        qty_real: qtyReal,
+        qty_tambahan: qtyTambahan,
+        harga_satuan: hargaSatuan,
+        total_sb_tambahan: subtotalTambahan,
+      };
+    });
 
     const nominal =
       Number(
@@ -211,20 +275,25 @@ export const getBhpBookingStatus = async (bookingCode) => {
           root?.sb_tambahan ??
           root?.biaya_tambahan_pasien?.nominal ??
           meta?.total_tambahan ??
-          0
+          items.reduce(
+            (total, item) =>
+              total + Number(item?.total_sb_tambahan || 0),
+            0
+          )
       ) || 0;
 
     return {
-      items: Array.isArray(root?.items)
-        ? root.items
-        : Array.isArray(root?.bhp_items)
-        ? root.bhp_items
-        : Array.isArray(res.data)
-        ? res.data
-        : [],
+      items,
       total_tambahan: nominal,
       nominal,
-      status_transaksi: status,
+      status_transaksi:
+        root?.status_transaksi ??
+        root?.status_pembayaran_bhp ??
+        root?.status_pembayaran_biaya_tambahan ??
+        root?.biaya_tambahan_pasien?.status_transaksi ??
+        meta?.status_transaksi ??
+        meta?.status_pembayaran_bhp ??
+        null,
       order_id:
         root?.order_id ??
         root?.biaya_tambahan_pasien?.order_id ??
@@ -233,7 +302,8 @@ export const getBhpBookingStatus = async (bookingCode) => {
         root?.kode_booking_tambahan ??
         root?.biaya_tambahan_pasien?.kode_booking_tambahan ??
         null,
-      dapat_dibayar: root?.dapat_dibayar ?? false,
+      dapat_dibayar:
+        root?.dapat_dibayar ?? false,
     };
   } catch (error) {
     console.warn("getBhpBookingStatus gagal:", error);
@@ -254,11 +324,13 @@ export const getBhpBookingStatus = async (bookingCode) => {
  * POST / Simpan BHP booking.
  * Endpoint: POST /api/nakes/booking/{booking_code}/bhp
  *
- * WAJIB kirim SEMUA item (semua layanan). Backend akan replace seluruh list BHP booking.
+ * WAJIB kirim SEMUA item (semua layanan).
  */
 export const addBhpBooking = async (bookingCode, payload = {}) => {
   if (!bookingCode) return null;
+
   const cleanCode = String(bookingCode).trim();
+
   const rawItems = Array.isArray(payload)
     ? payload
     : Array.isArray(payload?.items)
@@ -266,26 +338,53 @@ export const addBhpBooking = async (bookingCode, payload = {}) => {
     : [];
 
   let totalTambahan = 0;
+
   const processedItems = rawItems.map((item) => {
-    const qDefault = Math.max(0, Number(item.qty_default) || 0);
+    const qDefault = Math.max(
+      0,
+      Number(item.qty_default) || 0
+    );
+
     const qReal = Math.max(
       qDefault,
       Number(
-        item.qty_real ?? item.qty ?? item.jumlah_real ?? item.jumlah ?? 0
+        item.qty_real ??
+          item.qty ??
+          item.jumlah_real ??
+          item.jumlah ??
+          0
       ) || 0
     );
-    const qTambahan = Math.max(0, qReal - qDefault);
+
+    const qTambahan = Math.max(
+      0,
+      qReal - qDefault
+    );
+
     const hargaSatuan =
-      Number(item.harga_satuan ?? item.harga_jual ?? item.harga ?? 0) || 0;
-    const subtotalTambahan = qTambahan * hargaSatuan;
+      Number(
+        item.harga_satuan ??
+          item.harga_jual ??
+          item.harga ??
+          0
+      ) || 0;
+
+    const subtotalTambahan =
+      qTambahan * hargaSatuan;
+
     totalTambahan += subtotalTambahan;
 
     return {
-      id_booking_bhp: item.id_booking_bhp ?? null,
-      id_layanan: item.id_layanan ?? null,
-      id_bhp: item.id_bhp ?? null,
-      nama_bhp: item.nama_bhp ?? null,
-      nama_layanan: item.nama_layanan ?? null,
+      id_booking_bhp:
+        item.id_booking_bhp ?? null,
+      id_layanan:
+        item.id_layanan ?? null,
+      id_bhp:
+        item.id_bhp ?? null,
+      nama_bhp:
+        item.nama_bhp ?? null,
+      nama_layanan:
+        item.nama_layanan ?? null,
       qty_default: qDefault,
       qty_real: qReal,
       qty_tambahan: qTambahan,
@@ -304,15 +403,25 @@ export const addBhpBooking = async (bookingCode, payload = {}) => {
     total_tambahan: totalTambahan,
   };
 
-  const updatedBy = payload?.updated_by ?? payload?.updatedBy ?? null;
-  if (updatedBy !== undefined && updatedBy !== null && updatedBy !== "") {
-    postBody.updated_by = Number(updatedBy) || updatedBy;
+  const updatedBy =
+    payload?.updated_by ??
+    payload?.updatedBy ??
+    null;
+
+  if (
+    updatedBy !== undefined &&
+    updatedBy !== null &&
+    updatedBy !== ""
+  ) {
+    postBody.updated_by =
+      Number(updatedBy) || updatedBy;
   }
 
   const response = await api.post(
     `/api/nakes/booking/${encodeURIComponent(cleanCode)}/bhp`,
     postBody
   );
+
   return response.data;
 };
 
@@ -329,7 +438,10 @@ export const finishBooking = async (bookingId) => {
     );
     return response.data;
   } catch (error) {
-    console.error("Gagal menyelesaikan booking:", error);
+    console.error(
+      "Gagal menyelesaikan booking:",
+      error
+    );
     throw error;
   }
 };
@@ -345,14 +457,20 @@ export const updateNakesLocation = async ({
   booking_id,
 }) => {
   try {
-    const response = await api.post("/api/nakes/update-lokasi", {
-      latitude,
-      longitude,
-      booking_id,
-    });
+    const response = await api.post(
+      "/api/nakes/update-lokasi",
+      {
+        latitude,
+        longitude,
+        booking_id,
+      }
+    );
     return response.data;
   } catch (error) {
-    console.error("Gagal memperbarui lokasi nakes:", error);
+    console.error(
+      "Gagal memperbarui lokasi nakes:",
+      error
+    );
     throw error;
   }
 };
@@ -360,39 +478,61 @@ export const updateNakesLocation = async ({
 /* =========================================================
  * CHAT
  * =======================================================*/
-export const getBookingChatMessages = async (bookingId) => {
+export const getBookingChatMessages = async (
+  bookingId
+) => {
   try {
     const response = await api.get(
-      `/api/booking/${encodeURIComponent(bookingId)}/chat`
+      `/api/booking/${encodeURIComponent(
+        bookingId
+      )}/chat`
     );
     return response.data;
   } catch (error) {
-    console.error("Gagal mengambil pesan chat:", error);
+    console.error(
+      "Gagal mengambil pesan chat:",
+      error
+    );
     throw error;
   }
 };
 
-export const sendBookingChatMessage = async (bookingId, content) => {
+export const sendBookingChatMessage = async (
+  bookingId,
+  content
+) => {
   try {
     const response = await api.post(
-      `/api/booking/${encodeURIComponent(bookingId)}/chat`,
+      `/api/booking/${encodeURIComponent(
+        bookingId
+      )}/chat`,
       { content }
     );
     return response.data;
   } catch (error) {
-    console.error("Gagal mengirim pesan chat:", error);
+    console.error(
+      "Gagal mengirim pesan chat:",
+      error
+    );
     throw error;
   }
 };
 
-export const deleteBookingChatRoom = async (bookingId) => {
+export const deleteBookingChatRoom = async (
+  bookingId
+) => {
   try {
     const response = await api.delete(
-      `/api/booking/${encodeURIComponent(bookingId)}/chat-room`
+      `/api/booking/${encodeURIComponent(
+        bookingId
+      )}/chat-room`
     );
     return response.data;
   } catch (error) {
-    console.warn("Gagal menghapus room chat:", error);
+    console.warn(
+      "Gagal menghapus room chat:",
+      error
+    );
     return null;
   }
 };
@@ -400,28 +540,44 @@ export const deleteBookingChatRoom = async (bookingId) => {
 /* =========================================================
  * RIWAYAT
  * =======================================================*/
-export const getHistoryNakes = async (params = {}) => {
-  try {
-    const response = await api.get("/api/v1/history/nakes", { params });
-    return response.data;
-  } catch (error) {
-    const response = await api.get("/api/nakes/riwayat-kunjungan", { params });
-    return response.data;
-  }
-};
-
-export const getRiwayatKunjungan = getHistoryNakes;
-
-export const getDetailRiwayatKunjungan = async (id) => {
+export const getHistoryNakes = async (
+  params = {}
+) => {
   try {
     const response = await api.get(
-      `/api/v1/history/nakes/${encodeURIComponent(id)}`
+      "/api/v1/history/nakes",
+      { params }
     );
     return response.data;
   } catch (error) {
     const response = await api.get(
-      `/api/nakes/riwayat-kunjungan/${encodeURIComponent(id)}`
+      "/api/nakes/riwayat-kunjungan",
+      { params }
     );
     return response.data;
   }
 };
+
+export const getRiwayatKunjungan =
+  getHistoryNakes;
+
+export const getDetailRiwayatKunjungan =
+  async (id) => {
+    try {
+      const response =
+        await api.get(
+          `/api/v1/history/nakes/${encodeURIComponent(
+            id
+          )}`
+        );
+      return response.data;
+    } catch (error) {
+      const response =
+        await api.get(
+          `/api/nakes/riwayat-kunjungan/${encodeURIComponent(
+            id
+          )}`
+        );
+      return response.data;
+    }
+  };

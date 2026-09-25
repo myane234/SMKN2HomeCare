@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { useEffect, useState, useCallback } from "react";
 import { useRouter, usePathname } from "next/navigation";
@@ -71,8 +71,9 @@ export default function ActiveBookingBubble() {
 
   useEffect(() => {
     fetchAktif();
-    const id = setInterval(fetchAktif, 30_000);
-    return () => clearInterval(id);
+    const handleFocus = () => fetchAktif();
+    window.addEventListener("focus", handleFocus);
+    return () => window.removeEventListener("focus", handleFocus);
   }, [fetchAktif]);
 
   // Slide-up animation trigger

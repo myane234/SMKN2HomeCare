@@ -1005,7 +1005,7 @@ export function PageBookingDetail() {
 
                 const sl = rincian.sl ?? tr.sl ?? 0;
                 const sb = rincian.sb ?? tr.sb ?? 0;
-                const hppBhpTambahan = rincian.hpp_bhp_tambahan ?? tr.hpp_bhp_tambahan ?? 0;
+                const hppBhpTambahan = rincian.sb_tambahan ?? rincian.hpp_bhp_tambahan ?? tr.sb_tambahan ?? tr.hpp_bhp_tambahan ?? 0;
                 const st = rincian.st ?? tr.st ?? 0;
                 const ba = rincian.ba ?? tr.ba ?? 0;
                 const ppn = rincian.ppn ?? tr.ppn ?? 0;
@@ -1038,7 +1038,7 @@ export function PageBookingDetail() {
                       <span>{formatRupiah(sb)}</span>
                     </div>
                     <div className="flex justify-between text-slate-600">
-                      <span>HPP BHP Tambahan</span>
+                      <span>BHP Tambahan (SB Tambahan)</span>
                       <span>{formatRupiah(hppBhpTambahan)}</span>
                     </div>
                     <div className="flex justify-between text-slate-600">
