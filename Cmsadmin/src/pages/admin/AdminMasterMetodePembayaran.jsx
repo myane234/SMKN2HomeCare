@@ -190,7 +190,7 @@ export default function AdminMasterMetodePembayaran() {
                         <th className="p-4 w-12">No</th>
                         <th className="p-4">Nama Metode</th>
                         <th className="p-4">Kategori</th>
-                        <th className="p-4">Potongan</th>
+                        <th className="p-4">Admin</th>
                         <th className="p-4">Status</th>
                         <th className="p-4 whitespace-nowrap">Created At</th>
                         <th className="p-4 whitespace-nowrap">Created By</th>
