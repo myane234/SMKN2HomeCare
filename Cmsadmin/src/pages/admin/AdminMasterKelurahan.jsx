@@ -273,6 +273,8 @@ export default function AdminMasterKelurahan() {
                   <th className="py-4 px-4 sm:px-6">KECAMATAN</th>
                   <th className="py-4 px-4 sm:px-6">KOTA / KABUPATEN</th>
                   <th className="py-4 px-4 sm:px-6">KODE KELURAHAN</th>
+                  <th className="py-4 px-4 sm:px-6 whitespace-nowrap">CREATED AT</th>
+                  <th className="py-4 px-4 sm:px-6">CREATED BY</th>
                   <th className="py-4 px-4 sm:px-6 whitespace-nowrap">UPDATED AT</th>
                   <th className="py-4 px-4 sm:px-6">UPDATED BY</th>
                   <th className="py-4 px-4 sm:px-6 whitespace-nowrap">DELETED AT</th>
@@ -304,6 +306,14 @@ export default function AdminMasterKelurahan() {
                         </td>
                         <td className="py-4 px-4 sm:px-6 font-mono text-xs text-slate-500">
                           {item.id_kelurahan}
+                        </td>
+                        <td className="px-4 py-3 text-xs text-slate-500 whitespace-nowrap">
+                          {item.created_at
+                            ? new Date(item.created_at).toLocaleString('id-ID', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })
+                            : '—'}
+                        </td>
+                        <td className="px-4 py-3 text-xs text-slate-500">
+                          {item.created_by ?? '—'}
                         </td>
                         <td className="py-4 px-4 sm:px-6 text-xs text-slate-500 whitespace-nowrap">
                           {item.updated_at

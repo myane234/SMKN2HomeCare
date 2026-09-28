@@ -192,6 +192,8 @@ export default function AdminMasterMetodePembayaran() {
                         <th className="p-4">Kategori</th>
                         <th className="p-4">Potongan</th>
                         <th className="p-4">Status</th>
+                        <th className="p-4 whitespace-nowrap">Created At</th>
+                        <th className="p-4 whitespace-nowrap">Created By</th>
                         <th className="p-4 whitespace-nowrap">Updated At</th>
                         <th className="p-4">Updated By</th>
                         <th className="p-4 whitespace-nowrap">Deleted At</th>
@@ -231,14 +233,22 @@ export default function AdminMasterMetodePembayaran() {
                                 {item.is_active ? 'Aktif' : 'Nonaktif'}
                               </span>
                             </td>
+                            <td className="px-4 py-3 text-xs text-slate-500 whitespace-nowrap">
+                              {item.created_at
+                                ? new Date(item.created_at).toLocaleString('id-ID', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })
+                                : '—'}
+                            </td>
+                            <td className="px-4 py-3 text-xs text-slate-500">
+                              {item.created_by && isNaN(item.created_by) ? item.created_by : '—'}
+                            </td>
                             <td className="p-4 text-xs text-slate-500 whitespace-nowrap">
                               {item.updated_at
                                 ? new Date(item.updated_at).toLocaleString('id-ID', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })
                                 : '—'}
                             </td>
                             <td className="p-4 text-xs text-slate-500">
-                              {item.updated_by ?? '—'}
-                            </td>
+                       {item.updated_by && !isNaN(Number(item.updated_by)) ? '—' : (item.updated_by || '—')}
+                              </td>
                             <td className="p-4 text-xs text-slate-500 whitespace-nowrap">
                               {item.deleted_at
                                 ? new Date(item.deleted_at).toLocaleString('id-ID', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })
