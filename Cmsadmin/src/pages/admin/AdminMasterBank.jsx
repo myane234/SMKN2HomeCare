@@ -354,6 +354,8 @@ async function handleDelete(item) {
                         <th className="p-4">Kode Bank</th>
                         <th className="p-4">Nama Bank</th>
                         <th className="p-4">Status</th>
+                        <th className="p-4 whitespace-nowrap">Created At</th>
+                        <th className="p-4">Created By</th>
                         <th className="p-4 whitespace-nowrap">Updated At</th>
                         <th className="p-4">Updated By</th>
                         <th className="p-4 whitespace-nowrap">Deleted At</th>
@@ -387,6 +389,14 @@ async function handleDelete(item) {
                                 }`}>
                                     {item.is_active ? 'Aktif' : 'Nonaktif'}
                                 </span>
+                                </td>
+                                <td className="p-4 text-xs text-slate-500 whitespace-nowrap">
+                                  {item.created_at
+                                    ? new Date(item.created_at).toLocaleString('id-ID', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })
+                                    : '—'}
+                                </td>
+                                <td className="p-4 text-xs text-slate-500">
+                                  {item.created_by && isNaN(item.created_by) ? item.created_by : (item.created_by || item.created_by_name || item.creator || '—')}
                                 </td>
                                 <td className="p-4 text-xs text-slate-500 whitespace-nowrap">
                                   {item.updated_at

@@ -474,6 +474,14 @@ export default function AdminMasterAgama() {
                   Status
                 </th>
 
+                <th className="p-4 w-40 whitespace-nowrap">
+                  Created At
+                </th>
+
+                <th className="p-4 w-24">
+                  Created By
+                </th>
+
                 <th className="p-4 w-40">
                   Updated At
                 </th>
@@ -506,7 +514,7 @@ export default function AdminMasterAgama() {
 
                 <tr>
                   <td
-                    colSpan="8"
+                    colSpan="10"
                     className="
                       p-8
                       text-center
@@ -599,6 +607,18 @@ export default function AdminMasterAgama() {
 
                         </span>
 
+                      </td>
+
+                      {/* CREATED AT */}
+                      <td className="p-4 text-xs text-slate-500 whitespace-nowrap">
+                        {item.created_at
+                          ? new Date(item.created_at).toLocaleString('id-ID', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })
+                          : '—'}
+                      </td>
+
+                      {/* CREATED BY */}
+                      <td className="p-4 text-xs text-slate-500">
+                        {item.created_by && isNaN(item.created_by) ? item.created_by : (item.created_by || item.created_by_name || item.creator || '—')}
                       </td>
 
                       {/* UPDATED AT */}

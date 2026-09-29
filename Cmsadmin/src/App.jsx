@@ -27,6 +27,8 @@ import AdminLayout from "./components/AdminLayout";
 import ProtectedRoute from "./components/ProtectedRoute";
 import KelolaAdmin from "./pages/KelolaAdmin";
 import KelolaTierAdmin from "./pages/KelolaTierAdmin";
+import PointSetting from "./pages/PagePointSettings"; 
+import PointHistory from "./pages/PagePointHistory";
 import DataUser from "./pages/admin/AdminUser";
 import DataBarang from "./pages/admin/AdminMasterBarang";
 import DataMasterTarif from "./pages/admin/AdminMasterTarif";
@@ -283,6 +285,22 @@ function App() {
           element={
             <ProtectedRoute requiredPath="/chat-rooms">
               <AdminChatDetail />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/point-settings"
+          element={
+            <ProtectedRoute requiredPath="/point-settings">
+              <PointSetting />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/point-history"
+          element={
+            <ProtectedRoute requiredPath="/point-history">
+              <PointHistory />
             </ProtectedRoute>
           }
         />

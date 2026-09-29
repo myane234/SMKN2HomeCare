@@ -142,26 +142,6 @@ function SuccessPaymentContent() {
 
           setPaymentData(biayaData);
           setLoading(false);
-
-          // ===================================================
-          // CEK STATUS DARI API
-          // ===================================================
-          interval = setInterval(async () => {
-            try {
-              const latestData = await loadBiayaTambahan();
-
-              if (!mounted) return;
-
-              setPaymentData(latestData);
-
-              if (latestData.isPaid) {
-                clearInterval(interval);
-              }
-            } catch (err) {
-              console.error("Gagal memperbarui status Biaya Tambahan:", err);
-            }
-          }, 3000);
-
           return;
         }
 
