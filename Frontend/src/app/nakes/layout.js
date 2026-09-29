@@ -1,16 +1,50 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Home, User, Stethoscope, ClipboardList } from "lucide-react";
 import BookingDetailSheet from "@/components/nakes/BookingDetailSheet";
 import { getNakesBookings } from "@/services/nakesService";
+import { fetchAndStoreProfile, getProfileFromCookies } from "@/services/profileService";
+import { getAuthToken, getCookie } from "@/services/cookieHelper";
+
+const checkNakesAccess = (profile) => {
+  if (profile) {
+    const roles = Array.isArray(profile.roles) ? profile.roles : [];
+    const hasNakesRole = roles.some((r) => String(r).toLowerCase() === "nakes");
+    const hasTenagaMedisObj = Boolean(
+      profile.tenaga_medis &&
+      typeof profile.tenaga_medis === "object" &&
+      (profile.tenaga_medis.id_tenaga_medis || profile.tenaga_medis.id || Object.keys(profile.tenaga_medis).length > 0)
+    );
+    if (hasNakesRole || hasTenagaMedisObj) return true;
+  }
+
+  try {
+    const userRolesCookie = getCookie("user_roles") || getCookie("profile_roles");
+    if (userRolesCookie) {
+      const parsedRoles = JSON.parse(userRolesCookie);
+      if (Array.isArray(parsedRoles) && parsedRoles.some((r) => String(r).toLowerCase() === "nakes")) {
+        return true;
+      }
+    }
+    const tmCookie = getCookie("tenaga_medis");
+    if (tmCookie && tmCookie !== "null" && tmCookie !== "undefined" && tmCookie !== "") {
+      return true;
+    }
+  } catch (e) {}
+
+  return false;
+};
 
 export default function NakesLayout({ children }) {
   const pathname = usePathname();
+  const router = useRouter();
   const [activeBooking, setActiveBooking] = useState(null);
   const [isSheetOpen, setIsSheetOpen] = useState(false);
+  const [isCheckingAuth, setIsCheckingAuth] = useState(true);
+  const [isAuthorized, setIsAuthorized] = useState(false);
   const mountedRef = useRef(true);
 
   useEffect(() => {
@@ -19,6 +53,49 @@ export default function NakesLayout({ children }) {
       mountedRef.current = false;
     };
   }, []);
+
+  useEffect(() => {
+    let isSubscribed = true;
+
+    const verifyNakesAuth = async () => {
+      const token = getAuthToken();
+      if (!token) {
+        if (isSubscribed) {
+          router.replace(`/login?redirect=${encodeURIComponent(pathname)}`);
+        }
+        return;
+      }
+
+      let profile = getProfileFromCookies();
+      if (!profile) {
+        profile = await fetchAndStoreProfile();
+      }
+
+      const allowed = checkNakesAccess(profile);
+
+      if (!isSubscribed) return;
+
+      if (!allowed) {
+        if (pathname.includes("/profile")) {
+          router.replace("/profile");
+        } else if (pathname.includes("/riwayat")) {
+          router.replace("/transaksi");
+        } else {
+          router.replace("/profile");
+        }
+        return;
+      }
+
+      setIsAuthorized(true);
+      setIsCheckingAuth(false);
+    };
+
+    verifyNakesAuth();
+
+    return () => {
+      isSubscribed = false;
+    };
+  }, [pathname, router]);
 
   // Helper unwrap data API
   const unwrapData = (value) => {
@@ -90,6 +167,8 @@ export default function NakesLayout({ children }) {
   }, []);
 
   useEffect(() => {
+    if (!isAuthorized) return;
+
     fetchActiveBooking();
 
     // Sync saat tab/halaman di-focus
@@ -99,7 +178,7 @@ export default function NakesLayout({ children }) {
     return () => {
       window.removeEventListener("focus", handleFocus);
     };
-  }, [fetchActiveBooking]);
+  }, [isAuthorized, fetchActiveBooking]);
 
   const isCompleteDataPage =
     pathname === "/nakes/complete-data" ||
@@ -107,6 +186,17 @@ export default function NakesLayout({ children }) {
 
   if (isCompleteDataPage) {
     return <div className="min-h-screen bg-slate-50">{children}</div>;
+  }
+
+  if (isCheckingAuth || !isAuthorized) {
+    return (
+      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
+        <div className="flex flex-col items-center gap-3">
+          <div className="w-10 h-10 rounded-full border-[3px] border-blue-600 border-t-transparent animate-spin" />
+          <p className="text-xs sm:text-sm text-slate-500 font-medium">Memeriksa hak akses...</p>
+        </div>
+      </div>
+    );
   }
 
   const navItems = [

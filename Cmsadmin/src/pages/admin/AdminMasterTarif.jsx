@@ -1338,6 +1338,14 @@ const parseFormattedNumber = (val) => {
                   </th>
 
                   <th className="px-5 py-4 whitespace-nowrap">
+                    Created At
+                  </th>
+
+                  <th className="px-5 py-4">
+                    Created By
+                  </th>
+
+                  <th className="px-5 py-4 whitespace-nowrap">
                     Updated At
                   </th>
 
@@ -1364,7 +1372,7 @@ const parseFormattedNumber = (val) => {
                 0 ? (
                   <tr>
                     <td
-                      colSpan="11"
+                      colSpan="13"
                       className="px-5 py-8 text-center text-sm text-slate-400"
                     >
                       Tidak ada template
@@ -1467,6 +1475,18 @@ const parseFormattedNumber = (val) => {
                                 ? 'Aktif'
                                 : 'Nonaktif'}
                             </span>
+                          </td>
+
+                          {/* CREATED AT */}
+                          <td className="px-5 py-4 text-xs text-slate-500 whitespace-nowrap">
+                            {item?.created_at
+                              ? new Date(item.created_at).toLocaleString('id-ID', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })
+                              : '—'}
+                          </td>
+
+                          {/* CREATED BY */}
+                          <td className="px-5 py-4 text-xs text-slate-500">
+                            {item?.created_by && isNaN(item.created_by) ? item.created_by : (item?.created_by || item?.created_by_name || item?.creator || '—')}
                           </td>
 
                           {/* UPDATED AT */}

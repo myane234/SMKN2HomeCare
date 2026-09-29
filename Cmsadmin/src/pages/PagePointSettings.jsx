@@ -144,7 +144,7 @@ export default function PagePointSettings() {
   }
 
   return (
-    <div className="p-6 max-w-4xl mx-auto relative">
+    <div className="p-6 w-full relative">
       <div className="mb-6">
         <h1 className="text-2xl font-bold text-gray-800">Konfigurasi Poin Pasien</h1>
         <p className="text-sm text-gray-500">Atur nilai konversi, batas diskon, dan masa berlaku poin.</p>

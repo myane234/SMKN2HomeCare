@@ -815,7 +815,7 @@ function BookingAktifContent() {
             </Section>
 
             {/* BIAYA TAMBAHAN BHP */}
-            <Section title="Biaya Tambahan BHP">
+            <Section title="Biaya Tambahan Perlengkapan Medis">
               {biayaTambahanNominalFinal > 0 ? (
                 <>
                   {bhpTambahanItems.length > 0 && (
@@ -855,7 +855,7 @@ function BookingAktifContent() {
                       onClick={handleBayarBhp}
                       className="w-full mt-4 py-3 rounded-xl bg-amber-500 hover:bg-amber-600 text-white font-bold text-xs sm:text-sm transition-all active:scale-[0.99]"
                     >
-                      Bayar BHP Tambahan
+                      Bayar Biaya Tambahan Perlengkapan Medis
                     </button>
                   )}
                 </>
