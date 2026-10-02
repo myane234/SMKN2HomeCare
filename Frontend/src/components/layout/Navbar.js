@@ -17,10 +17,12 @@ import {
     FiUsers,
     FiUserCheck,
     FiLogIn,
-    FiCalendar
+    FiCalendar,
+    FiBell
 } from "react-icons/fi";
 import { getLayanan } from "@/services/layananService";
 import { getAuthToken } from "@/services/cookieHelper";
+import NotificationBell from "../NotificationBell";
 
 export default function Navbar() {
     const pathname = usePathname();
@@ -299,6 +301,8 @@ export default function Navbar() {
                 >
                     <FiSearch className="w-4 h-4 xl:w-5 xl:h-5" />
                 </button>
+
+                <NotificationBell />
                 
                 {isLoggedIn ? (
                     <Link 
@@ -589,6 +593,26 @@ export default function Navbar() {
                     </Link>
 
                     <Link
+                        href="/notifikasi"
+                        className={`flex flex-col items-center gap-1 text-[11px] sm:text-xs transition-all duration-300 ease-in-out group ${
+                            pathname.startsWith("/notifikasi")
+                                ? "text-green-600 font-bold"
+                                : "hover:text-green-600"
+                        }`}
+                    >
+                        <div className={`p-1.5 rounded-lg transition-all duration-300 ease-in-out ${
+                            pathname.startsWith("/notifikasi")
+                                ? "bg-green-50"
+                                : "group-hover:bg-green-50/50"
+                        }`}>
+                            <FiBell className={`w-5 h-5 sm:w-5.5 sm:h-5.5 transition-all duration-300 ${
+                                pathname.startsWith("/notifikasi") ? "stroke-[2.5]" : "stroke-2"
+                            }`} />
+                        </div>
+                        <span className="transition-colors duration-300">Notif</span>
+                    </Link>
+
+                    <Link
                         href={isLoggedIn ? "/profile" : "/login"}
                         className={`flex flex-col items-center gap-1 text-[11px] sm:text-xs transition-all duration-300 ease-in-out group ${
                             (pathname === "/profile" || pathname === "/login")
@@ -715,7 +739,7 @@ export default function Navbar() {
                     </div>
                 </div>
             )}
-
+            
             {/* Global animation styles */}
             <style jsx global>{`
                 @keyframes slide-down {
