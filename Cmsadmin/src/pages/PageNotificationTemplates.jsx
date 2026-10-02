@@ -15,6 +15,7 @@ export default function PageNotificationTemplates() {
   const [saving, setSaving] = useState(false);
   const [deletingId, setDeletingId] = useState(null);
   const [search, setSearch] = useState('');
+  const [roleFilter, setRoleFilter] = useState('all'); // State baru untuk filter target role
   const [message, setMessage] = useState({ type: '', text: '' });
 
   // Modal State
@@ -118,12 +119,26 @@ export default function PageNotificationTemplates() {
     }
   };
 
-  const filteredTemplates = templates.filter(
-    (t) =>
+  // Filter templates berdasarkan pencarian teks dan target role
+  const filteredTemplates = templates.filter((t) => {
+    const matchesSearch =
       t.name?.toLowerCase().includes(search.toLowerCase()) ||
       t.code?.toLowerCase().includes(search.toLowerCase()) ||
-      t.title?.toLowerCase().includes(search.toLowerCase())
-  );
+      t.title?.toLowerCase().includes(search.toLowerCase());
+
+    const itemRole = (t.target_role || '').toLowerCase();
+    
+    let matchesRole = true;
+    if (roleFilter !== 'all') {
+      if (roleFilter === 'umum') {
+        matchesRole = !itemRole || itemRole === '' || itemRole === 'null';
+      } else {
+        matchesRole = itemRole === roleFilter.toLowerCase();
+      }
+    }
+
+    return matchesSearch && matchesRole;
+  });
 
   return (
     <div className="w-full px-6 py-6 space-y-6">
@@ -157,7 +172,7 @@ export default function PageNotificationTemplates() {
       )}
 
       {/* Filter and Search */}
-      <div className="card p-4 flex flex-col sm:flex-row items-center justify-between gap-4">
+      <div className="card p-4 flex flex-col md:flex-row items-center justify-between gap-4">
         <div className="relative flex-1 w-full">
           <FaSearch className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 text-sm z-10" />
           <input
@@ -169,8 +184,24 @@ export default function PageNotificationTemplates() {
             style={{ width: '100%' }}
           />
         </div>
+
+        {/* Dropdown Filter Target Role */}
+        <div className="w-full md:w-48 shrink-0">
+          <select
+            value={roleFilter}
+            onChange={(e) => setRoleFilter(e.target.value)}
+            className="form-input text-sm w-full bg-white"
+          >
+            <option value="all">Semua Role</option>
+            <option value="umum">Umum / Semua (Null)</option>
+            <option value="pasien">Pasien</option>
+            <option value="nakes">Nakes</option>
+            <option value="admin">Admin</option>
+          </select>
+        </div>
+
         <span className="text-xs text-slate-500 font-medium shrink-0">
-          Total Template: <strong className="text-slate-800">{filteredTemplates.length}</strong>
+          Total: <strong className="text-slate-800">{filteredTemplates.length}</strong>
         </span>
       </div>
 
