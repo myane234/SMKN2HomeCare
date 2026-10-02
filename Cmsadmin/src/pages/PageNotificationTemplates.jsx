@@ -4,8 +4,10 @@ import {
   createNotificationTemplate,
   updateNotificationTemplate,
   deleteNotificationTemplate,
+  broadcastNotification,
+  getNotificationStats,
 } from '../data/notificationTemplateData';
-import { FaBell, FaPlus, FaEdit, FaTrash, FaSpinner, FaSearch, FaTimes, FaCheck } from 'react-icons/fa';
+import { FaBell, FaPlus, FaEdit, FaTrash, FaSpinner, FaSearch, FaTimes, FaCheck, FaPaperPlane, FaChartBar } from 'react-icons/fa';
 
 export default function PageNotificationTemplates() {
   const [templates, setTemplates] = useState([]);
@@ -20,10 +22,11 @@ export default function PageNotificationTemplates() {
   const [editingItem, setEditingItem] = useState(null);
   const [confirmDeleteId, setConfirmDeleteId] = useState(null);
 
-  // Form Fields
+  // Form Fields (Disesuaikan dengan struktur API & target_role)
   const [formData, setFormData] = useState({
     code: '',
     name: '',
+    target_role: '',
     title: '',
     body: '',
     channel: 'push,email',
@@ -38,7 +41,9 @@ export default function PageNotificationTemplates() {
     setLoading(true);
     try {
       const res = await getNotificationTemplates();
-      setTemplates(Array.isArray(res.data) ? res.data : []);
+      // Menyesuaikan struktur response API (bisa berupa res.data atau langsung array di res)
+      const dataList = res.data || res;
+      setTemplates(Array.isArray(dataList) ? dataList : []);
     } catch (err) {
       console.error(err);
       setMessage({ type: 'error', text: err.message || 'Gagal memuat template notifikasi' });
@@ -52,6 +57,7 @@ export default function PageNotificationTemplates() {
     setFormData({
       code: '',
       name: '',
+      target_role: '',
       title: '',
       body: '',
       channel: 'push,email',
@@ -65,6 +71,7 @@ export default function PageNotificationTemplates() {
     setFormData({
       code: item.code || '',
       name: item.name || '',
+      target_role: item.target_role || '',
       title: item.title || '',
       body: item.body || '',
       channel: item.channel || 'push,email',
@@ -119,7 +126,7 @@ export default function PageNotificationTemplates() {
   );
 
   return (
-    <div className="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
+    <div className="w-full px-6 py-6 space-y-6">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-slate-200/80 pb-4">
         <div>
@@ -136,7 +143,6 @@ export default function PageNotificationTemplates() {
         </button>
       </div>
 
-
       {/* Alert Notification */}
       {message.text && (
         <div
@@ -152,17 +158,18 @@ export default function PageNotificationTemplates() {
 
       {/* Filter and Search */}
       <div className="card p-4 flex flex-col sm:flex-row items-center justify-between gap-4">
-        <div className="relative w-full sm:w-80">
-          <FaSearch className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 text-sm" />
+        <div className="relative flex-1 w-full">
+          <FaSearch className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 text-sm z-10" />
           <input
             type="text"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Cari berdasarkan kode atau nama..."
-            className="form-input pl-10 text-sm"
+            placeholder="Cari berdasarkan kode, nama, atau judul..."
+            className="form-input pl-10 text-sm !w-full block"
+            style={{ width: '100%' }}
           />
         </div>
-        <span className="text-xs text-slate-500 font-medium">
+        <span className="text-xs text-slate-500 font-medium shrink-0">
           Total Template: <strong className="text-slate-800">{filteredTemplates.length}</strong>
         </span>
       </div>
@@ -187,6 +194,7 @@ export default function PageNotificationTemplates() {
                 <tr className="bg-slate-50 text-slate-600 text-xs uppercase tracking-wider font-semibold border-b border-slate-200">
                   <th className="py-3.5 px-4">Kode</th>
                   <th className="py-3.5 px-4">Nama Template</th>
+                  <th className="py-3.5 px-4">Target Role</th>
                   <th className="py-3.5 px-4">Judul Notifikasi</th>
                   <th className="py-3.5 px-4">Channel</th>
                   <th className="py-3.5 px-4 text-center">Status</th>
@@ -201,6 +209,11 @@ export default function PageNotificationTemplates() {
                     </td>
                     <td className="py-3.5 px-4 font-semibold text-slate-900">
                       {item.name}
+                    </td>
+                    <td className="py-3.5 px-4">
+                      <span className="px-2.5 py-1 text-xs font-semibold bg-indigo-50 text-indigo-700 rounded-md uppercase">
+                        {item.target_role || 'Semua / Umum'}
+                      </span>
                     </td>
                     <td className="py-3.5 px-4 max-w-xs truncate text-slate-600" title={item.title}>
                       {item.title}
@@ -298,6 +311,23 @@ export default function PageNotificationTemplates() {
                   required
                   className="form-input"
                 />
+              </div>
+
+              {/* Input Target Role */}
+              <div>
+                <label className="form-label">Target Role</label>
+                <select
+                  value={formData.target_role}
+                  onChange={(e) => setFormData({ ...formData, target_role: e.target.value })}
+                  className="form-input text-sm"
+                >
+                  <option value="">-- Umum / Semua Role (Null) --</option>
+                  <option value="pasien">Pasien</option>
+                  <option value="nakes">Nakes (Tenaga Medis)</option>
+                  <option value="admin">Admin</option>
+                  <option value="all">All (Semua)</option>
+                </select>
+                <p className="text-[11px] text-slate-400 mt-1">Tentukan role penerima target notifikasi.</p>
               </div>
 
               <div>
