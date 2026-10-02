@@ -19,6 +19,24 @@ const MapPicker = dynamic(() => import("@/components/MapPicker"), {
   ),
 });
 
+// Titik default peta (dipakai hanya kalau belum ada lat/lng)
+const DEFAULT_LAT = -6.2088;
+const DEFAULT_LNG = 106.8456;
+
+const EMPTY_FORM = {
+  nama_lengkap: "",
+  no_hp: "",
+  nik: "",
+  golongan_darah: "",
+  jenis_kelamin: "",
+  alamat_utama: "",
+  latitude: null,
+  longitude: null,
+  email: "",
+  password: "",
+  password_confirmation: "",
+};
+
 // ─── Google Button ───────────────────────────────────────────────────────────
 function GoogleRegisterButton({ onSuccess, onError, loading, isConfigured }) {
   const login = useGoogleLogin({
@@ -67,22 +85,9 @@ export default function DaftarPage() {
   const [fieldErrors, setFieldErrors] = useState({});
 
   // Form state
-  const [form, setForm] = useState({
-    nama_lengkap: "",
-    no_hp: "",
-    nik: "",
-    golongan_darah: "",
-    jenis_kelamin: "",
-    alamat_utama: "",
-    latitude: null,
-    longitude: null,
-    email: "",
-    password: "",
-    password_confirmation: "",
-  });
+  const [form, setForm] = useState(EMPTY_FORM);
 
   const [isFetchingAddress, setIsFetchingAddress] = useState(false);
-  const [isEditingMap, setIsEditingMap] = useState(true);
 
   const [searchResults, setSearchResults] = useState([]);
   const [showSearchResults, setShowSearchResults] = useState(false);
@@ -90,6 +95,8 @@ export default function DaftarPage() {
 
   const mapDebounceTimer = useRef(null);
   const searchDebounceTimer = useRef(null);
+  // Penanda request reverse geocode terbaru, supaya hasil lama tidak menimpa yang baru
+  const reverseReqId = useRef(0);
 
   const rawClientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID;
   const clientId = rawClientId && rawClientId.trim() !== "" ? rawClientId : "dummy-client-id.apps.googleusercontent.com";
@@ -111,19 +118,38 @@ export default function DaftarPage() {
     clearFieldError(name);
   };
 
+  // Batalkan reverse geocode yang masih berjalan / menunggu
+  const cancelPendingReverse = () => {
+    if (mapDebounceTimer.current) clearTimeout(mapDebounceTimer.current);
+    reverseReqId.current += 1;
+    setIsFetchingAddress(false);
+  };
+
+  // Alamat + latitude + longitude selalu diubah sepaket lewat fungsi ini
+  const setLocation = (alamat, lat, lng) => {
+    setForm((prev) => ({
+      ...prev,
+      alamat_utama: alamat,
+      latitude: lat,
+      longitude: lng,
+    }));
+    clearFieldError("alamat_utama");
+  };
+
+  // Dipanggil saat pin peta digeser / diklik
   const handleMapChange = (lat, lng) => {
+    // koordinat langsung diupdate, alamat menyusul setelah reverse geocode
     setForm((prev) => ({ ...prev, latitude: lat, longitude: lng }));
+    clearFieldError("alamat_utama");
 
-    if (!isEditingMap) return;
+    if (mapDebounceTimer.current) clearTimeout(mapDebounceTimer.current);
 
-    if (mapDebounceTimer.current) {
-      clearTimeout(mapDebounceTimer.current);
-    }
-
+    const reqId = ++reverseReqId.current;
     setIsFetchingAddress(true);
 
     mapDebounceTimer.current = setTimeout(async () => {
       const address = await reverseGeocode(lat, lng);
+      if (reqId !== reverseReqId.current) return; // sudah ada request yang lebih baru
       if (address) {
         setForm((prev) => ({ ...prev, alamat_utama: address }));
       }
@@ -131,9 +157,19 @@ export default function DaftarPage() {
     }, 500);
   };
 
+  // Dipanggil saat user mengetik alamat manual
   const handleAlamatChange = (e) => {
     const value = e.target.value;
-    setForm((prev) => ({ ...prev, alamat_utama: value }));
+    cancelPendingReverse();
+
+    // Teks diketik manual -> koordinat lama sudah tidak cocok, dikosongkan.
+    // Koordinat baru diisi lagi saat user pilih hasil pencarian / geser pin.
+    setForm((prev) => ({
+      ...prev,
+      alamat_utama: value,
+      latitude: null,
+      longitude: null,
+    }));
     if (errorMsg) setErrorMsg("");
     clearFieldError("alamat_utama");
 
@@ -158,16 +194,8 @@ export default function DaftarPage() {
   };
 
   const handleSelectSearchResult = (result) => {
-    const lat = parseFloat(result.lat);
-    const lng = parseFloat(result.lon);
-
-    setForm((prev) => ({
-      ...prev,
-      latitude: lat,
-      longitude: lng,
-      alamat_utama: result.display_name,
-    }));
-
+    cancelPendingReverse();
+    setLocation(result.display_name, parseFloat(result.lat), parseFloat(result.lon));
     setSearchResults([]);
     setShowSearchResults(false);
   };
@@ -189,6 +217,8 @@ export default function DaftarPage() {
 
     if (!form.alamat_utama.trim()) {
       errors.alamat_utama = "Alamat utama wajib diisi.";
+    } else if (form.latitude == null || form.longitude == null) {
+      errors.alamat_utama = "Pilih alamat dari hasil pencarian atau tentukan titik di peta.";
     }
 
     if (!form.email.trim()) {
@@ -228,6 +258,7 @@ export default function DaftarPage() {
         nik: form.nik,
         golongan_darah: form.golongan_darah || null,
         jenis_kelamin: form.jenis_kelamin,
+        // satu paket: alamat + koordinat
         alamat_utama: form.alamat_utama,
         latitude: form.latitude,
         longitude: form.longitude,
@@ -235,20 +266,7 @@ export default function DaftarPage() {
 
       setSuccessMsg("Registrasi berhasil! Mengalihkan ke halaman masuk...");
       setFieldErrors({});
-
-      setForm({
-        nama_lengkap: "",
-        no_hp: "",
-        nik: "",
-        golongan_darah: "",
-        jenis_kelamin: "",
-        alamat_utama: "",
-        latitude: null,
-        longitude: null,
-        email: "",
-        password: "",
-        password_confirmation: "",
-      });
+      setForm(EMPTY_FORM);
 
       setTimeout(() => {
         window.location.href = "/login";
@@ -299,7 +317,7 @@ export default function DaftarPage() {
 
   return (
     <main className="min-h-screen bg-gray-100 flex flex-col relative overflow-x-hidden">
-      
+
       {/* 1. HEADER ATAS (Responsif Tinggi) */}
       <section className="w-full h-48 sm:h-64 bg-gradient-to-br from-[#0284c7] via-[#004fa4] to-[#2dd4bf] rounded-b-[30px] sm:rounded-b-[40px] relative z-10" />
 
@@ -327,6 +345,7 @@ export default function DaftarPage() {
                 id="reg-nama"
                 type="text"
                 name="nama_lengkap"
+                autoComplete="name"
                 value={form.nama_lengkap}
                 onChange={handleChange}
                 placeholder="Nama sesuai KTP"
@@ -351,6 +370,7 @@ export default function DaftarPage() {
                 id="reg-nohp"
                 type="tel"
                 name="no_hp"
+                autoComplete="tel"
                 value={form.no_hp}
                 onChange={handleChange}
                 placeholder="0812xxxxxxxx"
@@ -366,7 +386,9 @@ export default function DaftarPage() {
               <input
                 id="reg-nik"
                 type="text"
+                inputMode="numeric"
                 name="nik"
+                autoComplete="off"
                 value={form.nik}
                 onChange={handleChange}
                 placeholder="16 digit Nomor Induk Kependudukan"
@@ -430,7 +452,7 @@ export default function DaftarPage() {
               )}
             </div>
 
-            {/* Alamat Utama */}
+            {/* Alamat Utama (alamat + lat + lng sepaket) */}
             <div>
               <label htmlFor="reg-alamat" className="mb-2 block text-sm font-medium text-gray-700">
                 Alamat Utama
@@ -441,6 +463,7 @@ export default function DaftarPage() {
                   id="reg-alamat"
                   type="text"
                   name="alamat_utama"
+                  autoComplete="off"
                   value={form.alamat_utama}
                   onChange={handleAlamatChange}
                   onFocus={() => {
@@ -484,8 +507,8 @@ export default function DaftarPage() {
               {/* Peta */}
               <div className="mt-3 overflow-hidden rounded-xl border border-gray-200">
                 <MapPicker
-                  lat={form.latitude || -6.2088}
-                  lng={form.longitude || 106.8456}
+                  lat={form.latitude ?? DEFAULT_LAT}
+                  lng={form.longitude ?? DEFAULT_LNG}
                   onChange={(newLat, newLng) => handleMapChange(newLat, newLng)}
                 />
               </div>
@@ -507,6 +530,7 @@ export default function DaftarPage() {
                 id="reg-email"
                 type="email"
                 name="email"
+                autoComplete="email"
                 value={form.email}
                 onChange={handleChange}
                 placeholder="contoh@gmail.com"
@@ -532,6 +556,7 @@ export default function DaftarPage() {
                   id="reg-password"
                   type={showPassword ? "text" : "password"}
                   name="password"
+                  autoComplete="new-password"
                   value={form.password}
                   onChange={handleChange}
                   placeholder="Minimal 8 karakter"
@@ -567,6 +592,7 @@ export default function DaftarPage() {
                   id="reg-confirm-password"
                   type={showConfirmPassword ? "text" : "password"}
                   name="password_confirmation"
+                  autoComplete="new-password"
                   value={form.password_confirmation}
                   onChange={handleChange}
                   placeholder="••••••••"
