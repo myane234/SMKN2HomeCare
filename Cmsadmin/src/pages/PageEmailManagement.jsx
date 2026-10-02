@@ -71,7 +71,22 @@ export default function PageEmailManagement() {
     const matchesSearch =
       log.recipient_email.toLowerCase().includes(searchTerm.toLowerCase()) ||
       log.subject.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesStatus = statusFilter === "all" || log.status === statusFilter;
+    
+    // Penanganan filter status yang fleksibel
+    let matchesStatus = true;
+    if (statusFilter !== "all") {
+      const logStatus = (log.status || "").toLowerCase();
+      if (statusFilter === "success") {
+        // Menangkap status sukses baik tertulis "success", "sent", maupun "completed"
+        matchesStatus = logStatus === "success" || logStatus === "sent" || logStatus === "completed";
+      } else if (statusFilter === "failed") {
+        // Menangkap status gagal baik tertulis "failed", "error", maupun "falsified"
+        matchesStatus = logStatus === "failed" || logStatus === "error";
+      } else {
+        matchesStatus = logStatus === statusFilter.toLowerCase();
+      }
+    }
+
     return matchesSearch && matchesStatus;
   });
 
