@@ -533,3 +533,46 @@ export const getBookingChatHistory = async (bookingId) => {
     }
   }
 };
+// --- TAMBAHAN ENDPOINT POIN ---
+
+// 1. Mengambil saldo & ringkasan poin pasien yang sedang login
+export const getPointBalance = async () => {
+  try {
+    const res = await api.get('/api/points/balance');
+    return res.data;
+  } catch (error) {
+    console.error('Gagal mengambil saldo poin:', error);
+    throw error;
+  }
+};
+
+// 2. Preview kalkulasi diskon poin untuk booking
+export const previewPointBooking = async (totalTagihan, pointsToUse) => {
+  try {
+    // Menggunakan 'params' agar terbaca sebagai query/body parameter oleh backend
+    const res = await api.get('/api/points/preview-booking', {
+      params: {
+        total_tagihan: totalTagihan,
+        points_to_use: pointsToUse,
+      }
+    });
+    return res.data;
+  } catch (error) {
+    console.error('Gagal memuat preview diskon poin:', error);
+    throw error;
+  }
+};
+
+// 3. Mengambil riwayat mutasi poin pasien (EARN, REDEEM, EXPIRED)
+export const getPointHistory = async (type = '', perPage = 15) => {
+  try {
+    const params = { per_page: perPage };
+    if (type) params.type = type;
+    
+    const res = await api.get('/api/points/history', { params });
+    return res.data;
+  } catch (error) {
+    console.error('Gagal mengambil riwayat poin:', error);
+    throw error;
+  }
+};

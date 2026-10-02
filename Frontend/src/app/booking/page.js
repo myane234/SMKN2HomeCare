@@ -7,7 +7,7 @@ const MapPicker = dynamic(() => import("@/components/MapPicker"), {
   ssr: false,
 });
 
-import { createBooking } from "@/services/bookingService";
+import { createBooking, getPointBalance} from "@/services/bookingService";
 import { fetchAndStoreProfile } from "@/services/profileService";
 import { resolveImageUrl } from "@/services/resolveImage";
 import { useRouter } from "next/navigation";
@@ -191,6 +191,12 @@ export default function BookingPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   
   const [promoDetails, setPromoDetails] = useState(null);
+
+  // --- POIN ---
+  const [pointBalance, setPointBalance] = useState(0);
+  const [maxPointDiscountPercent, setMaxPointDiscountPercent] = useState(50);
+  const [usePoints, setUsePoints] = useState(false);
+  const [pointDiscountAmount, setPointDiscountAmount] = useState(0);
   /* =========================================================
      ADDRESS
   ========================================================= */
@@ -330,6 +336,25 @@ useEffect(() => {
       return changed ? next : current;
     });
   }, [checkoutItems]);
+
+  /* =========================================================
+     LOAD POINT BALANCE
+  ========================================================= */
+
+  useEffect(() => {
+    const loadPoints = async () => {
+      try {
+        const res = await getPointBalance();
+        if (res?.success) {
+          setPointBalance(res.data.points_balance || 0);
+          setMaxPointDiscountPercent(res.data.max_point_discount_percent || 50);
+        }
+      } catch (err) {
+        console.error("Gagal memuat saldo poin:", err);
+      }
+    };
+    loadPoints();
+  }, []);
 
   /* =========================================================
      LOAD ADDRESS
@@ -723,6 +748,8 @@ useEffect(() => {
           addressData.longitude,
 
         catatan: form.notes,
+        use_points: usePoints,
+        points_to_use: usePoints ? pointBalance : 0,
       });
 
       const payload =
@@ -974,6 +1001,52 @@ useEffect(() => {
 
             </div>
           </div>
+
+        {/* =====================================================
+              CARD CHECKBOX POIN (BINTANG TANPA KOTAK)
+          ====================================================== */}
+          {pointBalance >= 0 && (
+            <div className="relative overflow-hidden rounded-2xl border border-amber-200/80 bg-gradient-to-r from-amber-50/80 via-amber-50/40 to-white p-4 shadow-xs transition-all hover:shadow-sm">
+              <div className="flex items-center justify-between gap-3">
+                <div className="flex items-center gap-3.5">
+                  <div className="shrink-0">
+                    <svg 
+                      className="h-7 w-7 text-amber-500 fill-amber-400 drop-shadow-xs" 
+                      viewBox="0 0 24 24"
+                    >
+                      <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
+                    </svg>
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-bold text-gray-900">
+                        Punya {pointBalance.toLocaleString('id-ID')} Poin Tersedia
+                      </span>
+                      <span className="rounded-md bg-amber-100 px-1.5 py-0.5 text-[10px] font-bold text-amber-800 uppercase tracking-wide">
+                        Hemat
+                      </span>
+                    </div>
+                    <p className="text-xs text-gray-500 mt-0.5">
+                      Gunakan untuk memotong total tagihan booking kamu.
+                    </p>
+                  </div>
+                </div>
+
+                <label className="relative flex items-center cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    checked={usePoints}
+                    disabled={pointBalance === 0}
+                    onChange={(e) => setUsePoints(e.target.checked)}
+                    className="peer h-5 w-5 rounded-md border-gray-300 text-blue-600 focus:ring-blue-500 disabled:opacity-40 cursor-pointer disabled:cursor-not-allowed transition"
+                  />
+                  <span className="ml-2 text-xs font-semibold text-gray-700 peer-disabled:text-gray-400">
+                    Pakai Poin
+                  </span>
+                </label>
+              </div>
+            </div>
+          )}
 
           {/* =====================================================
               ALAMAT
