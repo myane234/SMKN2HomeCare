@@ -302,7 +302,10 @@ export default function Navbar() {
                     <FiSearch className="w-4 h-4 xl:w-5 xl:h-5" />
                 </button>
 
-                <NotificationBell />
+                <NotificationBell
+                scopeRole="pasien"
+                notificationHref="/notifikasi"
+                />
                 
                 {isLoggedIn ? (
                     <Link 

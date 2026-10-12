@@ -5,6 +5,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Home, User, Stethoscope, ClipboardList } from "lucide-react";
 import BookingDetailSheet from "@/components/nakes/BookingDetailSheet";
+import NotificationBell from "@/components/NotificationBell";
 import { getNakesBookings } from "@/services/nakesService";
 import { fetchAndStoreProfile, getProfileFromCookies } from "@/services/profileService";
 import { getAuthToken, getCookie } from "@/services/cookieHelper";
@@ -282,21 +283,32 @@ export default function NakesLayout({ children }) {
               })}
             </nav>
 
-            <Link
-              href="/nakes/profile"
-              className={`shrink-0 flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold transition-all ${
-                isProfileActive ? "bg-blue-50 text-blue-600" : "text-slate-600 hover:bg-slate-50"
-              }`}
-            >
-              <div
-                className={`w-8 h-8 rounded-lg flex items-center justify-center ${
-                  isProfileActive ? "bg-blue-100 text-blue-600" : "bg-slate-100 text-slate-500"
+            <div className="flex items-center gap-2 shrink-0">
+              <NotificationBell
+                scopeRole="nakes"
+                notificationHref="/nakes/notifikasi"
+              />
+
+              <Link
+                href="/nakes/profile"
+                aria-label="Profil"
+                className={`flex items-center justify-center w-10 h-10 rounded-xl transition-all ${
+                  isProfileActive
+                    ? "bg-blue-50 text-blue-600"
+                    : "text-slate-600 hover:bg-slate-50"
                 }`}
               >
-                <User className="w-4 h-4" />
-              </div>
-              <span>Profil</span>
-            </Link>
+                <div
+                  className={`w-8 h-8 rounded-lg flex items-center justify-center ${
+                    isProfileActive
+                      ? "bg-blue-100 text-blue-600"
+                      : "bg-slate-100 text-slate-500"
+                  }`}
+                >
+                  <User className="w-4 h-4" />
+                </div>
+              </Link>
+            </div>
           </div>
         </div>
       </header>
