@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import {
   FaArrowLeft,
   FaBell,
+  FaCheck,
   FaCheckDouble,
   FaTrash,
 } from "react-icons/fa";
@@ -58,7 +59,7 @@ const formatDate = (value) => {
   });
 };
 
-const showDeleteConfirmation = async () =>
+const showDeleteConfirmation = () =>
   Swal.fire({
     title: "Hapus notifikasi?",
     text: "Notifikasi yang dihapus tidak dapat dikembalikan.",
@@ -84,7 +85,7 @@ const showDeleteConfirmation = async () =>
     },
   });
 
-const showDeleteSuccess = async () =>
+const showDeleteSuccess = () =>
   Swal.fire({
     title: "Notifikasi dihapus",
     text: "Notifikasi telah berhasil dihapus.",
@@ -104,6 +105,7 @@ export default function NotificationPage() {
   const [notifications, setNotifications] = useState([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [readingIds, setReadingIds] = useState([]);
 
   const fetchNotifications = useCallback(async () => {
     try {
@@ -121,10 +123,7 @@ export default function NotificationPage() {
         getScopedUnreadCount(response, normalized, SCOPE_ROLE)
       );
     } catch (error) {
-      console.error(
-        "Gagal mengambil daftar notifikasi pasien:",
-        error
-      );
+      console.error("Gagal mengambil daftar notifikasi pasien:", error);
     } finally {
       setLoading(false);
     }
@@ -134,32 +133,36 @@ export default function NotificationPage() {
     fetchNotifications();
   }, [fetchNotifications]);
 
-  const handleRead = async (notification) => {
+  const handleRead = async (event, notification) => {
+    event.stopPropagation();
+
+    const id = String(notification.id);
+    if (notification.is_read || readingIds.includes(id)) return;
+
+    setReadingIds((current) => [...current, id]);
+
     try {
-      if (!notification.is_read) {
-        await markNotificationAsRead(notification.id, {
-          role: SCOPE_ROLE,
-        });
+      await markNotificationAsRead(notification.id, {
+        role: SCOPE_ROLE,
+      });
 
-        setNotifications((current) =>
-          current.map((item) =>
-            String(item.id) === String(notification.id)
-              ? { ...item, is_read: true }
-              : item
-          )
-        );
-
-        setUnreadCount((current) => Math.max(0, current - 1));
-      }
-
-      if (notification.action_url) {
-        window.location.href = notification.action_url;
-      }
-    } catch (error) {
-      console.error(
-        "Gagal menandai notifikasi pasien:",
-        error
+      setNotifications((current) =>
+        current.map((item) =>
+          String(item.id) === id
+            ? {
+                ...item,
+                is_read: true,
+                read_at: new Date().toISOString(),
+              }
+            : item
+        )
       );
+
+      setUnreadCount((current) => Math.max(0, current - 1));
+    } catch (error) {
+      console.error("Gagal menandai notifikasi pasien:", error);
+    } finally {
+      setReadingIds((current) => current.filter((item) => item !== id));
     }
   };
 
@@ -175,15 +178,13 @@ export default function NotificationPage() {
         current.map((item) => ({
           ...item,
           is_read: true,
+          read_at: item.read_at || new Date().toISOString(),
         }))
       );
 
       setUnreadCount(0);
     } catch (error) {
-      console.error(
-        "Gagal menandai semua notifikasi pasien:",
-        error
-      );
+      console.error("Gagal menandai semua notifikasi pasien:", error);
     }
   };
 
@@ -212,10 +213,7 @@ export default function NotificationPage() {
 
       await showDeleteSuccess();
     } catch (error) {
-      console.error(
-        "Gagal menghapus notifikasi pasien:",
-        error
-      );
+      console.error("Gagal menghapus notifikasi pasien:", error);
     }
   };
 
@@ -276,62 +274,82 @@ export default function NotificationPage() {
                   className="flex shrink-0 items-center gap-1.5 rounded-xl px-3 py-2 text-xs font-semibold text-slate-600 transition hover:bg-slate-50 hover:text-slate-900 sm:text-sm"
                 >
                   <FaCheckDouble size={12} />
-                  <span className="hidden sm:inline">
-                    Tandai semua dibaca
-                  </span>
+                  <span className="hidden sm:inline">Tandai semua dibaca</span>
                   <span className="sm:hidden">Baca semua</span>
                 </button>
               )}
             </div>
 
-            {notifications.map((item) => (
-              <div
-                key={item.id}
-                onClick={() => handleRead(item)}
-                className={`group flex cursor-pointer items-start gap-3 border-b border-slate-100 px-5 py-5 transition last:border-b-0 hover:bg-slate-50 sm:gap-4 sm:px-7 ${
-                  item.is_read ? "bg-white" : "bg-blue-50/30"
-                }`}
-              >
-                <div className="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-slate-100 text-slate-500">
-                  <FaBell size={14} />
-                </div>
+            {notifications.map((item) => {
+              const id = String(item.id);
+              const isReading = readingIds.includes(id);
 
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-start justify-between gap-3">
-                    <h3
-                      className={`text-sm leading-5 sm:text-[15px] ${
-                        item.is_read
-                          ? "font-medium text-slate-700"
-                          : "font-bold text-slate-900"
-                      }`}
-                    >
-                      {item.title}
-                    </h3>
-
-                    {!item.is_read && (
-                      <span className="mt-1.5 h-2.5 w-2.5 shrink-0 rounded-full bg-blue-600" />
-                    )}
+              return (
+                <div
+                  key={item.id}
+                  className={`group flex items-start gap-3 border-b border-slate-100 px-5 py-5 transition last:border-b-0 hover:bg-slate-50 sm:gap-4 sm:px-7 ${
+                    item.is_read ? "bg-white" : "bg-blue-50/30"
+                  }`}
+                >
+                  <div className="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-slate-100 text-slate-500">
+                    <FaBell size={14} />
                   </div>
 
-                  <p className="mt-1.5 text-sm leading-6 text-slate-600">
-                    {item.body}
-                  </p>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-start justify-between gap-3">
+                      <h3
+                        className={`text-sm leading-5 sm:text-[15px] ${
+                          item.is_read
+                            ? "font-medium text-slate-700"
+                            : "font-bold text-slate-900"
+                        }`}
+                      >
+                        {item.title}
+                      </h3>
 
-                  <p className="mt-2 text-[11px] text-slate-400 sm:text-xs">
-                    {formatDate(item.created_at)}
-                  </p>
+                      {!item.is_read && (
+                        <span className="mt-1.5 h-2.5 w-2.5 shrink-0 rounded-full bg-blue-600" />
+                      )}
+                    </div>
+
+                    <p className="mt-1.5 text-sm leading-6 text-slate-600">
+                      {item.body}
+                    </p>
+
+                    <p className="mt-2 text-[11px] text-slate-400 sm:text-xs">
+                      {formatDate(item.created_at)}
+                    </p>
+                  </div>
+
+                  <div className="flex shrink-0 items-start gap-1">
+                    <button
+                      type="button"
+                      onClick={(event) => handleRead(event, item)}
+                      disabled={item.is_read || isReading}
+                      title={item.is_read ? "Sudah dibaca" : "Tandai dibaca"}
+                      aria-label={item.is_read ? "Sudah dibaca" : "Tandai dibaca"}
+                      className={`flex h-9 w-9 items-center justify-center rounded-xl transition ${
+                        item.is_read
+                          ? "cursor-default text-emerald-500"
+                          : "text-slate-400 hover:bg-emerald-50 hover:text-emerald-600"
+                      } disabled:opacity-70`}
+                    >
+                      <FaCheck size={12} />
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={(event) => handleDelete(event, item.id)}
+                      className="flex h-9 w-9 items-center justify-center rounded-xl text-slate-400 transition hover:bg-red-50 hover:text-red-500 sm:opacity-70 sm:group-hover:opacity-100"
+                      aria-label="Hapus notifikasi"
+                      title="Hapus notifikasi"
+                    >
+                      <FaTrash size={12} />
+                    </button>
+                  </div>
                 </div>
-
-                <button
-                  type="button"
-                  onClick={(event) => handleDelete(event, item.id)}
-                  className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-slate-400 transition hover:bg-red-50 hover:text-red-500 sm:opacity-70 sm:group-hover:opacity-100"
-                  aria-label="Hapus notifikasi"
-                >
-                  <FaTrash size={12} />
-                </button>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </div>
