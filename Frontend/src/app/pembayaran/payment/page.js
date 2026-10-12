@@ -300,9 +300,20 @@ const usePointsParam = searchParams.get("use_points") === "true" || pointsToUseP
       }
     };
 
-    const interval = setInterval(checkPaymentStatus, 5000);
+    checkPaymentStatus();
+    const handleSync = () => {
+      if (document.visibilityState === "visible") {
+        checkPaymentStatus();
+      }
+    };
 
-    return () => clearInterval(interval);
+    window.addEventListener("focus", handleSync);
+    document.addEventListener("visibilitychange", handleSync);
+
+    return () => {
+      window.removeEventListener("focus", handleSync);
+      document.removeEventListener("visibilitychange", handleSync);
+    };
   }, [bookingId, bookingCodeParam, orderId, router, amount, isExpired, isBiayaTambahan, metodeParam]);
 
   const methods = {
