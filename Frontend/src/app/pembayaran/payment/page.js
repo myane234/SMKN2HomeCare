@@ -34,6 +34,9 @@ function PaymentQRContent() {
   const [copiedOrderId, setCopiedOrderId] = useState(false);
   const [virtualAccountNumber, setVirtualAccountNumber] = useState("");
   const requestRef = useRef("");
+  // Tangkap parameter poin dari URL
+const pointsToUseParam = parseInt(searchParams.get("points_to_use") || "0", 10);
+const usePointsParam = searchParams.get("use_points") === "true" || pointsToUseParam > 0;
 
   useEffect(() => {
     const requestKey = `${bookingParam}:${bookingCodeParam}:${metodeParam}:${urlTotalParam}:${paymentType}`;
@@ -113,6 +116,8 @@ function PaymentQRContent() {
             total: finalAmount,
             amount: finalAmount,
             gross_amount: finalAmount,
+           use_points: true,           // <--- Paksa true
+            points_to_use: 50
           };
 
           if (isBankTransfer) {

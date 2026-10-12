@@ -44,6 +44,7 @@ import AdminMasterKomponenTarif from "./pages/admin/AdminMasterKomponenTarif";
 import AdminMasterTarifTransport from "./pages/admin/AdminMasterTarifTransport";
 import AdminMasterKecamatan from "./pages/admin/AdminMasterKecamatan";
 import PageNotificationTemplates from "./pages/PageNotificationTemplates";
+import PageManajemenEmail from "./pages/PageEmailManagement";
 import PageWebSetting from "./pages/PageWebSetting";
 import PageAktivitasLog from "./pages/PageAktivitasLog";
 import PageSyaratKetentuanPasien from "./pages/PageSyaratKetentuanPasien";
@@ -335,6 +336,14 @@ function App() {
           element={
             <ProtectedRoute requiredPath="/notification-templates">
               <PageNotificationTemplates />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/manajemen-email"
+          element={
+            <ProtectedRoute requiredPath="/manajemen-email">
+              <PageManajemenEmail />
             </ProtectedRoute>
           }
         />

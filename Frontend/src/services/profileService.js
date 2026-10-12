@@ -189,3 +189,18 @@ export function clearProfileCookies() {
 }
 
 export { clearAllAuthCookies };
+
+// Tambahkan fungsi ini di profileService.js
+// Fungsi Poin General (Bebas dari kata pasien)
+export const getPoints = async () => {
+  const token = getAuthToken();
+  if (!token) return null;
+
+  try {
+    const response = await api.get('/api/points/balance');
+    return response.data;
+  } catch (error) {
+    console.error("Gagal mengambil saldo poin:", error);
+    return null;
+  }
+};
