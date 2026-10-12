@@ -148,7 +148,7 @@ export default function MetodePembayaranForm({ initialData, onSubmit, submitting
           {/* Nilai Potongan */}
           <div>
             <label className="block text-xs font-semibold uppercase tracking-wider text-slate-600 mb-2">
-              Nilai Potongan
+              Admin
             </label>
             <input
               type="number"
