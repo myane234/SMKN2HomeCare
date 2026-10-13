@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useEffect, useRef, useState, useCallback } from "react";
@@ -396,6 +395,8 @@ const showDeleteSuccess = () =>
 export default function NotificationBell({ scopeRole, notificationHref }) {
   const pathname = usePathname();
   const role = resolveRole(scopeRole, pathname);
+  const userId = getUserId();
+
   const targetHref =
     notificationHref ||
     (role === "nakes" ? "/nakes/notifikasi" : "/notifikasi");
@@ -412,6 +413,15 @@ export default function NotificationBell({ scopeRole, notificationHref }) {
   const [readingIds, setReadingIds] = useState([]);
 
   const loadNotifications = useCallback(async () => {
+    // Jangan request API jika belum ada pengguna yang login.
+    if (!getUserId()) {
+      notificationIdsRef.current.clear();
+      setNotifications([]);
+      setUnreadCount(0);
+      setLoading(false);
+      return;
+    }
+
     try {
       setLoading(true);
 
@@ -440,7 +450,9 @@ export default function NotificationBell({ scopeRole, notificationHref }) {
         if (count !== null) setUnreadCount(count);
       }
     } catch (error) {
-      console.error("Gagal mengambil notifikasi:", error);
+      if (error?.response?.status !== 401) {
+        console.error("Gagal mengambil notifikasi:", error);
+      }
     } finally {
       setLoading(false);
     }
@@ -449,6 +461,16 @@ export default function NotificationBell({ scopeRole, notificationHref }) {
   useEffect(() => {
     let cancelled = false;
     let socket = null;
+
+    const resetNotifications = () => {
+      notificationIdsRef.current.clear();
+      readingIdsRef.current.clear();
+      setNotifications([]);
+      setUnreadCount(0);
+      setLoading(false);
+      setReadingIds([]);
+      setOpen(false);
+    };
 
     const loadInitialData = async () => {
       try {
@@ -484,13 +506,15 @@ export default function NotificationBell({ scopeRole, notificationHref }) {
 
         if (!cancelled) setUnreadCount(count);
       } catch (error) {
-        console.error("Gagal mengambil data awal notifikasi:", error);
+        if (error?.response?.status !== 401) {
+          console.error("Gagal mengambil data awal notifikasi:", error);
+        }
       }
     };
 
     const connectRealtime = async () => {
-      const userId = getUserId();
-      if (!userId) return;
+      const currentUserId = getUserId();
+      if (!currentUserId) return;
 
       try {
         const config = await getWebSocketConfig();
@@ -503,7 +527,7 @@ export default function NotificationBell({ scopeRole, notificationHref }) {
         if (url.protocol === "http:") url.protocol = "ws:";
         if (url.protocol === "https:") url.protocol = "wss:";
 
-        url.searchParams.set("user_id", userId);
+        url.searchParams.set("user_id", currentUserId);
         url.searchParams.set("user_role", role);
 
         socket = new WebSocket(url.toString());
@@ -542,19 +566,26 @@ export default function NotificationBell({ scopeRole, notificationHref }) {
           if (socketRef.current === socket) socketRef.current = null;
         };
       } catch (error) {
-        console.error("Gagal menghubungkan WebSocket notifikasi:", error);
+        if (error?.response?.status !== 401) {
+          console.error("Gagal menghubungkan WebSocket notifikasi:", error);
+        }
       }
     };
 
-    loadInitialData();
-    connectRealtime();
+    // Request dan WebSocket hanya dijalankan ketika pengguna login.
+    if (userId) {
+      loadInitialData();
+      connectRealtime();
+    } else {
+      resetNotifications();
+    }
 
     return () => {
       cancelled = true;
       if (socket) socket.close();
       if (socketRef.current === socket) socketRef.current = null;
     };
-  }, [role]);
+  }, [role, userId]);
 
   useEffect(() => {
     const handleOutsideClick = (event) => {
@@ -576,11 +607,21 @@ export default function NotificationBell({ scopeRole, notificationHref }) {
   const handleToggle = async () => {
     const nextOpen = !open;
     setOpen(nextOpen);
-    if (nextOpen) await loadNotifications();
+
+    if (nextOpen && getUserId()) {
+      await loadNotifications();
+    }
   };
 
   const handleRead = async (event, notification) => {
     event.stopPropagation();
+
+    if (!getUserId()) {
+      setNotifications([]);
+      setUnreadCount(0);
+      setOpen(false);
+      return;
+    }
 
     const id = String(notification.id);
 
@@ -606,7 +647,9 @@ export default function NotificationBell({ scopeRole, notificationHref }) {
 
       setUnreadCount((current) => Math.max(0, current - 1));
     } catch (error) {
-      console.error("Gagal menandai notifikasi dibaca:", error);
+      if (error?.response?.status !== 401) {
+        console.error("Gagal menandai notifikasi dibaca:", error);
+      }
     } finally {
       readingIdsRef.current.delete(id);
       setReadingIds((current) => current.filter((item) => item !== id));
@@ -614,6 +657,13 @@ export default function NotificationBell({ scopeRole, notificationHref }) {
   };
 
   const handleReadAll = async () => {
+    if (!getUserId()) {
+      setNotifications([]);
+      setUnreadCount(0);
+      setOpen(false);
+      return;
+    }
+
     if (unreadCount === 0) return;
 
     try {
@@ -629,12 +679,21 @@ export default function NotificationBell({ scopeRole, notificationHref }) {
 
       setUnreadCount(0);
     } catch (error) {
-      console.error("Gagal menandai semua notifikasi:", error);
+      if (error?.response?.status !== 401) {
+        console.error("Gagal menandai semua notifikasi:", error);
+      }
     }
   };
 
   const handleDelete = async (event, id) => {
     event.stopPropagation();
+
+    if (!getUserId()) {
+      setNotifications([]);
+      setUnreadCount(0);
+      setOpen(false);
+      return;
+    }
 
     const target = notifications.find(
       (item) => String(item.id) === String(id)
@@ -658,7 +717,9 @@ export default function NotificationBell({ scopeRole, notificationHref }) {
 
       await showDeleteSuccess();
     } catch (error) {
-      console.error("Gagal menghapus notifikasi:", error);
+      if (error?.response?.status !== 401) {
+        console.error("Gagal menghapus notifikasi:", error);
+      }
     }
   };
 
@@ -672,7 +733,7 @@ export default function NotificationBell({ scopeRole, notificationHref }) {
       >
         <FaBell size={17} />
 
-        {unreadCount > 0 && (
+        {userId && unreadCount > 0 && (
           <span className="absolute right-0.5 top-0.5 flex min-h-[17px] min-w-[17px] -translate-y-0.5 translate-x-0.5 items-center justify-center rounded-full bg-red-500 px-1 text-[9px] font-bold text-white shadow-sm">
             {unreadCount > 99 ? "99+" : unreadCount}
           </span>
@@ -683,7 +744,9 @@ export default function NotificationBell({ scopeRole, notificationHref }) {
         <div className="absolute right-0 top-12 z-50 w-[360px] max-w-[calc(100vw-24px)] overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl">
           <div className="flex items-center justify-between border-b border-slate-100 px-4 py-3.5">
             <div>
-              <h3 className="text-sm font-bold text-slate-900">Notifikasi</h3>
+              <h3 className="text-sm font-bold text-slate-900">
+                Notifikasi
+              </h3>
               <p className="mt-0.5 text-xs text-slate-500">
                 {unreadCount > 0
                   ? `${unreadCount} belum dibaca`
@@ -757,10 +820,20 @@ export default function NotificationBell({ scopeRole, notificationHref }) {
                     <div className="flex shrink-0 items-start gap-1">
                       <button
                         type="button"
-                        onClick={(event) => handleRead(event, notification)}
+                        onClick={(event) =>
+                          handleRead(event, notification)
+                        }
                         disabled={notification.is_read || isReading}
-                        title={notification.is_read ? "Sudah dibaca" : "Tandai dibaca"}
-                        aria-label={notification.is_read ? "Sudah dibaca" : "Tandai dibaca"}
+                        title={
+                          notification.is_read
+                            ? "Sudah dibaca"
+                            : "Tandai dibaca"
+                        }
+                        aria-label={
+                          notification.is_read
+                            ? "Sudah dibaca"
+                            : "Tandai dibaca"
+                        }
                         className={`flex h-7 w-7 items-center justify-center rounded-lg transition ${
                           notification.is_read
                             ? "cursor-default text-emerald-500"
@@ -772,7 +845,9 @@ export default function NotificationBell({ scopeRole, notificationHref }) {
 
                       <button
                         type="button"
-                        onClick={(event) => handleDelete(event, notification.id)}
+                        onClick={(event) =>
+                          handleDelete(event, notification.id)
+                        }
                         className="flex h-7 w-7 items-center justify-center rounded-lg text-slate-400 transition hover:bg-red-50 hover:text-red-500"
                         aria-label="Hapus notifikasi"
                         title="Hapus notifikasi"
