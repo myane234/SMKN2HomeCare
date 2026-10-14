@@ -1,8 +1,9 @@
+
 "use client";
 
 import { useEffect, useRef, useState, useCallback } from "react";
 import { usePathname } from "next/navigation";
-import { FaBell, FaCheckDouble, FaTrash } from "react-icons/fa";
+import { FaBell, FaCheck, FaCheckDouble, FaTrash } from "react-icons/fa";
 import Swal from "sweetalert2";
 import { getWebSocketConfig } from "@/services/bookingService";
 import {
@@ -20,9 +21,7 @@ const normalizeRole = (role) => {
 
 const resolveRole = (scopeRole, pathname) => {
   const explicitRole = normalizeRole(scopeRole);
-
   if (explicitRole) return explicitRole;
-
   return pathname === "/nakes" || pathname?.startsWith("/nakes/")
     ? "nakes"
     : "pasien";
@@ -47,7 +46,6 @@ const getCookie = (name) => {
 
 const getUserId = () => {
   const profileId = getCookie("profile_id_user");
-
   if (profileId) return String(profileId).trim();
 
   const userProfile = getCookie("user_profile");
@@ -93,10 +91,7 @@ const parseObject = (value) => {
 const unwrapNotification = (payload) => {
   if (!payload || typeof payload !== "object") return null;
 
-  if (
-    payload.notification &&
-    typeof payload.notification === "object"
-  ) {
+  if (payload.notification && typeof payload.notification === "object") {
     return payload.notification;
   }
 
@@ -128,7 +123,6 @@ const unwrapNotification = (payload) => {
 
 const getTargetRole = (payload) => {
   const raw = unwrapNotification(payload);
-
   if (!raw) return null;
 
   const data = parseObject(raw.data);
@@ -162,7 +156,6 @@ const findVariable = (source, key) => {
       current = undefined;
       break;
     }
-
     current = current[part];
   }
 
@@ -173,11 +166,7 @@ const findVariable = (source, key) => {
   const visited = new Set();
 
   const search = (object) => {
-    if (
-      !object ||
-      typeof object !== "object" ||
-      visited.has(object)
-    ) {
+    if (!object || typeof object !== "object" || visited.has(object)) {
       return undefined;
     }
 
@@ -193,7 +182,6 @@ const findVariable = (source, key) => {
 
     for (const value of Object.values(object)) {
       const found = search(value);
-
       if (found !== undefined) return found;
     }
 
@@ -203,10 +191,6 @@ const findVariable = (source, key) => {
   return search(source);
 };
 
-/**
- * Menggunakan variabel dari data API, tanpa membuat nilai dummy.
- * Backend tetap bertanggung jawab menghasilkan judul dan isi final.
- */
 export const cleanNotificationText = (text, variables = {}) => {
   if (text == null) return "";
 
@@ -242,26 +226,19 @@ const normalizeReadStatus = (raw) => {
       value === true ||
       value === 1 ||
       value === "1" ||
-      (typeof value === "string" &&
-        value.toLowerCase() === "true")
+      (typeof value === "string" && value.toLowerCase() === "true")
     );
   }
 
   return Boolean(readAt);
 };
 
-export const normalizeNotification = (
-  payload,
-  scopeRole = null
-) => {
+export const normalizeNotification = (payload, scopeRole = null) => {
   const raw = unwrapNotification(payload);
-
   if (!raw) return null;
 
   const id = raw.id ?? raw.notification_id ?? raw.data?.id;
-  const rawTitle =
-    raw.title ?? raw.data?.title ?? raw.data?.subject;
-
+  const rawTitle = raw.title ?? raw.data?.title ?? raw.data?.subject;
   const rawBody =
     raw.body ??
     raw.message ??
@@ -269,51 +246,28 @@ export const normalizeNotification = (
     raw.data?.message ??
     "";
 
-  if (
-    id == null ||
-    rawTitle == null ||
-    String(rawTitle).trim() === ""
-  ) {
+  if (id == null || rawTitle == null || String(rawTitle).trim() === "") {
     return null;
   }
 
-  // Baca role dari payload keseluruhan, termasuk envelope WebSocket.
   const targetRole = getTargetRole(payload);
   const role = normalizeRole(scopeRole);
 
-  // Tolak notifikasi yang role penerimanya tidak cocok atau tidak diketahui.
+  // Notifikasi yang role-nya berbeda atau tidak diketahui tidak ditampilkan.
   if (role && targetRole !== role) return null;
 
-  const metadata = parseObject(
-    raw.notification_data ?? raw.data
-  );
-
+  const metadata = parseObject(raw.notification_data ?? raw.data);
   const variables = { ...raw, ...metadata };
-
-  const actionUrl =
-    raw.action_url ??
-    raw.url ??
-    metadata.action_url ??
-    metadata.url ??
-    null;
 
   return {
     id,
     title: cleanNotificationText(rawTitle, variables),
     body: cleanNotificationText(rawBody, variables),
-    action_url:
-      typeof actionUrl === "string" && actionUrl.trim()
-        ? actionUrl.trim()
-        : null,
     data: metadata,
     target_role: targetRole,
     is_read: normalizeReadStatus(raw),
     read_at: raw.read_at ?? metadata.read_at ?? null,
-    created_at:
-      raw.created_at ??
-      raw.timestamp ??
-      metadata.created_at ??
-      null,
+    created_at: raw.created_at ?? raw.timestamp ?? metadata.created_at ?? null,
   };
 };
 
@@ -346,16 +300,12 @@ const extractUnreadCount = (response) => {
     response?.data?.data?.unread_count,
     response?.count,
     response?.data?.count,
-    typeof response?.data === "number"
-      ? response.data
-      : null,
+    typeof response?.data === "number" ? response.data : null,
     typeof response === "number" ? response : null,
   ];
 
   const count = candidates.find(
-    (value) =>
-      typeof value === "number" &&
-      Number.isFinite(value)
+    (value) => typeof value === "number" && Number.isFinite(value)
   );
 
   return count == null ? null : Math.max(0, count);
@@ -364,28 +314,12 @@ const extractUnreadCount = (response) => {
 const countUnread = (list) =>
   list.filter((item) => !item.is_read).length;
 
-/**
- * Jika response daftar mencampur role, jangan percaya angka agregatnya.
- * Fallback ini menghitung data API yang cocok dan sedang tersedia saja;
- * total sebenarnya tetap harus dihitung oleh backend.
- */
-export const getScopedUnreadCount = (
-  response,
-  normalizedList,
-  role
-) => {
+export const getScopedUnreadCount = (response, normalizedList, role) => {
   const rawList = extractRawNotificationList(response);
   const serverCount = extractUnreadCount(response);
+  const contaminated = hasUnscopedOrForeignRecords(response, role);
 
-  const contaminated = hasUnscopedOrForeignRecords(
-    response,
-    role
-  );
-
-  if (
-    contaminated ||
-    (rawList.length === 0 && serverCount > 0)
-  ) {
+  if (contaminated || (rawList.length === 0 && serverCount > 0)) {
     return countUnread(normalizedList);
   }
 
@@ -396,7 +330,6 @@ const formatRelativeTime = (date) => {
   if (!date) return "";
 
   const time = new Date(date).getTime();
-
   if (Number.isNaN(time)) return "";
 
   const diff = Date.now() - time;
@@ -404,15 +337,12 @@ const formatRelativeTime = (date) => {
   if (diff < 60000) return "Baru saja";
 
   const minutes = Math.floor(diff / 60000);
-
   if (minutes < 60) return `${minutes} menit lalu`;
 
   const hours = Math.floor(minutes / 60);
-
   if (hours < 24) return `${hours} jam lalu`;
 
   const days = Math.floor(hours / 24);
-
   if (days < 7) return `${days} hari lalu`;
 
   return new Date(date).toLocaleDateString("id-ID", {
@@ -436,15 +366,11 @@ const showDeleteConfirmation = () =>
     buttonsStyling: false,
     background: "#ffffff",
     customClass: {
-      popup:
-        "rounded-3xl border border-slate-100 shadow-2xl",
+      popup: "rounded-3xl border border-slate-100 shadow-2xl",
       icon: "!mt-1",
-      title:
-        "!mt-2 !text-[20px] !font-bold !text-slate-900",
-      htmlContainer:
-        "!mt-2 !text-[13px] !leading-6 !text-slate-500",
-      actions:
-        "!mt-6 !flex !w-full !items-center !justify-center !gap-3",
+      title: "!mt-2 !text-[20px] !font-bold !text-slate-900",
+      htmlContainer: "!mt-2 !text-[13px] !leading-6 !text-slate-500",
+      actions: "!mt-6 !flex !w-full !items-center !justify-center !gap-3",
       confirmButton:
         "!m-0 !rounded-xl !bg-red-500 !px-5 !py-2.5 !text-sm !font-semibold !text-white !shadow-sm hover:!bg-red-600",
       cancelButton:
@@ -462,60 +388,28 @@ const showDeleteSuccess = () =>
     width: 360,
     buttonsStyling: false,
     customClass: {
-      popup:
-        "rounded-3xl border border-slate-100 shadow-2xl",
-      title:
-        "!mt-2 !text-[17px] !font-bold !text-slate-900",
+      popup: "rounded-3xl border border-slate-100 shadow-2xl",
+      title: "!mt-2 !text-[17px] !font-bold !text-slate-900",
     },
   });
 
-const navigateToAction = (actionUrl) => {
-  if (!actionUrl || typeof window === "undefined") return;
-
-  try {
-    const target = new URL(
-      actionUrl,
-      window.location.origin
-    );
-
-    // Action URL notifikasi hanya boleh menuju aplikasi ini.
-    if (target.origin !== window.location.origin) {
-      console.error(
-        "action_url notifikasi harus mengarah ke aplikasi ini."
-      );
-      return;
-    }
-
-    window.location.assign(target.href);
-  } catch (error) {
-    console.error(
-      "action_url notifikasi tidak valid:",
-      error
-    );
-  }
-};
-
-export default function NotificationBell({
-  scopeRole,
-  notificationHref,
-}) {
+export default function NotificationBell({ scopeRole, notificationHref }) {
   const pathname = usePathname();
   const role = resolveRole(scopeRole, pathname);
-
   const targetHref =
     notificationHref ||
-    (role === "nakes"
-      ? "/nakes/notifikasi"
-      : "/notifikasi");
+    (role === "nakes" ? "/nakes/notifikasi" : "/notifikasi");
 
   const wrapperRef = useRef(null);
   const socketRef = useRef(null);
   const notificationIdsRef = useRef(new Set());
+  const readingIdsRef = useRef(new Set());
 
   const [open, setOpen] = useState(false);
   const [notifications, setNotifications] = useState([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [loading, setLoading] = useState(false);
+  const [readingIds, setReadingIds] = useState([]);
 
   const loadNotifications = useCallback(async () => {
     try {
@@ -534,22 +428,15 @@ export default function NotificationBell({
       );
 
       setNotifications(list.slice(0, 5));
+      setUnreadCount(getScopedUnreadCount(response, list, role));
 
-      setUnreadCount(
-        getScopedUnreadCount(response, list, role)
-      );
-
-      // Jangan mengambil agregat tambahan jika response daftar tercampur role.
       if (
         rawList.length > 0 &&
         !hasUnscopedOrForeignRecords(response, role) &&
         extractUnreadCount(response) === null
       ) {
-        const countResponse =
-          await getUnreadNotificationCount({ role });
-
+        const countResponse = await getUnreadNotificationCount({ role });
         const count = extractUnreadCount(countResponse);
-
         if (count !== null) setUnreadCount(count);
       }
     } catch (error) {
@@ -581,52 +468,38 @@ export default function NotificationBell({
 
         setNotifications(list.slice(0, 5));
 
-        let count = getScopedUnreadCount(
-          response,
-          list,
-          role
-        );
+        let count = getScopedUnreadCount(response, list, role);
 
         if (
           rawList.length > 0 &&
           !hasUnscopedOrForeignRecords(response, role) &&
           extractUnreadCount(response) === null
         ) {
-          const countResponse =
-            await getUnreadNotificationCount({ role });
-
+          const countResponse = await getUnreadNotificationCount({ role });
           if (cancelled) return;
 
           const serverCount = extractUnreadCount(countResponse);
-
           if (serverCount !== null) count = serverCount;
         }
 
         if (!cancelled) setUnreadCount(count);
       } catch (error) {
-        console.error(
-          "Gagal mengambil data awal notifikasi:",
-          error
-        );
+        console.error("Gagal mengambil data awal notifikasi:", error);
       }
     };
 
     const connectRealtime = async () => {
       const userId = getUserId();
-
       if (!userId) return;
 
       try {
         const config = await getWebSocketConfig();
-
         if (cancelled) return;
 
         const wsUrl = config?.data?.url ?? config?.url;
-
         if (!wsUrl) return;
 
         const url = new URL(wsUrl, window.location.href);
-
         if (url.protocol === "http:") url.protocol = "ws:";
         if (url.protocol === "https:") url.protocol = "wss:";
 
@@ -641,16 +514,10 @@ export default function NotificationBell({
 
           try {
             const payload = JSON.parse(event.data);
-
-            const notification = normalizeNotification(
-              payload,
-              role
-            );
-
+            const notification = normalizeNotification(payload, role);
             if (!notification) return;
 
             const id = String(notification.id);
-
             if (notificationIdsRef.current.has(id)) return;
 
             notificationIdsRef.current.add(id);
@@ -663,30 +530,19 @@ export default function NotificationBell({
               setUnreadCount((current) => current + 1);
             }
           } catch (error) {
-            console.error(
-              "Gagal memproses event notifikasi:",
-              error
-            );
+            console.error("Gagal memproses event notifikasi:", error);
           }
         };
 
         socket.onerror = (error) => {
-          console.error(
-            "WebSocket notifikasi error:",
-            error
-          );
+          console.error("WebSocket notifikasi error:", error);
         };
 
         socket.onclose = () => {
-          if (socketRef.current === socket) {
-            socketRef.current = null;
-          }
+          if (socketRef.current === socket) socketRef.current = null;
         };
       } catch (error) {
-        console.error(
-          "Gagal menghubungkan WebSocket notifikasi:",
-          error
-        );
+        console.error("Gagal menghubungkan WebSocket notifikasi:", error);
       }
     };
 
@@ -695,12 +551,8 @@ export default function NotificationBell({
 
     return () => {
       cancelled = true;
-
       if (socket) socket.close();
-
-      if (socketRef.current === socket) {
-        socketRef.current = null;
-      }
+      if (socketRef.current === socket) socketRef.current = null;
     };
   }, [role]);
 
@@ -714,61 +566,50 @@ export default function NotificationBell({
       }
     };
 
-    document.addEventListener(
-      "mousedown",
-      handleOutsideClick
-    );
+    document.addEventListener("mousedown", handleOutsideClick);
 
     return () => {
-      document.removeEventListener(
-        "mousedown",
-        handleOutsideClick
-      );
+      document.removeEventListener("mousedown", handleOutsideClick);
     };
   }, []);
 
   const handleToggle = async () => {
     const nextOpen = !open;
-
     setOpen(nextOpen);
-
     if (nextOpen) await loadNotifications();
   };
 
-  const handleRead = async (notification) => {
+  const handleRead = async (event, notification) => {
+    event.stopPropagation();
+
+    const id = String(notification.id);
+
+    if (notification.is_read || readingIdsRef.current.has(id)) return;
+
+    readingIdsRef.current.add(id);
+    setReadingIds((current) => [...current, id]);
+
     try {
-      if (!notification.is_read) {
-        await markNotificationAsRead(notification.id, {
-          role,
-        });
+      await markNotificationAsRead(notification.id, { role });
 
-        setNotifications((current) =>
-          current.map((item) =>
-            String(item.id) === String(notification.id)
-              ? {
-                  ...item,
-                  is_read: true,
-                  read_at: new Date().toISOString(),
-                }
-              : item
-          )
-        );
-
-        setUnreadCount((current) =>
-          Math.max(0, current - 1)
-        );
-      }
-
-      setOpen(false);
-
-      if (notification.action_url) {
-        navigateToAction(notification.action_url);
-      }
-    } catch (error) {
-      console.error(
-        "Gagal menandai notifikasi dibaca:",
-        error
+      setNotifications((current) =>
+        current.map((item) =>
+          String(item.id) === id
+            ? {
+                ...item,
+                is_read: true,
+                read_at: new Date().toISOString(),
+              }
+            : item
+        )
       );
+
+      setUnreadCount((current) => Math.max(0, current - 1));
+    } catch (error) {
+      console.error("Gagal menandai notifikasi dibaca:", error);
+    } finally {
+      readingIdsRef.current.delete(id);
+      setReadingIds((current) => current.filter((item) => item !== id));
     }
   };
 
@@ -782,17 +623,13 @@ export default function NotificationBell({
         current.map((item) => ({
           ...item,
           is_read: true,
-          read_at:
-            item.read_at || new Date().toISOString(),
+          read_at: item.read_at || new Date().toISOString(),
         }))
       );
 
       setUnreadCount(0);
     } catch (error) {
-      console.error(
-        "Gagal menandai semua notifikasi:",
-        error
-      );
+      console.error("Gagal menandai semua notifikasi:", error);
     }
   };
 
@@ -804,7 +641,6 @@ export default function NotificationBell({
     );
 
     const result = await showDeleteConfirmation();
-
     if (!result.isConfirmed) return;
 
     try {
@@ -813,23 +649,16 @@ export default function NotificationBell({
       notificationIdsRef.current.delete(String(id));
 
       setNotifications((current) =>
-        current.filter(
-          (item) => String(item.id) !== String(id)
-        )
+        current.filter((item) => String(item.id) !== String(id))
       );
 
       if (target && !target.is_read) {
-        setUnreadCount((current) =>
-          Math.max(0, current - 1)
-        );
+        setUnreadCount((current) => Math.max(0, current - 1));
       }
 
       await showDeleteSuccess();
     } catch (error) {
-      console.error(
-        "Gagal menghapus notifikasi:",
-        error
-      );
+      console.error("Gagal menghapus notifikasi:", error);
     }
   };
 
@@ -854,10 +683,7 @@ export default function NotificationBell({
         <div className="absolute right-0 top-12 z-50 w-[360px] max-w-[calc(100vw-24px)] overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl">
           <div className="flex items-center justify-between border-b border-slate-100 px-4 py-3.5">
             <div>
-              <h3 className="text-sm font-bold text-slate-900">
-                Notifikasi
-              </h3>
-
+              <h3 className="text-sm font-bold text-slate-900">Notifikasi</h3>
               <p className="mt-0.5 text-xs text-slate-500">
                 {unreadCount > 0
                   ? `${unreadCount} belum dibaca`
@@ -887,63 +713,76 @@ export default function NotificationBell({
             </div>
           ) : (
             <div className="max-h-[420px] overflow-y-auto">
-              {notifications.map((notification) => (
-                <div
-                  key={notification.id}
-                  onClick={() => handleRead(notification)}
-                  className={`group flex cursor-pointer gap-3 border-b border-slate-100 px-4 py-3.5 transition hover:bg-slate-50 ${
-                    notification.is_read
-                      ? "bg-white"
-                      : "bg-blue-50/30"
-                  }`}
-                >
-                  <div className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-slate-100 text-slate-500">
-                    <FaBell size={13} />
-                  </div>
+              {notifications.map((notification) => {
+                const id = String(notification.id);
+                const isReading = readingIds.includes(id);
 
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-start gap-2">
-                      <h4
-                        className={`line-clamp-1 flex-1 text-sm ${
-                          notification.is_read
-                            ? "font-medium text-slate-600"
-                            : "font-bold text-slate-900"
-                        }`}
-                      >
-                        {notification.title}
-                      </h4>
-
-                      {!notification.is_read && (
-                        <span className="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-blue-600" />
-                      )}
+                return (
+                  <div
+                    key={notification.id}
+                    className={`group flex gap-3 border-b border-slate-100 px-4 py-3.5 transition hover:bg-slate-50 ${
+                      notification.is_read ? "bg-white" : "bg-blue-50/30"
+                    }`}
+                  >
+                    <div className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-slate-100 text-slate-500">
+                      <FaBell size={13} />
                     </div>
 
-                    <p className="mt-1 line-clamp-2 text-xs leading-5 text-slate-600">
-                      {notification.body}
-                    </p>
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-start gap-2">
+                        <h4
+                          className={`line-clamp-1 flex-1 text-sm ${
+                            notification.is_read
+                              ? "font-medium text-slate-600"
+                              : "font-bold text-slate-900"
+                          }`}
+                        >
+                          {notification.title}
+                        </h4>
 
-                    <p className="mt-1.5 text-[11px] text-slate-400">
-                      {formatRelativeTime(
-                        notification.created_at
-                      )}
-                    </p>
+                        {!notification.is_read && (
+                          <span className="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-blue-600" />
+                        )}
+                      </div>
+
+                      <p className="mt-1 line-clamp-2 text-xs leading-5 text-slate-600">
+                        {notification.body}
+                      </p>
+
+                      <p className="mt-1.5 text-[11px] text-slate-400">
+                        {formatRelativeTime(notification.created_at)}
+                      </p>
+                    </div>
+
+                    <div className="flex shrink-0 items-start gap-1">
+                      <button
+                        type="button"
+                        onClick={(event) => handleRead(event, notification)}
+                        disabled={notification.is_read || isReading}
+                        title={notification.is_read ? "Sudah dibaca" : "Tandai dibaca"}
+                        aria-label={notification.is_read ? "Sudah dibaca" : "Tandai dibaca"}
+                        className={`flex h-7 w-7 items-center justify-center rounded-lg transition ${
+                          notification.is_read
+                            ? "cursor-default text-emerald-500"
+                            : "text-slate-400 hover:bg-emerald-50 hover:text-emerald-600"
+                        } disabled:opacity-70`}
+                      >
+                        <FaCheck size={12} />
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={(event) => handleDelete(event, notification.id)}
+                        className="flex h-7 w-7 items-center justify-center rounded-lg text-slate-400 transition hover:bg-red-50 hover:text-red-500"
+                        aria-label="Hapus notifikasi"
+                        title="Hapus notifikasi"
+                      >
+                        <FaTrash size={11} />
+                      </button>
+                    </div>
                   </div>
-
-                  <button
-                    type="button"
-                    onClick={(event) =>
-                      handleDelete(
-                        event,
-                        notification.id
-                      )
-                    }
-                    className="hidden h-7 w-7 shrink-0 items-center justify-center rounded-lg text-slate-400 transition hover:bg-red-50 hover:text-red-500 group-hover:flex"
-                    aria-label="Hapus notifikasi"
-                  >
-                    <FaTrash size={11} />
-                  </button>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
 
@@ -951,7 +790,7 @@ export default function NotificationBell({
             type="button"
             onClick={() => {
               setOpen(false);
-              navigateToAction(targetHref);
+              window.location.assign(targetHref);
             }}
             className="w-full border-t border-slate-100 px-4 py-3.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
           >
