@@ -1,7 +1,7 @@
 "use client";
 import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
-import { FiEye, FiEyeOff, FiSearch, FiCamera, FiX, FiUpload, FiTrash2 } from "react-icons/fi";
+import { FiEye, FiSearch, FiCamera, FiX, FiUpload, FiTrash2 } from "react-icons/fi";
 import axios from "axios";
 import api from "@/services/api";
 import { getProfileMe, updatePasienProfile } from "@/services/profileService";
@@ -11,7 +11,12 @@ import { resolveImageUrl } from "@/services/resolveImage";
 import "leaflet/dist/leaflet.css";
 
 const API_CHECK_URL = "/api/pasien/complete-profile";
-const API_UPDATE_URL = "/api/pasien";
+
+// Field yang diabaikan walaupun backend masih mengirimnya di `errors`
+const IGNORED_FIELDS = ["password"];
+
+const extractMissingFields = (errors) =>
+  Object.keys(errors || {}).filter((f) => !IGNORED_FIELDS.includes(f));
 
 export default function CompleteProfilePage() {
   const router = useRouter();
@@ -19,11 +24,10 @@ export default function CompleteProfilePage() {
   const [missingFields, setMissingFields] = useState([]);
   const [formData, setFormData] = useState({});
   const [avatarPreview, setAvatarPreview] = useState(null);
-  
+
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
-  const [showPassword, setShowPassword] = useState(false);
-  
+
   const [errorMsg, setErrorMsg] = useState("");
   const [successMsg, setSuccessMsg] = useState("");
 
@@ -54,12 +58,12 @@ export default function CompleteProfilePage() {
   useEffect(() => {
     const loadInitialData = async () => {
       await checkMissingFields();
-      
+
       try {
         const profileRes = await getProfileMe();
         const pasienData = profileRes?.data || profileRes;
         const avatarPath = pasienData?.avatar || pasienData?.pasien?.avatar;
-        
+
         if (avatarPath) {
           setAvatarPreview(formatAvatarUrl(avatarPath));
         }
@@ -126,7 +130,8 @@ export default function CompleteProfilePage() {
           const marker = L.marker([defaultLat, defaultLng], { draggable: true }).addTo(map);
           markerRef.current = marker;
 
-          fetchAddressFromCoords(defaultLat, defaultLng);
+          // NOTE: sengaja TIDAK memanggil fetchAddressFromCoords(defaultLat, defaultLng) di sini,
+          // supaya alamat & koordinat tidak terisi titik default sebelum user memilih lokasi.
 
           marker.on("dragend", function () {
             const pos = marker.getLatLng();
@@ -165,7 +170,7 @@ export default function CompleteProfilePage() {
       mapRef.current.setView([lat, lon], 16);
       markerRef.current.setLatLng([lat, lon]);
     }
-    
+
     setSearchQuery(item.display_name);
     setFormData((prev) => ({
       ...prev,
@@ -214,6 +219,19 @@ export default function CompleteProfilePage() {
     });
   };
 
+  const applyMissingFields = (errors) => {
+    const fields = extractMissingFields(errors);
+
+    // Kalau yang tersisa cuma field yang diabaikan (mis. password), profil dianggap lengkap
+    if (fields.length === 0) {
+      window.location.href = "/";
+      return;
+    }
+
+    setMissingFields(fields);
+    initializeFormData(fields);
+  };
+
   const checkMissingFields = async () => {
     setErrorMsg("");
     try {
@@ -226,9 +244,7 @@ export default function CompleteProfilePage() {
       }
 
       if (data?.errors && typeof data.errors === "object") {
-        const fields = Object.keys(data.errors);
-        setMissingFields(fields);
-        initializeFormData(fields);
+        applyMissingFields(data.errors);
         return;
       }
 
@@ -238,10 +254,9 @@ export default function CompleteProfilePage() {
         const status = err.response?.status;
         const data = err.response?.data;
 
+        // 422 dari API ini memang dipakai untuk menandai field yang masih kosong
         if (status === 422 && data?.errors) {
-          const fields = Object.keys(data.errors);
-          setMissingFields(fields);
-          initializeFormData(fields);
+          applyMissingFields(data.errors);
           return;
         }
 
@@ -263,7 +278,7 @@ export default function CompleteProfilePage() {
     const { name, value } = e.target;
     setFormData((current) => ({
       ...current,
-      [name]: value
+      [name]: value,
     }));
     if (errorMsg) setErrorMsg("");
   };
@@ -284,7 +299,7 @@ export default function CompleteProfilePage() {
         setAvatarPreview(reader.result);
         setFormData((current) => ({
           ...current,
-          avatar: reader.result, 
+          avatar: reader.result,
         }));
       };
       reader.readAsDataURL(file);
@@ -340,30 +355,38 @@ export default function CompleteProfilePage() {
 
       const base64String = canvas.toDataURL("image/jpeg", 0.9);
       setAvatarPreview(base64String);
-      
+
       setFormData((current) => ({
         ...current,
-        avatar: base64String, 
+        avatar: base64String,
       }));
 
       stopCamera();
     }
   };
 
+  const needsLocation =
+    missingFields.includes("latitude") ||
+    missingFields.includes("longitude") ||
+    missingFields.includes("alamat_utama");
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setErrorMsg("");
     setSuccessMsg("");
 
-    if (missingFields.includes("password") && (formData.password || "").length < 6) {
-      setErrorMsg("Password harus minimal 6 karakter.");
+    if (needsLocation && (!formData.latitude || !formData.longitude)) {
+      setErrorMsg("Pilih lokasi di peta atau gunakan lokasi saat ini.");
       return;
     }
 
     setSubmitting(true);
 
     try {
-      const result = await updatePasienProfile(formData);
+      // Pastikan password tidak pernah ikut terkirim
+      const { password, ...payload } = formData;
+
+      const result = await updatePasienProfile(payload);
 
       if (!result.success) {
         setErrorMsg(result.message || "Gagal melengkapi profil.");
@@ -371,11 +394,10 @@ export default function CompleteProfilePage() {
       }
 
       setSuccessMsg("Profil berhasil dilengkapi! Mengalihkan halaman...");
-      
+
       setTimeout(() => {
         window.location.href = "/";
       }, 1000);
-
     } catch (err) {
       setErrorMsg("Terjadi kesalahan saat menyimpan profil.");
     } finally {
@@ -392,19 +414,24 @@ export default function CompleteProfilePage() {
   }
 
   return (
-    <main className="min-h-screen bg-white flex items-center justify-center py-10 px-4 sm:px-6">
-      <div className="w-full max-w-lg rounded-2xl bg-white p-6 sm:p-8 shadow-xl border border-gray-100 my-auto">
+    <main className="min-h-screen bg-gray-100 flex flex-col relative overflow-x-hidden">
+      {/* Header gradient (sama dengan halaman registrasi) */}
+      <section className="w-full h-48 sm:h-64 bg-gradient-to-br from-[#0284c7] via-[#004fa4] to-[#2dd4bf] rounded-b-[30px] sm:rounded-b-[40px] relative z-10" />
+
+      {/* Card (margin negatif supaya menumpuk di atas gradient) */}
+      <div className="-mt-28 sm:-mt-36 flex justify-center px-4 sm:px-6 pb-20 sm:pb-28 relative z-20">
+      <div className="w-full max-w-xl rounded-2xl sm:rounded-3xl bg-white p-5 sm:p-8 md:p-10 shadow-2xl border border-white/40">
         <div className="mb-6 text-center">
           <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-2">Lengkapi Profil</h1>
           <p className="text-gray-500 text-xs sm:text-sm">Harap lengkapi data yang masih kosong untuk melanjutkan.</p>
         </div>
-        
+
         {errorMsg && (
           <div className="mb-5 rounded-lg bg-red-50 p-4 border border-red-200">
             <p className="text-sm font-medium text-red-600">{errorMsg}</p>
           </div>
         )}
-        
+
         {successMsg && (
           <div className="mb-5 rounded-lg bg-green-50 p-4 border border-green-200">
             <p className="text-sm font-medium text-green-600">{successMsg}</p>
@@ -414,30 +441,30 @@ export default function CompleteProfilePage() {
         <form onSubmit={handleSubmit} className="space-y-5 text-left">
           <div className="flex flex-col items-start mb-6">
             <label className="mb-2 block text-sm font-medium text-gray-700">Foto Profil</label>
-            
-            <input 
-              type="file" 
+
+            <input
+              type="file"
               ref={fileInputRef}
-              onChange={handleFileChange} 
-              accept="image/*" 
-              className="hidden" 
+              onChange={handleFileChange}
+              accept="image/*"
+              className="hidden"
             />
 
             <div className="relative" ref={menuRef}>
-              <div 
+              <div
                 onClick={() => setShowPhotoMenu(!showPhotoMenu)}
                 className="flex items-center gap-4 cursor-pointer group"
               >
                 <div className="relative">
                   <div className="w-20 h-20 rounded-full ring-4 ring-gray-100 bg-gray-50 flex items-center justify-center overflow-hidden shadow-sm transition group-hover:opacity-90 border border-gray-200">
                     {avatarPreview ? (
-                      <img 
-                        src={avatarPreview} 
-                        alt="Avatar Preview" 
-                        className="w-full h-full object-cover" 
+                      <img
+                        src={avatarPreview}
+                        alt="Avatar Preview"
+                        className="w-full h-full object-cover"
                         onError={(e) => {
                           console.error("Gagal memuat gambar avatar:", avatarPreview);
-                          e.target.style.display = 'none';
+                          e.target.style.display = "none";
                         }}
                       />
                     ) : (
@@ -447,7 +474,7 @@ export default function CompleteProfilePage() {
                       </div>
                     )}
                   </div>
-                  
+
                   <div className="absolute bottom-0 right-0 bg-blue-600 text-white p-1.5 rounded-full shadow-lg border-2 border-white transition transform group-hover:scale-105">
                     <FiCamera size={12} />
                   </div>
@@ -534,41 +561,20 @@ export default function CompleteProfilePage() {
             </div>
           )}
 
-          <div className="text-left">
-            <label className="mb-1 block text-sm font-medium text-gray-700">No.HP<span className="text-red-500">*</span></label>
-            <input
-              type="tel"
-              name="no_hp"
-              value={formData.no_hp || ""}
-              onChange={handleChange}
-              placeholder="Contoh: 08xxxxxx"
-              required
-              className="w-full rounded-xl border border-gray-300 px-4 py-3 outline-none transition focus:border-blue-600 focus:ring-2 focus:ring-blue-100 text-sm sm:text-base text-left"
-            />
-          </div>
-
-          {missingFields.includes("password") && (
+          {missingFields.includes("no_hp") && (
             <div className="text-left">
-              <label className="mb-1 block text-sm font-medium text-gray-700">Buat Password</label>
-              <div className="relative">
-                <input
-                  type={showPassword ? "text" : "password"}
-                  name="password"
-                  value={formData.password || ""}
-                  onChange={handleChange}
-                  placeholder="Minimal 6 karakter"
-                  required
-                  autoComplete="new-password"
-                  className="w-full rounded-xl border border-gray-300 px-4 py-3 pr-12 outline-none transition focus:border-blue-600 focus:ring-2 focus:ring-blue-100 text-sm sm:text-base text-left"
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword((current) => !current)}
-                  className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
-                >
-                  {showPassword ? <FiEyeOff size={20} /> : <FiEye size={20} />}
-                </button>
-              </div>
+              <label className="mb-1 block text-sm font-medium text-gray-700">
+                No.HP<span className="text-red-500">*</span>
+              </label>
+              <input
+                type="tel"
+                name="no_hp"
+                value={formData.no_hp || ""}
+                onChange={handleChange}
+                placeholder="Contoh: 08xxxxxx"
+                required
+                className="w-full rounded-xl border border-gray-300 px-4 py-3 outline-none transition focus:border-blue-600 focus:ring-2 focus:ring-blue-100 text-sm sm:text-base text-left"
+              />
             </div>
           )}
 
@@ -611,7 +617,9 @@ export default function CompleteProfilePage() {
 
           {missingFields.includes("alamat_utama") && (
             <div className="pt-2 text-left">
-              <label className="mb-1 block text-sm font-medium text-gray-700">Alamat Lengkap <span className="text-red-500">*</span></label>
+              <label className="mb-1 block text-sm font-medium text-gray-700">
+                Alamat Lengkap <span className="text-red-500">*</span>
+              </label>
               <textarea
                 name="alamat_utama"
                 value={formData.alamat_utama || ""}
@@ -624,20 +632,20 @@ export default function CompleteProfilePage() {
             </div>
           )}
 
-          {(missingFields.includes("latitude") || missingFields.includes("longitude") || missingFields.includes("alamat_utama")) && (
+          {needsLocation && (
             <div className="pt-2 text-left">
               <h3 className="text-xs font-bold text-blue-600 tracking-wider mb-2">TITIK GPS</h3>
-              
+
               <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-3">
                 <span className="text-xs text-gray-600">Tentukan koordinat lokasi pelayanan Anda</span>
-                
+
                 <button
                   type="button"
                   onClick={handleCurrentLocation}
                   className="bg-gray-50 text-blue-700 border border-blue-200 px-4 py-2 sm:py-1.5 rounded-full text-xs font-medium hover:bg-blue-50 transition flex items-center justify-center gap-1.5 whitespace-nowrap shadow-sm"
                 >
                   <svg className="w-3.5 h-3.5 text-blue-600 fill-current" viewBox="0 0 24 24">
-                    <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/>
+                    <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z" />
                   </svg>
                   Gunakan Lokasi Saat Ini
                 </button>
@@ -695,6 +703,7 @@ export default function CompleteProfilePage() {
             {submitting ? "Menyimpan..." : "Simpan Profil"}
           </button>
         </form>
+      </div>
       </div>
 
       {isViewModalOpen && avatarPreview && (
