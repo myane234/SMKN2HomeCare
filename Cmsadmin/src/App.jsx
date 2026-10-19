@@ -27,6 +27,8 @@ import AdminLayout from "./components/AdminLayout";
 import ProtectedRoute from "./components/ProtectedRoute";
 import KelolaAdmin from "./pages/KelolaAdmin";
 import KelolaTierAdmin from "./pages/KelolaTierAdmin";
+import PointSetting from "./pages/PagePointSettings"; 
+import PointHistory from "./pages/PagePointHistory";
 import DataUser from "./pages/admin/AdminUser";
 import DataBarang from "./pages/admin/AdminMasterBarang";
 import DataMasterTarif from "./pages/admin/AdminMasterTarif";
@@ -42,6 +44,7 @@ import AdminMasterKomponenTarif from "./pages/admin/AdminMasterKomponenTarif";
 import AdminMasterTarifTransport from "./pages/admin/AdminMasterTarifTransport";
 import AdminMasterKecamatan from "./pages/admin/AdminMasterKecamatan";
 import PageNotificationTemplates from "./pages/PageNotificationTemplates";
+import PageManajemenEmail from "./pages/PageEmailManagement";
 import PageWebSetting from "./pages/PageWebSetting";
 import PageAktivitasLog from "./pages/PageAktivitasLog";
 import PageSyaratKetentuanPasien from "./pages/PageSyaratKetentuanPasien";
@@ -287,6 +290,22 @@ function App() {
           }
         />
         <Route
+          path="/point-settings"
+          element={
+            <ProtectedRoute requiredPath="/point-settings">
+              <PointSetting />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/point-history"
+          element={
+            <ProtectedRoute requiredPath="/point-history">
+              <PointHistory />
+            </ProtectedRoute>
+          }
+        />
+        <Route
           path="/users"
           element={
             <ProtectedRoute requiredPath="/users">
@@ -317,6 +336,14 @@ function App() {
           element={
             <ProtectedRoute requiredPath="/notification-templates">
               <PageNotificationTemplates />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/manajemen-email"
+          element={
+            <ProtectedRoute requiredPath="/manajemen-email">
+              <PageManajemenEmail />
             </ProtectedRoute>
           }
         />

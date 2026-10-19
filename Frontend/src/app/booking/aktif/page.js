@@ -491,32 +491,8 @@ function ChatModal({ isOpen, onClose, bookingId, nakesName, nakesPhoto }) {
 
     initWS();
 
-    const pollingInterval = setInterval(async () => {
-      try {
-        const res = await getBookingChatHistory(bookingId);
-        const rawList =
-          res?.data?.messages || res?.messages ||
-          (Array.isArray(res?.data) ? res.data : null) ||
-          (Array.isArray(res) ? res : []);
-
-        if (Array.isArray(rawList) && rawList.length > 0) {
-          const parsed = rawList.map((m, i) => normalizeMessage(m, i)).filter(Boolean);
-          if (parsed.length > 0) {
-            setMessages((prev) => {
-              if (parsed.length !== prev.filter((m) => m.sender !== "system").length) {
-                try { localStorage.setItem(cacheKey, JSON.stringify(parsed)); } catch {}
-                return parsed;
-              }
-              return prev;
-            });
-          }
-        }
-      } catch {}
-    }, 4000);
-
     return () => {
       isSubscribed = false;
-      clearInterval(pollingInterval);
       if (wsRef.current) wsRef.current.close();
     };
   }, [isOpen, bookingId, nakesName]);
@@ -744,6 +720,10 @@ function BookingAktifContent() {
     fetchData({ skipList: listRef.current.length > 0 });
     const id = setInterval(() => fetchData(), 15000);
     return () => clearInterval(id);
+    fetchData();
+    const handleFocus = () => fetchData();
+    window.addEventListener("focus", handleFocus);
+    return () => window.removeEventListener("focus", handleFocus);
   }, [fetchData]);
 
   /* Ambil data yg dibutuhkan sebelum render hooks tambahan */
@@ -860,10 +840,9 @@ function BookingAktifContent() {
 
   /* Logika "perlu bayar lagi?" — handle kasus backend tidak reset status */
   const storedPaidInfo = kodeBookingTambahan ? getPaidInfo(kodeBookingTambahan) : null;
+  /* Status pembayaran BHP mengikuti endpoint /biaya-tambahan sebagai sumber data utama. */
   const isStatusLunas = String(biayaTambahanStatus || "").toLowerCase() === "lunas";
-  const nominalMatches =
-    storedPaidInfo && Number(storedPaidInfo.nominal) === Number(biayaTambahanNominalFinal);
-  const needsPayment = biayaTambahanNominalFinal > 0 && (!isStatusLunas || !nominalMatches);
+  const needsPayment = biayaTambahanNominalFinal > 0 && !isStatusLunas;
 
   const handleBayarBiayaTambahan = () => {
     if (!booking?.id_booking || biayaTambahanNominalFinal <= 0) return;
@@ -1032,7 +1011,7 @@ function BookingAktifContent() {
                     ) : (
                       <div className="w-full h-full flex items-center justify-center bg-emerald-50">
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} className="w-6 h-6 sm:w-7 sm:h-7 text-emerald-500">
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7-7h14a7 7 0 00-7 7z" />
                         </svg>
                       </div>
                     )}
@@ -1085,6 +1064,8 @@ function BookingAktifContent() {
 
             {/* BIAYA TAMBAHAN */}
             <Section title="Biaya Tambahan">
+            {/* BIAYA TAMBAHAN BHP */}
+            <Section title="Biaya Tambahan Perlengkapan Medis">
               {biayaTambahanNominalFinal > 0 ? (
                 <>
                   {bhpTambahanItems.length > 0 && (
@@ -1125,6 +1106,7 @@ function BookingAktifContent() {
                       className="w-full mt-4 py-3 rounded-xl bg-amber-500 hover:bg-amber-600 text-white font-bold text-xs sm:text-sm transition-all active:scale-[0.99]"
                     >
                       Bayar Biaya Tambahan
+                      Bayar Biaya Tambahan Perlengkapan Medis
                     </button>
                   )}
                 </>

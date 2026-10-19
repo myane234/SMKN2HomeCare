@@ -173,6 +173,8 @@ const rawSuperAdminMenus = [
 
   { to: "/booking", label: "Booking", icon: <FaCalendarCheck /> },
   { to: "/chat-rooms", label: "Chat Rooms", icon: <FaEnvelope /> },
+  { to: "/point-settings", label: "Pengaturan Poin", icon: <FaStar /> },
+  { to: "/point-history", label: "Riwayat Poin", icon: <FaHistory /> }, 
   {
     type: "group",
     label: "Konfigurasi",
@@ -181,6 +183,7 @@ const rawSuperAdminMenus = [
       { to: "/kelola-admin", label: "Kelola Admin", icon: <FaUserShield /> },
       { to: "/tier-admin", label: "Tier Admin", icon: <FaShieldAlt /> },
       { to: "/notification-templates", label: "Template Notifikasi", icon: <FaBell /> },
+      { to: "/manajemen-email", label: "Manajemen Email", icon: <FaEnvelope /> }, 
       { to: "/web-setting", label: "Web Setting (Logo & Icon)", icon: <FaCogs /> },
       { to: "/konfigurasi-env", label: "API", icon: <FaCogs /> },
       {

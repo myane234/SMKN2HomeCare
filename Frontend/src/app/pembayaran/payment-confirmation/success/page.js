@@ -142,26 +142,6 @@ function SuccessPaymentContent() {
 
           setPaymentData(biayaData);
           setLoading(false);
-
-          // ===================================================
-          // CEK STATUS DARI API
-          // ===================================================
-          interval = setInterval(async () => {
-            try {
-              const latestData = await loadBiayaTambahan();
-
-              if (!mounted) return;
-
-              setPaymentData(latestData);
-
-              if (latestData.isPaid) {
-                clearInterval(interval);
-              }
-            } catch (err) {
-              console.error("Gagal memperbarui status Biaya Tambahan:", err);
-            }
-          }, 3000);
-
           return;
         }
 
@@ -191,8 +171,10 @@ function SuccessPaymentContent() {
         const response = await api.get(`/api/booking/${bookingId}/payment-details`);
         const resData = response.data?.data || response.data || {};
 
+        // Ubah urutannya agar jumlah_total dibaca paling pertama
         const dbPrice = Number(
           resData.jumlah_total ||
+          resData.rincian_biaya?.jumlah_total ||
           resData.total_harga ||
           resData.price ||
           resData.total ||
