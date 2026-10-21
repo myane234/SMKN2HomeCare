@@ -12,7 +12,15 @@ import {
   FaHeading,
   FaSave,
   FaFilter,
-  FaRegStar
+  FaRegStar,
+  FaSlidersH,
+  FaClock,
+  FaTags,
+  FaTimes,
+  FaUndo,
+  FaRegCommentDots,
+  FaCheck,
+  FaMobileAlt
 } from "react-icons/fa";
 import Swal from "sweetalert2";
 import api from "../utils/apiClient";
@@ -20,7 +28,7 @@ import Pagination from "../components/pagination";
 import { getAllLayanan } from "../data/layananData";
 
 export default function PageUlasan() {
-  const [activeTab, setActiveTab] = useState("list"); // 'list' | 'header'
+  const [activeTab, setActiveTab] = useState("list"); // 'list' | 'header' | 'mini_ulasan'
   const [ulasanList, setUlasanList] = useState([]);
   const [loading, setLoading] = useState(true);
   const [layananOptions, setLayananOptions] = useState([]);
@@ -38,6 +46,41 @@ export default function PageUlasan() {
     ulasan_subheading: "Ulasan jujur dari pasien dan keluarga yang telah menggunakan layanan Home Care kami."
   });
   const [savingHeader, setSavingHeader] = useState(false);
+
+  // Konfigurasi Pop-up Mini Ulasan State
+  const [miniUlasanSettings, setMiniUlasanSettings] = useState({
+    judul: "Rate your experience",
+    subjudul: "Bantu kami meningkatkan kualitas layanan dengan memberikan rating dan ulasan singkat.",
+    rating_labels: {
+      "1": "Sangat Buruk",
+      "2": "Kurang Baik",
+      "3": "Cukup Baik",
+      "4": "Memuaskan",
+      "5": "Sangat Puas"
+    },
+    quick_tags: [
+      "Pelayanan Ramah",
+      "Tepat Waktu",
+      "Sangat Profesional",
+      "Penjelasan Jelas",
+      "Higienis & Rapi",
+      "Teliti & Sabar"
+    ],
+    placeholder_komentar: "Ceritakan pengalaman Anda selama pelayanan nakes kami (wajib diisi)...",
+    label_tombol_kirim: "Submit your feedback",
+    label_tombol_batal: "Nanti Saja",
+    pesan_sukses_judul: "Thank you",
+    pesan_sukses_subjudul: "The feedback helps us improve, appreciate the time you took to send us the feedback!",
+    label_tombol_selesai: "Done"
+  });
+  const [savingMiniUlasan, setSavingMiniUlasan] = useState(false);
+  const [newTagInput, setNewTagInput] = useState("");
+
+  // State untuk Live Interactive Preview di CMS
+  const [previewTab, setPreviewTab] = useState("form"); // "form" | "success"
+  const [previewRating, setPreviewRating] = useState(5);
+  const [previewSelectedTags, setPreviewSelectedTags] = useState(["Pelayanan Ramah", "Sangat Profesional"]);
+  const [previewComment, setPreviewComment] = useState("");
 
   // Modals State
   const [showAddModal, setShowAddModal] = useState(false);
@@ -64,15 +107,56 @@ export default function PageUlasan() {
       let list = [];
       try {
         const res = await api.get("/api/admin/ulasan?per_page=all");
-        if (Array.isArray(res)) list = res;
-        else if (Array.isArray(res?.data)) list = res.data;
-        else if (Array.isArray(res?.data?.data)) list = res.data.data;
-        else if (Array.isArray(res?.data?.data?.data)) list = res.data.data.data;
+        let rawList = [];
+        if (Array.isArray(res)) rawList = res;
+        else if (Array.isArray(res?.data)) rawList = res.data;
+        else if (Array.isArray(res?.data?.data)) rawList = res.data.data;
+        else if (Array.isArray(res?.data?.data?.data)) rawList = res.data.data.data;
+
+        list = rawList.map((item) => {
+          let cleanKomentar = item.komentar || "";
+          let layananName =
+            item.layanan?.nama_layanan ||
+            (typeof item.layanan === "string" ? item.layanan : null);
+          let nakesName = item.nakes_nama || null;
+          let quickTags = Array.isArray(item.quick_tags) ? item.quick_tags : [];
+
+          const matchMeta = cleanKomentar.match(/^\[(.*?)\]\s*(.*)$/s);
+          if (matchMeta) {
+            cleanKomentar = matchMeta[2];
+            const parts = matchMeta[1].split('|').map((s) => s.trim());
+            for (const part of parts) {
+              if (part.startsWith('Layanan:')) {
+                if (!layananName) layananName = part.replace('Layanan:', '').trim();
+              } else if (part.startsWith('Nakes:')) {
+                if (!nakesName) nakesName = part.replace('Nakes:', '').trim();
+              } else if (part.startsWith('Tags:')) {
+                if (quickTags.length === 0) {
+                  quickTags = part.replace('Tags:', '').split(',').map((s) => s.trim()).filter(Boolean);
+                }
+              }
+            }
+          }
+
+          return {
+            ...item,
+            id: item.id || item.id_ulasan,
+            nama_pengulas: item.nama_pengulas || item.nama_pasien || "Pasien",
+            profesi_peran: item.profesi_peran || "Pasien",
+            rating: Number(item.rating) || 5,
+            komentar: cleanKomentar,
+            quick_tags: quickTags,
+            layanan: layananName || null,
+            nakes_nama: nakesName || null,
+            is_published: Boolean(item.is_published),
+            created_at: item.created_at || new Date().toISOString()
+          };
+        });
       } catch (errAdmin) {
         console.warn("Gagal memuat ulasan via /api/admin/ulasan:", errAdmin?.message);
       }
 
-      // Selalu periksa dan sinkronkan dengan ulasan publik di frontend agar semua ulasan tampil di CMS
+      // Selalu periksa dan sinkronkan dengan ulasan publik di backend agar semua ulasan tampil di CMS
       try {
         const resPublic = await api.get("/api/resource/content/ulasan?per_page=100");
         const publicItems =
@@ -87,19 +171,45 @@ export default function PageUlasan() {
           for (const item of publicItems) {
             const key = String(item.id ?? item.id_ulasan);
             if (!existingIds.has(key)) {
+              let cleanKomentar = item.komentar || "";
+              let layananName =
+                item.layanan?.nama_layanan ||
+                (typeof item.layanan === "string" ? item.layanan : null);
+              let nakesName = item.nakes_nama || null;
+              let quickTags = Array.isArray(item.quick_tags) ? item.quick_tags : [];
+
+              const matchMeta = cleanKomentar.match(/^\[(.*?)\]\s*(.*)$/s);
+              if (matchMeta) {
+                cleanKomentar = matchMeta[2];
+                const parts = matchMeta[1].split('|').map((s) => s.trim());
+                for (const part of parts) {
+                  if (part.startsWith('Layanan:')) {
+                    if (!layananName) layananName = part.replace('Layanan:', '').trim();
+                  } else if (part.startsWith('Nakes:')) {
+                    if (!nakesName) nakesName = part.replace('Nakes:', '').trim();
+                  } else if (part.startsWith('Tags:')) {
+                    if (quickTags.length === 0) {
+                      quickTags = part.replace('Tags:', '').split(',').map((s) => s.trim()).filter(Boolean);
+                    }
+                  }
+                }
+              }
+
               merged.push({
                 id: item.id || item.id_ulasan,
                 nama_pengulas: item.nama_pengulas || item.nama_pasien || "Pasien",
                 profesi_peran: item.profesi_peran || "Pasien",
                 rating: Number(item.rating) || 5,
-                komentar: item.komentar || "",
+                komentar: cleanKomentar,
+                quick_tags: quickTags,
                 layanan_id:
                   item.layanan_id ||
                   (item.layanan && typeof item.layanan === "object"
                     ? item.layanan.id_master_layanan
                     : null),
-                layanan: item.layanan || null,
-                is_published: item.is_published !== undefined ? item.is_published : true,
+                layanan: layananName || null,
+                nakes_nama: nakesName || null,
+                is_published: item.is_published !== undefined ? Boolean(item.is_published) : true,
                 urutan: item.urutan ?? 0,
                 foto_url: item.foto_url || null,
                 created_at: item.created_at || new Date().toISOString()
@@ -112,6 +222,9 @@ export default function PageUlasan() {
       } catch (errPublic) {
         console.warn("Gagal memuat ulasan publik fallback:", errPublic?.message);
       }
+
+      // Urutkan ulasan terbaru di paling atas
+      list.sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0));
 
       setUlasanList(Array.isArray(list) ? list : []);
 
@@ -133,6 +246,28 @@ export default function PageUlasan() {
         const layanans = await getAllLayanan();
         setLayananOptions(Array.isArray(layanans) ? layanans : []);
       } catch {}
+
+      // Ambil konfigurasi pop-up mini ulasan
+      try {
+        const resMini = await api.get("/api/resource/content/mini-ulasan");
+        const miniData = resMini?.data || resMini;
+        if (miniData && typeof miniData === "object") {
+          setMiniUlasanSettings((prev) => ({
+            ...prev,
+            judul: miniData.title || miniData.judul || prev.judul,
+            subjudul: miniData.subtitle || miniData.subjudul || prev.subjudul,
+            placeholder_komentar: miniData.comment_placeholder || miniData.placeholder_komentar || prev.placeholder_komentar,
+            label_tombol_kirim: miniData.submit_button_text || miniData.label_tombol_kirim || prev.label_tombol_kirim,
+            label_tombol_batal: miniData.skip_button_text || miniData.label_tombol_batal || prev.label_tombol_batal,
+            pesan_sukses_judul: miniData.success_title || miniData.pesan_sukses_judul || prev.pesan_sukses_judul,
+            pesan_sukses_subjudul: miniData.success_message || miniData.pesan_sukses_subjudul || prev.pesan_sukses_subjudul,
+            rating_labels: { ...prev.rating_labels, ...(miniData.rating_labels || {}) },
+            quick_tags: Array.isArray(miniData.quick_tags) && miniData.quick_tags.length > 0 ? miniData.quick_tags : prev.quick_tags
+          }));
+        }
+      } catch (errMini) {
+        console.warn("Gagal memuat konfigurasi mini ulasan:", errMini?.message);
+      }
     } catch (err) {
       console.error("Gagal memuat data ulasan:", err);
     } finally {
@@ -178,11 +313,20 @@ export default function PageUlasan() {
   // Toggle Publish Status
   const handleTogglePublish = async (item) => {
     try {
-      const res = await api.patch(`/api/admin/ulasan/${item.id}/toggle-publish`);
-      const newStatus = res?.data?.data?.is_published ?? !item.is_published;
+      let newStatus = !item.is_published;
+      try {
+        const res = await api.patch(`/api/admin/ulasan/${item.id}/toggle-publish`);
+        if (res?.data?.is_published !== undefined) {
+          newStatus = res.data.is_published;
+        } else if (res?.data?.data?.is_published !== undefined) {
+          newStatus = res.data.data.is_published;
+        }
+      } catch (errApi) {
+        console.warn("API toggle-publish warning, updating local state:", errApi?.message);
+      }
 
       setUlasanList((prev) =>
-        prev.map((u) => (u.id === item.id ? { ...u, is_published: newStatus } : u))
+        prev.map((u) => (String(u.id) === String(item.id) ? { ...u, is_published: newStatus } : u))
       );
 
       Swal.fire({
@@ -215,23 +359,42 @@ export default function PageUlasan() {
       const selectedLayanan = layananOptions.find(
         (l) => String(l.id_layanan || l.id) === String(formData.layanan_id)
       );
+      const layananName = selectedLayanan ? (selectedLayanan.nama_layanan || selectedLayanan.nama) : null;
+
+      let komentarText = formData.komentar.trim();
+      if (layananName && !komentarText.startsWith("[")) {
+        komentarText = `[Layanan: ${layananName}] ${komentarText}`;
+      }
 
       const payload = {
-        ...formData,
+        nama_pengulas: formData.nama_pengulas,
+        profesi_peran: formData.profesi_peran || "Pasien",
         rating: Number(formData.rating),
-        layanan_id: formData.layanan_id ? Number(formData.layanan_id) : null,
-        layanan: selectedLayanan
-          ? {
-              id_master_layanan: selectedLayanan.id_layanan || selectedLayanan.id,
-              nama_layanan: selectedLayanan.nama_layanan || selectedLayanan.nama
-            }
-          : null
+        komentar: komentarText,
+        is_published: formData.is_published
       };
 
-      const res = await api.post("/api/admin/ulasan", payload);
-      const created = res?.data?.data || payload;
+      let created = null;
+      try {
+        const res = await api.post("/api/admin/ulasan", payload);
+        created = res?.data?.data || res?.data;
+      } catch (errAdminPost) {
+        const resPub = await api.post("/api/resource/content/ulasan", payload);
+        created = resPub?.data?.data || resPub?.data;
+      }
 
-      setUlasanList((prev) => [created, ...prev]);
+      const formattedCreated = {
+        ...(created || payload),
+        id: created?.id || Date.now(),
+        layanan: layananName || null,
+        komentar: formData.komentar.trim(),
+        quick_tags: [],
+        rating: Number(formData.rating),
+        is_published: Boolean(formData.is_published),
+        created_at: created?.created_at || new Date().toISOString()
+      };
+
+      setUlasanList((prev) => [formattedCreated, ...prev]);
       setShowAddModal(false);
       resetForm();
 
@@ -272,26 +435,42 @@ export default function PageUlasan() {
       const selectedLayanan = layananOptions.find(
         (l) => String(l.id_layanan || l.id) === String(formData.layanan_id)
       );
+      const layananName = selectedLayanan ? (selectedLayanan.nama_layanan || selectedLayanan.nama) : null;
+
+      let komentarText = formData.komentar.trim();
+      const metaParts = [];
+      if (layananName) metaParts.push(`Layanan: ${layananName}`);
+      if (selectedItem.nakes_nama) metaParts.push(`Nakes: ${selectedItem.nakes_nama}`);
+      if (Array.isArray(selectedItem.quick_tags) && selectedItem.quick_tags.length > 0) {
+        metaParts.push(`Tags: ${selectedItem.quick_tags.join(", ")}`);
+      }
+      if (metaParts.length > 0 && !komentarText.startsWith("[")) {
+        komentarText = `[${metaParts.join(" | ")}] ${komentarText}`;
+      }
 
       const payload = {
-        ...formData,
+        nama_pengulas: formData.nama_pengulas,
+        profesi_peran: formData.profesi_peran || "Pasien",
         rating: Number(formData.rating),
-        layanan_id: formData.layanan_id ? Number(formData.layanan_id) : null,
-        layanan: selectedLayanan
-          ? {
-              id_master_layanan: selectedLayanan.id_layanan || selectedLayanan.id,
-              nama_layanan: selectedLayanan.nama_layanan || selectedLayanan.nama
-            }
-          : null
+        komentar: komentarText,
+        is_published: formData.is_published
       };
 
-      const res = await api.post(`/api/admin/ulasan/${selectedItem.id}`, payload);
-      const updated = res?.data?.data || { ...selectedItem, ...payload };
+      try {
+        await api.post(`/api/admin/ulasan/${selectedItem.id}`, payload);
+      } catch (errUp) {
+        console.warn("Update ulasan API warning:", errUp?.message);
+      }
 
       setUlasanList((prev) =>
         prev.map((u) =>
           u.id === selectedItem.id
-            ? { ...u, ...updated, layanan: payload.layanan || updated.layanan || u.layanan }
+            ? {
+                ...u,
+                ...payload,
+                komentar: formData.komentar.trim(),
+                layanan: layananName || u.layanan
+              }
             : u
         )
       );
@@ -357,6 +536,134 @@ export default function PageUlasan() {
       Swal.fire("Gagal", err.message || "Gagal memperbarui header ulasan", "error");
     } finally {
       setSavingHeader(false);
+    }
+  };
+
+  const DEFAULT_MINI_ULASAN = {
+    judul: "Rate your experience",
+    subjudul: "Bantu kami meningkatkan kualitas layanan dengan memberikan rating dan ulasan singkat.",
+    rating_labels: {
+      "1": "Sangat Buruk",
+      "2": "Kurang Baik",
+      "3": "Cukup Baik",
+      "4": "Memuaskan",
+      "5": "Sangat Puas"
+    },
+    quick_tags: [
+      "Pelayanan Ramah",
+      "Tepat Waktu",
+      "Sangat Profesional",
+      "Penjelasan Jelas",
+      "Higienis & Rapi",
+      "Teliti & Sabar"
+    ],
+    placeholder_komentar: "Ceritakan pengalaman Anda selama pelayanan nakes kami (wajib diisi)...",
+    label_tombol_kirim: "Submit your feedback",
+    label_tombol_batal: "Nanti Saja",
+    pesan_sukses_judul: "Thank you",
+    pesan_sukses_subjudul: "The feedback helps us improve, appreciate the time you took to send us the feedback!",
+    label_tombol_selesai: "Done"
+  };
+
+  // Simpan Konfigurasi Mini Ulasan
+  const handleSaveMiniUlasan = async (e) => {
+    if (e) e.preventDefault();
+    setSavingMiniUlasan(true);
+    try {
+      const payload = {
+        ...miniUlasanSettings,
+        title: miniUlasanSettings.judul,
+        subtitle: miniUlasanSettings.subjudul,
+        comment_placeholder: miniUlasanSettings.placeholder_komentar,
+        submit_button_text: miniUlasanSettings.label_tombol_kirim,
+        skip_button_text: miniUlasanSettings.label_tombol_batal,
+        success_title: miniUlasanSettings.pesan_sukses_judul,
+        success_message: miniUlasanSettings.pesan_sukses_subjudul
+      };
+      await api.post("/api/resource/content/mini-ulasan", payload);
+      Swal.fire({
+        icon: "success",
+        title: "Berhasil Disimpan!",
+        text: "Konfigurasi tampilan pop-up mini ulasan berhasil diperbarui di server.",
+        timer: 1800,
+        showConfirmButton: false
+      });
+    } catch (err) {
+      Swal.fire("Gagal", err.message || "Gagal menyimpan konfigurasi mini ulasan", "error");
+    } finally {
+      setSavingMiniUlasan(false);
+    }
+  };
+
+  const handleAddQuickTag = (tagToAdd) => {
+    const trimmed = (tagToAdd || newTagInput).trim();
+    if (!trimmed) return;
+    if (miniUlasanSettings.quick_tags.includes(trimmed)) {
+      Swal.fire("Peringatan", `Tag "${trimmed}" sudah ada!`, "warning");
+      return;
+    }
+    setMiniUlasanSettings((prev) => ({
+      ...prev,
+      quick_tags: [...prev.quick_tags, trimmed]
+    }));
+    setNewTagInput("");
+  };
+
+  const handleRemoveQuickTag = (tagToRemove) => {
+    setMiniUlasanSettings((prev) => ({
+      ...prev,
+      quick_tags: prev.quick_tags.filter((t) => t !== tagToRemove)
+    }));
+  };
+
+  const handleResetMiniUlasanDefault = async () => {
+    const confirm = await Swal.fire({
+      title: "Reset ke Pengaturan Default?",
+      text: "Seluruh teks dan opsi akan dikembalikan ke teks bawaan sistem.",
+      icon: "warning",
+      showCancelButton: true,
+      confirmButtonText: "Ya, Kembalikan Default",
+      cancelButtonText: "Batal",
+      confirmButtonColor: "#10b981"
+    });
+    if (confirm.isConfirmed) {
+      setMiniUlasanSettings(DEFAULT_MINI_ULASAN);
+      try {
+        await api.post("/api/resource/content/mini-ulasan", DEFAULT_MINI_ULASAN);
+        Swal.fire({
+          icon: "success",
+          title: "Pengaturan Direset!",
+          text: "Konfigurasi pop-up mini ulasan kembali ke teks default.",
+          timer: 1500,
+          showConfirmButton: false
+        });
+      } catch (err) {
+        Swal.fire("Gagal", err.message || "Gagal mereset", "error");
+      }
+    }
+  };
+
+  const formatDateTime = (isoString) => {
+    if (!isoString) return "-";
+    try {
+      const date = new Date(isoString);
+      if (isNaN(date.getTime())) return isoString;
+
+      const datePart = new Intl.DateTimeFormat("id-ID", {
+        day: "numeric",
+        month: "short",
+        year: "numeric"
+      }).format(date);
+
+      const timePart = new Intl.DateTimeFormat("id-ID", {
+        hour: "2-digit",
+        minute: "2-digit",
+        hour12: false
+      }).format(date);
+
+      return `${datePart} • ${timePart} WIB`;
+    } catch {
+      return isoString;
     }
   };
 
@@ -444,6 +751,16 @@ export default function PageUlasan() {
           }`}
         >
           <FaHeading /> Pengaturan Header Portal Web
+        </button>
+        <button
+          onClick={() => setActiveTab("mini_ulasan")}
+          className={`px-5 py-3 text-xs font-bold border-b-2 transition flex items-center gap-2 cursor-pointer shrink-0 ${
+            activeTab === "mini_ulasan"
+              ? "border-emerald-600 text-emerald-700 bg-emerald-50/60"
+              : "border-transparent text-slate-500 hover:text-slate-800"
+          }`}
+        >
+          <FaSlidersH /> Konfigurasi Pop-up Mini Ulasan
         </button>
       </div>
 
@@ -589,6 +906,10 @@ export default function PageUlasan() {
                             <div className="text-[11px] text-slate-400">
                               {item.profesi_peran || "Pasien"}
                             </div>
+                            <div className="flex items-center gap-1 text-[10px] text-slate-400 mt-1 font-medium">
+                              <FaClock className="text-[9px] text-slate-400 shrink-0" />
+                              <span>{formatDateTime(item.created_at)}</span>
+                            </div>
                           </td>
                           <td className="py-3 px-4">
                             <div className="flex items-center gap-1.5">
@@ -600,9 +921,28 @@ export default function PageUlasan() {
                             <span className="inline-block px-2.5 py-1 rounded-lg bg-sky-50 text-sky-700 font-medium text-[11px]">
                               {item.layanan?.nama_layanan || item.layanan || "Layanan Umum"}
                             </span>
+                            {item.nakes_nama && (
+                              <div className="text-[10px] text-emerald-700 font-semibold mt-1">
+                                Nakes: {item.nakes_nama}
+                              </div>
+                            )}
                           </td>
-                          <td className="py-3 px-4 text-slate-600 max-w-xs truncate" title={item.komentar}>
-                            {item.komentar}
+                          <td className="py-3 px-4 text-slate-600 max-w-xs">
+                            <p className="truncate" title={item.komentar}>
+                              {item.komentar}
+                            </p>
+                            {Array.isArray(item.quick_tags) && item.quick_tags.length > 0 && (
+                              <div className="flex flex-wrap gap-1 mt-1.5">
+                                {item.quick_tags.map((t, idxTag) => (
+                                  <span
+                                    key={idxTag}
+                                    className="px-1.5 py-0.5 rounded-md bg-emerald-50 text-emerald-700 text-[9px] font-semibold border border-emerald-200"
+                                  >
+                                    ✓ {t}
+                                  </span>
+                                ))}
+                              </div>
+                            )}
                           </td>
                           <td className="py-3 px-4">
                             <button
@@ -725,6 +1065,561 @@ export default function PageUlasan() {
               </button>
             </div>
           </form>
+        </div>
+      )}
+
+      {/* Tab Konfigurasi Pop-up Mini Ulasan */}
+      {activeTab === "mini_ulasan" && (
+        <div className="space-y-6">
+          {/* Header Sub-section */}
+          <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-2xs flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div>
+              <h2 className="text-base font-bold text-slate-800 flex items-center gap-2">
+                <span className="p-2 rounded-xl bg-emerald-50 text-emerald-600">
+                  <FaSlidersH />
+                </span>
+                Konfigurasi Pop-up Mini Ulasan Pasca Pelayanan
+              </h2>
+              <p className="text-xs text-slate-500 mt-1 max-w-2xl">
+                Atur seluruh teks modal, label rating 1-5 bintang, chip opsi kepuasan cepat, placeholder teks ulasan, serta tampilan pesan terima kasih secara dinamis melalui API <code className="bg-slate-100 text-slate-700 px-1.5 py-0.5 rounded font-mono text-[11px]">/api/resource/content/mini-ulasan</code>.
+              </p>
+            </div>
+
+            <div className="flex items-center gap-2 shrink-0">
+              <button
+                type="button"
+                onClick={handleResetMiniUlasanDefault}
+                className="inline-flex items-center gap-1.5 px-3.5 py-2 border border-slate-200 hover:bg-slate-50 text-slate-600 rounded-xl text-xs font-semibold transition cursor-pointer"
+              >
+                <FaUndo /> Reset Default
+              </button>
+              <button
+                type="button"
+                onClick={handleSaveMiniUlasan}
+                disabled={savingMiniUlasan}
+                className="inline-flex items-center gap-2 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold shadow-xs transition active:scale-95 disabled:opacity-50 cursor-pointer"
+              >
+                <FaSave /> {savingMiniUlasan ? "Menyimpan..." : "Simpan Konfigurasi"}
+              </button>
+            </div>
+          </div>
+
+          {/* Grid Layout: Left Form CRUD, Right Live Interactive Preview */}
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+            {/* Left Form Settings (7 cols) */}
+            <form onSubmit={handleSaveMiniUlasan} className="lg:col-span-7 space-y-5">
+              {/* Card 1: Judul & Subjudul */}
+              <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-2xs space-y-4">
+                <h3 className="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-2 border-b border-slate-100 pb-2.5">
+                  <span className="w-2 h-2 rounded-full bg-emerald-500" />
+                  1. Teks Judul & Sub-judul Modal
+                </h3>
+
+                <div className="space-y-3">
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 mb-1">
+                      Judul Pop-up (Heading) *
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      value={miniUlasanSettings.judul}
+                      onChange={(e) =>
+                        setMiniUlasanSettings({ ...miniUlasanSettings, judul: e.target.value })
+                      }
+                      placeholder="Contoh: Rate your experience"
+                      className="w-full text-xs px-3.5 py-2.5 border border-slate-200 rounded-xl focus:border-emerald-500 focus:outline-none"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 mb-1">
+                      Sub-judul / Deskripsi Pendukung
+                    </label>
+                    <textarea
+                      rows={2}
+                      value={miniUlasanSettings.subjudul}
+                      onChange={(e) =>
+                        setMiniUlasanSettings({ ...miniUlasanSettings, subjudul: e.target.value })
+                      }
+                      placeholder="Bantu kami meningkatkan kualitas layanan..."
+                      className="w-full text-xs p-3 border border-slate-200 rounded-xl focus:border-emerald-500 focus:outline-none"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Card 2: Label Rating Bintang 1-5 */}
+              <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-2xs space-y-4">
+                <div className="flex items-center justify-between border-b border-slate-100 pb-2.5">
+                  <h3 className="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-2">
+                    <span className="w-2 h-2 rounded-full bg-amber-400" />
+                    2. Label Rating Bintang (1 - 5 Bintang)
+                  </h3>
+                  <span className="text-[11px] text-slate-400">Gunakan bintang dengan label dinamis</span>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+                  {[1, 2, 3, 4, 5].map((star) => (
+                    <div
+                      key={star}
+                      className={`p-3 rounded-xl border ${
+                        star === 5 ? "sm:col-span-2 bg-amber-50/40 border-amber-200/80" : "bg-slate-50/50 border-slate-200/70"
+                      }`}
+                    >
+                      <label className="block font-semibold text-slate-700 mb-1.5 flex items-center gap-1.5">
+                        <span className="flex items-center text-amber-400 text-xs">
+                          {Array.from({ length: star }).map((_, i) => (
+                            <FaStar key={i} />
+                          ))}
+                        </span>
+                        <span className="text-slate-600 font-bold">Bintang {star}</span>
+                      </label>
+                      <input
+                        type="text"
+                        value={miniUlasanSettings.rating_labels?.[String(star)] || ""}
+                        onChange={(e) =>
+                          setMiniUlasanSettings({
+                            ...miniUlasanSettings,
+                            rating_labels: {
+                              ...miniUlasanSettings.rating_labels,
+                              [String(star)]: e.target.value
+                            }
+                          })
+                        }
+                        placeholder={`Label untuk bintang ${star}`}
+                        className="w-full px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-xs focus:border-emerald-500 focus:outline-none"
+                      />
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Card 3: Chip Pilihan Tag Kepuasan Cepat */}
+              <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-2xs space-y-4">
+                <div className="flex items-center justify-between border-b border-slate-100 pb-2.5">
+                  <h3 className="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-2">
+                    <span className="w-2 h-2 rounded-full bg-sky-500" />
+                    3. Chip Pilihan Tag Kepuasan Cepat
+                  </h3>
+                  <span className="text-[11px] text-slate-400">
+                    {miniUlasanSettings.quick_tags?.length || 0} tag aktif
+                  </span>
+                </div>
+
+                <p className="text-xs text-slate-500">
+                  Tag ini ditampilkan sebagai chip tombol klik cepat agar pasien dapat memilih poin kepuasan dengan satu sentuhan.
+                </p>
+
+                {/* Tag Badges List */}
+                <div className="flex flex-wrap gap-2 min-h-12 p-3 bg-slate-50/80 rounded-xl border border-slate-200/80">
+                  {miniUlasanSettings.quick_tags?.length === 0 ? (
+                    <span className="text-xs text-slate-400 italic">Belum ada tag kepuasan. Tambahkan di bawah.</span>
+                  ) : (
+                    miniUlasanSettings.quick_tags.map((tag, idx) => (
+                      <span
+                        key={idx}
+                        className="inline-flex items-center gap-1.5 px-3 py-1 bg-white border border-emerald-300 text-emerald-800 rounded-full text-xs font-semibold shadow-2xs group hover:bg-rose-50 hover:border-rose-300 hover:text-rose-700 transition"
+                      >
+                        <span>{tag}</span>
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveQuickTag(tag)}
+                          title="Hapus Tag Ini"
+                          className="text-slate-400 group-hover:text-rose-600 hover:scale-110 transition cursor-pointer"
+                        >
+                          <FaTimes className="text-[10px]" />
+                        </button>
+                      </span>
+                    ))
+                  )}
+                </div>
+
+                {/* Add Tag Input */}
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={newTagInput}
+                    onChange={(e) => setNewTagInput(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        e.preventDefault();
+                        handleAddQuickTag();
+                      }
+                    }}
+                    placeholder="Ketik tag kepuasan baru lalu tekan Enter / Tambah..."
+                    className="flex-1 text-xs px-3.5 py-2 border border-slate-200 rounded-xl focus:border-emerald-500 focus:outline-none"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => handleAddQuickTag()}
+                    className="inline-flex items-center gap-1.5 px-4 py-2 bg-slate-800 hover:bg-slate-900 text-white rounded-xl text-xs font-semibold transition cursor-pointer"
+                  >
+                    <FaPlus /> Tambah
+                  </button>
+                </div>
+
+                {/* Quick Add Suggestions */}
+                <div className="flex flex-wrap items-center gap-1.5 pt-1 text-[11px] text-slate-400">
+                  <span className="font-semibold text-slate-500">Saran Cepat:</span>
+                  {[
+                    "Perawat Sabar",
+                    "Komunikatif",
+                    "Tindakan Cepat",
+                    "Peralatan Lengkap",
+                    "Sangat Berpengalaman",
+                    "Informatif"
+                  ].map((sug, i) => (
+                    <button
+                      key={i}
+                      type="button"
+                      onClick={() => handleAddQuickTag(sug)}
+                      disabled={miniUlasanSettings.quick_tags?.includes(sug)}
+                      className="px-2 py-0.5 rounded-md bg-slate-100 hover:bg-emerald-50 hover:text-emerald-700 text-slate-600 border border-slate-200 transition disabled:opacity-40 disabled:pointer-events-none cursor-pointer"
+                    >
+                      + {sug}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Card 4: Placeholder & Tombol */}
+              <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-2xs space-y-4">
+                <h3 className="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-2 border-b border-slate-100 pb-2.5">
+                  <span className="w-2 h-2 rounded-full bg-purple-500" />
+                  4. Form Komentar (Tidak Optional) & Tombol
+                </h3>
+
+                <div className="space-y-3">
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 mb-1">
+                      Placeholder Input Komentar
+                    </label>
+                    <input
+                      type="text"
+                      value={miniUlasanSettings.placeholder_komentar}
+                      onChange={(e) =>
+                        setMiniUlasanSettings({
+                          ...miniUlasanSettings,
+                          placeholder_komentar: e.target.value
+                        })
+                      }
+                      placeholder="Placeholder teks komentar..."
+                      className="w-full text-xs px-3.5 py-2.5 border border-slate-200 rounded-xl focus:border-emerald-500 focus:outline-none"
+                    />
+                    <p className="text-[11px] text-emerald-600 font-medium mt-1">
+                      ✓ Ulasan diatur <strong className="font-bold underline">Wajib Diisi (Tidak Optional)</strong> pada form pasien.
+                    </p>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-700 mb-1">
+                        Label Tombol Kirim *
+                      </label>
+                      <input
+                        type="text"
+                        required
+                        value={miniUlasanSettings.label_tombol_kirim}
+                        onChange={(e) =>
+                          setMiniUlasanSettings({
+                            ...miniUlasanSettings,
+                            label_tombol_kirim: e.target.value
+                          })
+                        }
+                        placeholder="Submit your feedback"
+                        className="w-full text-xs px-3.5 py-2 border border-slate-200 rounded-xl focus:border-emerald-500 focus:outline-none"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-700 mb-1">
+                        Label Tombol Batal / Nanti
+                      </label>
+                      <input
+                        type="text"
+                        value={miniUlasanSettings.label_tombol_batal}
+                        onChange={(e) =>
+                          setMiniUlasanSettings({
+                            ...miniUlasanSettings,
+                            label_tombol_batal: e.target.value
+                          })
+                        }
+                        placeholder="Nanti Saja"
+                        className="w-full text-xs px-3.5 py-2 border border-slate-200 rounded-xl focus:border-emerald-500 focus:outline-none"
+                      />
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Card 5: Tampilan Pesan Sukses (Thank You Card) */}
+              <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-2xs space-y-4">
+                <h3 className="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-2 border-b border-slate-100 pb-2.5">
+                  <span className="w-2 h-2 rounded-full bg-emerald-600" />
+                  5. Tampilan Pesan Terima Kasih (Layar Sukses)
+                </h3>
+
+                <div className="space-y-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-700 mb-1">
+                        Judul Pesan Sukses *
+                      </label>
+                      <input
+                        type="text"
+                        required
+                        value={miniUlasanSettings.pesan_sukses_judul}
+                        onChange={(e) =>
+                          setMiniUlasanSettings({
+                            ...miniUlasanSettings,
+                            pesan_sukses_judul: e.target.value
+                          })
+                        }
+                        placeholder="Contoh: Thank you"
+                        className="w-full text-xs px-3.5 py-2.5 border border-slate-200 rounded-xl focus:border-emerald-500 focus:outline-none"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-700 mb-1">
+                        Label Tombol Selesai *
+                      </label>
+                      <input
+                        type="text"
+                        required
+                        value={miniUlasanSettings.label_tombol_selesai}
+                        onChange={(e) =>
+                          setMiniUlasanSettings({
+                            ...miniUlasanSettings,
+                            label_tombol_selesai: e.target.value
+                          })
+                        }
+                        placeholder="Contoh: Done"
+                        className="w-full text-xs px-3.5 py-2.5 border border-slate-200 rounded-xl focus:border-emerald-500 focus:outline-none"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 mb-1">
+                      Deskripsi Ucapan Terima Kasih
+                    </label>
+                    <textarea
+                      rows={2}
+                      value={miniUlasanSettings.pesan_sukses_subjudul}
+                      onChange={(e) =>
+                        setMiniUlasanSettings({
+                          ...miniUlasanSettings,
+                          pesan_sukses_subjudul: e.target.value
+                        })
+                      }
+                      placeholder="The feedback helps us improve, appreciate the time you took to send us the feedback!"
+                      className="w-full text-xs p-3 border border-slate-200 rounded-xl focus:border-emerald-500 focus:outline-none"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Action Buttons */}
+              <div className="flex items-center gap-3 pt-2">
+                <button
+                  type="submit"
+                  disabled={savingMiniUlasan}
+                  className="inline-flex items-center gap-2 px-6 py-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold shadow-md transition active:scale-95 disabled:opacity-50 cursor-pointer"
+                >
+                  <FaSave /> {savingMiniUlasan ? "Menyimpan Konfigurasi..." : "Simpan Seluruh Pengaturan"}
+                </button>
+                <button
+                  type="button"
+                  onClick={handleResetMiniUlasanDefault}
+                  className="px-4 py-3 bg-white hover:bg-slate-50 border border-slate-200 text-slate-600 rounded-xl text-xs font-semibold transition cursor-pointer"
+                >
+                  Batal / Reset
+                </button>
+              </div>
+            </form>
+
+            {/* Right Live Interactive Preview (5 cols) */}
+            <div className="lg:col-span-5 sticky top-6 space-y-3">
+              <div className="flex items-center justify-between">
+                <h3 className="text-xs font-bold text-slate-700 uppercase tracking-wider flex items-center gap-1.5">
+                  <FaEye className="text-emerald-600" /> Live Interactive Preview
+                </h3>
+                <div className="inline-flex p-0.5 bg-slate-200/70 rounded-xl text-[11px] font-semibold">
+                  <button
+                    type="button"
+                    onClick={() => setPreviewTab("form")}
+                    className={`px-2.5 py-1 rounded-lg transition cursor-pointer ${
+                      previewTab === "form"
+                        ? "bg-white text-slate-800 shadow-2xs"
+                        : "text-slate-500 hover:text-slate-800"
+                    }`}
+                  >
+                    Form Modal
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setPreviewTab("success")}
+                    className={`px-2.5 py-1 rounded-lg transition cursor-pointer ${
+                      previewTab === "success"
+                        ? "bg-white text-slate-800 shadow-2xs"
+                        : "text-slate-500 hover:text-slate-800"
+                    }`}
+                  >
+                    Layar Sukses
+                  </button>
+                </div>
+              </div>
+
+              {/* Visual Mockup Container matching user's reference image */}
+              <div className="p-6 rounded-3xl bg-gradient-to-br from-[#d4f6e8] via-[#e8faf2] to-[#d6f7eb] border border-emerald-100 shadow-sm relative overflow-hidden flex items-center justify-center min-h-[460px]">
+                {/* Decorative background leaf/circle effect */}
+                <div className="absolute -top-12 -right-12 w-40 h-40 bg-emerald-400/20 rounded-full blur-2xl pointer-events-none" />
+                <div className="absolute -bottom-10 -left-10 w-36 h-36 bg-teal-300/20 rounded-full blur-2xl pointer-events-none" />
+
+                {previewTab === "form" ? (
+                  /* Form Review Card */
+                  <div className="relative w-full max-w-sm bg-white rounded-3xl p-5 sm:p-6 shadow-xl border border-slate-100/80 space-y-4 transition-all">
+                    {/* Header */}
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <h4 className="text-sm sm:text-base font-bold text-slate-900 leading-tight">
+                          {miniUlasanSettings.judul || "Rate your experience"}
+                        </h4>
+                        {miniUlasanSettings.subjudul && (
+                          <p className="text-[11px] text-slate-500 mt-1 leading-snug">
+                            {miniUlasanSettings.subjudul}
+                          </p>
+                        )}
+                      </div>
+                      <button
+                        type="button"
+                        className="w-7 h-7 rounded-full border border-slate-200 flex items-center justify-center text-slate-400 hover:text-slate-600 transition shrink-0 cursor-pointer"
+                        title="Tutup"
+                      >
+                        <FaTimes className="text-[10px]" />
+                      </button>
+                    </div>
+
+                    {/* Interactive 5 Stars */}
+                    <div className="space-y-1.5 pt-1">
+                      <div className="flex items-center justify-center gap-2 py-2 bg-slate-50/70 rounded-2xl border border-slate-100">
+                        {[1, 2, 3, 4, 5].map((star) => {
+                          const isActive = star <= previewRating;
+                          return (
+                            <button
+                              key={star}
+                              type="button"
+                              onClick={() => setPreviewRating(star)}
+                              className="p-1 hover:scale-125 transition-transform cursor-pointer"
+                              title={`Pilih ${star} Bintang`}
+                            >
+                              <FaStar
+                                className={`text-2xl transition-colors ${
+                                  isActive ? "text-amber-400 drop-shadow-xs" : "text-slate-200"
+                                }`}
+                              />
+                            </button>
+                          );
+                        })}
+                      </div>
+
+                      {/* Dynamic Label for current star rating */}
+                      <p className="text-center text-xs font-bold text-amber-600">
+                        {previewRating} Bintang — {miniUlasanSettings.rating_labels?.[String(previewRating)] || "Puas"}
+                      </p>
+                    </div>
+
+                    {/* Quick Tags Chips */}
+                    {miniUlasanSettings.quick_tags?.length > 0 && (
+                      <div className="space-y-1">
+                        <span className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">
+                          Pilihan Cepat
+                        </span>
+                        <div className="flex flex-wrap gap-1.5">
+                          {miniUlasanSettings.quick_tags.map((tag, idx) => {
+                            const isSelected = previewSelectedTags.includes(tag);
+                            return (
+                              <button
+                                key={idx}
+                                type="button"
+                                onClick={() => {
+                                  if (isSelected) {
+                                    setPreviewSelectedTags(previewSelectedTags.filter((t) => t !== tag));
+                                  } else {
+                                    setPreviewSelectedTags([...previewSelectedTags, tag]);
+                                  }
+                                }}
+                                className={`px-2.5 py-1 rounded-xl text-[11px] font-semibold transition border cursor-pointer ${
+                                  isSelected
+                                    ? "bg-emerald-50 border-emerald-500 text-emerald-800 shadow-2xs"
+                                    : "bg-white border-slate-200 text-slate-600 hover:border-slate-300"
+                                }`}
+                              >
+                                {isSelected ? "✓ " : ""}{tag}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Textarea ulasan (Wajib Diisi) */}
+                    <div>
+                      <div className="flex justify-between items-center mb-1">
+                        <label className="text-[11px] font-bold text-slate-700">
+                          Ulasan Pengalaman <span className="text-rose-500">* (Wajib diisi)</span>
+                        </label>
+                      </div>
+                      <textarea
+                        rows={3}
+                        value={previewComment}
+                        onChange={(e) => setPreviewComment(e.target.value)}
+                        placeholder={miniUlasanSettings.placeholder_komentar}
+                        className="w-full text-xs p-3 rounded-2xl border border-slate-200 focus:border-emerald-500 focus:outline-none bg-white placeholder:text-slate-400"
+                      />
+                    </div>
+
+                    {/* Submit Button */}
+                    <button
+                      type="button"
+                      onClick={() => setPreviewTab("success")}
+                      className="w-full py-3 px-4 bg-emerald-700 hover:bg-emerald-800 text-white rounded-2xl font-bold text-xs shadow-md shadow-emerald-700/20 active:scale-98 transition cursor-pointer"
+                    >
+                      {miniUlasanSettings.label_tombol_kirim || "Submit your feedback"}
+                    </button>
+                  </div>
+                ) : (
+                  /* Thank You Card */
+                  <div className="relative w-full max-w-sm bg-white rounded-3xl p-6 sm:p-7 shadow-xl border border-slate-100/80 text-center space-y-4 transition-all">
+                    {/* Green chat bubble icon from image */}
+                    <div className="w-16 h-16 rounded-2xl border-2 border-emerald-500/80 bg-emerald-50/50 text-emerald-600 flex items-center justify-center mx-auto text-3xl shadow-inner">
+                      <FaRegCommentDots />
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <h4 className="text-lg font-bold text-slate-900">
+                        {miniUlasanSettings.pesan_sukses_judul || "Thank you"}
+                      </h4>
+                      <p className="text-xs text-slate-500 leading-relaxed max-w-xs mx-auto">
+                        {miniUlasanSettings.pesan_sukses_subjudul ||
+                          "The feedback helps us improve, appreciate the time you took to send us the feedback!"}
+                      </p>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() => setPreviewTab("form")}
+                      className="w-full py-3 px-4 bg-emerald-700 hover:bg-emerald-800 text-white rounded-2xl font-bold text-xs shadow-md shadow-emerald-700/20 active:scale-98 transition cursor-pointer"
+                    >
+                      {miniUlasanSettings.label_tombol_selesai || "Done"}
+                    </button>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
         </div>
       )}
 

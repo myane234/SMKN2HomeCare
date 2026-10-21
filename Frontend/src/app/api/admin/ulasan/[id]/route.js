@@ -82,14 +82,21 @@ export async function POST(request, { params }) {
 export async function DELETE(request, { params }) {
   try {
     const { id } = await params;
-    const deleted = deleteUlasan(id);
 
-    if (!deleted) {
-      return NextResponse.json(
-        { success: false, message: 'Ulasan tidak ditemukan' },
-        { status: 404 }
-      );
+    const authHeader = request.headers.get('authorization') || '';
+    if (authHeader) {
+      try {
+        await fetch(`https://citra.faaruq.com/api/admin/ulasan/${id}`, {
+          method: 'DELETE',
+          headers: {
+            Accept: 'application/json',
+            Authorization: authHeader
+          }
+        });
+      } catch {}
     }
+
+    deleteUlasan(id);
 
     return NextResponse.json({
       success: true,

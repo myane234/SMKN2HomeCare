@@ -3,36 +3,83 @@ import api from "./api";
 import { getAuthToken, getCookie } from "./cookieHelper";
 
 const getClient = () => {
-  if (typeof window !== "undefined") {
-    return axios.create({ baseURL: "" });
-  }
   return api;
 };
 
 function extractPaginated(payload) {
-  const envelope = payload?.data ? payload.data : payload;
-  const paginationBlock = envelope?.data ? envelope.data : null;
-  const rawItems =
-    (Array.isArray(paginationBlock?.data) && paginationBlock.data) ||
-    (Array.isArray(envelope?.data) && envelope.data) ||
-    (Array.isArray(payload?.data) && payload.data) ||
-    (Array.isArray(payload) && payload) ||
-    [];
-  const list = rawItems.map((item) => ({
-    id_ulasan: item.id || item.id_ulasan,
-    nama_pasien: item.nama_pengulas || item.nama_pasien || "Pasien",
-    profesi_peran: item.profesi_peran || "Pasien",
-    rating: Number(item.rating) || 5,
-    layanan: item.layanan?.nama_layanan || item.layanan || "Layanan Homecare",
-    layanan_id: item.layanan_id || item.layanan?.id_master_layanan || null,
-    komentar: item.komentar || "",
-    foto_url: item.foto_url || null,
-    created_at: item.created_at || "2026-09-03T10:00:00.000000Z"
-  }));
-  const current_page = Number(paginationBlock?.current_page || envelope?.current_page || 1);
-  const per_page = Number(paginationBlock?.per_page || envelope?.per_page || 10);
-  const total = Number(paginationBlock?.total || envelope?.total || list.length);
-  const last_page = Number(paginationBlock?.last_page || envelope?.last_page || Math.max(1, Math.ceil(total / per_page)));
+  const root = payload || {};
+  const paginationObj =
+    root.data && typeof root.data === "object" && !Array.isArray(root.data)
+      ? root.data
+      : root;
+
+  const rawItems = Array.isArray(paginationObj.data)
+    ? paginationObj.data
+    : Array.isArray(root.data)
+    ? root.data
+    : Array.isArray(root)
+    ? root
+    : [];
+
+  const list = rawItems.map((item) => {
+    let komentar = item.komentar || "";
+    let layanan = item.layanan?.nama_layanan || item.layanan || null;
+    let nakes_nama = item.nakes_nama || null;
+    let quick_tags = Array.isArray(item.quick_tags) ? item.quick_tags : [];
+
+    // Parse metadata [Layanan: ... | Nakes: ... | Tags: ...] jika ada di komentar
+    const match = komentar.match(/^\[(.*?)\]\s*(.*)$/s);
+    if (match) {
+      komentar = match[2];
+      const parts = match[1].split('|').map((s) => s.trim());
+      for (const part of parts) {
+        if (part.startsWith('Layanan:')) {
+          if (!layanan) layanan = part.replace('Layanan:', '').trim();
+        } else if (part.startsWith('Nakes:')) {
+          if (!nakes_nama) nakes_nama = part.replace('Nakes:', '').trim();
+        } else if (part.startsWith('Tags:')) {
+          if (quick_tags.length === 0) {
+            quick_tags = part.replace('Tags:', '').split(',').map((s) => s.trim()).filter(Boolean);
+          }
+        }
+      }
+    }
+
+    return {
+      id_ulasan: item.id || item.id_ulasan,
+      id: item.id || item.id_ulasan,
+      nama_pasien: item.nama_pengulas || item.nama_pasien || "Pasien",
+      nama_pengulas: item.nama_pengulas || item.nama_pasien || "Pasien",
+      profesi_peran: item.profesi_peran || "Pasien",
+      rating: Number(item.rating) || 5,
+      layanan: layanan || "Layanan Homecare",
+      layanan_id: item.layanan_id || item.layanan?.id_master_layanan || null,
+      komentar: komentar || "",
+      quick_tags,
+      nakes_nama: nakes_nama || null,
+      foto_url: item.foto_url || null,
+      created_at: item.created_at || new Date().toISOString()
+    };
+  });
+
+  const heading =
+    root.ulasan_heading ||
+    paginationObj.ulasan_heading ||
+    "Apa Kata Mereka tentang Kami";
+  const subheading =
+    root.ulasan_subheading ||
+    paginationObj.ulasan_subheading ||
+    "Ulasan jujur dari pasien dan keluarga yang telah menggunakan layanan Home Care kami.";
+
+  const current_page = Number(paginationObj.current_page || 1);
+  const per_page = Number(paginationObj.per_page || 10);
+  const total = Number(
+    paginationObj.total !== undefined ? paginationObj.total : list.length
+  );
+  const last_page = Number(
+    paginationObj.last_page || Math.max(1, Math.ceil(total / per_page))
+  );
+
   return {
     list,
     pagination: {
@@ -41,8 +88,8 @@ function extractPaginated(payload) {
       total,
       last_page
     },
-    heading: envelope?.ulasan_heading || "",
-    subheading: envelope?.ulasan_subheading || ""
+    heading,
+    subheading
   };
 }
 
@@ -130,15 +177,25 @@ export const createUlasan = async (data) => {
   const client = getClient();
   const formData = new FormData();
   formData.append("rating", String(data.rating || 5));
-  formData.append("komentar", data.komentar || "");
+  
+  let komentarText = (data.komentar || "").trim();
+  const metaParts = [];
+  const layananName = data.nama_layanan || data.layanan;
+  if (layananName) metaParts.push(`Layanan: ${layananName}`);
+  if (data.nakes_nama) metaParts.push(`Nakes: ${data.nakes_nama}`);
+  if (Array.isArray(data.quick_tags) && data.quick_tags.length > 0) {
+    metaParts.push(`Tags: ${data.quick_tags.join(", ")}`);
+  }
+  if (metaParts.length > 0 && !komentarText.startsWith("[")) {
+    komentarText = `[${metaParts.join(" | ")}] ${komentarText}`;
+  }
+  formData.append("komentar", komentarText);
+
   if (data.nama_pengulas || data.nama_pasien) {
     formData.append("nama_pengulas", data.nama_pengulas || data.nama_pasien);
   }
   if (data.profesi_peran) {
     formData.append("profesi_peran", data.profesi_peran);
-  }
-  if (data.layanan_id) {
-    formData.append("layanan_id", String(data.layanan_id));
   }
   if (data.transaksi_id) {
     formData.append("transaksi_id", String(data.transaksi_id));

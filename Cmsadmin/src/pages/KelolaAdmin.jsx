@@ -28,24 +28,7 @@ const getImageUrl = (path) => {
   return `${URL.replace(/\/api\/?$/, "")}/storage${cleanPath}`;
 };
 
-const DEFAULT_MOCK_ADMINS = [
-  {
-    id: 1,
-    id_admin: 1,
-    nama_lengkap: "Super Administrator",
-    email: "superadmin@homecare.com",
-    tier_admin: "Super Admin",
-    roles: ["super_admin", "admin"],
-  },
-  {
-    id: 2,
-    id_admin: 2,
-    nama_lengkap: "Admin Operasional",
-    email: "admin@homecare.com",
-    tier_admin: "Admin",
-    roles: ["admin"],
-  },
-];
+const DEFAULT_MOCK_ADMINS = [];
 
 export default function KelolaAdmin() {
   const [admins, setAdmins] = useState([]);

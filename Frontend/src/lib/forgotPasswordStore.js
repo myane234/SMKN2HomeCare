@@ -25,7 +25,8 @@ export async function handleRequestOtp(request, path = '/api/forgot-password') {
       );
     }
 
-    // 1. Coba forward ke remote backend
+    // 1. Kirim notifikasi ke remote backend (background/sync jika ada)
+    let remoteDeliverySuccess = false;
     try {
       const remoteRes = await fetch(`${REMOTE_BACKEND}${path}`, {
         method: 'POST',
@@ -36,17 +37,18 @@ export async function handleRequestOtp(request, path = '/api/forgot-password') {
         body: JSON.stringify({ email }),
       });
 
-      if (remoteRes.status !== 404) {
+      if (remoteRes.ok) {
         const remoteData = await remoteRes.json().catch(() => null);
-        if (remoteData) {
-          return Response.json(remoteData, { status: remoteRes.status });
+        if (remoteData?.email_delivered === true) {
+          remoteDeliverySuccess = true;
+          return Response.json(remoteData, { status: 200 });
         }
       }
     } catch {
-      // Remote unavailable, lanjutkan ke fallback handler
+      // Remote unavailable, lanjutkan ke email dispatch lokal
     }
 
-    // 2. Fallback OTP Generation & Email Dispatch
+    // 2. OTP Generation & Real Email Dispatch via Nodemailer (Gmail)
     const otp = Math.floor(100000 + Math.random() * 900000).toString();
     const expiresAt = Date.now() + 10 * 60 * 1000; // 10 menit
 
@@ -56,7 +58,7 @@ export async function handleRequestOtp(request, path = '/api/forgot-password') {
       attempts: 0,
     });
 
-    // Kirim email fisik via Nodemailer (jika SMTP terkonfigurasi di .env.local)
+    // Kirim email fisik via Nodemailer menggunakan kredensial di .env.local
     const emailResult = await sendOtpEmail({ to: email, otp });
 
     if (emailResult.success) {
@@ -64,6 +66,7 @@ export async function handleRequestOtp(request, path = '/api/forgot-password') {
       console.log(`✉️ [EMAIL SUKSES TERKIRIM KE INBOX]`);
       console.log(`📧 Penerima  : ${email}`);
       console.log(`🔢 MessageID : ${emailResult.messageId}`);
+      console.log(`🔑 Kode OTP  : ${otp}`);
       console.log(`⏰ Berlaku   : 10 menit`);
       console.log(`========================================\n`);
     } else {
@@ -84,10 +87,9 @@ export async function handleRequestOtp(request, path = '/api/forgot-password') {
     return Response.json({
       success: true,
       message: emailResult.success
-        ? 'Kode OTP telah dikirimkan ke alamat email Anda. Silakan periksa kotak masuk atau spam.'
-        : 'Jika email terdaftar, kode OTP telah dikirim.',
+        ? 'Kode OTP telah berhasil dikirimkan ke alamat email Anda. Silakan periksa kotak masuk atau spam.'
+        : 'Kode OTP telah dibuat. Silakan periksa email Anda.',
       email_delivered: emailResult.success,
-      // Sertakan hint dev jika di development environment
       ...(process.env.NODE_ENV !== 'production' ? { _dev_otp: otp } : {}),
     });
   } catch (err) {
@@ -114,7 +116,7 @@ export async function handleVerifyOtp(request, path = '/api/forgot-password/veri
       );
     }
 
-    // 1. Coba forward ke remote backend
+    // 1. Coba verifikasi dengan remote backend terlebih dahulu
     try {
       const remoteRes = await fetch(`${REMOTE_BACKEND}${path}`, {
         method: 'POST',
@@ -125,17 +127,17 @@ export async function handleVerifyOtp(request, path = '/api/forgot-password/veri
         body: JSON.stringify({ email, otp }),
       });
 
-      if (remoteRes.status !== 404) {
+      if (remoteRes.ok) {
         const remoteData = await remoteRes.json().catch(() => null);
-        if (remoteData) {
+        if (remoteData && remoteData.success) {
           return Response.json(remoteData, { status: remoteRes.status });
         }
       }
     } catch {
-      // Remote unavailable, lanjutkan ke fallback handler
+      // Remote unavailable, lanjutkan ke verifikasi lokal
     }
 
-    // 2. Fallback Mock OTP Verification
+    // 2. Fallback / Verifikasi Lokal dengan OTP yang dikirim via Nodemailer
     const stored = globalOtpStore.get(email);
     if (!stored) {
       return Response.json(
@@ -233,9 +235,9 @@ export async function handleResetPassword(request, path = '/api/forgot-password/
         }),
       });
 
-      if (remoteRes.status !== 404) {
+      if (remoteRes.ok) {
         const remoteData = await remoteRes.json().catch(() => null);
-        if (remoteData) {
+        if (remoteData && remoteData.success) {
           return Response.json(remoteData, { status: remoteRes.status });
         }
       }

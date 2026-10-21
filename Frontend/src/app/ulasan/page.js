@@ -241,6 +241,39 @@ export default function UlasanPage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentPage]);
 
+  // Dengarkan event ketika ulasan mini berhasil dikirim agar daftar otomatis ter-update
+  useEffect(() => {
+    const handleUlasanSubmitted = (e) => {
+      if (e?.detail) {
+        setUlasanList((prev) => {
+          const newId = e.detail.id || e.detail.id_ulasan;
+          if (newId && prev.some((u) => String(u.id || u.id_ulasan) === String(newId))) {
+            return prev;
+          }
+          return [
+            {
+              ...e.detail,
+              id_ulasan: newId || Date.now(),
+              id: newId || Date.now(),
+              nama_pasien: e.detail.nama_pengulas || e.detail.nama_pasien || "Pasien",
+              profesi_peran: e.detail.profesi_peran || "Pasien",
+              rating: Number(e.detail.rating) || 5,
+              komentar: e.detail.komentar || "",
+              quick_tags: Array.isArray(e.detail.quick_tags) ? e.detail.quick_tags : [],
+              nakes_nama: e.detail.nakes_nama || null,
+              layanan: e.detail.layanan || e.detail.nama_layanan || "Layanan Homecare",
+              created_at: e.detail.created_at || new Date().toISOString()
+            },
+            ...prev
+          ];
+        });
+      }
+      loadUlasanList(starFilter, sortBy, 1);
+    };
+    window.addEventListener("ulasan-submitted", handleUlasanSubmitted);
+    return () => window.removeEventListener("ulasan-submitted", handleUlasanSubmitted);
+  }, [starFilter, sortBy]);
+
   const handleFilterChange = async (ratingVal) => {
     setStarFilter(ratingVal);
     setCurrentPage(1);
@@ -787,6 +820,14 @@ export default function UlasanPage() {
                               </span>
                             </>
                           )}
+                          {item.nakes_nama && (
+                            <>
+                              <span className="text-slate-300">•</span>
+                              <span className="text-[10px] text-emerald-700 font-semibold bg-emerald-50 px-2 py-0.5 rounded-md">
+                                Nakes: {item.nakes_nama}
+                              </span>
+                            </>
+                          )}
                         </div>
                       </div>
                     </div>
@@ -808,6 +849,20 @@ export default function UlasanPage() {
                   <p className="text-xs text-slate-600 leading-relaxed pt-0.5 italic">
                     &ldquo;{item.komentar}&rdquo;
                   </p>
+
+                  {/* Poin Kepuasan / Quick Tags */}
+                  {Array.isArray(item.quick_tags) && item.quick_tags.length > 0 && (
+                    <div className="flex flex-wrap gap-1 pt-1">
+                      {item.quick_tags.map((tag, tagIdx) => (
+                        <span
+                          key={tagIdx}
+                          className="inline-flex items-center gap-1 px-2.5 py-0.5 bg-emerald-50 text-emerald-700 text-[10px] font-semibold rounded-full border border-emerald-100"
+                        >
+                          <FiCheckCircle className="text-[9px]" /> {tag}
+                        </span>
+                      ))}
+                    </div>
+                  )}
 
                   {/* Tampilkan Date & Time */}
                   <div className="flex items-center justify-between pt-1 border-t border-slate-100 text-[11px] text-slate-400">

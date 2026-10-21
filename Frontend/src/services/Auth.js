@@ -70,9 +70,20 @@ export async function loginForm(email, password) {
  * Backend: POST /api/register
  * Fields: email, password, nama_lengkap, nik (16 digit), golongan_darah, jenis_kelamin, alamat_utama
  */
-export async function registerUser({ email, password, nama_lengkap, no_hp, nik, golongan_darah, jenis_kelamin, alamat_utama }) {
+export async function registerUser({
+  email,
+  password,
+  nama_lengkap,
+  no_hp,
+  nik,
+  golongan_darah,
+  jenis_kelamin,
+  alamat_utama,
+  latitude,
+  longitude,
+}) {
   try {
-    const res = await api.post('/api/register', {
+    const payload = {
       email,
       password,
       nama_lengkap,
@@ -81,7 +92,21 @@ export async function registerUser({ email, password, nama_lengkap, no_hp, nik, 
       golongan_darah,
       jenis_kelamin,
       alamat_utama,
-    });
+    };
+
+    if (latitude !== undefined && latitude !== null && !isNaN(latitude)) {
+      payload.latitude = Number(latitude);
+    } else {
+      payload.latitude = -6.2088;
+    }
+
+    if (longitude !== undefined && longitude !== null && !isNaN(longitude)) {
+      payload.longitude = Number(longitude);
+    } else {
+      payload.longitude = 106.8456;
+    }
+
+    const res = await api.post('/api/register', payload);
 
     return res.data;
   } catch (err) {
@@ -153,4 +178,50 @@ export async function changeUnverifiedEmail({ old_email, new_email }) {
     }
     throw err;
   }
+}
+
+/**
+ * Cek apakah email sudah terdaftar di backend atau belum
+ * @param {string} email
+ * @returns {Promise<{ registered: boolean | null }>}
+ */
+export async function checkEmailRegistered(email) {
+  if (!email) return { registered: null };
+  const trimmedEmail = email.trim().toLowerCase();
+
+  try {
+    // 1. Coba endpoint check-email jika backend menyediakannya
+    const res = await api.post('/api/check-email', { email: trimmedEmail });
+    if (res.data?.registered !== undefined) {
+      return { registered: Boolean(res.data.registered) };
+    }
+    if (res.data?.exists !== undefined) {
+      return { registered: Boolean(res.data.exists) };
+    }
+  } catch (err) {
+    // Jika endpoint /api/check-email tidak tersedia (404/405), gunakan teknik validasi via /api/register
+    if (err.response?.status === 404 || err.response?.status === 405) {
+      try {
+        await api.post('/api/register', { email: trimmedEmail });
+        return { registered: false };
+      } catch (regErr) {
+        if (regErr.response?.data?.errors?.email) {
+          const emailErrStr = regErr.response.data.errors.email.join(' ').toLowerCase();
+          if (
+            emailErrStr.includes('taken') ||
+            emailErrStr.includes('already') ||
+            emailErrStr.includes('terdaftar') ||
+            emailErrStr.includes('used')
+          ) {
+            return { registered: true };
+          }
+        }
+        // Jika tidak ada pesan error di kolom email (hanya error kolom lain), berarti email belum terdaftar
+        if (regErr.response?.data?.errors && !regErr.response.data.errors.email) {
+          return { registered: false };
+        }
+      }
+    }
+  }
+  return { registered: null };
 }

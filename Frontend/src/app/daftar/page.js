@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { Eye, EyeOff } from "lucide-react";
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import dynamic from "next/dynamic";
 import { GoogleOAuthProvider, useGoogleLogin } from "@react-oauth/google";
 import { registerUser, loginWithGoogleAPI } from "@/services/Auth.js";
@@ -65,6 +65,7 @@ export default function DaftarPage() {
   const [errorMsg, setErrorMsg] = useState("");
   const [successMsg, setSuccessMsg] = useState("");
   const [fieldErrors, setFieldErrors] = useState({});
+  const [registeredEmail, setRegisteredEmail] = useState("");
 
   // Form state
   const [form, setForm] = useState({
@@ -74,8 +75,8 @@ export default function DaftarPage() {
     golongan_darah: "",
     jenis_kelamin: "",
     alamat_utama: "",
-    latitude: null,
-    longitude: null,
+    latitude: -6.2088,
+    longitude: 106.8456,
     email: "",
     password: "",
     password_confirmation: "",
@@ -94,6 +95,30 @@ export default function DaftarPage() {
   const rawClientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID;
   const clientId = rawClientId && rawClientId.trim() !== "" ? rawClientId : "dummy-client-id.apps.googleusercontent.com";
   const isConfigured = Boolean(rawClientId && rawClientId.trim() !== "");
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const params = new URLSearchParams(window.location.search);
+      const emailParam = params.get("email");
+      if (emailParam) {
+        setForm((prev) => ({ ...prev, email: emailParam }));
+      }
+
+      if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(
+          (pos) => {
+            setForm((prev) => ({
+              ...prev,
+              latitude: pos.coords.latitude,
+              longitude: pos.coords.longitude,
+            }));
+          },
+          () => {},
+          { timeout: 5000 }
+        );
+      }
+    }
+  }, []);
 
   const clearFieldError = (name) => {
     setFieldErrors((prev) => {
@@ -220,6 +245,15 @@ export default function DaftarPage() {
 
     setLoading(true);
     try {
+      const finalLatitude =
+        form.latitude !== null && form.latitude !== undefined && !isNaN(form.latitude)
+          ? Number(form.latitude)
+          : -6.2088;
+      const finalLongitude =
+        form.longitude !== null && form.longitude !== undefined && !isNaN(form.longitude)
+          ? Number(form.longitude)
+          : 106.8456;
+
       await registerUser({
         email: form.email,
         password: form.password,
@@ -229,11 +263,13 @@ export default function DaftarPage() {
         golongan_darah: form.golongan_darah || null,
         jenis_kelamin: form.jenis_kelamin,
         alamat_utama: form.alamat_utama,
-        latitude: form.latitude,
-        longitude: form.longitude,
+        latitude: finalLatitude,
+        longitude: finalLongitude,
       });
 
-      setSuccessMsg("Registrasi berhasil! Mengalihkan ke halaman masuk...");
+      const registeredUserEmail = form.email.trim().toLowerCase();
+      setRegisteredEmail(registeredUserEmail);
+      setSuccessMsg("Registrasi berhasil! Silakan lakukan verifikasi email akun Anda.");
       setFieldErrors({});
 
       setForm({
@@ -243,28 +279,35 @@ export default function DaftarPage() {
         golongan_darah: "",
         jenis_kelamin: "",
         alamat_utama: "",
-        latitude: null,
-        longitude: null,
+        latitude: -6.2088,
+        longitude: 106.8456,
         email: "",
         password: "",
         password_confirmation: "",
       });
 
       setTimeout(() => {
-        window.location.href = "/login";
-      }, 1200);
+        window.location.href = `/auth/verify-email?email=${encodeURIComponent(registeredUserEmail)}`;
+      }, 2000);
     } catch (err) {
       if (err.fieldErrors && Object.keys(err.fieldErrors).length > 0) {
-        setFieldErrors(err.fieldErrors);
-        const errorCount = Object.keys(err.fieldErrors).length;
-
-        if (errorCount > 1) {
-          setErrorMsg(
-            `Beberapa Masalah Ditemukan — ada ${errorCount} data yang belum sesuai. Periksa kolom yang ditandai merah di atas.`
-          );
-        } else {
-          setErrorMsg(err.message || "Registrasi gagal. Silakan coba lagi.");
+        const mappedErrors = { ...err.fieldErrors };
+        // Jika backend mengirim error latitude atau longitude, tandai kolom alamat_utama agar ada tanda merah jelas di layar
+        if (mappedErrors.latitude || mappedErrors.longitude) {
+          mappedErrors.alamat_utama =
+            mappedErrors.alamat_utama || "Titik lokasi pada peta perlu ditentukan.";
         }
+        setFieldErrors(mappedErrors);
+
+        // Ambil rincian pesan error langsung dari backend
+        const errorList = Object.entries(err.fieldErrors).map(([key, msgs]) => {
+          const fieldName =
+            key === "latitude" || key === "longitude" ? "Titik Peta" : key.replace(/_/g, " ");
+          const text = Array.isArray(msgs) ? msgs[0] : msgs;
+          return `${fieldName}: ${text}`;
+        });
+
+        setErrorMsg(errorList.join(" • "));
       } else {
         setErrorMsg(err.message || "Registrasi gagal. Silakan coba lagi.");
       }
@@ -310,10 +353,43 @@ export default function DaftarPage() {
             Registrasi
           </h1>
 
-          {/* Pesan Sukses */}
+          {/* Pesan Sukses & Tombol Lanjut ke Verifikasi Email */}
           {successMsg && (
-            <div className="mb-5 rounded-lg bg-green-50 p-4 border border-green-200">
-              <p className="text-sm font-medium text-green-700">{successMsg}</p>
+            <div className="mb-6 rounded-2xl bg-emerald-50 p-5 border border-emerald-200 shadow-sm">
+              <div className="flex items-start gap-3">
+                <div className="mt-0.5 rounded-full bg-emerald-100 p-1.5 text-emerald-600">
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M5 13l4 4L19 7" />
+                  </svg>
+                </div>
+                <div className="flex-1">
+                  <h3 className="text-sm font-bold text-emerald-900">Registrasi Berhasil!</h3>
+                  <p className="mt-1 text-xs text-emerald-700 leading-relaxed">
+                    Akun Anda telah berhasil didaftarkan. Harap verifikasi alamat email Anda untuk mengaktifkan akun.
+                  </p>
+                  <div className="mt-3 flex flex-wrap items-center gap-3">
+                    <Link
+                      href={`/auth/verify-email?email=${encodeURIComponent(registeredEmail)}`}
+                      className="inline-flex items-center gap-2 rounded-xl bg-emerald-600 px-4 py-2.5 text-xs font-bold text-white shadow-sm hover:bg-emerald-700 transition"
+                    >
+                      <span>Verifikasi Email Sekarang</span>
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M14 5l7 7m0 0l-7 7m7-7H3" />
+                      </svg>
+                    </Link>
+                    <span className="text-[11px] text-emerald-600 font-medium">
+                      Mengalihkan otomatis ke halaman verifikasi...
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Pesan Error di Atas Form */}
+          {errorMsg && (
+            <div className="mb-5 rounded-lg border border-red-200 bg-red-50 p-4">
+              <p className="text-sm font-semibold text-red-700 leading-relaxed">{errorMsg}</p>
             </div>
           )}
 

@@ -58,80 +58,35 @@ const DEFAULT_STORE = {
     ulasan_heading: "Apa Kata Mereka tentang Kami",
     ulasan_subheading: "Ulasan jujur dari pasien dan keluarga yang telah menggunakan layanan Home Care kami."
   },
-  ulasan_list: [
-    {
-      id: 1,
-      nama_pengulas: "Budi Santoso",
-      profesi_peran: "Keluarga Pasien",
-      foto: null,
-      foto_url: null,
-      rating: 5,
-      komentar: "Pelayanan perawat sangat ramah dan profesional. Ayah saya yang baru pulang dari rumah sakit merasa sangat terbantu dan nyaman dirawat di rumah.",
-      layanan_id: 2,
-      is_published: true,
-      urutan: 1,
-      created_at: "2026-09-01T14:00:00.000000Z",
-      updated_at: "2026-09-01T14:00:00.000000Z",
-      layanan: {
-        id_master_layanan: 2,
-        nama_layanan: "Fisioterapi Rumah"
-      }
+  mini_ulasan_settings: {
+    judul: "Rate your experience",
+    subjudul: "Bantu kami meningkatkan kualitas layanan dengan memberikan rating dan ulasan singkat.",
+    rating_labels: {
+      "1": "Sangat Buruk",
+      "2": "Kurang Baik",
+      "3": "Cukup Baik",
+      "4": "Memuaskan",
+      "5": "Sangat Puas"
     },
-    {
-      id: 2,
-      nama_pengulas: "Siti Rahma",
-      profesi_peran: "Pasien Lansia",
-      foto: null,
-      foto_url: null,
-      rating: 5,
-      komentar: "Pelayanan sangat memuaskan, perawat datang tepat waktu dan telaten sekali saat mengganti perban pasca operasi.",
-      layanan_id: 1,
-      is_published: true,
-      urutan: 2,
-      created_at: "2026-09-02T11:20:00.000000Z",
-      updated_at: "2026-09-02T11:20:00.000000Z",
-      layanan: {
-        id_master_layanan: 1,
-        nama_layanan: "Perawatan Luka Medis"
-      }
-    },
-    {
-      id: 3,
-      nama_pengulas: "Hendro Gunawan",
-      profesi_peran: "Anak Pasien",
-      foto: null,
-      foto_url: null,
-      rating: 4,
-      komentar: "Sangat responsif! Pagi pesan layanan via website, siangnya perawat sudah tiba di rumah membawa perlengkapan medis lengkap.",
-      layanan_id: 3,
-      is_published: true,
-      urutan: 3,
-      created_at: "2026-09-03T08:45:00.000000Z",
-      updated_at: "2026-09-03T08:45:00.000000Z",
-      layanan: {
-        id_master_layanan: 3,
-        nama_layanan: "Pendampingan Pasien 24 Jam"
-      }
-    },
-    {
-      id: 4,
-      nama_pengulas: "Dewi Lestari",
-      profesi_peran: "Ibu Pasien Balita",
-      foto: null,
-      foto_url: null,
-      rating: 5,
-      komentar: "Bidan yang datang sangat sabar memandikan bayi baru lahir dan memberikan edukasi menyusui yang bermanfaat untuk saya sebagai ibu baru.",
-      layanan_id: 4,
-      is_published: false,
-      urutan: 4,
-      created_at: "2026-09-03T16:00:00.000000Z",
-      updated_at: "2026-09-03T16:00:00.000000Z",
-      layanan: {
-        id_master_layanan: 4,
-        nama_layanan: "Pijat & Perawatan Bayi"
-      }
-    }
-  ]
+    quick_tags: [
+      "Pelayanan Ramah",
+      "Tepat Waktu",
+      "Sangat Profesional",
+      "Penjelasan Jelas",
+      "Higienis & Rapi",
+      "Teliti & Sabar"
+    ],
+    placeholder_komentar: "Ceritakan pengalaman Anda selama pelayanan nakes kami (wajib diisi)...",
+    label_tombol_kirim: "Submit your feedback",
+    label_tombol_batal: "Nanti Saja",
+    pesan_sukses_judul: "Thank you",
+    pesan_sukses_subjudul: "The feedback helps us improve, appreciate the time you took to send us the feedback!",
+    label_tombol_selesai: "Done"
+  },
+  reviewed_bookings: [],
+  status_overrides: {},
+  deleted_ulasan_ids: [],
+  ulasan_list: []
 };
 
 function getCandidateStoreFilePaths() {
@@ -307,7 +262,17 @@ export function updateUlasanHeader({ ulasan_heading, ulasan_subheading }) {
 
 export function getPublicUlasanList({ rating, search, per_page, page, sort } = {}) {
   const store = readStore();
-  let list = (store.ulasan_list || []).filter((u) => Boolean(u.is_published) === true);
+  const statusOverrides = store.status_overrides || {};
+  const deletedIds = new Set((store.deleted_ulasan_ids || []).map(String));
+
+  let list = (store.ulasan_list || []).filter((u) => {
+    const strId = String(u.id);
+    if (deletedIds.has(strId)) return false;
+    if (statusOverrides[strId] !== undefined) {
+      return Boolean(statusOverrides[strId]);
+    }
+    return Boolean(u.is_published) === true;
+  });
 
   if (rating && String(rating) !== 'all') {
     list = list.filter((u) => Number(u.rating) === Number(rating));
@@ -358,7 +323,16 @@ export function getPublicUlasanList({ rating, search, per_page, page, sort } = {
 
 export function getAdminUlasanList({ is_published, rating, search, per_page, page } = {}) {
   const store = readStore();
-  let list = store.ulasan_list || [];
+  const statusOverrides = store.status_overrides || {};
+  const deletedIds = new Set((store.deleted_ulasan_ids || []).map(String));
+
+  let list = (store.ulasan_list || [])
+    .filter((u) => !deletedIds.has(String(u.id)))
+    .map((u) => {
+      const strId = String(u.id);
+      const isPub = statusOverrides[strId] !== undefined ? Boolean(statusOverrides[strId]) : Boolean(u.is_published);
+      return { ...u, is_published: isPub };
+    });
 
   if (is_published !== undefined && is_published !== '' && is_published !== 'all') {
     const isPub = String(is_published) === 'true';
@@ -446,6 +420,9 @@ export function createUlasan(data) {
     foto_url: data.foto_url || null,
     rating: Number(data.rating) || 5,
     komentar: data.komentar || '',
+    quick_tags: Array.isArray(data.quick_tags) ? data.quick_tags : [],
+    nakes_nama: data.nakes_nama || null,
+    nakes_id: data.nakes_id || null,
     layanan_id: data.layanan_id ? Number(data.layanan_id) : null,
     is_published: data.is_published !== undefined ? Boolean(data.is_published) : false,
     urutan: data.urutan !== undefined ? Number(data.urutan) : (store.ulasan_list || []).length + 1,
@@ -453,6 +430,14 @@ export function createUlasan(data) {
     updated_at: new Date().toISOString(),
     layanan: resolvedLayanan
   };
+
+  if (resolvedTransaksiId) {
+    if (!Array.isArray(store.reviewed_bookings)) store.reviewed_bookings = [];
+    const strId = String(resolvedTransaksiId);
+    if (!store.reviewed_bookings.includes(strId)) {
+      store.reviewed_bookings.push(strId);
+    }
+  }
 
   store.ulasan_list = [newUlasan, ...(store.ulasan_list || [])];
   writeStore(store);
@@ -491,21 +476,119 @@ export function updateUlasan(id, updates) {
   return store.ulasan_list[index];
 }
 
-export function togglePublishUlasan(id) {
+export function getUlasanStatusOverrides() {
   const store = readStore();
-  const index = (store.ulasan_list || []).findIndex((u) => String(u.id) === String(id));
-  if (index === -1) return null;
+  return store.status_overrides || {};
+}
 
-  store.ulasan_list[index].is_published = !store.ulasan_list[index].is_published;
-  store.ulasan_list[index].updated_at = new Date().toISOString();
+export function setUlasanStatusOverride(id, isPublished) {
+  const store = readStore();
+  if (!store.status_overrides) store.status_overrides = {};
+  const strId = String(id);
+  store.status_overrides[strId] = Boolean(isPublished);
+
+  const index = (store.ulasan_list || []).findIndex((u) => String(u.id) === strId);
+  if (index !== -1) {
+    store.ulasan_list[index].is_published = Boolean(isPublished);
+    store.ulasan_list[index].updated_at = new Date().toISOString();
+  }
+
   writeStore(store);
-  return store.ulasan_list[index];
+  return { id, is_published: Boolean(isPublished) };
+}
+
+export function getDeletedUlasanIds() {
+  const store = readStore();
+  return Array.isArray(store.deleted_ulasan_ids) ? store.deleted_ulasan_ids : [];
+}
+
+export function togglePublishUlasan(id, forcedStatus = null) {
+  const store = readStore();
+  if (!store.status_overrides) store.status_overrides = {};
+
+  const strId = String(id);
+  const index = (store.ulasan_list || []).findIndex((u) => String(u.id) === strId);
+
+  let currentStatus = true;
+  if (store.status_overrides[strId] !== undefined) {
+    currentStatus = Boolean(store.status_overrides[strId]);
+  } else if (index !== -1) {
+    currentStatus = Boolean(store.ulasan_list[index].is_published);
+  }
+
+  const newStatus =
+    forcedStatus !== null && forcedStatus !== undefined
+      ? Boolean(forcedStatus)
+      : !currentStatus;
+
+  store.status_overrides[strId] = newStatus;
+
+  if (index !== -1) {
+    store.ulasan_list[index].is_published = newStatus;
+    store.ulasan_list[index].updated_at = new Date().toISOString();
+  }
+
+  writeStore(store);
+  return { id, is_published: newStatus };
 }
 
 export function deleteUlasan(id) {
   const store = readStore();
-  const initialLength = (store.ulasan_list || []).length;
-  store.ulasan_list = (store.ulasan_list || []).filter((u) => String(u.id) !== String(id));
+  const strId = String(id);
+  if (!Array.isArray(store.deleted_ulasan_ids)) {
+    store.deleted_ulasan_ids = [];
+  }
+  if (!store.deleted_ulasan_ids.includes(strId)) {
+    store.deleted_ulasan_ids.push(strId);
+  }
+  if (store.status_overrides && store.status_overrides[strId] !== undefined) {
+    delete store.status_overrides[strId];
+  }
+  store.ulasan_list = (store.ulasan_list || []).filter((u) => String(u.id) !== strId);
   writeStore(store);
-  return store.ulasan_list.length < initialLength;
+  return true;
+}
+
+// ──────────────── Mini Ulasan Settings ────────────────
+export function getMiniUlasanSettings() {
+  const store = readStore();
+  return store.mini_ulasan_settings || DEFAULT_STORE.mini_ulasan_settings;
+}
+
+export function updateMiniUlasanSettings(newSettings) {
+  const store = readStore();
+  store.mini_ulasan_settings = {
+    ...(store.mini_ulasan_settings || DEFAULT_STORE.mini_ulasan_settings),
+    ...newSettings
+  };
+  writeStore(store);
+  return store.mini_ulasan_settings;
+}
+
+export function getReviewedBookings() {
+  const store = readStore();
+  return store.reviewed_bookings || [];
+}
+
+export function markBookingReviewed(bookingId) {
+  if (!bookingId) return;
+  const store = readStore();
+  if (!Array.isArray(store.reviewed_bookings)) {
+    store.reviewed_bookings = [];
+  }
+  const strId = String(bookingId);
+  if (!store.reviewed_bookings.includes(strId)) {
+    store.reviewed_bookings.push(strId);
+    writeStore(store);
+  }
+}
+
+export function isBookingReviewed(bookingId) {
+  if (!bookingId) return false;
+  const store = readStore();
+  const strId = String(bookingId);
+  if (Array.isArray(store.reviewed_bookings) && store.reviewed_bookings.includes(strId)) {
+    return true;
+  }
+  return (store.ulasan_list || []).some((u) => String(u.transaksi_id) === strId);
 }

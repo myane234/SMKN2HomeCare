@@ -241,6 +241,53 @@ export default function DetailTransaksiPage({ params }) {
                   </div>
                 </div>
               </div>
+
+              {/* Tombol Beri Ulasan jika Layanan Selesai */}
+              {String(booking.status?.value || booking.status_booking || "").toLowerCase() === "selesai" && (
+                <div className="pt-2">
+                  <div className="flex flex-col sm:flex-row items-center justify-between gap-3 bg-emerald-50/70 p-4 rounded-xl border border-emerald-200/80">
+                    <div>
+                      <h4 className="font-bold text-emerald-900 text-sm flex items-center gap-1.5">
+                        ⭐ Bagaimana Pelayanan Kami?
+                      </h4>
+                      <p className="text-xs text-emerald-700/80 mt-0.5">
+                        Pelayanan Anda telah selesai. Berikan penilaian dan ulasan untuk nakes yang bertugas.
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const nakesObj = transaksi?.tenaga_medis || transaksi?.nakes || null;
+                        window.dispatchEvent(
+                          new CustomEvent("open-mini-ulasan", {
+                            detail: {
+                              id_booking: idBooking,
+                              booking_code: booking.booking_code || `HC-${idBooking}`,
+                              status_booking: "Selesai",
+                              layanan:
+                                (layananItems.length > 0 && layananItems[0].nama_layanan) ||
+                                "Layanan Home Care",
+                              layanan_id:
+                                (layananItems.length > 0 && (layananItems[0].id_layanan || layananItems[0].id_master_layanan)) ||
+                                null,
+                              tenaga_medis: nakesObj
+                                ? {
+                                    id: nakesObj.id,
+                                    nama: nakesObj.nama_lengkap || nakesObj.nama,
+                                    profesi: nakesObj.profesi || "Tenaga Medis"
+                                  }
+                                : null
+                            }
+                          })
+                        );
+                      }}
+                      className="inline-flex items-center gap-2 px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition shadow-sm cursor-pointer shrink-0"
+                    >
+                      Beri Ulasan Sekarang
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         ) : null}
