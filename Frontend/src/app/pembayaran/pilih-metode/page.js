@@ -66,6 +66,8 @@ function PilihMetodePembayaranContent() {
   const [metodeList, setMetodeList] = useState([]);
   const [isFetching, setIsFetching] = useState(true);
   const [isLoading, setIsLoading] = useState(false);
+  const [isCalculating, setIsCalculating] = useState(false);
+  const [calculationDetails, setCalculationDetails] = useState(null);
   const [isCheckingAccess, setIsCheckingAccess] = useState(true);
   const [accessAllowed, setAccessAllowed] = useState(false);
   const [error, setError] = useState("");
@@ -281,6 +283,42 @@ function PilihMetodePembayaranContent() {
       cancelled = true;
     };
   }, [accessAllowed]);
+
+  // --- TAMBAHKAN EFFECT KALKULASI HARGA INI ---
+  useEffect(() => {
+    let cancelled = false;
+
+    const fetchKalkulasiHarga = async () => {
+      if (!bookingId || !selectedMethodId || isBhp) return;
+
+      try {
+        setIsCalculating(true);
+        const response = await api.post("/api/booking/kalkulasi-harga", {
+          id_booking: Number(bookingId),
+          id_metode: Number(selectedMethodId),
+        });
+
+        const rootData = response?.data?.data ?? response?.data ?? {};
+
+        if (!cancelled) {
+          setCalculationDetails(rootData);
+          if (rootData.total_akhir) {
+            setTotalAmount(String(rootData.total_akhir));
+          }
+        }
+      } catch (err) {
+        console.error("Gagal melakukan kalkulasi harga:", err);
+      } finally {
+        if (!cancelled) setIsCalculating(false);
+      }
+    };
+
+    fetchKalkulasiHarga();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [bookingId, selectedMethodId, isBhp]);
 
   const groupByCategory = (list) =>
     list.reduce((acc, item) => {
@@ -552,9 +590,78 @@ function PilihMetodePembayaranContent() {
                 {isBhp ? "Total BHP Tambahan" : "Total Pembayaran"}
               </p>
 
-              <p className="mb-6 mt-1 text-2xl font-bold sm:text-3xl">
-                {formatCurrency(totalAmount)}
-              </p>
+             {/* Angka Total Pembayaran */}
+  <p className="mb-2 mt-1 text-2xl font-bold sm:text-3xl">
+    {calculationDetails?.total_akhir_format || formatCurrency(totalAmount)}
+  </p>
+
+  {/* --- RINCIAN BIAYA LENGKAP DARIPADA RESPONSE API --- */}
+  {calculationDetails?.rincian_biaya && (
+    <div className="mb-6 space-y-1.5 border-t border-white/20 pt-4 text-xs sm:text-sm text-sky-50">
+      {/* 1. Subtotal Layanan (sl) */}
+      {Number(calculationDetails.rincian_biaya.sl) > 0 && (
+        <div className="flex justify-between">
+          <span>Subtotal Layanan:</span>
+          <span>{formatCurrency(calculationDetails.rincian_biaya.sl)}</span>
+        </div>
+      )}
+
+      {/* 2. Subtotal Bahan / Alat (sb) */}
+      {Number(calculationDetails.rincian_biaya.sb) > 0 && (
+        <div className="flex justify-between">
+          <span>Subtotal Alat / Bahan:</span>
+          <span>{formatCurrency(calculationDetails.rincian_biaya.sb)}</span>
+        </div>
+      )}
+
+      {/* 3. Subtotal Transport (st) */}
+      {Number(calculationDetails.rincian_biaya.st) > 0 && (
+        <div className="flex justify-between">
+          <span>Biaya Transport:</span>
+          <span>{formatCurrency(calculationDetails.rincian_biaya.st)}</span>
+        </div>
+      )}
+
+      {/* 4. Biaya Aplikasi / Admin System (ba) */}
+      {Number(calculationDetails.rincian_biaya.ba) > 0 && (
+        <div className="flex justify-between">
+          <span>Biaya Aplikasi:</span>
+          <span>{formatCurrency(calculationDetails.rincian_biaya.ba)}</span>
+        </div>
+      )}
+
+      {/* 5. PPN (ppn) */}
+      {Number(calculationDetails.rincian_biaya.ppn) > 0 && (
+        <div className="flex justify-between">
+          <span>PPN:</span>
+          <span>{formatCurrency(calculationDetails.rincian_biaya.ppn)}</span>
+        </div>
+      )}
+
+      {/* Garis Pemisah untuk Total Dasar */}
+      <div className="my-1 border-t border-white/10" />
+
+      {/* 6. Total Dasar */}
+      <div className="flex justify-between font-medium text-white">
+        <span>Total dasar:</span>
+        <span>{formatCurrency(calculationDetails.rincian_biaya.total_dasar)}</span>
+      </div>
+
+ {/* 7. Biaya Metode Pembayaran (Font diperbesar jadi lebih besar) */}
+      {calculationDetails.rincian_biaya.biaya_metode_pembayaran !== undefined && (
+        <div className="flex justify-between text-base font-bold text-white">
+          <span className="truncate pr-2">
+            Biaya Metode Pembayaran:
+          </span>
+          <span>
+            {calculationDetails.rincian_biaya.biaya_metode_pembayaran === 0
+              ? "Rp 0"
+              : formatCurrency(calculationDetails.rincian_biaya.biaya_metode_pembayaran)}
+          </span>
+        </div>
+      )}
+    </div>
+  )}
 
               {error && (
                 <div className="mb-4 flex items-start gap-2 rounded-xl border border-red-200/40 bg-red-500/20 p-3 text-xs text-white">
@@ -563,25 +670,27 @@ function PilihMetodePembayaranContent() {
                 </div>
               )}
 
-              <button
+             <button
                 type="button"
                 onClick={handleLanjutkanPembayaran}
                 disabled={
                   isLoading ||
                   isFetching ||
+                  isCalculating ||
                   !!methodError ||
                   !selectedMetode
                 }
                 className={`flex w-full items-center justify-center gap-2 rounded-xl px-4 py-3.5 text-sm font-bold text-white transition sm:text-base ${
                   isLoading ||
                   isFetching ||
+                  isCalculating ||
                   !!methodError ||
                   !selectedMetode
                     ? "cursor-not-allowed border border-white/20 bg-white/30 text-white/70"
                     : "bg-sky-600 shadow-lg hover:bg-sky-700 active:scale-[0.99]"
                 }`}
               >
-                {isLoading ? (
+                {isLoading || isCalculating ? (
                   <>
                     <span className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
                     <span>Memproses...</span>
@@ -590,6 +699,8 @@ function PilihMetodePembayaranContent() {
                   "Bayar"
                 )}
               </button>
+              {/* ========================================================= */}
+
             </div>
           </div>
         </div>
