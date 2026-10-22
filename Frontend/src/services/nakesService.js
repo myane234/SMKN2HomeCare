@@ -581,3 +581,110 @@ export const getDetailRiwayatKunjungan =
       return response.data;
     }
   };
+
+  /* =========================================================
+ * PENGHASILAN NAKES
+ * =======================================================*/
+
+/**
+ * GET /api/nakes/penghasilan/ringkasan
+ * Rekap penghasilan harian, mingguan, dan bulanan.
+ */
+export const getRingkasanPenghasilanNakes = async () => {
+  try {
+    const response = await api.get(
+      "/api/nakes/penghasilan/ringkasan"
+    );
+
+    if (response.data?.success === false) {
+      throw new Error(
+        response.data?.message ||
+          "Gagal mengambil ringkasan penghasilan."
+      );
+    }
+
+    return response.data;
+  } catch (error) {
+    console.error(
+      "Gagal mengambil ringkasan penghasilan nakes:",
+      error
+    );
+
+    throw error;
+  }
+};
+
+/**
+ * GET /api/nakes/penghasilan/riwayat
+ * Parameter:
+ * - page
+ * - per_page
+ * - tanggal_dari
+ * - tanggal_sampai
+ */
+export const getRiwayatPenghasilanNakes = async (
+  params = {}
+) => {
+  try {
+    const response = await api.get(
+      "/api/nakes/penghasilan/riwayat",
+      {
+        params,
+      }
+    );
+
+    if (response.data?.success === false) {
+      throw new Error(
+        response.data?.message ||
+          "Gagal mengambil riwayat penghasilan."
+      );
+    }
+
+    return response.data;
+  } catch (error) {
+    console.error(
+      "Gagal mengambil riwayat penghasilan nakes:",
+      error
+    );
+
+    throw error;
+  }
+};
+
+/**
+ * GET /api/nakes/penghasilan/{booking_code}
+ * Detail penghasilan berdasarkan kode booking.
+ */
+export const getDetailPenghasilanNakes = async (
+  bookingCode
+) => {
+  if (!bookingCode) {
+    throw new Error(
+      "Kode booking tidak ditemukan."
+    );
+  }
+
+  try {
+    const response = await api.get(
+      `/api/nakes/penghasilan/${encodeURIComponent(
+        String(bookingCode)
+      )}`
+    );
+
+    if (response.data?.success === false) {
+      throw new Error(
+        response.data?.message ||
+          "Gagal mengambil detail penghasilan."
+      );
+    }
+
+    return response.data;
+  } catch (error) {
+    console.error(
+      "Gagal mengambil detail penghasilan nakes:",
+      error
+    );
+
+    throw error;
+  }
+};

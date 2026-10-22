@@ -542,6 +542,7 @@ export default function DashboardPage() {
     try {
       await startTindakanBooking(bookingId);
       showToast("success", "Kunjungan berhasil dimulai.");
+      window.dispatchEvent(new CustomEvent("nakes:kunjungan-dimulai"));
       await mutateBookings();
     } catch (error) {
       console.error("Gagal memulai kunjungan:", error);
