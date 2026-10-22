@@ -1,34 +1,61 @@
 "use client";
 
-import React, { useState, useEffect, Suspense } from "react";
+import { useState, useEffect, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { FiArrowLeft, FiAlertCircle } from "react-icons/fi";
+import { FiArrowLeft, FiAlertCircle, FiImage } from "react-icons/fi";
 import { pembayaranService } from "@/services/pembayaranService";
 import { getBiayaTambahanBooking } from "@/services/bookingService";
 import api from "@/services/api";
 
-const FALLBACK_LOGOS = {
-  qris: "/images/payment/qris.png",
-  gopay: "/images/payment/gopay.png",
-  dana: "/images/payment/dana.png",
-  shopeepay: "/images/payment/shopeepay.png",
-  bri: "/images/payment/bri.png",
-  bri_va: "/images/payment/bri.png",
-  bca: "/images/payment/bca.png",
-  bca_va: "/images/payment/bca.png",
-  bni: "/images/payment/bni.png",
-  bni_va: "/images/payment/bni.png",
-  seabanks: "/images/payment/seabank.png",
+const resolvePaymentLogoUrl = (logo) => {
+  const value = String(logo ?? "").trim();
+
+  if (!value) return "";
+  if (/^https?:\/\//i.test(value)) return value;
+
+  const path = value.startsWith("/")
+    ? value
+    : `/storage/${value.replace(/^storage\/+/, "")}`;
+
+  const apiBaseUrl = api?.defaults?.baseURL;
+
+  if (apiBaseUrl && /^https?:\/\//i.test(apiBaseUrl)) {
+    try {
+      return new URL(path, apiBaseUrl).toString();
+    } catch {
+      return path;
+    }
+  }
+
+  return path;
 };
 
-const DEFAULT_METODE_FALLBACK = [
-  { id_metode: "qris", payment_type: "qris", nama_metode: "QRIS", nama_kategori: "QRIS", id_kategori_pembayaran: 1, tipe_potongan: "nominal", nilai_potongan: 0, keterangan: "Scan QR pakai GoPay, OVO, ShopeePay, BCA, dll", logo: null },
-  { id_metode: "gopay", payment_type: "gopay", nama_metode: "GoPay", nama_kategori: "E-Wallet", id_kategori_pembayaran: 2, tipe_potongan: "persen", nilai_potongan: 2, keterangan: "Pembayaran instan via aplikasi GoPay", logo: null },
-  { id_metode: "dana", payment_type: "dana", nama_metode: "DANA", nama_kategori: "E-Wallet", id_kategori_pembayaran: 2, tipe_potongan: "persen", nilai_potongan: 1, keterangan: "Pembayaran instan via aplikasi DANA", logo: null },
-  { id_metode: "shopeepay", payment_type: "shopeepay", nama_metode: "ShopeePay", nama_kategori: "E-Wallet", id_kategori_pembayaran: 2, tipe_potongan: "persen", nilai_potongan: 4, keterangan: "Pembayaran instan via aplikasi ShopeePay", logo: null },
-  { id_metode: "bri_va", payment_type: "bri_va", nama_metode: "BRI Virtual Account", nama_kategori: "Bank Transfer", id_kategori_pembayaran: 3, tipe_potongan: "nominal", nilai_potongan: 4000, keterangan: "Transfer via m-BRI atau ATM BRI", logo: null },
-  { id_metode: "bca_va", payment_type: "bca_va", nama_metode: "BCA Virtual Account", nama_kategori: "Bank Transfer", id_kategori_pembayaran: 3, tipe_potongan: "nominal", nilai_potongan: 4000, keterangan: "Transfer via m-BCA atau ATM BCA", logo: null },
-];
+function PaymentMethodLogo({ logo, alt }) {
+  const src = resolvePaymentLogoUrl(logo);
+  const [failed, setFailed] = useState(false);
+
+  useEffect(() => {
+    setFailed(false);
+  }, [src]);
+
+  return (
+    <div className="flex h-10 w-14 shrink-0 items-center justify-center rounded-lg border border-slate-100 bg-white p-1">
+      {src && !failed ? (
+        <img
+          src={src}
+          alt={alt}
+          className="max-h-full max-w-full object-contain"
+          onError={() => setFailed(true)}
+        />
+      ) : (
+        <FiImage
+          className="h-5 w-5 text-slate-300"
+          aria-label="Logo belum tersedia"
+        />
+      )}
+    </div>
+  );
+}
 
 function PilihMetodePembayaranContent() {
   const router = useRouter();
@@ -42,10 +69,12 @@ function PilihMetodePembayaranContent() {
   const [isCheckingAccess, setIsCheckingAccess] = useState(true);
   const [accessAllowed, setAccessAllowed] = useState(false);
   const [error, setError] = useState("");
+  const [methodError, setMethodError] = useState("");
   const [bookingId, setBookingId] = useState("");
   const [bookingCode, setBookingCode] = useState("");
   const [totalAmount, setTotalAmount] = useState("0");
   const [openCategories, setOpenCategories] = useState({});
+  const [pointBalance, setPointBalance] = useState(0);
 
   const paymentType = searchParams.get("type") || "booking";
   const isBhp = paymentType === "bhp";
@@ -58,10 +87,32 @@ function PilihMetodePembayaranContent() {
         setIsCheckingAccess(true);
         setError("");
 
-        await api.get("/api/profile/me");
+        const profileRes = await api.get("/api/profile/me");
+        const userData =
+          profileRes?.data?.data ?? profileRes?.data ?? {};
 
-        const urlBookingId = searchParams.get("booking_id") || searchParams.get("id_booking") || searchParams.get("id") || searchParams.get("bookingId") || "";
-        const urlBookingCode = searchParams.get("booking_code") || searchParams.get("kode_booking") || "";
+        const availablePoints = Number(
+          userData.points ??
+            userData.point ??
+            userData.saldo_poin ??
+            0
+        );
+
+        setPointBalance(
+          Number.isFinite(availablePoints) ? availablePoints : 0
+        );
+
+        const urlBookingId =
+          searchParams.get("booking_id") ||
+          searchParams.get("id_booking") ||
+          searchParams.get("id") ||
+          searchParams.get("bookingId") ||
+          "";
+
+        const urlBookingCode =
+          searchParams.get("booking_code") ||
+          searchParams.get("kode_booking") ||
+          "";
 
         if (!urlBookingId) {
           router.replace("/booking/aktif");
@@ -74,47 +125,73 @@ function PilihMetodePembayaranContent() {
         if (isBhp) {
           const ref = urlBookingCode || urlBookingId;
           const response = await getBiayaTambahanBooking(ref);
-          const root = response?.data?.data ?? response?.data ?? response ?? {};
+
+          const root =
+            response?.data?.data ??
+            response?.data ??
+            response ??
+            {};
 
           serverAmount = Number(
             root?.nominal ??
-            root?.amount ??
-            root?.total ??
-            root?.nominal_tambahan ??
-            root?.biaya_tambahan_pasien?.nominal ??
-            0
+              root?.amount ??
+              root?.total ??
+              root?.nominal_tambahan ??
+              root?.biaya_tambahan_pasien?.nominal ??
+              0
           );
 
-          serverCode = serverCode || root?.booking_code || root?.kode_booking || "";
-          
+          serverCode =
+            serverCode ||
+            root?.booking_code ||
+            root?.kode_booking ||
+            "";
+
           const status = String(
             root?.status_transaksi ??
-            root?.status_pembayaran ??
-            root?.status ??
-            root?.biaya_tambahan_pasien?.status_transaksi ??
-            ""
+              root?.status_pembayaran ??
+              root?.status ??
+              root?.biaya_tambahan_pasien?.status_transaksi ??
+              ""
           ).toLowerCase();
 
-          if (serverAmount <= 0 || status.includes("lunas") || status.includes("paid") || status.includes("settlement")) {
-            router.replace(`/booking/aktif?id=${encodeURIComponent(urlBookingId)}`);
+          if (
+            serverAmount <= 0 ||
+            status.includes("lunas") ||
+            status.includes("paid") ||
+            status.includes("settlement")
+          ) {
+            router.replace(
+              `/booking/aktif?id=${encodeURIComponent(urlBookingId)}`
+            );
             return;
           }
         } else {
-          const response = await api.get(`/api/booking/${encodeURIComponent(urlBookingId)}/payment-details`);
-          const root = response?.data?.data ?? response?.data ?? {};
+          const response = await api.get(
+            `/api/booking/${encodeURIComponent(urlBookingId)}/payment-details`
+          );
+
+          const root =
+            response?.data?.data ?? response?.data ?? {};
 
           serverAmount = Number(
             root?.jumlah_total ??
-            root?.total ??
-            root?.gross_amount ??
-            root?.amount ??
-            0
+              root?.total ??
+              root?.gross_amount ??
+              root?.amount ??
+              0
           );
 
-          serverCode = serverCode || root?.booking_code || root?.kode_booking || "";
+          serverCode =
+            serverCode ||
+            root?.booking_code ||
+            root?.kode_booking ||
+            "";
 
           if (!serverAmount || serverAmount <= 0) {
-            router.replace(`/booking/aktif?id=${encodeURIComponent(urlBookingId)}`);
+            router.replace(
+              `/booking/aktif?id=${encodeURIComponent(urlBookingId)}`
+            );
             return;
           }
         }
@@ -125,8 +202,8 @@ function PilihMetodePembayaranContent() {
         setBookingCode(String(serverCode || ""));
         setTotalAmount(String(serverAmount));
         setAccessAllowed(true);
-      } catch (err) {
-        console.error("Akses pembayaran ditolak:", err);
+      } catch (error) {
+        console.error("Akses pembayaran ditolak:", error);
         router.replace("/login");
       } finally {
         if (!cancelled) setIsCheckingAccess(false);
@@ -143,197 +220,375 @@ function PilihMetodePembayaranContent() {
   useEffect(() => {
     if (!accessAllowed) return;
 
+    let cancelled = false;
+
     const fetchMetode = async () => {
       try {
         setIsFetching(true);
-        setError("");
+        setMethodError("");
 
-        const resMetode = await pembayaranService.getMetode();
-        const rawData = resMetode?.data || resMetode;
+        const response = await pembayaranService.getMetode();
 
-        let allMethods = Array.isArray(rawData) ? rawData : DEFAULT_METODE_FALLBACK;
-        allMethods = allMethods.filter((m) => m.is_active !== false);
+        const candidates = [
+          response?.data?.data,
+          response?.data,
+          response?.methods,
+          response,
+        ];
 
-        if (allMethods.length === 0) allMethods = DEFAULT_METODE_FALLBACK;
+        const rawData = candidates.find(Array.isArray);
 
-        setMetodeList(allMethods);
-      } catch (err) {
-        console.error("Gagal mengambil metode pembayaran:", err);
-        setMetodeList(DEFAULT_METODE_FALLBACK);
+        if (!rawData) {
+          throw new Error(
+            "Format response metode pembayaran tidak sesuai."
+          );
+        }
+
+        const activeMethods = rawData.filter(
+          (method) =>
+            method &&
+            method.is_active !== false &&
+            method.is_active !== 0 &&
+            method.is_active !== "0"
+        );
+
+        if (cancelled) return;
+
+        setMetodeList(activeMethods);
+
+        if (activeMethods.length === 0) {
+          setMethodError(
+            "Belum ada metode pembayaran aktif yang tersedia."
+          );
+        }
+      } catch (error) {
+        console.error("Gagal mengambil metode pembayaran:", error);
+
+        if (!cancelled) {
+          setMetodeList([]);
+          setMethodError(
+            "Metode pembayaran gagal dimuat. Periksa koneksi API lalu muat ulang halaman."
+          );
+        }
       } finally {
-        setIsFetching(false);
+        if (!cancelled) setIsFetching(false);
       }
     };
 
     fetchMetode();
+
+    return () => {
+      cancelled = true;
+    };
   }, [accessAllowed]);
 
-  const groupByCategory = (list) => list.reduce((acc, item) => {
-    const catName = item.nama_kategori || item.kategori?.nama_kategori || item.kategori?.nama || "Lainnya";
-    if (!acc[catName]) acc[catName] = [];
-    acc[catName].push(item);
-    return acc;
-  }, {});
+  const groupByCategory = (list) =>
+    list.reduce((acc, item) => {
+      const categoryName =
+        item.nama_kategori ||
+        item.kategori?.nama_kategori ||
+        item.kategori?.nama ||
+        "Lainnya";
 
-  const toggleCategory = (catName) => {
-    setOpenCategories((prev) => ({ ...prev, [catName]: !prev[catName] }));
+      if (!acc[categoryName]) acc[categoryName] = [];
+      acc[categoryName].push(item);
+
+      return acc;
+    }, {});
+
+  const toggleCategory = (categoryName) => {
+    setOpenCategories((prev) => ({
+      ...prev,
+      [categoryName]: !prev[categoryName],
+    }));
   };
 
-  const handlePilihMetode = (metodeObj) => {
-    const mId = metodeObj.id_metode ?? metodeObj.id ?? metodeObj.payment_type;
-    setSelectedMetode(metodeObj);
-    setSelectedMethodId(mId);
+  const handlePilihMetode = (metode) => {
+    const methodId =
+      metode.id_metode ?? metode.id ?? metode.payment_type;
+
+    setSelectedMetode(metode);
+    setSelectedMethodId(methodId);
     setError("");
   };
 
   const handleLanjutkanPembayaran = () => {
-    if (!accessAllowed) return setError("Akses pembayaran tidak valid.");
-    if (!selectedMetode) return setError("Silakan pilih metode pembayaran terlebih dahulu.");
-    if (!bookingId) return setError("Booking ID tidak ditemukan.");
-    if (!Number(totalAmount) || Number(totalAmount) <= 0) return setError("Tagihan pembayaran tidak tersedia.");
+    if (!accessAllowed) {
+      setError("Akses pembayaran tidak valid.");
+      return;
+    }
+
+    if (!selectedMetode) {
+      setError("Silakan pilih metode pembayaran terlebih dahulu.");
+      return;
+    }
+
+    if (!selectedMetode.payment_type) {
+      setError(
+        "Kode metode pembayaran tidak tersedia dari API."
+      );
+      return;
+    }
+
+    if (!bookingId) {
+      setError("Booking ID tidak ditemukan.");
+      return;
+    }
+
+    if (!Number(totalAmount) || Number(totalAmount) <= 0) {
+      setError("Tagihan pembayaran tidak tersedia.");
+      return;
+    }
 
     setIsLoading(true);
 
-    const paymentMethod = selectedMetode.payment_type || selectedMetode.id_metode || selectedMetode.id || "qris";
+    const paymentMethod = selectedMetode.payment_type;
     const typeParam = isBhp ? "&type=bhp" : "";
-    const codeParam = bookingCode ? `&booking_code=${encodeURIComponent(bookingCode)}` : "";
+    const codeParam = bookingCode
+      ? `&booking_code=${encodeURIComponent(bookingCode)}`
+      : "";
 
-    router.push(`/pembayaran/payment?metode=${encodeURIComponent(paymentMethod)}&booking_id=${encodeURIComponent(bookingId)}${codeParam}&total=${encodeURIComponent(totalAmount)}${typeParam}`);
+    const pointParam =
+      pointBalance > 0
+        ? `&use_points=true&points_to_use=${encodeURIComponent(pointBalance)}`
+        : "&use_points=false";
+
+    router.push(
+      `/pembayaran/payment?metode=${encodeURIComponent(paymentMethod)}&booking_id=${encodeURIComponent(bookingId)}${codeParam}&total=${encodeURIComponent(totalAmount)}${typeParam}${pointParam}`
+    );
   };
 
   const formatCurrency = (value) => {
-    const num = parseInt(value, 10);
-    if (isNaN(num) || num <= 0) return "Rp 0";
+    const num = Number(value);
+
+    if (!Number.isFinite(num) || num <= 0) return "Rp 0";
+
     return `Rp ${num.toLocaleString("id-ID")}`;
-  };
-
-  const getLogoUrl = (metode) => {
-    if (metode.logo) {
-      if (metode.logo.startsWith("http://") || metode.logo.startsWith("https://") || metode.logo.startsWith("/")) return metode.logo;
-      return `/storage/${metode.logo}`;
-    }
-
-    const key = (metode.payment_type || metode.nama_metode || metode.id || "").toLowerCase();
-    for (const [k, url] of Object.entries(FALLBACK_LOGOS)) {
-      if (key.includes(k)) return url;
-    }
-
-    return "/images/payment/qris.png";
   };
 
   const getPotonganText = (metode) => {
     if (metode.keterangan) return metode.keterangan;
 
     const nilai = Number(metode.nilai_potongan);
-    if (!nilai || nilai <= 0) return "Pembayaran instan & praktis";
+
+    if (!Number.isFinite(nilai) || nilai <= 0) return "";
 
     return metode.tipe_potongan === "persen"
-      ? `Biaya / Potongan: ${nilai}%`
-      : `Biaya / Potongan: Rp ${nilai.toLocaleString("id-ID")}`;
+      ? `Admin: ${nilai}%`
+      : `Admin: Rp ${nilai.toLocaleString("id-ID")}`;
   };
 
   const groupedMetode = groupByCategory(metodeList);
 
   if (isCheckingAccess || !accessAllowed) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-slate-50">
+      <div className="flex min-h-screen items-center justify-center bg-slate-50">
         <div className="text-center">
-          <div className="mx-auto h-10 w-10 animate-spin rounded-full border-b-2 border-sky-600"></div>
-          <p className="mt-4 text-sm text-slate-500">Memeriksa akses pembayaran...</p>
+          <div className="mx-auto h-10 w-10 animate-spin rounded-full border-b-2 border-sky-600" />
+          <p className="mt-4 text-sm text-slate-500">
+            Memeriksa akses pembayaran...
+          </p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 font-sans text-slate-800 pb-12">
-      <div className="bg-white border-b border-slate-200 sticky top-0 z-20 shadow-xs">
-        <div className="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+    <div className="min-h-screen bg-slate-50 pb-12 font-sans text-slate-800">
+      <div className="sticky top-0 z-20 border-b border-slate-200 bg-white shadow-sm">
+        <div className="mx-auto w-full max-w-7xl px-4 py-4 sm:px-6 lg:px-8">
           <div className="flex items-center gap-3">
-            <button type="button" onClick={() => router.back()} className="p-2 hover:bg-slate-100 rounded-full transition">
-              <FiArrowLeft className="w-5 h-5 text-slate-600" />
+            <button
+              type="button"
+              onClick={() => router.back()}
+              className="rounded-full p-2 transition hover:bg-slate-100"
+            >
+              <FiArrowLeft className="h-5 w-5 text-slate-600" />
             </button>
-            <h1 className="text-lg sm:text-xl font-bold text-slate-800">Pilih Metode Pembayaran</h1>
+
+            <h1 className="text-lg font-bold text-slate-800 sm:text-xl">
+              Pilih Metode Pembayaran
+            </h1>
           </div>
         </div>
       </div>
 
-      <div className="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 lg:py-8">
-        <div className="flex flex-col-reverse lg:flex-row gap-8 items-start justify-between">
+      <div className="mx-auto w-full max-w-7xl px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
+        <div className="flex flex-col-reverse items-start justify-between gap-8 lg:flex-row">
           <div className="w-full lg:flex-1">
             <div className="mb-4">
-              <p className="text-xs font-bold uppercase tracking-wider text-slate-400">Pilih Pembayaran</p>
+              <p className="text-xs font-bold uppercase tracking-wider text-slate-400">
+                Pilih Pembayaran
+              </p>
             </div>
 
             {isFetching ? (
-              <div className="py-12 text-center bg-white rounded-2xl border border-slate-200 shadow-xs">
-                <div className="mx-auto h-8 w-8 animate-spin rounded-full border-b-2 border-sky-600"></div>
-                <p className="mt-3 text-sm text-slate-500">Memuat metode pembayaran...</p>
+              <div className="rounded-2xl border border-slate-200 bg-white py-12 text-center shadow-sm">
+                <div className="mx-auto h-8 w-8 animate-spin rounded-full border-b-2 border-sky-600" />
+                <p className="mt-3 text-sm text-slate-500">
+                  Memuat metode pembayaran...
+                </p>
+              </div>
+            ) : methodError ? (
+              <div
+                role="alert"
+                className="rounded-2xl border border-slate-200 bg-white px-5 py-10 text-center text-sm text-slate-500 shadow-sm"
+              >
+                <FiAlertCircle className="mx-auto mb-3 h-6 w-6 text-slate-400" />
+                {methodError}
               </div>
             ) : (
               <div className="space-y-4">
-                {Object.entries(groupedMetode).map(([categoryName, items]) => {
-                  const isOpen = !!openCategories[categoryName];
+                {Object.entries(groupedMetode).map(
+                  ([categoryName, items]) => {
+                    const isOpen = !!openCategories[categoryName];
 
-                  return (
-                    <div key={categoryName} className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-xs">
-                      <button type="button" onClick={() => toggleCategory(categoryName)} className="w-full flex items-center justify-between px-5 py-4 bg-white hover:bg-slate-50 transition text-left">
-                        <span className="font-bold text-slate-800 text-base">{categoryName}</span>
-                        <div className={`transform transition-transform duration-200 text-slate-400 ${isOpen ? "rotate-180" : ""}`}>
-                          <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                          </svg>
-                        </div>
-                      </button>
+                    return (
+                      <div
+                        key={categoryName}
+                        className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm"
+                      >
+                        <button
+                          type="button"
+                          onClick={() => toggleCategory(categoryName)}
+                          className="flex w-full items-center justify-between bg-white px-5 py-4 text-left transition hover:bg-slate-50"
+                        >
+                          <span className="text-base font-bold text-slate-800">
+                            {categoryName}
+                          </span>
 
-                      {isOpen && (
-                        <div className="border-t border-slate-100 divide-y divide-slate-100 bg-slate-50/40">
-                          {items.map((metode) => {
-                            const mId = metode.id_metode ?? metode.id ?? metode.payment_type;
-                            const isSelected = selectedMethodId !== null && String(selectedMethodId) === String(mId);
+                          <div
+                            className={`transform text-slate-400 transition-transform duration-200 ${
+                              isOpen ? "rotate-180" : ""
+                            }`}
+                          >
+                            <svg
+                              className="h-5 w-5"
+                              fill="none"
+                              viewBox="0 0 24 24"
+                              stroke="currentColor"
+                            >
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth={2}
+                                d="M19 9l-7 7-7-7"
+                              />
+                            </svg>
+                          </div>
+                        </button>
 
-                            return (
-                              <div key={String(mId)} onClick={() => handlePilihMetode(metode)} className={`flex items-center justify-between p-4 cursor-pointer transition-all duration-150 ${isSelected ? "bg-sky-50/80" : "hover:bg-slate-100/60 bg-white"}`}>
-                                <div className="flex items-center gap-4 min-w-0 pr-2">
-                                  <div className="w-14 h-10 flex items-center justify-center bg-white p-1 rounded-lg border border-slate-100 shrink-0">
-                                    <img src={getLogoUrl(metode)} alt={metode.nama_metode || metode.nama || "Metode Pembayaran"} className="max-w-full max-h-full object-contain" />
+                        {isOpen && (
+                          <div className="divide-y divide-slate-100 border-t border-slate-100 bg-slate-50/40">
+                            {items.map((metode) => {
+                              const methodId =
+                                metode.id_metode ??
+                                metode.id ??
+                                metode.payment_type;
+
+                              const isSelected =
+                                selectedMethodId !== null &&
+                                String(selectedMethodId) ===
+                                  String(methodId);
+
+                              return (
+                                <button
+                                  type="button"
+                                  key={String(methodId)}
+                                  onClick={() =>
+                                    handlePilihMetode(metode)
+                                  }
+                                  className={`flex w-full items-center justify-between p-4 text-left transition ${
+                                    isSelected
+                                      ? "bg-sky-50/80"
+                                      : "bg-white hover:bg-slate-100/60"
+                                  }`}
+                                >
+                                  <div className="flex min-w-0 items-center gap-4 pr-2">
+                                    <PaymentMethodLogo
+                                      logo={metode.logo}
+                                      alt={
+                                        metode.nama_metode ||
+                                        metode.nama ||
+                                        "Metode Pembayaran"
+                                      }
+                                    />
+
+                                    <div className="min-w-0">
+                                      <p className="text-sm font-bold leading-snug text-slate-800">
+                                        {metode.nama_metode ||
+                                          metode.nama}
+                                      </p>
+
+                                      {getPotonganText(metode) && (
+                                        <p className="mt-0.5 truncate text-xs text-slate-500">
+                                          {getPotonganText(metode)}
+                                        </p>
+                                      )}
+                                    </div>
                                   </div>
 
-                                  <div className="text-left min-w-0">
-                                    <p className="text-sm font-bold text-slate-800 leading-snug">{metode.nama_metode || metode.nama}</p>
-                                    <p className="text-xs text-slate-500 truncate mt-0.5">{getPotonganText(metode)}</p>
+                                  <div className="ml-3 flex h-5 w-5 shrink-0 items-center justify-center rounded-full border">
+                                    {isSelected && (
+                                      <div className="h-2 w-2 rounded-full bg-sky-500" />
+                                    )}
                                   </div>
-                                </div>
-
-                                <div className="w-5 h-5 rounded-full border flex items-center justify-center shrink-0 ml-3">
-                                  {isSelected && <div className="w-2 h-2 rounded-full bg-sky-500" />}
-                                </div>
-                              </div>
-                            );
-                          })}
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  }
+                )}
               </div>
             )}
           </div>
 
-          <div className="w-full lg:w-[400px] shrink-0 lg:sticky lg:top-24">
-            <div className="bg-gradient-to-r from-sky-400 to-blue-500 rounded-2xl p-6 sm:p-8 shadow-md text-white">
-              <p className="text-xs sm:text-sm text-sky-50 font-medium tracking-wide">{isBhp ? "Total BHP Tambahan" : "Total Pembayaran"}</p>
-              <p className="text-2xl sm:text-3xl font-bold mt-1 mb-6">{formatCurrency(totalAmount)}</p>
+          <div className="w-full shrink-0 lg:sticky lg:top-24 lg:w-[400px]">
+            <div className="rounded-2xl bg-gradient-to-r from-sky-400 to-blue-500 p-6 text-white shadow-md sm:p-8">
+              <p className="text-xs font-medium tracking-wide text-sky-50 sm:text-sm">
+                {isBhp ? "Total BHP Tambahan" : "Total Pembayaran"}
+              </p>
+
+              <p className="mb-6 mt-1 text-2xl font-bold sm:text-3xl">
+                {formatCurrency(totalAmount)}
+              </p>
 
               {error && (
-                <div className="mb-4 p-3 bg-red-500/20 border border-red-200/40 rounded-xl text-white text-xs flex items-start gap-2">
-                  <FiAlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
+                <div className="mb-4 flex items-start gap-2 rounded-xl border border-red-200/40 bg-red-500/20 p-3 text-xs text-white">
+                  <FiAlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
                   <span>{error}</span>
                 </div>
               )}
 
-              <button type="button" onClick={handleLanjutkanPembayaran} disabled={isLoading || isFetching || !selectedMetode} className={`w-full py-3.5 px-4 text-sm sm:text-base font-bold text-white rounded-xl transition-all flex items-center justify-center gap-2 ${isLoading || isFetching || !selectedMetode ? "bg-white/30 text-white/70 cursor-not-allowed border border-white/20" : "bg-sky-600 hover:bg-sky-700 shadow-lg active:scale-[0.99]"}`}>
-                {isLoading ? <><span className="animate-spin w-4 h-4 border-2 border-white border-t-transparent rounded-full"></span><span>Memproses...</span></> : "Bayar"}
+              <button
+                type="button"
+                onClick={handleLanjutkanPembayaran}
+                disabled={
+                  isLoading ||
+                  isFetching ||
+                  !!methodError ||
+                  !selectedMetode
+                }
+                className={`flex w-full items-center justify-center gap-2 rounded-xl px-4 py-3.5 text-sm font-bold text-white transition sm:text-base ${
+                  isLoading ||
+                  isFetching ||
+                  !!methodError ||
+                  !selectedMetode
+                    ? "cursor-not-allowed border border-white/20 bg-white/30 text-white/70"
+                    : "bg-sky-600 shadow-lg hover:bg-sky-700 active:scale-[0.99]"
+                }`}
+              >
+                {isLoading ? (
+                  <>
+                    <span className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                    <span>Memproses...</span>
+                  </>
+                ) : (
+                  "Bayar"
+                )}
               </button>
             </div>
           </div>
@@ -345,11 +600,13 @@ function PilihMetodePembayaranContent() {
 
 export default function PilihMetodePembayaranPage() {
   return (
-    <Suspense fallback={
-      <div className="min-h-screen flex items-center justify-center bg-slate-50">
-        <div className="mx-auto h-10 w-10 animate-spin rounded-full border-b-2 border-sky-600"></div>
-      </div>
-    }>
+    <Suspense
+      fallback={
+        <div className="flex min-h-screen items-center justify-center bg-slate-50">
+          <div className="mx-auto h-10 w-10 animate-spin rounded-full border-b-2 border-sky-600" />
+        </div>
+      }
+    >
       <PilihMetodePembayaranContent />
     </Suspense>
   );

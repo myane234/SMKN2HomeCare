@@ -19,6 +19,12 @@ const MapPicker = dynamic(() => import("@/components/MapPicker"), {
   ),
 });
 
+// Ubah nilai apapun (string/number) jadi angka valid, atau null
+const toCoord = (v) => {
+  const n = typeof v === "string" ? parseFloat(v) : v;
+  return Number.isFinite(n) ? n : null;
+};
+
 // ─── Google Button ───────────────────────────────────────────────────────────
 function GoogleRegisterButton({ onSuccess, onError, loading, isConfigured }) {
   const login = useGoogleLogin({
@@ -111,8 +117,19 @@ export default function DaftarPage() {
     clearFieldError(name);
   };
 
-  const handleMapChange = (lat, lng) => {
+  // Terima (lat, lng) maupun { lat, lng } / [lat, lng] dari MapPicker
+  const handleMapChange = (a, b) => {
+    const isObj = typeof a === "object" && a !== null;
+    const rawLat = isObj ? (a.lat ?? a.latitude ?? a[0]) : a;
+    const rawLng = isObj ? (a.lng ?? a.lon ?? a.longitude ?? a[1]) : b;
+    const lat = toCoord(rawLat);
+    const lng = toCoord(rawLng);
+    if (lat == null || lng == null) return;
+
     setForm((prev) => ({ ...prev, latitude: lat, longitude: lng }));
+    clearFieldError("latitude");
+    clearFieldError("longitude");
+    if (errorMsg) setErrorMsg("");
 
     if (!isEditingMap) return;
 
@@ -126,6 +143,7 @@ export default function DaftarPage() {
       const address = await reverseGeocode(lat, lng);
       if (address) {
         setForm((prev) => ({ ...prev, alamat_utama: address }));
+        clearFieldError("alamat_utama");
       }
       setIsFetchingAddress(false);
     }, 500);
@@ -158,8 +176,8 @@ export default function DaftarPage() {
   };
 
   const handleSelectSearchResult = (result) => {
-    const lat = parseFloat(result.lat);
-    const lng = parseFloat(result.lon);
+    const lat = toCoord(result.lat);
+    const lng = toCoord(result.lon);
 
     setForm((prev) => ({
       ...prev,
@@ -167,6 +185,9 @@ export default function DaftarPage() {
       longitude: lng,
       alamat_utama: result.display_name,
     }));
+    clearFieldError("latitude");
+    clearFieldError("longitude");
+    clearFieldError("alamat_utama");
 
     setSearchResults([]);
     setShowSearchResults(false);
@@ -189,6 +210,11 @@ export default function DaftarPage() {
 
     if (!form.alamat_utama.trim()) {
       errors.alamat_utama = "Alamat utama wajib diisi.";
+    }
+
+    if (toCoord(form.latitude) == null || toCoord(form.longitude) == null) {
+      errors.latitude =
+        "Titik lokasi belum dipilih. Pilih alamat dari hasil pencarian atau geser pin di peta.";
     }
 
     if (!form.email.trim()) {
@@ -229,8 +255,8 @@ export default function DaftarPage() {
         golongan_darah: form.golongan_darah || null,
         jenis_kelamin: form.jenis_kelamin,
         alamat_utama: form.alamat_utama,
-        latitude: form.latitude,
-        longitude: form.longitude,
+        latitude: toCoord(form.latitude),
+        longitude: toCoord(form.longitude),
       });
 
       setSuccessMsg("Registrasi berhasil! Mengalihkan ke halaman masuk...");
@@ -484,14 +510,19 @@ export default function DaftarPage() {
               {/* Peta */}
               <div className="mt-3 overflow-hidden rounded-xl border border-gray-200">
                 <MapPicker
-                  lat={form.latitude || -6.2088}
-                  lng={form.longitude || 106.8456}
+                  lat={toCoord(form.latitude) ?? -6.2088}
+                  lng={toCoord(form.longitude) ?? 106.8456}
                   onChange={(newLat, newLng) => handleMapChange(newLat, newLng)}
                 />
               </div>
 
               {isFetchingAddress && (
                 <p className="mt-1 text-xs text-indigo-500">Mengambil alamat dari titik peta...</p>
+              )}
+              {(fieldErrors.latitude || fieldErrors.longitude) && (
+                <p className="mt-1.5 text-xs font-medium text-red-600">
+                  {fieldErrors.latitude || fieldErrors.longitude}
+                </p>
               )}
               {fieldErrors.alamat_utama && (
                 <p className="mt-1.5 text-xs font-medium text-red-600">{fieldErrors.alamat_utama}</p>

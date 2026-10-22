@@ -1,4 +1,4 @@
-﻿import { NextResponse } from 'next/server';
+import { NextResponse } from 'next/server';
 
 // Protected routes that require authentication
 const PROTECTED_ROUTES = [
@@ -6,7 +6,7 @@ const PROTECTED_ROUTES = [
   '/booking',
   '/complete-profile',
   '/pembayaran',
-  '/nakes/dashboard',
+  '/nakes',
 ];
 
 export function proxy(request) {
@@ -49,6 +49,6 @@ export const config = {
     '/booking/:path*',
     '/complete-profile/:path*',
     '/pembayaran/:path*',
-    '/nakes/dashboard/:path*',
+    '/nakes/:path*',
   ],
 };

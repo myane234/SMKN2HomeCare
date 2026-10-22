@@ -205,6 +205,8 @@ const handleDelete = async (id) => {
             <tr className="bg-slate-50 text-slate-600 text-xs uppercase tracking-wider border-b border-slate-200">
               <th className="p-4 w-16 text-center">No</th>
               <th className="p-4">Jenjang Pendidikan</th>
+              <th className="p-4 whitespace-nowrap">Created At</th>
+                <th className="p-4 whitespace-nowrap">Created By</th>
               <th className="p-4 whitespace-nowrap">Updated At</th>
               <th className="p-4">Updated By</th>
               <th className="p-4 whitespace-nowrap">Deleted At</th>
@@ -226,6 +228,14 @@ const handleDelete = async (id) => {
                   <tr key={itemId || index} className="hover:bg-slate-50/50">
                     <td className="p-4 text-center font-medium text-slate-500">{absoluteIndex}</td>
                     <td className="p-4 font-semibold text-slate-800">{item.nama_pendidikan}</td>
+                    <td className="p-4 text-xs text-slate-500 whitespace-nowrap">
+                      {item.created_at
+                        ? new Date(item.created_at).toLocaleString('id-ID', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })
+                        : '—'}
+                    </td>
+                    <td className="p-4 text-xs text-slate-500">
+                      {item.created_by && isNaN(item.created_by) ? item.created_by : '—'}
+                    </td>
                     <td className="p-4 text-xs text-slate-500 whitespace-nowrap">
                       {item.updated_at
                         ? new Date(item.updated_at).toLocaleString('id-ID', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })

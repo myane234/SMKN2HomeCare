@@ -274,6 +274,8 @@ const handleDelete = async (item) => {
               <th className="p-4 w-16 text-center">No</th>
               <th className="p-4">Nama Universitas</th>
               <th className="p-4 w-32">Status</th>
+              <th className="p-4 whitespace-nowrap">Created At</th>
+              <th className="p-4">Created By</th>
               <th className="p-4 whitespace-nowrap">Updated At</th>
               <th className="p-4">Updated By</th>
               <th className="p-4 whitespace-nowrap">Deleted At</th>
@@ -284,7 +286,7 @@ const handleDelete = async (item) => {
           <tbody className="divide-y divide-slate-100 text-sm">
             {currentItems.length === 0 ? (
               <tr>
-                <td colSpan="8" className="p-8 text-center text-slate-400">Tidak ada data universitas ditemukan.</td>
+                <td colSpan="10" className="p-8 text-center text-slate-400">Tidak ada data universitas ditemukan.</td>
               </tr>
             ) : (
               currentItems.map((item, index) => {
@@ -301,6 +303,14 @@ const handleDelete = async (item) => {
                       }`}>
                         {item.is_active ? 'Aktif' : 'Nonaktif'}
                       </span>
+                    </td>
+                    <td className="p-4 text-xs text-slate-500 whitespace-nowrap">
+                      {item.created_at
+                        ? new Date(item.created_at).toLocaleString('id-ID', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })
+                        : '—'}
+                    </td>
+                    <td className="p-4 text-xs text-slate-500">
+                      {item.created_by && isNaN(item.created_by) ? item.created_by : (item.created_by || item.created_by_name || item.creator || '—')}
                     </td>
                     <td className="p-4 text-xs text-slate-500 whitespace-nowrap">
                       {item.updated_at

@@ -543,7 +543,7 @@ export default function DetailTransaksiPage({ params }) {
 
                   <div className="flex justify-between text-gray-600">
                     <span>
-                      BHP Layanan
+                      Biaya Perlengkapan Medis
                     </span>
 
                     <span>
@@ -557,7 +557,7 @@ export default function DetailTransaksiPage({ params }) {
                     <div className="p-3 bg-amber-50 rounded-lg border border-amber-200/80 space-y-2 my-1">
                       <div className="flex justify-between text-amber-900 font-semibold text-xs">
                         <span>
-                          Tambahan BHP oleh Nakes
+                          Biaya Tambahan Perlengkapan Medis
                         </span>
 
                         <span>
@@ -569,7 +569,7 @@ export default function DetailTransaksiPage({ params }) {
 
                       {isLoadingBhp ? (
                         <p className="text-[11px] text-amber-700">
-                          Memuat rincian BHP...
+                          Memuat rincian perlengkapan medis...
                         </p>
                       ) : bhpState.items.filter(
                           (item) =>
@@ -614,7 +614,7 @@ export default function DetailTransaksiPage({ params }) {
                                   >
                                     <span>
                                       {item?.nama_bhp ||
-                                        "BHP"}{" "}
+                                        "Perlengkapan Medis"}{" "}
                                       (+
                                       {
                                         qtyTambahan
@@ -634,14 +634,14 @@ export default function DetailTransaksiPage({ params }) {
                         </div>
                       ) : (
                         <p className="text-[11px] text-amber-700">
-                          Rincian item BHP tambahan tidak tersedia.
+                          Rincian item perlengkapan medis tambahan tidak tersedia.
                         </p>
                       )}
                     </div>
                   ) : (
                     <div className="flex justify-between text-gray-500">
                       <span>
-                        BHP Tambahan
+                        Biaya Tambahan Perlengkapan Medis
                       </span>
 
                       <span>

@@ -94,6 +94,8 @@ function KategoriTable({
                 <tr className="bg-slate-50 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
                   <th className="border-b border-slate-200 px-4 py-3 text-center w-14">#</th>
                   <th className="border-b border-slate-200 px-4 py-3 text-left">Nama Kategori</th>
+                  <th className="border-b border-slate-200 px-4 py-3 whitespace-nowrap">Created At</th>
+                  <th className="border-b border-slate-200 px-4 py-3">Created By</th>
                   <th className="border-b border-slate-200 px-4 py-3 whitespace-nowrap">Updated At</th>
                   <th className="border-b border-slate-200 px-4 py-3">Updated By</th>
                   <th className="border-b border-slate-200 px-4 py-3 whitespace-nowrap">Deleted At</th>
@@ -125,7 +127,16 @@ function KategoriTable({
                           </div>
                         </div>
                       </td>
-                      <td className="border-b border-slate-200 px-4 py-3.5 text-xs text-slate-500 whitespace-nowrap">
+
+                      <td className="px-4 py-3 text-xs text-slate-500 whitespace-nowrap">
+                        {item.created_at
+                          ? new Date(item.created_at).toLocaleString('id-ID', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })
+                          : '—'}
+                      </td>
+                      <td className="px-4 py-3 text-xs text-slate-500">
+                        {item.created_by ?? '—'}
+                      </td>
+                        <td className="border-b border-slate-200 px-4 py-3.5 text-xs text-slate-500 whitespace-nowrap">
                         {item.updated_at
                           ? new Date(item.updated_at).toLocaleString('id-ID', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })
                           : '—'}
