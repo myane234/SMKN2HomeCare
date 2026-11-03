@@ -33,4 +33,17 @@ export const pembayaranService = {
       throw error;
     }
   },
+
+  kalkulasiHarga: async (dataPayload) => {
+    try {
+      const response = await api.post("/api/booking/kalkulasi-harga", dataPayload);
+      return response.data;
+    } catch (error) {
+      console.error(
+        "Gagal melakukan kalkulasi harga:",
+        error?.message || error
+      );
+      throw error;
+    }
+  },
 };
