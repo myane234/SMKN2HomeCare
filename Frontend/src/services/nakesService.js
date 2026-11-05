@@ -688,3 +688,87 @@ export const getDetailPenghasilanNakes = async (
     throw error;
   }
 };
+
+/**
+ * Saldo nakes
+ * 
+ */
+export const getSaldoNakes = async () => {
+  const response = await api.get("/api/nakes/saldo");
+  return response.data;
+};
+
+export const requestWithdrawNakes = async (data) => {
+  const response = await api.post("/api/nakes/withdraw", data);
+  return response.data;
+};
+
+/* =========================================================
+ * RIWAYAT PENARIKAN SALDO NAKES
+ * =======================================================*/
+
+/**
+ * GET /api/nakes/withdraw/riwayat
+ */
+export const getRiwayatWithdrawNakes = async (params = {}) => {
+  try {
+    const response = await api.get(
+      "/api/nakes/withdraw/riwayat",
+      { params }
+    );
+
+    if (response.data?.success === false) {
+      throw new Error(
+        response.data?.message ||
+          "Gagal mengambil riwayat penarikan."
+      );
+    }
+
+    return response.data;
+  } catch (error) {
+    console.error(
+      "Gagal mengambil riwayat penarikan nakes:",
+      error
+    );
+
+    throw error;
+  }
+};
+
+/**
+ * GET /api/nakes/withdraw/status
+ */
+export const getDetailWithdrawNakes = async (referenceNo) => {
+  if (!referenceNo) {
+    throw new Error(
+      "Nomor referensi penarikan tidak ditemukan."
+    );
+  }
+
+  try {
+    const response = await api.get(
+      "/api/nakes/withdraw/status",
+      {
+        params: {
+          reference_no: referenceNo,
+        },
+      }
+    );
+
+    if (response.data?.success === false) {
+      throw new Error(
+        response.data?.message ||
+          "Gagal mengambil detail penarikan."
+      );
+    }
+
+    return response.data;
+  } catch (error) {
+    console.error(
+      "Gagal mengambil detail penarikan nakes:",
+      error
+    );
+
+    throw error;
+  }
+};
