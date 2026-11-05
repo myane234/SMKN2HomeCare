@@ -688,3 +688,17 @@ export const getDetailPenghasilanNakes = async (
     throw error;
   }
 };
+
+/**
+ * Saldo nakes
+ * 
+ */
+export const getSaldoNakes = async () => {
+  const response = await api.get("/api/nakes/saldo");
+  return response.data;
+};
+
+export const requestWithdrawNakes = async (data) => {
+  const response = await api.post("/api/nakes/withdraw", data);
+  return response.data;
+};
