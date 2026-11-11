@@ -22,11 +22,14 @@ import PageHubungiKami from "./pages/PageHubungiKami";
 import PageNakesRequest from "./pages/admin/RegisterNakes/PageNakesRequest";
 import PageNakesRequestDetail from "./pages/admin/RegisterNakes/PageNakesRequestDetail";
 import PageOperasionalNakes from "./pages/admin/PageOperasionalNakes";
+import TambahNakes from "./pages/admin/TambahNakes";
 import PageBooking, { PageBookingDetail } from "./pages/admin/PageBooking";
 import AdminLayout from "./components/AdminLayout";
 import ProtectedRoute from "./components/ProtectedRoute";
 import KelolaAdmin from "./pages/KelolaAdmin";
 import KelolaTierAdmin from "./pages/KelolaTierAdmin";
+import PointSetting from "./pages/PagePointSettings"; 
+import PointHistory from "./pages/PagePointHistory";
 import DataUser from "./pages/admin/AdminUser";
 import DataBarang from "./pages/admin/AdminMasterBarang";
 import DataMasterTarif from "./pages/admin/AdminMasterTarif";
@@ -42,12 +45,16 @@ import AdminMasterKomponenTarif from "./pages/admin/AdminMasterKomponenTarif";
 import AdminMasterTarifTransport from "./pages/admin/AdminMasterTarifTransport";
 import AdminMasterKecamatan from "./pages/admin/AdminMasterKecamatan";
 import PageNotificationTemplates from "./pages/PageNotificationTemplates";
+import PageManajemenEmail from "./pages/PageEmailManagement";
 import PageWebSetting from "./pages/PageWebSetting";
 import PageAktivitasLog from "./pages/PageAktivitasLog";
 import PageSyaratKetentuanPasien from "./pages/PageSyaratKetentuanPasien";
 import PageSyaratKetentuanNakes from "./pages/PageSyaratKetentuanNakes";
 import PageStatistikArtikel from "./pages/PageStatistikArtikel";
 import PageLaporan from "./pages/PageLaporan";
+import PageLaporanTransaksi from "./pages/PageLaporanTransaksi";
+import PageLaporanBooking from "./pages/PageLaporanBooking";
+import PageLaporanNakes from "./pages/PageLaporanNakes";
 import PageProfileAdmin from "./pages/PageProfileAdmin";
 import AdminMasterPendidikan from "./pages/admin/AdminMasterPendidikan"; 
 import AdminMasterUniversitas from "./pages/admin/AdminMasterUniversitas";
@@ -244,6 +251,14 @@ function App() {
           }
         />
         <Route
+          path="/nakes/pendaftaran"
+          element={
+            <ProtectedRoute requiredPath="/nakes/pendaftaran">
+              <TambahNakes />
+            </ProtectedRoute>
+          }
+        />
+        <Route
           path="/booking"
           element={
             <ProtectedRoute requiredPath="/booking">
@@ -273,6 +288,22 @@ function App() {
           element={
             <ProtectedRoute requiredPath="/chat-rooms">
               <AdminChatDetail />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/point-settings"
+          element={
+            <ProtectedRoute requiredPath="/point-settings">
+              <PointSetting />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/point-history"
+          element={
+            <ProtectedRoute requiredPath="/point-history">
+              <PointHistory />
             </ProtectedRoute>
           }
         />
@@ -307,6 +338,14 @@ function App() {
           element={
             <ProtectedRoute requiredPath="/notification-templates">
               <PageNotificationTemplates />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/manajemen-email"
+          element={
+            <ProtectedRoute requiredPath="/manajemen-email">
+              <PageManajemenEmail />
             </ProtectedRoute>
           }
         />
@@ -355,6 +394,30 @@ function App() {
           element={
             <ProtectedRoute requiredPath="/statistik-artikel">
               <PageStatistikArtikel />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/laporan-transaksi"
+          element={
+            <ProtectedRoute requiredPath="/laporan-transaksi">
+              <PageLaporanTransaksi />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/laporan-booking"
+          element={
+            <ProtectedRoute requiredPath="/laporan-booking">
+              <PageLaporanBooking />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/laporan-nakes"
+          element={
+            <ProtectedRoute requiredPath="/laporan-nakes">
+              <PageLaporanNakes />
             </ProtectedRoute>
           }
         />

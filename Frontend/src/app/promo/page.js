@@ -36,13 +36,15 @@ export default async function PromoPage() {
 
         {promos && promos.length > 0 ? (
           <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
-            {promos.map((promo, idx) => {
-              const name = getTextValue(promo, ["nama_paket", "nama", "title", "judul"]);
+      {promos.map((promo, idx) => {
+              // 👉 UBAH BAGIAN MENGAMBIL NAMA INI:
+              // Ambil dari relasi layanan.nama_layanan, fallback ke deskripsi jika nama tidak ada
+              const name = promo.layanan?.nama_layanan || getTextValue(promo, ["nama", "title", "judul"]) || "Promo Layanan Kesehatan";
               const slug = generatePromoSlug(name);
               const endDate = formatDate(getTextValue(promo, ["tanggal_berakhir", "expired_at", "end_date"]));
               
               // Mengambil URL Gambar seperti di artikel
-              const rawImage = getTextValue(promo, ["gambar_promo", "gambar", "image", "foto"]);
+              const rawImage = getTextValue(promo, ["gambar_promo_url", "gambar_promo", "gambar", "image", "foto"]);
               const image = resolveImageUrl(rawImage);
 
               return (
@@ -67,9 +69,10 @@ export default async function PromoPage() {
                       />
                       <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent opacity-0 transition-opacity duration-500 group-hover:opacity-100" />
                       
-                      {promo.diskon_persen && (
+                      {/* 👉 UBAH BAGIAN BADGE DISKON INI: */}
+                      {promo.nilai_diskon && (
                         <div className="absolute left-3 top-3 rounded-lg bg-blue-600 px-2 py-0.5 text-xs font-bold text-white shadow-lg">
-                          Diskon {Number(promo.diskon_persen)}%
+                          Diskon {promo.tipe_diskon === 'persen' ? `${Number(promo.nilai_diskon)}%` : `Rp ${Number(promo.nilai_diskon).toLocaleString('id-ID')}`}
                         </div>
                       )}
                     </div>

@@ -108,12 +108,15 @@ const rawMenuItems = [
 ];
 
 const rawSuperAdminMenus = [
+  // 1. Menu Pasien berdiri sendiri di luar Master Data
+  { to: "/users", label: "Pasien", icon: <FaUsers /> },
+
+  // 2. Grup Master Data (Hanya berisi data master murni)
   {
     type: "group",
     label: "Master Data",
     icon: <FaUserMd />,
     children: [
-      { to: "/users", label: "Pasien", icon: <FaUsers /> },
       {
         type: "subgroup",
         label: "Wilayah",
@@ -152,13 +155,26 @@ const rawSuperAdminMenus = [
           { to: "/master-metode-pembayaran", label: "Metode Pembayaran", icon: <FaCreditCard /> },
         ],
       },
+    ],
+  },
+
+  // 3. Grup khusus untuk semua menu yang ada Nakes-nya
+  {
+    type: "group",
+    label: "Manajemen Nakes",
+    icon: <FaUserMd />,
+    children: [
       { to: "/nakes", label: "Nakes", icon: <FaUserMd />, end: true },
       { to: "/nakes/requests", label: "Registrasi Nakes", icon: <FaUserPlus /> },
       { to: "/operasional-nakes", label: "Operasional Nakes", icon: <FaCalendarCheck /> },
+      { to: "/nakes/pendaftaran", label: "Tambah Nakes", icon: <FaPlus /> },
     ],
   },
+
   { to: "/booking", label: "Booking", icon: <FaCalendarCheck /> },
   { to: "/chat-rooms", label: "Chat Rooms", icon: <FaEnvelope /> },
+  { to: "/point-settings", label: "Pengaturan Poin", icon: <FaStar /> },
+  { to: "/point-history", label: "Riwayat Poin", icon: <FaHistory /> }, 
   {
     type: "group",
     label: "Konfigurasi",
@@ -167,6 +183,7 @@ const rawSuperAdminMenus = [
       { to: "/kelola-admin", label: "Kelola Admin", icon: <FaUserShield /> },
       { to: "/tier-admin", label: "Tier Admin", icon: <FaShieldAlt /> },
       { to: "/notification-templates", label: "Template Notifikasi", icon: <FaBell /> },
+      { to: "/manajemen-email", label: "Manajemen Email", icon: <FaEnvelope /> }, 
       { to: "/web-setting", label: "Web Setting (Logo & Icon)", icon: <FaCogs /> },
       { to: "/konfigurasi-env", label: "API", icon: <FaCogs /> },
       {
@@ -187,13 +204,23 @@ const rawSuperAdminMenus = [
       { to: "/syarat-ketentuan-nakes", label: "Syarat & Ketentuan Nakes", icon: <FaUserMd /> },
     ],
   },
-  {
+ {
     type: "group",
     label: "Statistik, Laporan & Log",
     icon: <FaChartLine />,
     children: [
       { to: "/statistik-artikel", label: "Statistik View Artikel", icon: <FaChartLine /> },
-      { to: "/laporan", label: "Laporan & Export Data", icon: <FaFileExcel /> },
+      {
+        type: "subgroup",
+        label: "Laporan & Export Data",
+        icon: <FaFileExcel />,
+        children: [
+          // Ubah path ke masing-masing halaman terpisah
+          { to: "/laporan-transaksi", label: "Transaksi Keuangan", icon: <FaFileExcel />, end: true },
+          { to: "/laporan-booking", label: "Rekap Booking", icon: <FaFileExcel />, end: true },
+          { to: "/laporan-nakes", label: "Kinerja Tenaga Medis", icon: <FaFileExcel />, end: true },
+        ],
+      },
       { to: "/aktivitas-log", label: "Log Aktivitas", icon: <FaHistory /> },
     ],
   },

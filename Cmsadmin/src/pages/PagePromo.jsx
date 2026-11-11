@@ -44,15 +44,12 @@ export default function PagePromo() {
   }, [search]);
 
   // Logika Filter
+// Logika Filter (Ubah dari nama_paket ke deskripsi/layanan)
   const filtered = promo.filter((item) => {
     const query = search.toLowerCase();
-    const nama = String(item.nama_paket ?? '').toLowerCase();
-    const layanan = String(
-      Array.isArray(item.layanans)
-        ? item.layanans.map((l) => l.nama_layanan ?? l.nama ?? '').join(' ')
-        : ''
-    ).toLowerCase();
-    return nama.includes(query) || layanan.includes(query);
+    const deskripsi = String(item.deskripsi ?? '').toLowerCase();
+    const namaLayanan = String(item.layanan?.nama_layanan ?? '').toLowerCase();
+    return deskripsi.includes(query) || namaLayanan.includes(query);
   });
 
   const totalPages = Math.ceil(filtered.length / ITEMS_PER_PAGE);
@@ -111,11 +108,11 @@ export default function PagePromo() {
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full min-w-[900px] border-collapse">
-              <thead>
+            <thead>
                 <tr>
                   <th className="border-b border-slate-200 px-4 py-3 text-left text-xs font-medium uppercase tracking-wide text-slate-500">No</th>
                   <th className="border-b border-slate-200 px-4 py-3 text-left text-xs font-medium uppercase tracking-wide text-slate-500">Gambar</th>
-                  <th className="border-b border-slate-200 px-4 py-3 text-left text-xs font-medium uppercase tracking-wide text-slate-500">Nama Paket</th>
+                  <th className="border-b border-slate-200 px-4 py-3 text-left text-xs font-medium uppercase tracking-wide text-slate-500">Deskripsi Promo</th>
                   <th className="border-b border-slate-200 px-4 py-3 text-left text-xs font-medium uppercase tracking-wide text-slate-500">Diskon</th>
                   <th className="border-b border-slate-200 px-4 py-3 text-left text-xs font-medium uppercase tracking-wide text-slate-500">Layanan</th>
                   <th className="border-b border-slate-200 px-4 py-3 text-left text-xs font-medium uppercase tracking-wide text-slate-500">Status</th>
@@ -126,22 +123,24 @@ export default function PagePromo() {
               <tbody>
                 {paginated.map((item, idx) => {
                   const promoId = item.id_promo ?? item.id;
-                  const layananLabel = Array.isArray(item.layanans)
-                    ? item.layanans.map((l) => l.nama_layanan ?? l.nama ?? l.id).join(', ')
-                    : '-';
+                  // Mengambil nama layanan tunggal dari relasi object 'layanan'
+                  const layananLabel = item.layanan?.nama_layanan ?? '-';
+                  
+                  // Format tampilan nilai diskon berdasarkan tipe_diskon
+                  const diskonLabel = item.tipe_diskon === 'persen' 
+                    ? `${item.nilai_diskon}%` 
+                    : `Rp ${Number(item.nilai_diskon || 0).toLocaleString('id-ID')}`;
 
                   return (
                     <tr key={promoId} className="hover:bg-slate-50">
-                      {/* Nomor */}
                       <td className="border-b border-slate-200 px-4 py-3.5 text-sm text-slate-400 font-medium">
                         {startIndex + idx + 1}
                       </td>
-                      {/* Kolom Gambar */}
                       <td className="border-b border-slate-200 px-4 py-3.5 text-sm">
                         {item.gambar_promo ? (
                           <img
                             src={getImageUrl(item.gambar_promo)}
-                            alt={item.nama_paket}
+                            alt="Promo"
                             className="h-14 w-20 rounded-lg border border-slate-200 object-cover"
                           />
                         ) : (
@@ -150,15 +149,15 @@ export default function PagePromo() {
                           </div>
                         )}
                       </td>
-                      <td className="border-b border-slate-200 px-4 py-3.5 text-sm font-medium">{item.nama_paket ?? '-'}</td>
-                      <td className="border-b border-slate-200 px-4 py-3.5 text-sm">{item.diskon_persen ?? item.potongan_harga ?? '-'}%</td>
+                      {/* Ganti nama_paket dengan deskripsi */}
+                      <td className="border-b border-slate-200 px-4 py-3.5 text-sm font-medium">{item.deskripsi ?? '-'}</td>
+                      <td className="border-b border-slate-200 px-4 py-3.5 text-sm font-semibold text-sky-600">{diskonLabel}</td>
                       <td className="border-b border-slate-200 px-4 py-3.5 text-sm">{layananLabel}</td>
                       <td className="border-b border-slate-200 px-4 py-3.5 text-sm">
                         <span className={`px-2 py-1 rounded text-xs font-medium ${item.status_promo === 'Aktif' ? 'bg-green-100 text-green-700' : 'bg-slate-100 text-slate-600'}`}>
                           {item.status_promo ?? '-'}
                         </span>
                       </td>
-                      {/* Kolom Diperbarui */}
                       <td className="border-b border-slate-200 px-4 py-3.5 text-sm text-slate-500 whitespace-nowrap">
                         {formatDate(item.updated_at)}
                       </td>
@@ -218,7 +217,7 @@ export default function PagePromo() {
           >
             <h3 className="mb-2.5 text-lg font-bold">Hapus Promo?</h3>
             <p className="mb-5 text-sm text-slate-500">
-              Yakin ingin menghapus <strong>{deleteTarget.nama_paket ?? '-'}</strong>? Tindakan ini tidak dapat dibatalkan.
+              Yakin ingin menghapus promo untuk layanan <strong>{deleteTarget.layanan?.nama_layanan ?? '-'}</strong> ini? Tindakan ini tidak dapat dibatalkan.
             </p>
             <div className="flex justify-end gap-2.5">
               <button

@@ -1,8 +1,8 @@
 import api from "./api";
 
-/**
- * Get current authenticated user's profile.
- */
+/* =========================================================
+ * PROFILE & REGISTRASI
+ * =======================================================*/
 export const getProfileMe = async () => {
   try {
     const response = await api.get("/api/profile/me");
@@ -13,17 +13,10 @@ export const getProfileMe = async () => {
   }
 };
 
-/**
- * Register Nakes (Tenaga Kesehatan) - Gabung Mitra
- * @param {FormData} formData - Data pendaftaran dalam bentuk FormData
- * @returns {Promise} Response dari API
- */
 export const registerNakes = async (formData) => {
   try {
     const response = await api.post("/api/nakes/register", formData, {
-      headers: {
-        "Content-Type": "multipart/form-data",
-      },
+      headers: { "Content-Type": "multipart/form-data" },
     });
     return response.data;
   } catch (error) {
@@ -32,9 +25,6 @@ export const registerNakes = async (formData) => {
   }
 };
 
-/**
- * Get list of available provinces for wilayah layanan
- */
 export const getProvinsi = async () => {
   try {
     const response = await api.get("/api/provinsi");
@@ -45,9 +35,6 @@ export const getProvinsi = async () => {
   }
 };
 
-/**
- * Get list of medical service categories
- */
 export const getKategoriLayanan = async () => {
   try {
     const response = await api.get("/api/layanan?ambil_kategori=true");
@@ -58,9 +45,6 @@ export const getKategoriLayanan = async () => {
   }
 };
 
-/**
- * Update Data Operasional Nakes
- */
 export const updateDataOperasional = async (payload) => {
   try {
     const response = await api.post("/api/nakes/data-operasional", payload);
@@ -71,9 +55,6 @@ export const updateDataOperasional = async (payload) => {
   }
 };
 
-/**
- * Get Data Operasional Nakes
- */
 export const getDataOperasional = async () => {
   try {
     const response = await api.get("/api/nakes/data-operasional");
@@ -84,19 +65,19 @@ export const getDataOperasional = async () => {
   }
 };
 
-/** Get bookings assigned to the authenticated nakes. */
+/* =========================================================
+ * BOOKING
+ * =======================================================*/
 export const getNakesOrders = async () => {
   const response = await api.get("/api/nakes/orders");
   return response.data;
 };
 
-/** Get bookings already accepted or completed by the authenticated nakes. */
 export const getNakesBookings = async () => {
   const response = await api.get("/api/nakes/booking");
   return response.data;
 };
 
-/** Get one booking detail. */
 export const getNakesOrderDetail = async (bookingId) => {
   try {
     const response = await api.get(
@@ -111,7 +92,6 @@ export const getNakesOrderDetail = async (bookingId) => {
   }
 };
 
-/** Accept one booking. */
 export const acceptNakesBooking = async (bookingId, payload = {}) => {
   try {
     const response = await api.post(
@@ -131,7 +111,6 @@ export const acceptNakesBooking = async (bookingId, payload = {}) => {
   }
 };
 
-/** Reject one booking. */
 export const rejectNakesBooking = async (bookingId) => {
   try {
     const response = await api.post(
@@ -149,7 +128,6 @@ export const rejectNakesBooking = async (bookingId) => {
   }
 };
 
-/** Start Tindakan / Kunjungan for a booking. */
 export const startTindakanBooking = async (bookingId) => {
   try {
     const response = await api.post(
@@ -167,45 +145,292 @@ export const startTindakanBooking = async (bookingId) => {
   }
 };
 
-/** Get BHP list for a booking. */
-export const getBhpBooking = async (bookingId) => {
+/* =========================================================
+ * BHP / BIAYA TAMBAHAN
+ * =======================================================*/
+
+/**
+ * GET BHP list untuk 1 booking.
+ * Endpoint: GET /api/nakes/booking/{booking_code}/bhp
+ */
+export const getBhpBooking = async (bookingCode) => {
+  if (!bookingCode) return { data: [] };
+
+  const cleanCode = String(bookingCode).trim();
+
   try {
     const response = await api.get(
-      `/api/nakes/booking/${encodeURIComponent(bookingId)}/bhp`
+      `/api/nakes/booking/${encodeURIComponent(cleanCode)}/bhp`
     );
     return response.data;
   } catch (error) {
     if (error?.response?.status === 404) {
-      const response = await api.get(
-        `/api/booking/${encodeURIComponent(bookingId)}/bhp`
-      );
-      return response.data;
+      return { data: [] };
     }
     throw error;
   }
 };
 
-/** Update BHP list for a booking. */
-export const updateBhpBooking = async (bookingId, bhpItems) => {
+/**
+ * GET BHP + rincian tambahan untuk 1 booking.
+ *
+ * bookingCode WAJIB berupa booking_code,
+ * bukan id riwayat kunjungan.
+ */
+export const getBhpBookingStatus = async (bookingCode) => {
+  if (!bookingCode) {
+    return {
+      items: [],
+      total_tambahan: 0,
+      status_transaksi: null,
+      nominal: 0,
+      order_id: null,
+      kode_booking_tambahan: null,
+      dapat_dibayar: false,
+    };
+  }
+
+  const cleanCode = String(bookingCode).trim();
+
   try {
-    const response = await api.post(
-      `/api/nakes/booking/${encodeURIComponent(bookingId)}/bhp`,
-      { items: bhpItems }
+    const res = await api.get(
+      `/api/nakes/booking/${encodeURIComponent(cleanCode)}/bhp`
     );
-    return response.data;
+
+    const root = res.data?.data ?? res.data ?? {};
+    const meta = res.data?.meta ?? {};
+
+    const rawItems =
+      Array.isArray(root?.items)
+        ? root.items
+        : Array.isArray(root?.booking_bhp)
+        ? root.booking_bhp
+        : Array.isArray(root?.bhp_items)
+        ? root.bhp_items
+        : Array.isArray(root)
+        ? root
+        : [];
+
+    const items = rawItems.map((item) => {
+      const qtyDefault =
+        Number(
+          item?.qty_default ??
+            item?.default_qty ??
+            item?.jumlah_default ??
+            0
+        ) || 0;
+
+      const qtyReal =
+        Math.max(
+          qtyDefault,
+          Number(
+            item?.qty_real ??
+              item?.jumlah_real ??
+              item?.qty ??
+              item?.jumlah ??
+              qtyDefault
+          ) || 0
+        );
+
+      const qtyTambahan =
+        Math.max(
+          0,
+          Number(
+            item?.qty_tambahan ??
+              item?.jumlah_tambahan ??
+              qtyReal - qtyDefault
+          ) || 0
+        );
+
+      const hargaSatuan =
+        Number(
+          item?.harga_satuan ??
+            item?.harga_jual ??
+            item?.harga ??
+            0
+        ) || 0;
+
+      const subtotalTambahan =
+        Number(
+          item?.total_sb_tambahan ??
+            item?.subtotal_tambahan ??
+            item?.subtotal ??
+            qtyTambahan * hargaSatuan
+        ) || 0;
+
+      return {
+        ...item,
+        qty_default: qtyDefault,
+        qty_real: qtyReal,
+        qty_tambahan: qtyTambahan,
+        harga_satuan: hargaSatuan,
+        total_sb_tambahan: subtotalTambahan,
+      };
+    });
+
+    const nominal =
+      Number(
+        root?.nominal ??
+          root?.total_tambahan ??
+          root?.sb_tambahan ??
+          root?.biaya_tambahan_pasien?.nominal ??
+          meta?.total_tambahan ??
+          items.reduce(
+            (total, item) =>
+              total + Number(item?.total_sb_tambahan || 0),
+            0
+          )
+      ) || 0;
+
+    return {
+      items,
+      total_tambahan: nominal,
+      nominal,
+      status_transaksi:
+        root?.status_transaksi ??
+        root?.status_pembayaran_bhp ??
+        root?.status_pembayaran_biaya_tambahan ??
+        root?.biaya_tambahan_pasien?.status_transaksi ??
+        meta?.status_transaksi ??
+        meta?.status_pembayaran_bhp ??
+        null,
+      order_id:
+        root?.order_id ??
+        root?.biaya_tambahan_pasien?.order_id ??
+        null,
+      kode_booking_tambahan:
+        root?.kode_booking_tambahan ??
+        root?.biaya_tambahan_pasien?.kode_booking_tambahan ??
+        null,
+      dapat_dibayar:
+        root?.dapat_dibayar ?? false,
+    };
   } catch (error) {
-    if (error?.response?.status === 404 || error?.response?.status === 405) {
-      const response = await api.post(
-        `/api/booking/${encodeURIComponent(bookingId)}/bhp`,
-        { items: bhpItems }
-      );
-      return response.data;
-    }
-    throw error;
+    console.warn("getBhpBookingStatus gagal:", error);
+
+    return {
+      items: [],
+      total_tambahan: 0,
+      status_transaksi: null,
+      nominal: 0,
+      order_id: null,
+      kode_booking_tambahan: null,
+      dapat_dibayar: false,
+    };
   }
 };
 
-/** Finish Kunjungan / Booking. */
+/**
+ * POST / Simpan BHP booking.
+ * Endpoint: POST /api/nakes/booking/{booking_code}/bhp
+ *
+ * WAJIB kirim SEMUA item (semua layanan).
+ */
+export const addBhpBooking = async (bookingCode, payload = {}) => {
+  if (!bookingCode) return null;
+
+  const cleanCode = String(bookingCode).trim();
+
+  const rawItems = Array.isArray(payload)
+    ? payload
+    : Array.isArray(payload?.items)
+    ? payload.items
+    : [];
+
+  let totalTambahan = 0;
+
+  const processedItems = rawItems.map((item) => {
+    const qDefault = Math.max(
+      0,
+      Number(item.qty_default) || 0
+    );
+
+    const qReal = Math.max(
+      qDefault,
+      Number(
+        item.qty_real ??
+          item.qty ??
+          item.jumlah_real ??
+          item.jumlah ??
+          0
+      ) || 0
+    );
+
+    const qTambahan = Math.max(
+      0,
+      qReal - qDefault
+    );
+
+    const hargaSatuan =
+      Number(
+        item.harga_satuan ??
+          item.harga_jual ??
+          item.harga ??
+          0
+      ) || 0;
+
+    const subtotalTambahan =
+      qTambahan * hargaSatuan;
+
+    totalTambahan += subtotalTambahan;
+
+    return {
+      id_booking_bhp:
+        item.id_booking_bhp ?? null,
+      id_layanan:
+        item.id_layanan ?? null,
+      id_bhp:
+        item.id_bhp ?? null,
+      nama_bhp:
+        item.nama_bhp ?? null,
+      nama_layanan:
+        item.nama_layanan ?? null,
+      qty_default: qDefault,
+      qty_real: qReal,
+      qty_tambahan: qTambahan,
+      qty: qReal,
+      jumlah: qReal,
+      jumlah_real: qReal,
+      jumlah_tambahan: qTambahan,
+      harga_satuan: hargaSatuan,
+      harga_jual: hargaSatuan,
+      subtotal_tambahan: subtotalTambahan,
+    };
+  });
+
+  const postBody = {
+    items: processedItems,
+    total_tambahan: totalTambahan,
+  };
+
+  const updatedBy =
+    payload?.updated_by ??
+    payload?.updatedBy ??
+    null;
+
+  if (
+    updatedBy !== undefined &&
+    updatedBy !== null &&
+    updatedBy !== ""
+  ) {
+    postBody.updated_by =
+      Number(updatedBy) || updatedBy;
+  }
+
+  const response = await api.post(
+    `/api/nakes/booking/${encodeURIComponent(cleanCode)}/bhp`,
+    postBody
+  );
+
+  return response.data;
+};
+
+/** Alias legacy */
+export const updateBhpBooking = addBhpBooking;
+
+/**
+ * Finish Kunjungan / Booking (Nakes)
+ */
 export const finishBooking = async (bookingId) => {
   try {
     const response = await api.post(
@@ -213,76 +438,337 @@ export const finishBooking = async (bookingId) => {
     );
     return response.data;
   } catch (error) {
-    if (error?.response?.status === 404 || error?.response?.status === 405) {
-      const response = await api.post(
-        `/api/booking/${encodeURIComponent(bookingId)}/selesai`
-      );
-      return response.data;
-    }
+    console.error(
+      "Gagal menyelesaikan booking:",
+      error
+    );
     throw error;
   }
 };
 
-/** Live Tracking: Update location coordinates of Nakes. */
+export const completeBooking = finishBooking;
+
+/* =========================================================
+ * LIVE TRACKING
+ * =======================================================*/
 export const updateNakesLocation = async ({
   latitude,
   longitude,
   booking_id,
 }) => {
   try {
-    const response = await api.post("/api/nakes/update-lokasi", {
-      latitude,
-      longitude,
-      booking_id,
-    });
+    const response = await api.post(
+      "/api/nakes/update-lokasi",
+      {
+        latitude,
+        longitude,
+        booking_id,
+      }
+    );
     return response.data;
   } catch (error) {
-    console.error("Gagal memperbarui lokasi nakes:", error);
+    console.error(
+      "Gagal memperbarui lokasi nakes:",
+      error
+    );
     throw error;
   }
 };
 
-/** In-App Chat: Fetch chat messages for a booking. */
-export const getBookingChatMessages = async (bookingId) => {
+/* =========================================================
+ * CHAT
+ * =======================================================*/
+export const getBookingChatMessages = async (
+  bookingId
+) => {
   try {
     const response = await api.get(
-      `/api/booking/${encodeURIComponent(bookingId)}/chat`
+      `/api/booking/${encodeURIComponent(
+        bookingId
+      )}/chat`
     );
-
     return response.data;
   } catch (error) {
-    console.error("Gagal mengambil pesan chat:", error);
+    console.error(
+      "Gagal mengambil pesan chat:",
+      error
+    );
     throw error;
   }
 };
 
-/** In-App Chat: Send chat message for a booking. */
-export const sendBookingChatMessage = async (bookingId, content) => {
+export const sendBookingChatMessage = async (
+  bookingId,
+  content
+) => {
   try {
     const response = await api.post(
-      `/api/booking/${encodeURIComponent(bookingId)}/chat`,
+      `/api/booking/${encodeURIComponent(
+        bookingId
+      )}/chat`,
+      { content }
+    );
+    return response.data;
+  } catch (error) {
+    console.error(
+      "Gagal mengirim pesan chat:",
+      error
+    );
+    throw error;
+  }
+};
+
+export const deleteBookingChatRoom = async (
+  bookingId
+) => {
+  try {
+    const response = await api.delete(
+      `/api/booking/${encodeURIComponent(
+        bookingId
+      )}/chat-room`
+    );
+    return response.data;
+  } catch (error) {
+    console.warn(
+      "Gagal menghapus room chat:",
+      error
+    );
+    return null;
+  }
+};
+
+/* =========================================================
+ * RIWAYAT
+ * =======================================================*/
+export const getHistoryNakes = async (
+  params = {}
+) => {
+  try {
+    const response = await api.get(
+      "/api/v1/history/nakes",
+      { params }
+    );
+    return response.data;
+  } catch (error) {
+    const response = await api.get(
+      "/api/nakes/riwayat-kunjungan",
+      { params }
+    );
+    return response.data;
+  }
+};
+
+export const getRiwayatKunjungan =
+  getHistoryNakes;
+
+export const getDetailRiwayatKunjungan =
+  async (id) => {
+    try {
+      const response =
+        await api.get(
+          `/api/v1/history/nakes/${encodeURIComponent(
+            id
+          )}`
+        );
+      return response.data;
+    } catch (error) {
+      const response =
+        await api.get(
+          `/api/nakes/riwayat-kunjungan/${encodeURIComponent(
+            id
+          )}`
+        );
+      return response.data;
+    }
+  };
+
+  /* =========================================================
+ * PENGHASILAN NAKES
+ * =======================================================*/
+
+/**
+ * GET /api/nakes/penghasilan/ringkasan
+ * Rekap penghasilan harian, mingguan, dan bulanan.
+ */
+export const getRingkasanPenghasilanNakes = async () => {
+  try {
+    const response = await api.get(
+      "/api/nakes/penghasilan/ringkasan"
+    );
+
+    if (response.data?.success === false) {
+      throw new Error(
+        response.data?.message ||
+          "Gagal mengambil ringkasan penghasilan."
+      );
+    }
+
+    return response.data;
+  } catch (error) {
+    console.error(
+      "Gagal mengambil ringkasan penghasilan nakes:",
+      error
+    );
+
+    throw error;
+  }
+};
+
+/**
+ * GET /api/nakes/penghasilan/riwayat
+ * Parameter:
+ * - page
+ * - per_page
+ * - tanggal_dari
+ * - tanggal_sampai
+ */
+export const getRiwayatPenghasilanNakes = async (
+  params = {}
+) => {
+  try {
+    const response = await api.get(
+      "/api/nakes/penghasilan/riwayat",
       {
-        content,
+        params,
       }
     );
 
+    if (response.data?.success === false) {
+      throw new Error(
+        response.data?.message ||
+          "Gagal mengambil riwayat penghasilan."
+      );
+    }
+
     return response.data;
   } catch (error) {
-    console.error("Gagal mengirim pesan chat:", error);
+    console.error(
+      "Gagal mengambil riwayat penghasilan nakes:",
+      error
+    );
+
     throw error;
   }
 };
 
-/** Delete chat room when booking finishes. */
-export const deleteBookingChatRoom = async (bookingId) => {
-  try {
-    const response = await api.delete(
-      `/api/booking/${encodeURIComponent(bookingId)}/chat-room`
+/**
+ * GET /api/nakes/penghasilan/{booking_code}
+ * Detail penghasilan berdasarkan kode booking.
+ */
+export const getDetailPenghasilanNakes = async (
+  bookingCode
+) => {
+  if (!bookingCode) {
+    throw new Error(
+      "Kode booking tidak ditemukan."
     );
+  }
+
+  try {
+    const response = await api.get(
+      `/api/nakes/penghasilan/${encodeURIComponent(
+        String(bookingCode)
+      )}`
+    );
+
+    if (response.data?.success === false) {
+      throw new Error(
+        response.data?.message ||
+          "Gagal mengambil detail penghasilan."
+      );
+    }
 
     return response.data;
   } catch (error) {
-    console.warn("Gagal menghapus room chat:", error);
-    return null;
+    console.error(
+      "Gagal mengambil detail penghasilan nakes:",
+      error
+    );
+
+    throw error;
+  }
+};
+
+/**
+ * Saldo nakes
+ * 
+ */
+export const getSaldoNakes = async () => {
+  const response = await api.get("/api/nakes/saldo");
+  return response.data;
+};
+
+export const requestWithdrawNakes = async (data) => {
+  const response = await api.post("/api/nakes/withdraw", data);
+  return response.data;
+};
+
+/* =========================================================
+ * RIWAYAT PENARIKAN SALDO NAKES
+ * =======================================================*/
+
+/**
+ * GET /api/nakes/withdraw/riwayat
+ */
+export const getRiwayatWithdrawNakes = async (params = {}) => {
+  try {
+    const response = await api.get(
+      "/api/nakes/withdraw/riwayat",
+      { params }
+    );
+
+    if (response.data?.success === false) {
+      throw new Error(
+        response.data?.message ||
+          "Gagal mengambil riwayat penarikan."
+      );
+    }
+
+    return response.data;
+  } catch (error) {
+    console.error(
+      "Gagal mengambil riwayat penarikan nakes:",
+      error
+    );
+
+    throw error;
+  }
+};
+
+/**
+ * GET /api/nakes/withdraw/status
+ */
+export const getDetailWithdrawNakes = async (referenceNo) => {
+  if (!referenceNo) {
+    throw new Error(
+      "Nomor referensi penarikan tidak ditemukan."
+    );
+  }
+
+  try {
+    const response = await api.get(
+      "/api/nakes/withdraw/status",
+      {
+        params: {
+          reference_no: referenceNo,
+        },
+      }
+    );
+
+    if (response.data?.success === false) {
+      throw new Error(
+        response.data?.message ||
+          "Gagal mengambil detail penarikan."
+      );
+    }
+
+    return response.data;
+  } catch (error) {
+    console.error(
+      "Gagal mengambil detail penarikan nakes:",
+      error
+    );
+
+    throw error;
   }
 };

@@ -37,7 +37,23 @@ export default function PromoEdit() {
   async function handleSubmit(data) {
     setSubmitting(true);
     try {
-      await updatePromo(id_promo, data);
+      // 🟢 MAPPING PAYLOAD SESUAI API CONTRACT BARU
+      const payload = {
+        id_layanan: data.layanan_ids && data.layanan_ids[0] ? Number(data.layanan_ids[0]) : null,
+        deskripsi: data.deskripsi,
+        tipe_diskon: "persen", // Ubah jadi 'nominal' jika inputnya berupa nominal uang
+        nilai_diskon: Number(data.diskon_persen),
+        tanggal_mulai: data.tanggal_mulai,
+        tanggal_berakhir: data.tanggal_berakhir,
+        status_promo: data.status_promo,
+      };
+
+      // Jika ada file gambar baru, sertakan juga (karena pakai multipart/form-data)
+      if (data.gambar_promo instanceof File) {
+        payload.gambar_promo = data.gambar_promo;
+      }
+
+      await updatePromo(id_promo, payload);
       navigate('/promo');
     } catch (e) {
       alert(e.message);

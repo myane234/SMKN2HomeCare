@@ -1,23 +1,16 @@
 import { useState, useEffect } from 'react';
-import { FaSearch, FaEdit } from 'react-icons/fa';
+import { Link } from 'react-router-dom';
+import { FaSearch, FaEdit, FaPlus } from 'react-icons/fa';
+import { resolveImageUrl } from '../../utils/resolveImage.js';
 import Pagination from '../../components/pagination';
 import { getAllActiveNakes, getKategoriLayanan, updateNakesData, deleteNakesData } from '../../data/nakesData';
-import { getImageUrl } from '../../data/imageHelper';
+import { getAllWilayahLayanan } from '../../data/wilayahLayananData';
 import Swal from 'sweetalert2';
-
-const wilayahOptions = [
-  'Aceh', 'Sumatera Utara', 'Sumatera Barat', 'Riau', 'Kepulauan Riau', 'Jambi', 'Bengkulu', 'Sumatera Selatan', 'Kepulauan Bangka Belitung', 'Lampung',
-  'DKI Jakarta', 'Jawa Barat', 'Banten', 'Jawa Tengah', 'Daerah Istimewa Yogyakarta', 'Jawa Timur',
-  'Bali', 'Nusa Tenggara Barat', 'Nusa Tenggara Timur',
-  'Kalimantan Barat', 'Kalimantan Tengah', 'Kalimantan Selatan', 'Kalimantan Timur', 'Kalimantan Utara',
-  'Sulawesi Utara', 'Gorontalo', 'Sulawesi Tengah', 'Sulawesi Barat', 'Sulawesi Selatan', 'Sulawesi Tenggara',
-  'Maluku', 'Maluku Utara',
-  'Papua', 'Papua Barat', 'Papua Selatan', 'Papua Tengah', 'Papua Pegunungan', 'Papua Barat Daya'
-];
 
 export default function DataNakes() {
   const [nakesList, setNakesList] = useState([]);
   const [kategoriList, setKategoriList] = useState([]);
+  const [wilayahList, setWilayahList] = useState([]);
   const [loading, setLoading] = useState(true);
   const [errorMsg, setErrorMsg] = useState('');
   
@@ -34,52 +27,71 @@ export default function DataNakes() {
   const [selectedNakes, setSelectedNakes] = useState(null);
   const [formKategori, setFormKategori] = useState([]);
   const [formWilayah, setFormWilayah] = useState('');
-  const [isSubmitting, setIsSubmitting] = useState(false);
-
-  const fetchData = () => {
+  const [isSubmitting, setIsSubmitting] = useState(false);  const fetchData = () => {
     setLoading(true);
     setErrorMsg('');
-    Promise.all([getAllActiveNakes(), getKategoriLayanan()])
-      .then(([nakesData, kategoriData]) => {
+    Promise.all([
+      getAllActiveNakes().catch(() => []),
+      getKategoriLayanan().catch(() => []),
+      getAllWilayahLayanan().catch(() => []),
+    ])
+      .then(([nakesData, kategoriData, masterWilayah]) => {
         setKategoriList(kategoriData);
+        setWilayahList(masterWilayah);
 
         const mapped = nakesData.map((item) => {
           let kategoriArr = [];
           if (Array.isArray(item.kategori_layanan) && item.kategori_layanan.length > 0) {
             kategoriArr = item.kategori_layanan.map((k) => ({
-              id_kategori_layanan: k.id_kategori_layanan,
-              nama_kategori: k.nama_kategori
+              id_kategori_layanan: k.id_kategori_layanan || k.id,
+              nama_kategori: k.nama_kategori || k.nama || k.name
             }));
           } else if (item.jenis_tenaga_medis) {
             const names = item.jenis_tenaga_medis.split(',').map(s => s.trim()).filter(Boolean);
             kategoriArr = names.map((name) => {
-              const matchedKat = kategoriData.find(k => k.nama_kategori.toLowerCase() === name.toLowerCase());
+              const matchedKat = kategoriData.find(k => k.nama_kategori?.toLowerCase() === name.toLowerCase());
               return {
-                id_kategori_layanan: matchedKat ? matchedKat.id_kategori_layanan : name,
+                id_kategori_layanan: matchedKat ? (matchedKat.id_kategori_layanan || matchedKat.id) : name,
                 nama_kategori: name
               };
             });
           }
 
           let wilayahStr = '';
+          let idWilayah = item.id_wilayah_layanan || item.id_wilayah || null;
+
           if (item.wilayah_layanan && typeof item.wilayah_layanan === 'object') {
-            wilayahStr = item.wilayah_layanan.nama_wilayah || item.wilayah_layanan.nama || '';
+            wilayahStr = item.wilayah_layanan.nama_wilayah || item.wilayah_layanan.nama_provinsi || item.wilayah_layanan.nama || '';
+            if (!idWilayah) idWilayah = item.wilayah_layanan.id || item.wilayah_layanan.id_wilayah_layanan;
           } else if (typeof item.wilayah_layanan === 'string') {
             wilayahStr = item.wilayah_layanan;
-          } else {
-            wilayahStr = item.alamat_lengkap ? item.alamat_lengkap.split(',')[0] : '';
+          } else if (idWilayah) {
+            const matchedW = masterWilayah.find(w => String(w.id || w.id_wilayah_layanan) === String(idWilayah));
+            if (matchedW) wilayahStr = matchedW.nama_wilayah || matchedW.nama_provinsi || matchedW.nama || '';
           }
 
+          if (!wilayahStr && item.alamat_lengkap) {
+            wilayahStr = item.alamat_lengkap.split(',')[0];
+          }
+
+          // ID primer untuk update/delete di backend Laravel admin/nakes/{id}
+          const primaryId = item.id_tenaga_medis ?? item.id_nakes ?? item.id ?? item.id_user ?? item.user_id;
+          const rawFoto = item.foto_profile || item.foto || item.pasien?.foto_profile || item.user?.foto_profile;
+          const resolvedFoto = resolveImageUrl(rawFoto) || '/nakesgambar.jpg';
+
           return {
-            id: item.id_tenaga_medis ?? item.id,
-            foto: item.foto_profile ?? '/nakesgambar.jpg',
-            nama: item.nama_lengkap ?? (item.pasien?.nama_lengkap || ''),
+            id: primaryId,
+            id_tenaga_medis: item.id_tenaga_medis,
+            id_user: item.id_user ?? item.user_id,
+            rawItem: item,
+            foto: resolvedFoto,
+            nama: item.nama_lengkap ?? (item.pasien?.nama_lengkap || item.user?.name || item.user?.nama || ''),
             jenis: item.jenis_tenaga_medis ?? '',
             nomorStr: item.no_str ?? '',
             lulusan: item.lulusan ?? '',
             kategoriLayanan: kategoriArr,
             wilayahLayanan: wilayahStr,
-            idWilayahLayanan: item.id_wilayah_layanan
+            idWilayahLayanan: idWilayah
           };
         });
 
@@ -100,7 +112,7 @@ export default function DataNakes() {
   const handleEditClick = (nakes) => {
     setSelectedNakes(nakes);
     setFormKategori(nakes.kategoriLayanan.map(k => k.id_kategori_layanan));
-    setFormWilayah(nakes.wilayahLayanan || '');
+    setFormWilayah(nakes.idWilayahLayanan ? String(nakes.idWilayahLayanan) : '');
     setIsModalOpen(true);
   };
 
@@ -115,10 +127,16 @@ export default function DataNakes() {
     
     const formData = new FormData();
     formData.append('_method', 'PUT');
-    if (formWilayah) formData.append('wilayah_layanan', formWilayah);
+    
+    // Pastikan payload wilayah yang dikirim berupa ID (angka / ID wilayah)
+    if (formWilayah) {
+      formData.append('id_wilayah_layanan', formWilayah);
+      formData.append('wilayah_layanan', formWilayah);
+    }
     
     formKategori.forEach((katId, index) => {
       formData.append(`kategori_layanan[${index}]`, katId);
+      formData.append(`jenis_tenaga_medis[]`, katId);
     });
 
     try {
@@ -157,8 +175,9 @@ export default function DataNakes() {
   };
 
   const toggleKategoriSelection = (katId) => {
-    if (formKategori.includes(katId)) {
-      setFormKategori(formKategori.filter(id => id !== katId));
+    const exists = formKategori.some(id => String(id) === String(katId));
+    if (exists) {
+      setFormKategori(formKategori.filter(id => String(id) !== String(katId)));
     } else {
       setFormKategori([...formKategori, katId]);
     }
@@ -173,7 +192,9 @@ export default function DataNakes() {
       k.id_kategori_layanan.toString() === filterKategori || k.nama_kategori.toLowerCase().includes(filterKategori.toLowerCase())
     );
     
-    const matchesWilayah = filterWilayah === '' || (item.wilayahLayanan && item.wilayahLayanan.toLowerCase().includes(filterWilayah.toLowerCase()));
+    const matchesWilayah = filterWilayah === '' || 
+      (item.idWilayahLayanan && String(item.idWilayahLayanan) === filterWilayah) ||
+      (item.wilayahLayanan && item.wilayahLayanan.toLowerCase().includes(filterWilayah.toLowerCase()));
     
     return matchesSearch && matchesKategori && matchesWilayah;
   });
@@ -184,9 +205,17 @@ export default function DataNakes() {
 
   return (
     <div>
-      <div className="mb-6">
-        <h1 className="page-title">Data Nakes</h1>
-        <p className="page-subtitle">Kelola data tenaga medis, kategori layanan, dan wilayah operasional.</p>
+      <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <h1 className="page-title">Data Nakes</h1>
+          <p className="page-subtitle">Kelola data tenaga medis, kategori layanan, dan wilayah operasional.</p>
+        </div>
+        <Link 
+          to="/nakes/pendaftaran" 
+          className="inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-emerald-700 transition-colors shadow-sm"
+        >
+          <FaPlus className="text-xs" /> Tambah Nakes
+        </Link>
       </div>
 
       {/* Filter Section */}
@@ -210,7 +239,9 @@ export default function DataNakes() {
           >
             <option value="">Semua Kategori</option>
             {kategoriList.map(kat => (
-              <option key={kat.id_kategori_layanan} value={kat.id_kategori_layanan}>{kat.nama_kategori}</option>
+              <option key={kat.id_kategori_layanan || kat.id} value={kat.id_kategori_layanan || kat.id}>
+                {kat.nama_kategori || kat.nama}
+              </option>
             ))}
           </select>
           
@@ -220,9 +251,13 @@ export default function DataNakes() {
             onChange={(e) => { setFilterWilayah(e.target.value); setCurrentPage(1); }}
           >
             <option value="">Semua Wilayah</option>
-            {wilayahOptions.map(wil => (
-              <option key={wil} value={wil}>{wil}</option>
-            ))}
+            {wilayahList.map(wil => {
+              const wilId = wil.id || wil.id_wilayah_layanan;
+              const wilLabel = wil.nama_wilayah || wil.nama_provinsi || wil.nama;
+              return (
+                <option key={wilId} value={wilId}>{wilLabel}</option>
+              );
+            })}
           </select>
         </div>
       </div>
@@ -267,10 +302,10 @@ export default function DataNakes() {
                         <td className="border-b border-slate-200 px-4 py-3.5 text-sm">
                           <div className="flex items-center gap-3">
                             <img 
-                              src={getImageUrl(item.foto)} 
+                              src={item.foto} 
                               alt={item.nama} 
                               className="h-10 w-10 rounded-full object-cover bg-slate-200" 
-                              onError={(e) => e.target.src = '/nakesgambar.jpg'} 
+                              onError={(e) => { e.target.onerror = null; e.target.src = '/nakesgambar.jpg'; }} 
                             />
                             <div>
                               <div className="font-semibold text-slate-900">{item.nama}</div>
@@ -340,28 +375,35 @@ export default function DataNakes() {
                   onChange={(e) => setFormWilayah(e.target.value)}
                 >
                   <option value="">Pilih Wilayah</option>
-                  {wilayahOptions.map(wil => (
-                    <option key={wil} value={wil}>{wil}</option>
-                  ))}
+                  {wilayahList.map(wil => {
+                    const wilId = wil.id || wil.id_wilayah_layanan;
+                    const wilLabel = wil.nama_wilayah || wil.nama_provinsi || wil.nama;
+                    return (
+                      <option key={wilId} value={wilId}>{wilLabel}</option>
+                    );
+                  })}
                 </select>
               </div>
 
               <div className="mb-6">
                 <label className="mb-2 block text-sm font-medium text-slate-700">Kategori Layanan (Bisa pilih lebih dari satu)</label>
                 <div className="flex flex-wrap gap-2 max-h-48 overflow-y-auto p-1">
-                  {kategoriList.map(kat => (
-                    <div 
-                      key={kat.id_kategori_layanan} 
-                      onClick={() => toggleKategoriSelection(kat.id_kategori_layanan)}
-                      className={`cursor-pointer rounded-lg border px-3 py-1.5 text-sm transition-colors ${
-                        formKategori.includes(kat.id_kategori_layanan) 
-                          ? 'border-primary bg-primary text-white font-medium' 
-                          : 'border-slate-300 bg-white text-slate-600 hover:border-primary'
-                      }`}
-                    >
-                      {kat.nama_kategori}
-                    </div>
-                  ))}
+                  {kategoriList.map(kat => {
+                    const katId = kat.id_kategori_layanan || kat.id;
+                    return (
+                      <div 
+                        key={katId} 
+                        onClick={() => toggleKategoriSelection(katId)}
+                        className={`cursor-pointer rounded-lg border px-3 py-1.5 text-sm transition-colors ${
+                          formKategori.some(id => String(id) === String(katId)) 
+                            ? 'border-primary bg-primary text-white font-medium' 
+                            : 'border-slate-300 bg-white text-slate-600 hover:border-primary'
+                        }`}
+                      >
+                        {kat.nama_kategori || kat.nama}
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
 

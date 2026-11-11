@@ -19,7 +19,7 @@ import {
   FiAward
 } from 'react-icons/fi';
 import { logoutUser } from '../../services/Auth.js';
-import { getProfileFromCookies, fetchAndStoreProfile } from '@/services/profileService';
+import { getProfileFromCookies, fetchAndStoreProfile, getPoints} from '@/services/profileService';
 import { getAuthToken, clearAllAuthCookies } from '@/services/cookieHelper';
 
 const getFullAvatarUrl = (rawAvatar) => {
@@ -52,6 +52,7 @@ export default function ProfilePage() {
   const [isLoading, setIsLoading] = useState(false);
   const [profile, setProfile] = useState(null);
   const [activeRole, setActiveRole] = useState('pasien');
+  const [pointBalance, setPointBalance] = useState(0);
 
   useEffect(() => {
     const profileData = getProfileFromCookies();
@@ -95,7 +96,17 @@ export default function ProfilePage() {
         // Jika profile null karena unauthenticated
         if (!getAuthToken()) {
           router.push('/login?redirect=/profile');
+     return;
         }
+      }
+
+      // Ambil saldo poin secara general
+      try {
+        const pointRes = await getPoints();
+        const totalPoin = pointRes?.data?.points_balance ?? pointRes?.points_balance ?? 0;
+        setPointBalance(totalPoin);
+      } catch (err) {
+        console.error("Gagal load poin:", err);
       }
     };
     refreshProfile();
@@ -347,6 +358,22 @@ export default function ProfilePage() {
               </p>
             </div>
           </div>
+         {pointBalance >= 0 && (
+    <div className="px-5 py-3.5 flex items-center justify-between border-b border-gray-100">
+      <div className="flex items-center gap-3">
+        <svg 
+          className="h-5 w-5 text-amber-500 fill-amber-400" 
+          viewBox="0 0 24 24"
+        >
+          <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
+        </svg>
+        <span className="text-sm font-semibold text-gray-800">Poin Tersedia</span>
+      </div>
+      <span className="text-sm font-bold text-amber-600">
+        {pointBalance.toLocaleString('id-ID')} Poin
+      </span>
+    </div>
+  )}
 
           <div className="divide-y divide-gray-100 border-t border-gray-100 rounded-b-3xl overflow-hidden">
             {menuItems.map((item, index) => (

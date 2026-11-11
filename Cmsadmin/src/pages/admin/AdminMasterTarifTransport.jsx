@@ -157,10 +157,19 @@ export default function AdminMasterTarifTransport() {
         ) : (
           <div className="flex items-start gap-4">
             <div className="rounded-xl bg-green-50 p-3 text-green-600"><FaTruck /></div>
-            <div>
+            <div className="flex-1">
               <p className="text-sm font-medium text-slate-500">Tarif per 10 km</p>
               <p className="mt-1 text-3xl font-bold text-slate-900">{formatRupiah(tarif?.tarif_per_10_km)}</p>
               <p className="mt-2 text-sm text-slate-500">Berlaku nasional, tanpa pengaturan tarif per kota.</p>
+
+              <div className="mt-4 grid grid-cols-2 gap-2 border-t border-slate-100 pt-3 text-xs text-slate-500">
+                <div>Created At: <span className="font-medium text-slate-700">{tarif?.created_at ? new Date(tarif.created_at).toLocaleString('id-ID', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '—'}</span></div>
+                <div>Created By: <span className="font-medium text-slate-700">{tarif?.created_by && isNaN(tarif.created_by) ? tarif.created_by : (tarif?.created_by || tarif?.created_by_name || tarif?.creator || '—')}</span></div>
+                <div>Updated At: <span className="font-medium text-slate-700">{tarif?.updated_at ? new Date(tarif.updated_at).toLocaleString('id-ID') : '—'}</span></div>
+                <div>Updated By: <span className="font-medium text-slate-700">{tarif?.updated_by ?? '—'}</span></div>
+                <div>Deleted At: <span className="font-medium text-slate-700">{tarif?.deleted_at ? new Date(tarif.deleted_at).toLocaleString('id-ID') : '—'}</span></div>
+                <div>Deleted By: <span className="font-medium text-slate-700">{tarif?.deleted_by ?? '—'}</span></div>
+              </div>
             </div>
           </div>
         )}
