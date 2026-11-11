@@ -1,0 +1,483 @@
+import { Routes, Route, Navigate } from "react-router-dom";
+import LoginAdminCms from "./pages/LoginAdminCms";
+import Dashboard from "./pages/Dashboard";
+import DataNakes from "./pages/admin/DataNakes";
+import AdminProfile from "./pages/AdminProfile";
+import PageLayanan from "./pages/PageLayanan";
+import PagePromo from "./pages/PagePromo";
+import FormTambah from "./pages/FormTambah";
+import FormEdit from "./pages/FormEdit";
+import PromoTambah from "./pages/PromoTambah";
+import PromoEdit from "./pages/PromoEdit";
+import PageArtikel from "./pages/PageArtikel";
+import FormTambahArtikel from "./pages/FormTambahArtikel";
+import FormEditArtikel from "./pages/FormEditArtikel";
+import PageKelolaKontenHome from "./pages/PageKelolaKontenHome";
+import PageKelolaKontenAbout from "./pages/PageKelolaKontenAbout";
+import PageKelolaKontenMitra from "./pages/PageKelolaKontenMitra";
+import PageKelolaKontenFooter from "./pages/PageKelolaKontenFooter";
+import PageUlasan from "./pages/PageUlasan";
+import PageHubungiKami from "./pages/PageHubungiKami";
+import PageNakesRequest from "./pages/admin/RegisterNakes/PageNakesRequest";
+import PageNakesRequestDetail from "./pages/admin/RegisterNakes/PageNakesRequestDetail";
+import PageOperasionalNakes from "./pages/admin/PageOperasionalNakes";
+import TambahNakes from "./pages/admin/TambahNakes";
+import PageBooking, { PageBookingDetail } from "./pages/admin/PageBooking";
+import AdminLayout from "./components/AdminLayout";
+import ProtectedRoute from "./components/ProtectedRoute";
+import KelolaAdmin from "./pages/KelolaAdmin";
+import KelolaTierAdmin from "./pages/KelolaTierAdmin";
+import PointSetting from "./pages/PagePointSettings"; 
+import PointHistory from "./pages/PagePointHistory";
+import DataUser from "./pages/admin/AdminUser";
+import DataBarang from "./pages/admin/AdminMasterBarang";
+import DataMasterTarif from "./pages/admin/AdminMasterTarif";
+import MappingLayananBhp from "./pages/admin/mappingLayananBhp";
+import AdminMasterKategoriTarif from "./pages/admin/AdminMasterKategoriTarif";
+import AdminMasterProvinsi from "./pages/admin/AdminMasterProvinsi";
+import AdminMasterkotakabupaten from "./pages/admin/AdminMasterkotakabupaten";
+import AdminMasterKelurahan from "./pages/admin/AdminMasterKelurahan";
+import AdminMasterKategori from "./pages/admin/AdminMasterKategori";
+import AdminMasterMetodePembayaran from "./pages/admin/AdminMasterMetodePembayaran";
+import AdminMasterKategoriPembayaran from "./pages/admin/AdminMasterKategoriPembayaran";
+import AdminMasterKomponenTarif from "./pages/admin/AdminMasterKomponenTarif";
+import AdminMasterTarifTransport from "./pages/admin/AdminMasterTarifTransport";
+import AdminMasterKecamatan from "./pages/admin/AdminMasterKecamatan";
+import PageNotificationTemplates from "./pages/PageNotificationTemplates";
+import PageManajemenEmail from "./pages/PageEmailManagement";
+import PageWebSetting from "./pages/PageWebSetting";
+import PageAktivitasLog from "./pages/PageAktivitasLog";
+import PageSyaratKetentuanPasien from "./pages/PageSyaratKetentuanPasien";
+import PageSyaratKetentuanNakes from "./pages/PageSyaratKetentuanNakes";
+import PageStatistikArtikel from "./pages/PageStatistikArtikel";
+import PageLaporan from "./pages/PageLaporan";
+import PageLaporanTransaksi from "./pages/PageLaporanTransaksi";
+import PageLaporanBooking from "./pages/PageLaporanBooking";
+import PageLaporanNakes from "./pages/PageLaporanNakes";
+import PageProfileAdmin from "./pages/PageProfileAdmin";
+import AdminMasterPendidikan from "./pages/admin/AdminMasterPendidikan"; 
+import AdminMasterUniversitas from "./pages/admin/AdminMasterUniversitas";
+import AdminMasterAgama from "./pages/admin/AdminMasterAgama"; 
+import PageSeederManagement from "./pages/PageSeederManagement";
+import AdminMasterBank from "./pages/admin/AdminMasterBank";
+import AdminChatRooms from "./pages/admin/AdminChatRooms";
+import AdminChatDetail from "./pages/admin/AdminChatDetail";
+import PageApi from "./pages/PageApi";
+
+import "leaflet/dist/leaflet.css";
+
+function App() {
+  return (
+    <Routes>
+      {/* Public routes */}
+      <Route path="/login" element={<LoginAdminCms />} />
+      <Route
+        path="/admindashboard"
+        element={<Navigate to="/dashboard" replace />}
+      />
+
+   
+
+      {/* Main Admin/Super Admin App Layout */}
+      <Route
+        element={
+          <ProtectedRoute>
+            <AdminLayout />
+          </ProtectedRoute>
+        }
+      >
+        {/* Shared Dashboard Route */}
+        <Route path="/dashboard" element={<Dashboard />} />
+
+        {/* Content Routes */}
+        <Route
+          path="/layanan"
+          element={
+            <ProtectedRoute requiredPath="/layanan">
+              <PageLayanan />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/layanan/tambah"
+          element={
+            <ProtectedRoute requiredPath="/layanan">
+              <FormTambah />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/layanan/:id/edit"
+          element={
+            <ProtectedRoute requiredPath="/layanan">
+              <FormEdit />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/promo"
+          element={
+            <ProtectedRoute requiredPath="/promo">
+              <PagePromo />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/promo/tambah"
+          element={
+            <ProtectedRoute requiredPath="/promo">
+              <PromoTambah />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/promo/:id_promo/edit"
+          element={
+            <ProtectedRoute requiredPath="/promo">
+              <PromoEdit />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/artikel"
+          element={
+            <ProtectedRoute requiredPath="/artikel">
+              <PageArtikel />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/artikel/tambah"
+          element={
+            <ProtectedRoute requiredPath="/artikel">
+              <FormTambahArtikel />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/artikel/:id/edit"
+          element={
+            <ProtectedRoute requiredPath="/artikel">
+              <FormEditArtikel />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/kelola-konten"
+          element={<Navigate to="/kelola-konten/home" replace />}
+        />
+        <Route
+          path="/kelola-konten/home"
+          element={
+            <ProtectedRoute requiredPath="/kelola-konten">
+              <PageKelolaKontenHome />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/kelola-konten/about"
+          element={
+            <ProtectedRoute requiredPath="/kelola-konten">
+              <PageKelolaKontenAbout />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/kelola-konten/mitra"
+          element={
+            <ProtectedRoute requiredPath="/kelola-konten">
+              <PageKelolaKontenMitra />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/kelola-konten/footer"
+          element={
+            <ProtectedRoute requiredPath="/kelola-konten">
+              <PageKelolaKontenFooter />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/ulasan"
+          element={
+            <ProtectedRoute requiredPath="/ulasan">
+              <PageUlasan />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/hubungi-kami"
+          element={
+            <ProtectedRoute requiredPath="/hubungi-kami">
+              <PageHubungiKami />
+            </ProtectedRoute>
+          }
+        />
+
+        {/* Nakes & Bookings */}
+        <Route
+          path="/nakes"
+          element={
+            <ProtectedRoute requiredPath="/nakes">
+              <DataNakes />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/nakes/requests"
+          element={
+            <ProtectedRoute requiredPath="/nakes/requests">
+              <PageNakesRequest />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/nakes-request/:id"
+          element={
+            <ProtectedRoute requiredPath="/nakes/requests">
+              <PageNakesRequestDetail />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/operasional-nakes"
+          element={
+            <ProtectedRoute requiredPath="/operasional-nakes">
+              <PageOperasionalNakes />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/nakes/pendaftaran"
+          element={
+            <ProtectedRoute requiredPath="/nakes/pendaftaran">
+              <TambahNakes />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/booking"
+          element={
+            <ProtectedRoute requiredPath="/booking">
+              <PageBooking />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/bookings/:id"
+          element={
+            <ProtectedRoute requiredPath="/booking">
+              <PageBookingDetail />
+            </ProtectedRoute>
+          }
+        />
+        {/* Chat */}
+        <Route
+          path="/chat-rooms"
+          element={
+            <ProtectedRoute requiredPath="/chat-rooms">
+              <AdminChatRooms />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/chat-rooms/:id"
+          element={
+            <ProtectedRoute requiredPath="/chat-rooms">
+              <AdminChatDetail />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/point-settings"
+          element={
+            <ProtectedRoute requiredPath="/point-settings">
+              <PointSetting />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/point-history"
+          element={
+            <ProtectedRoute requiredPath="/point-history">
+              <PointHistory />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/users"
+          element={
+            <ProtectedRoute requiredPath="/users">
+              <DataUser />
+            </ProtectedRoute>
+          }
+        />
+
+        {/* Config / Admin & Tier Management */}
+        <Route
+          path="/kelola-admin"
+          element={
+            <ProtectedRoute requiredPath="/kelola-admin">
+              <KelolaAdmin />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/tier-admin"
+          element={
+            <ProtectedRoute requiredPath="/tier-admin">
+              <KelolaTierAdmin />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/notification-templates"
+          element={
+            <ProtectedRoute requiredPath="/notification-templates">
+              <PageNotificationTemplates />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/manajemen-email"
+          element={
+            <ProtectedRoute requiredPath="/manajemen-email">
+              <PageManajemenEmail />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/web-setting"
+          element={
+            <ProtectedRoute requiredPath="/web-setting">
+              <PageWebSetting />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/konfigurasi-env"
+          element={
+            <ProtectedRoute requiredPath="/konfigurasi-env">
+              <PageApi />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/aktivitas-log"
+          element={
+            <ProtectedRoute requiredPath="/aktivitas-log">
+              <PageAktivitasLog />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/syarat-ketentuan-pasien"
+          element={
+            <ProtectedRoute requiredPath="/syarat-ketentuan-pasien">
+              <PageSyaratKetentuanPasien />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/syarat-ketentuan-nakes"
+          element={
+            <ProtectedRoute requiredPath="/syarat-ketentuan-nakes">
+              <PageSyaratKetentuanNakes />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/statistik-artikel"
+          element={
+            <ProtectedRoute requiredPath="/statistik-artikel">
+              <PageStatistikArtikel />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/laporan-transaksi"
+          element={
+            <ProtectedRoute requiredPath="/laporan-transaksi">
+              <PageLaporanTransaksi />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/laporan-booking"
+          element={
+            <ProtectedRoute requiredPath="/laporan-booking">
+              <PageLaporanBooking />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/laporan-nakes"
+          element={
+            <ProtectedRoute requiredPath="/laporan-nakes">
+              <PageLaporanNakes />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/laporan"
+          element={
+            <ProtectedRoute requiredPath="/laporan">
+              <PageLaporan />
+            </ProtectedRoute>
+          }
+        />
+        {/* Pindahkan rute profile ke sini agar memiliki sidebar */}
+        <Route
+          path="/profile"
+          element={
+            <ProtectedRoute requiredPath="/profile">
+              <AdminProfile />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/profile-admin"
+          element={
+            <ProtectedRoute requiredPath="/profile-admin">
+              <PageProfileAdmin />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/seeders"
+          element={
+            <ProtectedRoute requiredPath="/seeders">
+              <PageSeederManagement />
+            </ProtectedRoute>
+          }
+        />
+
+        {/* Master Data Routes */}
+        <Route path="/master-komponen-tarif" element={<ProtectedRoute requiredPath="/master-komponen-tarif"><AdminMasterKomponenTarif /></ProtectedRoute>} />
+        <Route path="/master-tarif-transport" element={<ProtectedRoute requiredPath="/master-tarif-transport"><AdminMasterTarifTransport /></ProtectedRoute>} />
+        <Route path="/master-pendidikan" element={<ProtectedRoute requiredPath="/master-pendidikan"><AdminMasterPendidikan /></ProtectedRoute>} />
+        <Route path="/master-universitas" element={<ProtectedRoute requiredPath="/master-universitas"><AdminMasterUniversitas /></ProtectedRoute>} />
+        <Route path="/master-agama" element={<ProtectedRoute requiredPath="/master-agama"><AdminMasterAgama /></ProtectedRoute>} />
+        <Route path="/master-kategori" element={<ProtectedRoute requiredPath="/master-kategori"><AdminMasterKategori /></ProtectedRoute>} />
+        <Route path="/master-metode-pembayaran" element={<ProtectedRoute requiredPath="/master-metode-pembayaran"><AdminMasterMetodePembayaran /></ProtectedRoute>} />
+        <Route path="/master-kategori-pembayaran" element={<ProtectedRoute requiredPath="/master-kategori-pembayaran"><AdminMasterKategoriPembayaran /></ProtectedRoute>} />
+        <Route path="/master-bank" element={<ProtectedRoute requiredPath="/master-bank"><AdminMasterBank /></ProtectedRoute>} />
+        <Route path="/master-kecamatan" element={<ProtectedRoute requiredPath="/master-kecamatan"><AdminMasterKecamatan /></ProtectedRoute>} />
+        <Route path="/master-barang" element={<ProtectedRoute requiredPath="/master-barang"><DataBarang /></ProtectedRoute>} />
+        <Route path="/master-tarif" element={<ProtectedRoute requiredPath="/master-tarif"><DataMasterTarif /></ProtectedRoute>} />
+        <Route path="/master-kategori-tarif" element={<ProtectedRoute requiredPath="/master-kategori-tarif"><AdminMasterKategoriTarif /></ProtectedRoute>} />
+        <Route path="/master-tarif-layanan" element={<ProtectedRoute requiredPath="/master-tarif-layanan"><MappingLayananBhp /></ProtectedRoute>} />
+        <Route path="/master-provinsi" element={<ProtectedRoute requiredPath="/master-provinsi"><AdminMasterProvinsi /></ProtectedRoute>} />
+        <Route path="/master-kabupaten" element={<ProtectedRoute requiredPath="/master-kabupaten"><AdminMasterkotakabupaten /></ProtectedRoute>} />
+        <Route path="/master-kelurahan" element={<ProtectedRoute requiredPath="/master-kelurahan"><AdminMasterKelurahan /></ProtectedRoute>} />
+      </Route>
+
+      {/* Default redirects */}
+      <Route path="/" element={<Navigate to="/dashboard" replace />} />
+      <Route path="*" element={<Navigate to="/dashboard" replace />} />
+    </Routes>
+  );
+}
+
+export default App;
