@@ -4,7 +4,7 @@ import Link from "next/link";
 import { FiEye, FiEyeOff } from "react-icons/fi";
 import { GoogleOAuthProvider, useGoogleLogin } from "@react-oauth/google";
 import { useRouter } from "next/navigation";
-import { loginForm, loginWithGoogleAPI } from "@/services/Auth.js";
+import { loginForm, loginWithGoogleAPI, checkEmailRegistered } from "@/services/Auth.js";
 import { createSession } from "@/services/session.js";
 import { FaShieldAlt } from "react-icons/fa";
 
@@ -56,6 +56,8 @@ export default function MasukPage() {
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
+  const [showForgotLink, setShowForgotLink] = useState(false);
+  const [showRegisterLink, setShowRegisterLink] = useState(false);
   const router = useRouter();
 
   const rawClientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID;
@@ -77,13 +79,34 @@ export default function MasukPage() {
     e.preventDefault();
     setLoading(true);
     setErrorMsg("");
+    setShowForgotLink(false);
+    setShowRegisterLink(false);
 
     try {
       const data = await loginForm(email, password);
       await createSession(data);
       redirectAfterLogin(data);
     } catch (err) {
-      setErrorMsg(err.message || "Login gagal");
+      // Periksa secara spesifik apakah email ada atau belum dijadikan akun
+      try {
+        const { registered } = await checkEmailRegistered(email);
+        if (registered === false) {
+          setErrorMsg("Email ini belum terdaftar sebagai akun. Silakan klik Daftar untuk membuat akun baru.");
+          setShowRegisterLink(true);
+          setShowForgotLink(false);
+          return;
+        } else if (registered === true) {
+          setErrorMsg("Kata sandi yang Anda masukkan salah. Silakan coba lagi atau gunakan Lupa Password.");
+          setShowForgotLink(true);
+          setShowRegisterLink(false);
+          return;
+        }
+      } catch {
+        // Fallback jika pengecekan gagal
+      }
+
+      setErrorMsg(err.message || "Login gagal. Email atau password salah.");
+      setShowForgotLink(true);
     } finally {
       setLoading(false);
     }
@@ -122,7 +145,18 @@ export default function MasukPage() {
 
       {errorMsg && (
         <div className="mb-4 rounded-xl p-3.5 border bg-red-50 border-red-200 text-red-600">
-          <p className="text-xs font-semibold">{errorMsg}</p>
+          <p className="text-xs font-semibold leading-relaxed">{errorMsg}</p>
+          {showRegisterLink && (
+            <div className="mt-2.5 pt-2 border-t border-red-200/60 flex items-center justify-between">
+              <span className="text-[11px] text-red-700 font-medium">Belum punya akun?</span>
+              <Link
+                href={email ? `/daftar?email=${encodeURIComponent(email)}` : "/daftar"}
+                className="text-xs font-bold text-[#004fa4] bg-white px-2.5 py-1 rounded-lg border border-red-200 shadow-xs hover:bg-slate-50 transition"
+              >
+                Daftar Sekarang &rarr;
+              </Link>
+            </div>
+          )}
         </div>
       )}
 
@@ -141,7 +175,17 @@ export default function MasukPage() {
         </div>
 
         <div>
-          <label className="text-xs font-bold text-slate-600 mb-1.5 block">Password</label>
+          <div className="flex items-center justify-between mb-1.5">
+            <label className="text-xs font-bold text-slate-600 block">Password</label>
+            {showForgotLink && (
+              <Link
+                href={email ? `/forgot-password?email=${encodeURIComponent(email)}` : "/forgot-password"}
+                className="text-xs font-semibold text-[#004fa4] hover:underline"
+              >
+                Lupa Password?
+              </Link>
+            )}
+          </div>
           <div className="relative">
             <input
               type={showPassword ? "text" : "password"}

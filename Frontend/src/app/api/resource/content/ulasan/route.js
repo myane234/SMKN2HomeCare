@@ -1,10 +1,36 @@
 import { NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
-import { getPublicUlasanList, createUlasan } from '@/lib/cmsDataStore';
+import {
+  getPublicUlasanList,
+  createUlasan,
+  getUlasanStatusOverrides,
+  getDeletedUlasanIds
+} from '@/lib/cmsDataStore';
 
 export async function GET(request) {
   try {
     const { searchParams } = new URL(request.url);
+
+    // 1. Ambil langsung dari Server Remote (citra.faaruq.com)
+    try {
+      const backendUrl = new URL('https://citra.faaruq.com/api/resource/content/ulasan');
+      searchParams.forEach((val, key) => {
+        backendUrl.searchParams.set(key, val);
+      });
+
+      const remoteRes = await fetch(backendUrl.toString(), {
+        headers: { Accept: 'application/json' },
+        cache: 'no-store'
+      });
+      if (remoteRes.ok) {
+        const remoteData = await remoteRes.json();
+        return NextResponse.json(remoteData);
+      }
+    } catch (remoteErr) {
+      console.warn('Gagal memuat ulasan dari remote server, fallback ke local store:', remoteErr.message);
+    }
+
+    // 2. Fallback ke CMS Data Store Lokal
     const rating = searchParams.get('rating');
     const search = searchParams.get('search');
     const sort = searchParams.get('sort') || 'terbaru';
@@ -105,37 +131,64 @@ export async function POST(request) {
       } catch {}
     }
 
-    payload.is_published = false; // Memerlukan moderasi admin
-    payload.urutan = 0;
-    
-    // Simpan ke local CMS store
-    const newUlasan = createUlasan(payload);
+    const pengulasNama = payload.nama_pengulas || 'Pasien';
+    const peran = payload.profesi_peran || 'Pasien';
 
-    // Coba kirim juga ke backend remote (citra.faaruq.com) jika token valid
+    // Format metadata layanan jika disertakan agar tetap tercatat aman di server
+    let finalKomentar = payload.komentar.trim();
+    if (payload.nama_layanan || payload.layanan) {
+      const svcName = payload.nama_layanan || payload.layanan;
+      finalKomentar = `[Layanan: ${svcName}] ${finalKomentar}`;
+    }
+
+    // 5. Kirim langsung ke Server Remote (citra.faaruq.com)
+    let remoteSaved = null;
     try {
-      const remoteForm = new FormData();
-      remoteForm.append('rating', String(payload.rating));
-      remoteForm.append('komentar', String(payload.komentar));
-      if (payload.nama_pengulas) remoteForm.append('nama_pengulas', String(payload.nama_pengulas));
-      if (payload.profesi_peran) remoteForm.append('profesi_peran', String(payload.profesi_peran));
-      if (payload.layanan_id) remoteForm.append('layanan_id', String(payload.layanan_id));
-      if (payload.transaksi_id) remoteForm.append('transaksi_id', String(payload.transaksi_id));
+      const serverPayload = {
+        rating: Number(payload.rating),
+        komentar: finalKomentar,
+        nama_pengulas: pengulasNama,
+        profesi_peran: peran
+      };
+      if (payload.transaksi_id && !isNaN(Number(payload.transaksi_id))) {
+        serverPayload.id_booking = Number(payload.transaksi_id);
+      }
 
-      fetch('https://citra.faaruq.com/api/resource/content/ulasan', {
+      const remoteRes = await fetch('https://citra.faaruq.com/api/resource/content/ulasan', {
         method: 'POST',
         headers: {
-          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
           Accept: 'application/json',
+          Authorization: `Bearer ${token}`
         },
-        body: remoteForm,
-      }).catch(() => {});
-    } catch {}
+        body: JSON.stringify(serverPayload)
+      });
+
+      if (remoteRes.ok) {
+        const resJson = await remoteRes.json();
+        remoteSaved = resJson?.data || resJson;
+      } else {
+        const errText = await remoteRes.text();
+        console.warn('Gagal simpan ulasan di remote server:', remoteRes.status, errText);
+      }
+    } catch (remoteErr) {
+      console.warn('Error fetching remote ulasan server:', remoteErr.message);
+    }
+
+    // 6. Simpan juga ke CMS store lokal untuk fallback konsistensi
+    payload.is_published = true;
+    payload.urutan = 0;
+    const newUlasan = createUlasan({
+      ...payload,
+      id: remoteSaved?.id,
+      created_at: remoteSaved?.created_at || new Date().toISOString()
+    });
 
     return NextResponse.json(
       {
         success: true,
-        message: 'Terima kasih! Ulasan Anda berhasil dikirim dan akan ditinjau oleh tim kami.',
-        data: newUlasan
+        message: 'Terima kasih! Ulasan Anda berhasil dikirim ke server dan ditampilkan di portal.',
+        data: remoteSaved || newUlasan
       },
       { status: 201 }
     );

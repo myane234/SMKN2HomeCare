@@ -23,6 +23,19 @@ import Swal from "sweetalert2";
 import api from "../utils/apiClient";
 import Pagination from "../components/pagination";
 
+function formatWaNumber(phoneStr) {
+  if (!phoneStr) return "";
+  let clean = phoneStr.replace(/\D/g, "");
+  if (clean.startsWith("6208")) {
+    clean = "62" + clean.slice(4);
+  } else if (clean.startsWith("08")) {
+    clean = "62" + clean.slice(1);
+  } else if (clean.startsWith("8")) {
+    clean = "62" + clean;
+  }
+  return clean;
+}
+
 export default function PageHubungiKami() {
   const [activeTab, setActiveTab] = useState("inbox"); // 'inbox' | 'settings'
   const [pesanList, setPesanList] = useState([]);
@@ -514,7 +527,7 @@ export default function PageHubungiKami() {
                               {item.no_hp && (
                                 <>
                                   <a
-                                    href={`https://wa.me/${item.no_hp.replace(/[^0-9]/g, "")}?text=${encodeURIComponent(
+                                    href={`https://wa.me/${formatWaNumber(item.no_hp)}?text=${encodeURIComponent(
                                       `Halo ${item.nama}, terima kasih telah menghubungi SmartHomeCare mengenai "${item.subjek}". Kami siap membantu Anda.`
                                     )}`}
                                     target="_blank"
@@ -763,7 +776,7 @@ export default function PageHubungiKami() {
                 {selectedPesan.no_hp && (
                   <div className="pt-2 border-t border-slate-200/70 flex flex-wrap items-center gap-2">
                     <a
-                      href={`https://wa.me/${selectedPesan.no_hp.replace(/[^0-9]/g, "")}?text=${encodeURIComponent(
+                      href={`https://wa.me/${formatWaNumber(selectedPesan.no_hp)}?text=${encodeURIComponent(
                         `Halo ${selectedPesan.nama}, kami dari SmartHomeCare menindaklanjuti pesan Anda mengenai "${selectedPesan.subjek || 'layanan kami'}".`
                       )}`}
                       target="_blank"

@@ -7,6 +7,7 @@ import Footer from "./Footer";
 import { fetchAndStoreProfile } from "@/services/profileService";
 import { getAuthToken } from "@/services/cookieHelper";
 import ActiveBookingBubble from "@/components/ActiveBookingBubble";
+import MiniUlasanModal from "@/components/MiniUlasanModal";
 
 export default function LayoutShell({ children }) {
   const pathname = usePathname();
@@ -35,6 +36,9 @@ export default function LayoutShell({ children }) {
 
       {/* Floating bubble status booking aktif — hanya untuk pasien login */}
       {!hideLayout && <ActiveBookingBubble />}
+
+      {/* Pop-up Mini Ulasan Pasca Pelayanan */}
+      {!hideLayout && <MiniUlasanModal />}
     </>
   );
 }

@@ -42,6 +42,19 @@ function verifyIndonesianPhone(rawPhone) {
   };
 }
 
+function formatWaNumber(phoneStr) {
+  if (!phoneStr) return "";
+  let clean = phoneStr.replace(/\D/g, "");
+  if (clean.startsWith("6208")) {
+    clean = "62" + clean.slice(4);
+  } else if (clean.startsWith("08")) {
+    clean = "62" + clean.slice(1);
+  } else if (clean.startsWith("8")) {
+    clean = "62" + clean;
+  }
+  return clean;
+}
+
 export default function HubungiKamiPage() {
   const [config, setConfig] = useState({});
   const [submitting, setSubmitting] = useState(false);
@@ -264,7 +277,7 @@ export default function HubungiKamiPage() {
                 <div className="min-w-0">
                   <h3 className="text-xs font-bold text-slate-800">Telepon Official</h3>
                   <a
-                    href={`tel:${phone.replace(/[^0-9+]/g, "")}`}
+                    href={`tel:${phone.startsWith('0') ? '+62' + phone.replace(/\D/g, '').slice(1) : phone.replace(/[^0-9+]/g, '')}`}
                     className="text-xs text-slate-600 hover:text-sky-600 font-medium hover:underline mt-0.5 inline-block truncate"
                     title="Klik untuk menelepon"
                   >
@@ -280,7 +293,7 @@ export default function HubungiKamiPage() {
                 <div className="min-w-0">
                   <h3 className="text-xs font-bold text-slate-800">WhatsApp Fast Response</h3>
                   <a
-                    href={`https://wa.me/${whatsapp.replace(/[^0-9]/g, "")}`}
+                    href={`https://wa.me/${formatWaNumber(whatsapp)}`}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="text-xs text-slate-600 hover:text-emerald-600 font-medium hover:underline mt-0.5 inline-block truncate"

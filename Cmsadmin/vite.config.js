@@ -6,20 +6,20 @@ export default defineConfig({
   plugins: [react(), tailwindcss()],
 server: {
     proxy: {
-      // Rute API Ulasan & Hubungi Kami diarahkan ke API aktif di port 3000
-      '/api/resource/content/ulasan': {
-        target: 'http://localhost:3000',
-        changeOrigin: true,
-      },
-      '/api/admin/ulasan': {
-        target: 'http://localhost:3000',
-        changeOrigin: true,
-      },
+      // Rute Hubungi Kami & Forgot Password diarahkan ke port 3000 jika diperlukan
       '/api/resource/content/hubungi-kami': {
         target: 'http://localhost:3000',
         changeOrigin: true,
       },
       '/api/admin/hubungi-kami': {
+        target: 'http://localhost:3000',
+        changeOrigin: true,
+      },
+      '/api/admin/forgot-password': {
+        target: 'http://localhost:3000',
+        changeOrigin: true,
+      },
+      '/api/forgot-password': {
         target: 'http://localhost:3000',
         changeOrigin: true,
       },
