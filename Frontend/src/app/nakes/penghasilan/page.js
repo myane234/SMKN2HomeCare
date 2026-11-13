@@ -1,27 +1,24 @@
 "use client";
 
-import {
-  useCallback,
-  useEffect,
-  useState,
-} from "react";
+import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import {
   getRingkasanPenghasilanNakes,
   getRiwayatPenghasilanNakes,
-  getSaldoNakes,          
-  requestWithdrawNakes
+  getSaldoNakes,
+  requestWithdrawNakes,
 } from "@/services/nakesService";
+import RiwayatPenarikan from "./components/RiwayatPenarikan";
 
 const PER_PAGE = 15;
 const DAY_MS = 24 * 60 * 60 * 1000;
 
+// =====================================================
+// HELPERS
+// =====================================================
+
 function formatRupiah(value) {
-  if (
-    value === null ||
-    value === undefined ||
-    value === ""
-  ) {
+  if (value === null || value === undefined || value === "") {
     return "—";
   }
 
@@ -38,6 +35,23 @@ function formatRupiah(value) {
   }).format(amount);
 }
 
+// Format nominal input menggunakan titik pemisah ribuan.
+// Contoh: 847350 menjadi 847.350.
+function formatNominalInput(value) {
+  const digits = String(value ?? "").replace(/\D/g, "");
+
+  if (!digits) return "";
+
+  return digits.replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+}
+
+// Mengubah nominal berformat 847.350 menjadi angka 847350.
+function parseNominalInput(value) {
+  const digits = String(value ?? "").replace(/\D/g, "");
+
+  return digits ? Number(digits) : 0;
+}
+
 function getErrorMessage(error, fallback) {
   return (
     error?.response?.data?.message ||
@@ -48,29 +62,18 @@ function getErrorMessage(error, fallback) {
 
 function toDateInputValue(date) {
   const year = date.getFullYear();
-  const month = String(
-    date.getMonth() + 1
-  ).padStart(2, "0");
-  const day = String(date.getDate()).padStart(
-    2,
-    "0"
-  );
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
 
   return `${year}-${month}-${day}`;
 }
 
 function formatTanggal(value) {
-  if (!value) {
-    return "Tanggal tidak tersedia";
-  }
+  if (!value) return "Tanggal tidak tersedia";
 
-  const parts = String(value)
-    .slice(0, 10)
-    .split("-");
+  const parts = String(value).slice(0, 10).split("-");
 
-  if (parts.length !== 3) {
-    return String(value);
-  }
+  if (parts.length !== 3) return String(value);
 
   const [year, month, day] = parts;
 
@@ -80,42 +83,28 @@ function formatTanggal(value) {
     Number(day)
   );
 
-  if (Number.isNaN(date.getTime())) {
-    return String(value);
-  }
+  if (Number.isNaN(date.getTime())) return String(value);
 
   return new Intl.DateTimeFormat("id-ID", {
     day: "2-digit",
-    month: "short",
+    month: "long",
     year: "numeric",
   }).format(date);
 }
 
 function getRows(response) {
-  // Bentuk respons sesuai dokumentasi API:
-  // { success: true, data: [...], pagination: {...} }
-
   if (Array.isArray(response?.data)) {
     return response.data;
   }
 
-  // Mendukung respons yang membungkus data satu tingkat.
-  if (
-    Array.isArray(response?.data?.data)
-  ) {
+  if (Array.isArray(response?.data?.data)) {
     return response.data.data;
   }
 
-  throw new Error(
-    "Format data riwayat dari API tidak sesuai dokumentasi."
-  );
+  throw new Error("Data riwayat tidak dapat dibaca.");
 }
 
-function getPagination(
-  response,
-  currentPage,
-  rowsLength
-) {
+function getPagination(response, currentPage, rowsLength) {
   const meta =
     response?.pagination ||
     response?.data?.pagination ||
@@ -123,34 +112,24 @@ function getPagination(
     response?.data?.meta ||
     {};
 
-  const total =
-    Number(meta.total ?? rowsLength) || 0;
+  const total = Number(meta.total ?? rowsLength) || 0;
 
-  const perPage =
-    Number(meta.per_page ?? PER_PAGE) ||
-    PER_PAGE;
+  const perPage = Number(meta.per_page ?? PER_PAGE) || PER_PAGE;
 
   const totalPages = Math.max(
     1,
-    Number(
-      meta.total_pages ??
-        Math.ceil(total / perPage)
-    ) || 1
+    Number(meta.total_pages ?? Math.ceil(total / perPage)) || 1
   );
 
   const actualPage =
-    Number(
-      meta.current_page ?? currentPage
-    ) || currentPage;
+    Number(meta.current_page ?? currentPage) || currentPage;
 
   return {
     total,
-    per_page: perPage,
     current_page: actualPage,
     total_pages: totalPages,
     has_more_pages: Boolean(
-      meta.has_more_pages ??
-        actualPage < totalPages
+      meta.has_more_pages ?? actualPage < totalPages
     ),
   };
 }
@@ -166,191 +145,175 @@ function getBookingCode(item) {
 }
 
 function getServiceName(item) {
-  const services =
-    Array.isArray(item?.layanan)
-      ? item.layanan
-      : [];
+  const services = Array.isArray(item?.layanan)
+    ? item.layanan
+    : [];
 
   if (services.length > 0) {
     return services
       .map((service) =>
         typeof service === "string"
           ? service
-          : service?.nama_layanan ||
-            service?.name
+          : service?.nama_layanan || service?.name
       )
       .filter(Boolean)
       .join(", ");
   }
 
-  const bookingServices =
+  const fallback =
     item?.booking?.layanan_items ||
     item?.layanan_items ||
     [];
 
-  if (Array.isArray(bookingServices)) {
-    const names = bookingServices
+  if (Array.isArray(fallback)) {
+    const names = fallback
       .map(
         (service) =>
-          service?.nama_layanan ||
-          service?.name
+          service?.nama_layanan || service?.name
       )
       .filter(Boolean);
 
-    if (names.length > 0) {
-      return names.join(", ");
-    }
+    if (names.length > 0) return names.join(", ");
   }
 
-  return (
-    item?.nama_layanan ||
-    item?.layanan_nama ||
-    ""
-  );
+  return item?.nama_layanan || item?.layanan_nama || "";
 }
 
 function getIncomeValue(item) {
   const value =
     item?.penghasilan_bersih ??
-    item?.rincian_penghasilan
-      ?.penghasilan_bersih ??
+    item?.rincian_penghasilan?.penghasilan_bersih ??
     item?.total_bersih;
 
-  if (
-    value === null ||
-    value === undefined ||
-    value === ""
-  ) {
+  if (value === null || value === undefined || value === "") {
     return null;
   }
 
   const number = Number(value);
 
-  return Number.isFinite(number)
-    ? number
-    : null;
+  return Number.isFinite(number) ? number : null;
 }
 
-function getStatus(item) {
+// =====================================================
+// SMALL COMPONENTS
+// =====================================================
+
+function SummaryCard({ title, amount, bookings, period }) {
   return (
-    item?.status_booking ||
-    item?.status ||
-    item?.booking?.status_booking ||
-    "Lunas"
-  );
-}
-
-function getStatusStyle(status) {
-  const value = String(
-    status || ""
-  ).toLowerCase();
-
-  if (value.includes("selesai")) {
-    return "border-emerald-200 bg-emerald-50 text-emerald-700";
-  }
-
-  if (
-    value.includes("batal") ||
-    value.includes("refund")
-  ) {
-    return "border-rose-200 bg-rose-50 text-rose-700";
-  }
-
-  if (
-    value.includes("lunas") ||
-    value.includes("paid")
-  ) {
-    return "border-blue-200 bg-blue-50 text-blue-700";
-  }
-
-  return "border-slate-200 bg-slate-50 text-slate-600";
-}
-
-function SummaryCard({
-  title,
-  amount,
-  bookings,
-  period,
-  featured = false,
-}) {
-  return (
-    <section
-      className={`rounded-2xl border p-4 sm:p-5 ${
-        featured
-          ? "border-blue-100 bg-gradient-to-br from-blue-600 to-indigo-600 text-white shadow-md shadow-blue-100"
-          : "border-slate-200 bg-white text-slate-900 shadow-sm"
-      }`}
-    >
-      <p
-        className={`text-xs font-medium sm:text-sm ${
-          featured
-            ? "text-blue-100"
-            : "text-slate-500"
-        }`}
-      >
+    <article className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
+      <p className="text-xs font-medium text-slate-500">
         {title}
       </p>
 
-      <p className="mt-2 break-words text-2xl font-bold tracking-tight sm:text-3xl">
+      <p className="mt-2 break-words text-xl font-bold tracking-tight text-slate-900 sm:text-2xl">
         {amount}
       </p>
 
       <div className="mt-2 flex flex-wrap items-center gap-2">
-        <span
-          className={`text-xs ${
-            featured
-              ? "text-blue-100"
-              : "text-slate-500"
-          }`}
-        >
+        <span className="text-xs text-slate-500">
           {bookings} booking
         </span>
 
         {period ? (
-          <span
-            className={`text-xs ${
-              featured
-                ? "text-blue-100"
-                : "text-slate-400"
-            }`}
-          >
+          <span className="text-xs text-slate-400">
             · {period}
           </span>
         ) : null}
       </div>
-    </section>
+    </article>
   );
 }
 
 function LoadingCard() {
   return (
-    <div className="h-32 animate-pulse rounded-2xl bg-slate-200/70" />
+    <div className="h-28 animate-pulse rounded-2xl bg-slate-200/70" />
   );
 }
 
+function StatusBadge({ status }) {
+  const value = String(status || "").toLowerCase();
+
+  const className = value.includes("selesai")
+    ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+    : value.includes("batal") || value.includes("refund")
+      ? "border-rose-200 bg-rose-50 text-rose-700"
+      : "border-blue-200 bg-blue-50 text-blue-700";
+
+  return (
+    <span
+      className={`rounded-full border px-2.5 py-1 text-[10px] font-semibold ${className}`}
+    >
+      {status || "Lunas"}
+    </span>
+  );
+}
+
+// =====================================================
+// MAIN PAGE
+// =====================================================
+
 export default function PenghasilanNakesPage() {
+  // RINGKASAN
   const [summary, setSummary] = useState(null);
-  const [summaryLoading, setSummaryLoading] =
-    useState(true);
-  const [summaryError, setSummaryError] =
-    useState("");
+  const [summaryLoading, setSummaryLoading] = useState(true);
+  const [summaryError, setSummaryError] = useState("");
+
+  // SALDO
   const [saldoData, setSaldoData] = useState(null);
   const [saldoLoading, setSaldoLoading] = useState(true);
-  const [withdrawLoading, setWithdrawLoading] = useState(false);
 
-  const [isModalOpen, setIsModalOpen] = useState(false);
+  // TAB KEUANGAN
+  const [activeTab, setActiveTab] = useState("income");
+  const [withdrawRefreshKey, setWithdrawRefreshKey] = useState(0);
+
+  // RIWAYAT PENGHASILAN
+  const [rows, setRows] = useState([]);
+
+  const [pagination, setPagination] = useState({
+    total: 0,
+    current_page: 1,
+    total_pages: 1,
+    has_more_pages: false,
+  });
+
+  const [listLoading, setListLoading] = useState(true);
+  const [listError, setListError] = useState("");
+  const [currentPage, setCurrentPage] = useState(1);
+
+  // FILTER TANGGAL
+  const today = toDateInputValue(new Date());
+
+  const earliestDate = toDateInputValue(
+    new Date(Date.now() - DAY_MS * 90)
+  );
+
+  const [dateFromInput, setDateFromInput] = useState("");
+  const [dateToInput, setDateToInput] = useState("");
+
+  const [filters, setFilters] = useState({
+    tanggal_dari: "",
+    tanggal_sampai: "",
+  });
+
+  const [filterError, setFilterError] = useState("");
+
+  // WITHDRAW
+  const [withdrawLoading, setWithdrawLoading] = useState(false);
+  const [isWithdrawModalOpen, setIsWithdrawModalOpen] = useState(false);
   const [withdrawAmount, setWithdrawAmount] = useState("");
   const [withdrawSuccessData, setWithdrawSuccessData] = useState(null);
 
- const fetchSaldo = useCallback(async () => {
+  // =====================================================
+  // FETCH SALDO
+  // =====================================================
+
+  const fetchSaldo = useCallback(async () => {
     setSaldoLoading(true);
+
     try {
       const response = await getSaldoNakes();
-      console.log("RESPONSE SALDO:", response); // Untuk debugging di F12 Console
-      
-      // Ambil data dari berbagai kemungkinan struktur JSON backend
-      const root = response?.data ?? response;
-      setSaldoData(root);
+
+      setSaldoData(response?.data ?? response);
     } catch (error) {
       console.error("Gagal memuat saldo:", error);
     } finally {
@@ -358,31 +321,160 @@ export default function PenghasilanNakesPage() {
     }
   }, []);
 
+  // =====================================================
+  // FETCH RINGKASAN
+  // =====================================================
+
+  const fetchSummary = useCallback(async () => {
+    setSummaryLoading(true);
+    setSummaryError("");
+
+    try {
+      const response = await getRingkasanPenghasilanNakes();
+
+      if (!response?.data || typeof response.data !== "object") {
+        throw new Error("Ringkasan penghasilan belum dapat ditampilkan.");
+      }
+
+      setSummary(response.data);
+    } catch (error) {
+      setSummary(null);
+
+      setSummaryError(
+        getErrorMessage(
+          error,
+          "Ringkasan penghasilan gagal dimuat."
+        )
+      );
+    } finally {
+      setSummaryLoading(false);
+    }
+  }, []);
+
+  // =====================================================
+  // FETCH RIWAYAT PENGHASILAN
+  // =====================================================
+
+  const fetchHistory = useCallback(async () => {
+    setListLoading(true);
+    setListError("");
+
+    const params = {
+      page: currentPage,
+      per_page: PER_PAGE,
+    };
+
+    if (filters.tanggal_dari) {
+      params.tanggal_dari = filters.tanggal_dari;
+    }
+
+    if (filters.tanggal_sampai) {
+      params.tanggal_sampai = filters.tanggal_sampai;
+    }
+
+    try {
+      const response = await getRiwayatPenghasilanNakes(params);
+
+      const dataRows = getRows(response);
+
+      setRows(dataRows);
+
+      setPagination(
+        getPagination(
+          response,
+          currentPage,
+          dataRows.length
+        )
+      );
+    } catch (error) {
+      setRows([]);
+
+      setPagination({
+        total: 0,
+        current_page: 1,
+        total_pages: 1,
+        has_more_pages: false,
+      });
+
+      setListError(
+        getErrorMessage(
+          error,
+          "Riwayat penghasilan gagal dimuat."
+        )
+      );
+    } finally {
+      setListLoading(false);
+    }
+  }, [currentPage, filters]);
+
   useEffect(() => {
     fetchSaldo();
-  }, [fetchSaldo]);
+    fetchSummary();
+  }, [fetchSaldo, fetchSummary]);
 
-  const openWithdrawModal = () => {
-    if (currentSaldo < 50000) {
-      alert("Minimal withdraw adalah Rp 50.000.");
+  useEffect(() => {
+    fetchHistory();
+  }, [fetchHistory]);
+
+  // =====================================================
+  // SALDO & VALIDASI WITHDRAW
+  // =====================================================
+
+  const currentSaldo = Number(
+    saldoData?.saldo ??
+      saldoData?.total_saldo ??
+      saldoData?.nominal ??
+      saldoData?.amount ??
+      0
+  );
+
+  const minimumWithdraw = Number(
+    saldoData?.minimum_withdraw ?? 50000
+  );
+
+  const canWithdraw =
+    saldoData?.bisa_withdraw !== false &&
+    currentSaldo >= minimumWithdraw;
+
+  // Nominal hasil input setelah menghapus pemisah titik.
+  const withdrawNominal = parseNominalInput(withdrawAmount);
+
+  // =====================================================
+  // WITHDRAW ACTIONS
+  // =====================================================
+
+  function openWithdrawModal() {
+    if (!canWithdraw) {
+      alert(
+        `Saldo belum mencukupi. Minimal penarikan ${
+          saldoData?.minimum_withdraw_format ||
+          formatRupiah(minimumWithdraw)
+        }.`
+      );
+
       return;
     }
-    setWithdrawAmount(currentSaldo);
-    setWithdrawSuccessData(null);
-    setIsModalOpen(true);
-  };
 
-  const closeWithdrawModal = () => {
-    setIsModalOpen(false);
+    setWithdrawAmount(formatNominalInput(currentSaldo));
     setWithdrawSuccessData(null);
-  };
+    setIsWithdrawModalOpen(true);
+  }
 
-  const submitWithdraw = async (event) => {
+  function closeWithdrawModal() {
+    setIsWithdrawModalOpen(false);
+    setWithdrawSuccessData(null);
+  }
+
+  async function submitWithdraw(event) {
     event.preventDefault();
-    const nominal = Number(withdrawAmount);
 
-    if (nominal < 50000) {
-      alert("Minimal penarikan adalah Rp 50.000.");
+    const nominal = parseNominalInput(withdrawAmount);
+
+    if (!Number.isSafeInteger(nominal) || nominal < minimumWithdraw) {
+      alert(
+        `Minimal penarikan adalah ${formatRupiah(minimumWithdraw)}.`
+      );
+
       return;
     }
 
@@ -393,172 +485,44 @@ export default function PenghasilanNakesPage() {
 
     try {
       setWithdrawLoading(true);
-      const res = await requestWithdrawNakes({ jumlah: nominal });
-      const successData = res?.data ?? res;
-      
+
+      const response = await requestWithdrawNakes({
+        jumlah: nominal,
+      });
+
+      if (response?.success === false) {
+        throw new Error(
+          response?.message || "Penarikan gagal diproses."
+        );
+      }
+
+      const successData = response?.data ?? response;
+
       setWithdrawSuccessData(successData);
-      fetchSaldo();
+
+      // Setelah berhasil, buka tab penarikan.
+      setActiveTab("withdrawal");
+
+      // Refresh daftar penarikan.
+      setWithdrawRefreshKey((value) => value + 1);
+
+      // Ambil saldo terbaru dari backend.
+      await fetchSaldo();
     } catch (error) {
-      alert(getErrorMessage(error, "Gagal melakukan request withdraw."));
+      alert(
+        getErrorMessage(
+          error,
+          "Gagal melakukan penarikan saldo."
+        )
+      );
     } finally {
       setWithdrawLoading(false);
     }
-  };
+  }
 
- const currentSaldo = Number(
-    saldoData?.saldo ?? 
-    saldoData?.total_saldo ?? 
-    saldoData?.nominal ?? 
-    saldoData?.amount ?? 
-    0
-  );
-  const [rows, setRows] = useState([]);
-  const [pagination, setPagination] =
-    useState({
-      total: 0,
-      per_page: PER_PAGE,
-      current_page: 1,
-      total_pages: 1,
-      has_more_pages: false,
-    });
-
-  const [listLoading, setListLoading] =
-    useState(true);
-  const [listError, setListError] =
-    useState("");
-  const [currentPage, setCurrentPage] =
-    useState(1);
-
-  const today = toDateInputValue(
-    new Date()
-  );
-
-  const earliestDate = toDateInputValue(
-    new Date(
-      Date.now() - DAY_MS * 90
-    )
-  );
-
-  const [dateFromInput, setDateFromInput] =
-    useState("");
-  const [dateToInput, setDateToInput] =
-    useState("");
-
-  const [filters, setFilters] = useState({
-    tanggal_dari: "",
-    tanggal_sampai: "",
-  });
-
-  const [filterError, setFilterError] =
-    useState("");
-
-  // Ringkasan hanya diambil dari API.
-  const fetchSummary = useCallback(
-    async () => {
-      setSummaryLoading(true);
-      setSummaryError("");
-
-      try {
-        const response =
-          await getRingkasanPenghasilanNakes();
-
-        const data = response?.data;
-
-        if (
-          !data ||
-          typeof data !== "object"
-        ) {
-          throw new Error(
-            "Format ringkasan penghasilan tidak sesuai."
-          );
-        }
-
-        setSummary(data);
-      } catch (error) {
-        setSummary(null);
-
-        setSummaryError(
-          getErrorMessage(
-            error,
-            "Ringkasan penghasilan gagal dimuat."
-          )
-        );
-      } finally {
-        setSummaryLoading(false);
-      }
-    },
-    []
-  );
-
-  useEffect(() => {
-    fetchSummary();
-  }, [fetchSummary]);
-
-  // Riwayat selalu mengambil data dari API.
-  const fetchHistory = useCallback(
-    async () => {
-      setListLoading(true);
-      setListError("");
-
-      const params = {
-        page: currentPage,
-        per_page: PER_PAGE,
-      };
-
-      if (filters.tanggal_dari) {
-        params.tanggal_dari =
-          filters.tanggal_dari;
-      }
-
-      if (filters.tanggal_sampai) {
-        params.tanggal_sampai =
-          filters.tanggal_sampai;
-      }
-
-      try {
-        const response =
-          await getRiwayatPenghasilanNakes(
-            params
-          );
-
-        const dataRows =
-          getRows(response);
-
-        setRows(dataRows);
-
-        setPagination(
-          getPagination(
-            response,
-            currentPage,
-            dataRows.length
-          )
-        );
-      } catch (error) {
-        setRows([]);
-        setPagination({
-          total: 0,
-          per_page: PER_PAGE,
-          current_page: 1,
-          total_pages: 1,
-          has_more_pages: false,
-        });
-
-        setListError(
-          getErrorMessage(
-            error,
-            "Riwayat penghasilan gagal dimuat."
-          )
-        );
-      } finally {
-        setListLoading(false);
-      }
-    },
-    [currentPage, filters]
-  );
-
-  useEffect(() => {
-    fetchHistory();
-  }, [fetchHistory]);
+  // =====================================================
+  // FILTER TANGGAL PENGHASILAN
+  // =====================================================
 
   function applyFilter(event) {
     event.preventDefault();
@@ -575,42 +539,22 @@ export default function PenghasilanNakesPage() {
       return;
     }
 
-    if (
-      dateFromInput &&
-      dateFromInput > today
-    ) {
-      setFilterError(
-        "Tanggal awal tidak boleh melebihi hari ini."
-      );
+    if (dateFromInput && dateFromInput > today) {
+      setFilterError("Tanggal awal tidak boleh melebihi hari ini.");
+      return;
+    }
+
+    if (dateToInput && dateToInput > today) {
+      setFilterError("Tanggal akhir tidak boleh melebihi hari ini.");
       return;
     }
 
     if (
-      dateToInput &&
-      dateToInput > today
+      (dateFromInput && dateFromInput < earliestDate) ||
+      (dateToInput && dateToInput < earliestDate)
     ) {
       setFilterError(
-        "Tanggal akhir tidak boleh melebihi hari ini."
-      );
-      return;
-    }
-
-    if (
-      dateFromInput &&
-      dateFromInput < earliestDate
-    ) {
-      setFilterError(
-        "Data hanya tersedia untuk 90 hari terakhir."
-      );
-      return;
-    }
-
-    if (
-      dateToInput &&
-      dateToInput < earliestDate
-    ) {
-      setFilterError(
-        "Data hanya tersedia untuk 90 hari terakhir."
+        "Riwayat yang tersedia hanya mencakup 90 hari terakhir."
       );
       return;
     }
@@ -635,82 +579,94 @@ export default function PenghasilanNakesPage() {
     });
   }
 
+  // DATA RINGKASAN
   const harian = summary?.harian;
   const mingguan = summary?.mingguan;
   const bulanan = summary?.bulanan;
 
+  // =====================================================
+  // RENDER
+  // =====================================================
+
   return (
-    <div className="min-h-screen bg-slate-50/70 pb-24">
-    <header className="relative mx-auto overflow-hidden rounded-b-3xl bg-gradient-to-r from-blue-600 to-indigo-600 px-4 py-6 text-white shadow-md sm:mx-6 sm:mt-6 sm:rounded-2xl sm:px-6 lg:mx-auto lg:max-w-7xl lg:px-8">
-        <div className="relative z-10 flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
-          
-          {/* Kolom Kiri: Judul Halaman */}
-          <div className="space-y-1">
-            <span className="text-[10px] font-semibold uppercase tracking-wider text-blue-200 sm:text-xs">
-              Portal Tenaga Medis
-            </span>
-            <h1 className="text-xl font-bold sm:text-2xl">
-              Penghasilan Saya
-            </h1>
-            <p className="max-w-xl text-xs leading-relaxed text-blue-100 sm:text-sm">
-              Pantau penghasilan bersih dari kunjungan Anda.
-            </p>
-          </div>
+    <div className="min-h-screen bg-slate-50 pb-24">
+      <main className="mx-auto max-w-7xl space-y-6 px-4 py-5 sm:px-6 lg:px-8">
 
-          {/* Kolom Kanan: Kotak Saldo, Info Rekening, & Tombol Tarik Saldo */}
-          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 rounded-2xl bg-white/10 p-4 backdrop-blur-md border border-white/20 sm:min-w-[400px]">
-            <div className="space-y-2">
-              <div>
-                <p className="text-xs font-medium text-blue-100">
-                  Saldo Terkini Siap Tarik
-                </p>
-                <p className="text-xl sm:text-2xl font-bold mt-0.5">
-                  {saldoLoading ? "Memuat..." : (saldoData?.saldo_format || formatRupiah(currentSaldo))}
-                </p>
-              </div>
+        {/* JUDUL HALAMAN */}
+        <section>
+          <p className="text-xs font-semibold uppercase tracking-wider text-blue-600">
+            Portal Tenaga Medis
+          </p>
 
-              {/* Informasi Rekening Bank Terdaftar */}
-              {saldoData?.rekening ? (
-                <div className="border-t border-white/20 pt-2 text-xs text-blue-100">
-                  <p className="font-semibold text-white">
-                    {saldoData.rekening.nama_bank} ({saldoData.rekening.no_rekening})
-                  </p>
-                  <p className="text-[11px] text-blue-200">
-                    a.n. {saldoData.rekening.nama_pemilik}
-                  </p>
-                </div>
-              ) : (
-                <p className="text-[11px] text-blue-200">
-                  {saldoLoading ? "Memuat rekening..." : "Belum ada rekening terdaftar"}
-                </p>
-              )}
+          <h1 className="mt-1 text-2xl font-bold tracking-tight text-slate-900">
+            Keuangan Saya
+          </h1>
+
+          <p className="mt-1 text-sm text-slate-500">
+            Kelola saldo, lihat penghasilan, dan pantau penarikan Anda.
+          </p>
+        </section>
+
+        {/* SALDO TERSEDIA */}
+        <section className="overflow-hidden rounded-2xl bg-gradient-to-r from-blue-600 to-indigo-600 p-5 text-white shadow-sm sm:p-6">
+          <div className="flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <p className="text-sm font-medium text-blue-100">
+                Saldo tersedia
+              </p>
+
+              <p className="mt-2 text-3xl font-bold tracking-tight">
+                {saldoLoading
+                  ? "Memuat..."
+                  : saldoData?.saldo_format || formatRupiah(currentSaldo)}
+              </p>
+
+              <p className="mt-2 text-xs text-blue-100">
+                Minimal penarikan{" "}
+                {saldoData?.minimum_withdraw_format ||
+                  formatRupiah(minimumWithdraw)}
+              </p>
             </div>
 
-          <button
+            <button
               type="button"
               onClick={openWithdrawModal}
-              disabled={saldoLoading || currentSaldo <= 0}
-              className="rounded-xl bg-white px-4 py-2.5 text-xs font-bold text-blue-600 shadow transition hover:bg-blue-50 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed shrink-0"
+              disabled={saldoLoading || !canWithdraw}
+              className="rounded-xl bg-white px-5 py-3 text-sm font-semibold text-blue-700 shadow-sm transition hover:bg-blue-50 disabled:cursor-not-allowed disabled:opacity-60"
             >
-              Tarik Saldo
+              Tarik saldo
             </button>
           </div>
 
-        </div>
+          {saldoData?.rekening ? (
+            <div className="mt-5 border-t border-white/20 pt-4">
+              <p className="text-xs text-blue-100">
+                Rekening terdaftar
+              </p>
 
-        <div className="pointer-events-none absolute -bottom-10 -right-7 h-40 w-40 rounded-full bg-white/10 blur-2xl" />
-      </header>
+              <p className="mt-1 text-sm font-semibold">
+                {saldoData.rekening.nama_bank}
+                {saldoData.rekening.no_rekening
+                  ? ` · ${saldoData.rekening.no_rekening}`
+                  : ""}
+              </p>
 
-      <main className="mx-auto mt-5 max-w-7xl space-y-6 px-4 sm:px-6 lg:px-8">
-        {/* RINGKASAN */}
+              <p className="mt-0.5 text-xs text-blue-100">
+                a.n. {saldoData.rekening.nama_pemilik || "—"}
+              </p>
+            </div>
+          ) : null}
+        </section>
+
+        {/* RINGKASAN PENGHASILAN */}
         <section className="space-y-3">
           <div>
-            <h2 className="text-base font-bold text-slate-900 sm:text-lg">
-              Ringkasan Penghasilan
+            <h2 className="text-lg font-bold text-slate-900">
+              Ringkasan penghasilan
             </h2>
 
-            <p className="mt-1 text-xs text-slate-500 sm:text-sm">
-              Rekap berdasarkan waktu pembayaran.
+            <p className="mt-1 text-sm text-slate-500">
+              Gambaran penghasilan dari aktivitas layanan Anda.
             </p>
           </div>
 
@@ -729,550 +685,553 @@ export default function PenghasilanNakesPage() {
               <button
                 type="button"
                 onClick={fetchSummary}
-                className="mt-3 rounded-lg bg-blue-600 px-4 py-2 text-xs font-semibold text-white hover:bg-blue-700"
+                className="mt-3 text-sm font-semibold text-blue-700 hover:underline"
               >
-                Coba Lagi
+                Coba lagi
               </button>
             </div>
           ) : (
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
               <SummaryCard
-                title="Bulan Ini"
-                amount={
-                  bulanan?.total_bersih_format ||
-                  formatRupiah(
-                    bulanan?.total_bersih
-                  )
-                }
-                bookings={Number(
-                  bulanan?.jumlah_booking ?? 0
-                ).toLocaleString("id-ID")}
-                period={
-                  bulanan?.label ||
-                  bulanan?.bulan ||
-                  ""
-                }
-                featured
-              />
-
-              <SummaryCard
-                title="Hari Ini"
+                title="Hari ini"
                 amount={
                   harian?.total_bersih_format ||
-                  formatRupiah(
-                    harian?.total_bersih
-                  )
+                  formatRupiah(harian?.total_bersih)
                 }
                 bookings={Number(
                   harian?.jumlah_booking ?? 0
                 ).toLocaleString("id-ID")}
-                period={
-                  harian?.label ||
-                  harian?.tanggal ||
-                  ""
-                }
+                period={harian?.label || ""}
               />
 
               <SummaryCard
-                title="Minggu Ini"
+                title="Minggu ini"
                 amount={
                   mingguan?.total_bersih_format ||
-                  formatRupiah(
-                    mingguan?.total_bersih
-                  )
+                  formatRupiah(mingguan?.total_bersih)
                 }
                 bookings={Number(
                   mingguan?.jumlah_booking ?? 0
                 ).toLocaleString("id-ID")}
                 period={
                   mingguan?.label ||
-                  (
-                    mingguan?.dari &&
-                    mingguan?.sampai
-                  )
-                    ? mingguan?.label ||
-                      `${mingguan.dari} – ${mingguan.sampai}`
-                    : ""
+                  (mingguan?.dari && mingguan?.sampai
+                    ? `${formatTanggal(mingguan.dari)} – ${formatTanggal(
+                        mingguan.sampai
+                      )}`
+                    : "")
                 }
+              />
+
+              <SummaryCard
+                title="Bulan ini"
+                amount={
+                  bulanan?.total_bersih_format ||
+                  formatRupiah(bulanan?.total_bersih)
+                }
+                bookings={Number(
+                  bulanan?.jumlah_booking ?? 0
+                ).toLocaleString("id-ID")}
+                period={bulanan?.label || ""}
               />
             </div>
           )}
-
-          <p className="text-[11px] leading-relaxed text-slate-400">
-            Penghasilan bersih mengikuti perhitungan backend.
-            BHP tidak ditambahkan ke total penghasilan nakes.
-          </p>
         </section>
 
-        {/* FILTER RIWAYAT */}
+        {/* AKTIVITAS KEUANGAN */}
         <section className="space-y-4">
           <div>
-            <h2 className="text-base font-bold text-slate-900 sm:text-lg">
-              Riwayat Penghasilan
+            <h2 className="text-lg font-bold text-slate-900">
+              Aktivitas keuangan
             </h2>
 
-            <p className="mt-1 text-xs text-slate-500 sm:text-sm">
-              Cari transaksi berdasarkan tanggal pembayaran.
+            <p className="mt-1 text-sm text-slate-500">
+              Lihat pemasukan dan transaksi penarikan saldo.
             </p>
           </div>
 
-          <form
-            onSubmit={applyFilter}
-            className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5"
-          >
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-              <label className="space-y-1.5">
-                <span className="block text-xs font-semibold text-slate-600">
-                  Tanggal dari
-                </span>
+          {/* TAB */}
+          <div className="grid grid-cols-2 rounded-xl border border-slate-200 bg-white p-1">
+            <button
+              type="button"
+              onClick={() => setActiveTab("income")}
+              aria-pressed={activeTab === "income"}
+              className={`rounded-lg px-4 py-2.5 text-sm font-semibold transition ${
+                activeTab === "income"
+                  ? "bg-blue-600 text-white shadow-sm"
+                  : "text-slate-600 hover:bg-slate-50"
+              }`}
+            >
+              Penghasilan
+            </button>
 
-                <input
-                  type="date"
-                  value={dateFromInput}
-                  min={earliestDate}
-                  max={today}
-                  onChange={(event) =>
-                    setDateFromInput(
-                      event.target.value
-                    )
-                  }
-                  className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-700 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
-                />
-              </label>
-
-              <label className="space-y-1.5">
-                <span className="block text-xs font-semibold text-slate-600">
-                  Tanggal sampai
-                </span>
-
-                <input
-                  type="date"
-                  value={dateToInput}
-                  min={earliestDate}
-                  max={today}
-                  onChange={(event) =>
-                    setDateToInput(
-                      event.target.value
-                    )
-                  }
-                  className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-700 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
-                />
-              </label>
-            </div>
-
-            {filterError ? (
-              <p
-                role="alert"
-                className="mt-3 text-xs text-rose-600"
-              >
-                {filterError}
-              </p>
-            ) : null}
-
-            <div className="mt-4 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
-              <button
-                type="button"
-                onClick={resetFilter}
-                className="rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-xs font-semibold text-slate-600 hover:bg-slate-50 sm:text-sm"
-              >
-                Reset
-              </button>
-
-              <button
-                type="submit"
-                className="rounded-xl bg-blue-600 px-4 py-2.5 text-xs font-semibold text-white hover:bg-blue-700 sm:text-sm"
-              >
-                Terapkan Filter
-              </button>
-            </div>
-          </form>
-
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <p className="text-xs text-slate-500 sm:text-sm">
-              {listLoading
-                ? "Memuat transaksi..."
-                : `${pagination.total.toLocaleString(
-                    "id-ID"
-                  )} transaksi ditemukan`}
-            </p>
-
-            <span className="text-[11px] text-slate-400">
-              Maksimal 90 hari terakhir
-            </span>
+            <button
+              type="button"
+              onClick={() => setActiveTab("withdrawal")}
+              aria-pressed={activeTab === "withdrawal"}
+              className={`rounded-lg px-4 py-2.5 text-sm font-semibold transition ${
+                activeTab === "withdrawal"
+                  ? "bg-blue-600 text-white shadow-sm"
+                  : "text-slate-600 hover:bg-slate-50"
+              }`}
+            >
+              Penarikan
+            </button>
           </div>
 
-          {/* STATUS LIST */}
-          {listLoading ? (
-            <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
-              <LoadingCard />
-              <LoadingCard />
-            </div>
-          ) : listError ? (
-            <div className="rounded-2xl border border-rose-200 bg-white p-6 text-center shadow-sm">
-              <p className="text-sm text-rose-600">
-                {listError}
-              </p>
+          {/* TAB PENGHASILAN */}
+          {activeTab === "income" ? (
+            <div className="space-y-4">
+              <div>
+                <h3 className="text-base font-bold text-slate-900">
+                  Riwayat penghasilan
+                </h3>
 
-              <button
-                type="button"
-                onClick={fetchHistory}
-                className="mt-3 rounded-xl bg-blue-600 px-4 py-2 text-xs font-semibold text-white hover:bg-blue-700"
-              >
-                Coba Lagi
-              </button>
-            </div>
-          ) : rows.length === 0 ? (
-            <div className="rounded-2xl border border-slate-200 bg-white px-5 py-12 text-center shadow-sm">
-              <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-blue-50 text-blue-600">
-                <svg
-                  viewBox="0 0 24 24"
-                  className="h-6 w-6"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="1.8"
-                  aria-hidden="true"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    d="M7 3.75h7l4 4v12.5H7a2 2 0 0 1-2-2v-12.5a2 2 0 0 1 2-2Z"
-                  />
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    d="M14 3.75v4h4M8 12h6M8 16h8"
-                  />
-                </svg>
+                <p className="mt-1 text-sm text-slate-500">
+                  Pilih rentang tanggal untuk mencari transaksi.
+                </p>
               </div>
 
-              <h3 className="mt-3 text-sm font-semibold text-slate-800">
-                Belum ada riwayat penghasilan
-              </h3>
+              {/* FILTER TANGGAL */}
+              <form
+                onSubmit={applyFilter}
+                className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm"
+              >
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                  <label className="space-y-1.5">
+                    <span className="block text-xs font-semibold text-slate-600">
+                      Tanggal dari
+                    </span>
 
-              <p className="mt-1 text-xs text-slate-500">
-                Coba ubah filter tanggal atau periksa kembali nanti.
-              </p>
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
-              {rows.map((item, index) => {
-                const bookingCode =
-                  getBookingCode(item);
+                    <input
+                      type="date"
+                      value={dateFromInput}
+                      min={earliestDate}
+                      max={today}
+                      onChange={(event) =>
+                        setDateFromInput(event.target.value)
+                      }
+                      className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm text-slate-700 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                    />
+                  </label>
 
-                const income =
-                  getIncomeValue(item);
+                  <label className="space-y-1.5">
+                    <span className="block text-xs font-semibold text-slate-600">
+                      Tanggal sampai
+                    </span>
 
-                const status = getStatus(item);
+                    <input
+                      type="date"
+                      value={dateToInput}
+                      min={earliestDate}
+                      max={today}
+                      onChange={(event) =>
+                        setDateToInput(event.target.value)
+                      }
+                      className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm text-slate-700 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                    />
+                  </label>
+                </div>
 
-                const recordDate =
-                  item?.waktu_bayar ||
-                  item?.tanggal_bayar ||
-                  item?.tanggal_kunjungan ||
-                  item?.booking?.tanggal_kunjungan;
-
-                const serviceName =
-                  getServiceName(item);
-
-                const amountFormat =
-                  item?.penghasilan_bersih_format ||
-                  item?.rincian_penghasilan
-                    ?.penghasilan_bersih_format ||
-                  (
-                    income !== null
-                      ? formatRupiah(income)
-                      : "Nominal belum tersedia"
-                  );
-
-                return (
-                  <article
-                    key={
-                      bookingCode ||
-                      item?.id_booking ||
-                      `${index}-${recordDate || "record"}`
-                    }
-                    className="flex flex-col justify-between gap-4 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm transition hover:border-blue-200 hover:shadow-md sm:p-5"
+                {filterError ? (
+                  <p
+                    role="alert"
+                    className="mt-3 text-xs text-rose-600"
                   >
-                    <div className="flex items-start gap-3">
-                      <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-blue-50 text-blue-600">
-                        <svg
-                          viewBox="0 0 24 24"
-                          className="h-5 w-5"
-                          fill="none"
-                          stroke="currentColor"
-                          strokeWidth="1.8"
-                          aria-hidden="true"
-                        >
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            d="M8 4.5a3.5 3.5 0 1 0 7 0M6 8.5h11a3 3 0 0 1 3 3v3a5 5 0 0 1-5 5h-3a5 5 0 0 1-5-5v-3a3 3 0 0 1 3-3Z"
-                          />
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            d="M11.5 11v5M9 13.5h5"
-                          />
-                        </svg>
-                      </div>
+                    {filterError}
+                  </p>
+                ) : null}
 
-                      <div className="min-w-0 flex-1">
-                        <div className="flex flex-wrap items-start justify-between gap-2">
-                          <h3 className="break-words text-sm font-bold text-slate-900 sm:text-base">
-                            {serviceName ||
-                              "Nama layanan tidak tersedia"}
-                          </h3>
+                <div className="mt-4 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+                  <button
+                    type="button"
+                    onClick={resetFilter}
+                    className="rounded-xl border border-slate-200 px-4 py-2.5 text-sm font-semibold text-slate-600 hover:bg-slate-50"
+                  >
+                    Reset
+                  </button>
 
-                          <span
-                            className={`rounded-full border px-2.5 py-1 text-[10px] font-semibold ${getStatusStyle(
-                              status
-                            )}`}
-                          >
-                            {status}
-                          </span>
+                  <button
+                    type="submit"
+                    className="rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-blue-700"
+                  >
+                    Terapkan filter
+                  </button>
+                </div>
+              </form>
+
+              {/* JUMLAH TRANSAKSI */}
+              <div className="flex items-center justify-between gap-3">
+                <p className="text-sm text-slate-500">
+                  {listLoading
+                    ? "Memuat riwayat..."
+                    : `${pagination.total.toLocaleString("id-ID")} transaksi`}
+                </p>
+
+                <span className="text-xs text-slate-400">
+                  Maksimal 90 hari terakhir
+                </span>
+              </div>
+
+              {/* LOADING */}
+              {listLoading ? (
+                <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
+                  <LoadingCard />
+                  <LoadingCard />
+                </div>
+              ) : listError ? (
+                <div className="rounded-2xl border border-rose-200 bg-white p-6 text-center">
+                  <p className="text-sm text-rose-600">
+                    {listError}
+                  </p>
+
+                  <button
+                    type="button"
+                    onClick={fetchHistory}
+                    className="mt-3 text-sm font-semibold text-blue-700 hover:underline"
+                  >
+                    Coba lagi
+                  </button>
+                </div>
+              ) : rows.length === 0 ? (
+                <div className="rounded-2xl border border-slate-200 bg-white px-5 py-12 text-center">
+                  <h4 className="text-sm font-semibold text-slate-800">
+                    Belum ada riwayat penghasilan
+                  </h4>
+
+                  <p className="mt-1 text-sm text-slate-500">
+                    Transaksi penghasilan akan muncul di sini.
+                  </p>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
+                  {rows.map((item, index) => {
+                    const bookingCode = getBookingCode(item);
+                    const income = getIncomeValue(item);
+                    const serviceName = getServiceName(item);
+
+                    const recordDate =
+                      item?.waktu_bayar ||
+                      item?.tanggal_bayar ||
+                      item?.tanggal_kunjungan ||
+                      item?.booking?.tanggal_kunjungan;
+
+                    const amountFormat =
+                      item?.penghasilan_bersih_format ||
+                      item?.rincian_penghasilan
+                        ?.penghasilan_bersih_format ||
+                      (income !== null
+                        ? formatRupiah(income)
+                        : "Nominal tidak tersedia");
+
+                    return (
+                      <article
+                        key={
+                          bookingCode ||
+                          item?.id_booking ||
+                          `${index}-${recordDate || "record"}`
+                        }
+                        className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm transition hover:border-blue-200 hover:shadow-md"
+                      >
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="min-w-0">
+                            <h4 className="break-words text-sm font-bold text-slate-900">
+                              {serviceName || "Layanan"}
+                            </h4>
+
+                            {bookingCode ? (
+                              <p className="mt-1 break-all font-mono text-[11px] text-slate-400">
+                                {bookingCode}
+                              </p>
+                            ) : null}
+
+                            <p className="mt-2 text-xs text-slate-500">
+                              {formatTanggal(recordDate)}
+                            </p>
+                          </div>
+
+                          <StatusBadge
+                            status={
+                              item?.status_booking ||
+                              item?.status ||
+                              "Lunas"
+                            }
+                          />
                         </div>
 
-                        <p className="mt-1 break-all font-mono text-[11px] text-slate-400 sm:text-xs">
-                          {bookingCode || "Kode booking tidak tersedia"}
-                        </p>
+                        <div className="mt-4 flex items-end justify-between gap-3 border-t border-slate-100 pt-3">
+                          <div>
+                            <p className="text-xs text-slate-500">
+                              Penghasilan bersih
+                            </p>
 
-                        <p className="mt-2 text-xs text-slate-500">
-                          {formatTanggal(recordDate)}
-                        </p>
-                      </div>
-                    </div>
+                            <p className="mt-1 text-base font-bold text-slate-900">
+                              {amountFormat}
+                            </p>
+                          </div>
 
-                    <div className="flex items-end justify-between gap-3 border-t border-slate-100 pt-3">
-                      <div>
-                        <p className="text-[11px] text-slate-400">
-                          Penghasilan bersih
-                        </p>
-
-                        <p className="mt-1 break-words text-base font-bold text-slate-900 sm:text-lg">
-                          {amountFormat}
-                        </p>
-                      </div>
-
-                      {bookingCode ? (
-                        <Link
-                            href={`/nakes/penghasilan/detail?booking_code=${encodeURIComponent(
+                          {bookingCode ? (
+                            <Link
+                              href={`/nakes/penghasilan/detail?booking_code=${encodeURIComponent(
                                 bookingCode
-                            )}`}
-                            className="inline-flex shrink-0 items-center gap-1 rounded-xl bg-blue-600 px-3 py-2.5 text-xs font-semibold text-white transition hover:bg-blue-700"
+                              )}`}
+                              className="shrink-0 rounded-xl bg-blue-600 px-3 py-2.5 text-xs font-semibold text-white transition hover:bg-blue-700"
                             >
-                            Detail
-                            <svg
-                                viewBox="0 0 24 24"
-                                className="h-3.5 w-3.5"
-                                fill="none"
-                                stroke="currentColor"
-                                strokeWidth="2"
-                                aria-hidden="true"
-                            >
-                                <path
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                d="m9 18 6-6-6-6"
-                                />
-                            </svg>
-                        </Link>
-                      ) : (
-                        <span className="text-[11px] text-slate-400">
-                          Kode booking tidak tersedia
-                        </span>
-                      )}
-                    </div>
-                  </article>
-                );
-              })}
+                              Lihat detail
+                            </Link>
+                          ) : null}
+                        </div>
+                      </article>
+                    );
+                  })}
+                </div>
+              )}
+
+              {/* PAGINATION */}
+              {!listLoading && !listError && rows.length > 0 ? (
+                <nav
+                  aria-label="Halaman riwayat penghasilan"
+                  className="flex flex-col gap-3 rounded-2xl border border-slate-200 bg-white p-3 sm:flex-row sm:items-center sm:justify-between"
+                >
+                  <p className="text-xs text-slate-500">
+                    Halaman {pagination.current_page} dari{" "}
+                    {pagination.total_pages}
+                  </p>
+
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      disabled={currentPage <= 1}
+                      onClick={() =>
+                        setCurrentPage((page) =>
+                          Math.max(1, page - 1)
+                        )
+                      }
+                      className="flex-1 rounded-xl border border-slate-200 px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-50 disabled:opacity-40 sm:flex-none"
+                    >
+                      Sebelumnya
+                    </button>
+
+                    <button
+                      type="button"
+                      disabled={
+                        currentPage >= pagination.total_pages ||
+                        !pagination.has_more_pages
+                      }
+                      onClick={() =>
+                        setCurrentPage((page) => page + 1)
+                      }
+                      className="flex-1 rounded-xl border border-slate-200 px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-50 disabled:opacity-40 sm:flex-none"
+                    >
+                      Berikutnya
+                    </button>
+                  </div>
+                </nav>
+              ) : null}
             </div>
+          ) : (
+            <RiwayatPenarikan refreshKey={withdrawRefreshKey} />
           )}
-
-          {/* PAGINATION */}
-          {!listLoading &&
-          !listError &&
-          rows.length > 0 ? (
-            <nav
-              aria-label="Pagination riwayat penghasilan"
-              className="flex flex-col gap-3 rounded-2xl border border-slate-200 bg-white p-3 sm:flex-row sm:items-center sm:justify-between sm:px-4"
-            >
-              <p className="text-xs text-slate-500">
-                Halaman {pagination.current_page} dari{" "}
-                {pagination.total_pages}
-              </p>
-
-              <div className="flex gap-2">
-                <button
-                  type="button"
-                  disabled={currentPage <= 1}
-                  onClick={() =>
-                    setCurrentPage((page) =>
-                      Math.max(1, page - 1)
-                    )
-                  }
-                  className="flex-1 rounded-xl border border-slate-200 px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40 sm:flex-none"
-                >
-                  Sebelumnya
-                </button>
-
-                <button
-                  type="button"
-                  disabled={
-                    currentPage >=
-                      pagination.total_pages ||
-                    !pagination.has_more_pages
-                  }
-                  onClick={() =>
-                    setCurrentPage((page) => page + 1)
-                  }
-                  className="flex-1 rounded-xl border border-slate-200 px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40 sm:flex-none"
-                >
-                  Berikutnya
-                </button>
-              </div>
-            </nav>
-          ) : null}
         </section>
       </main>
-      {/* ========================================================= */}
-      {/* MODAL POP-UP WITHDRAW & STRUK BERHASIL */}
-      {/* ========================================================= */}
-      {isModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4 backdrop-blur-sm animate-fadeIn">
-          <div className="w-full max-w-md max-h-[90vh] overflow-y-auto rounded-3xl bg-white p-5 sm:p-6 shadow-2xl space-y-4">
-            
-            {/* Header Modal */}
+
+      {/* =====================================================
+          MODAL TARIK SALDO
+      ===================================================== */}
+
+      {isWithdrawModalOpen ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4 backdrop-blur-sm">
+          <div className="max-h-[90vh] w-full max-w-md overflow-y-auto rounded-2xl bg-white p-5 shadow-2xl sm:p-6">
+
+            {/* HEADER */}
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
               <h3 className="text-base font-bold text-slate-900">
-                {withdrawSuccessData ? "Struk Penarikan Saldo" : "Konfirmasi Penarikan Saldo"}
+                {withdrawSuccessData
+                  ? "Penarikan berhasil"
+                  : "Tarik saldo"}
               </h3>
+
               <button
                 type="button"
                 onClick={closeWithdrawModal}
-                className="flex h-8 w-8 items-center justify-center rounded-full bg-slate-100 text-slate-500 hover:bg-slate-200 transition"
+                aria-label="Tutup"
+                className="flex h-8 w-8 items-center justify-center rounded-full bg-slate-100 text-slate-500 hover:bg-slate-200"
               >
                 ✕
               </button>
             </div>
 
-            {/* JIKA BERHASIL: TAMPILKAN STRUK */}
+            {/* STRUK PENARIKAN */}
             {withdrawSuccessData ? (
-              <div className="space-y-4 text-center">
+              <div className="space-y-4 pt-5 text-center">
                 <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-emerald-100 text-emerald-600">
-                  <svg viewBox="0 0 24 24" className="h-8 w-8" fill="none" stroke="currentColor" strokeWidth="2.5">
-                    <path strokeLinecap="round" strokeLinejoin="round" d="m4.5 12.75 6 6 9-13.5" />
+                  <svg
+                    viewBox="0 0 24 24"
+                    className="h-8 w-8"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2.5"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      d="m4.5 12.75 6 6 9-13.5"
+                    />
                   </svg>
                 </div>
 
                 <div>
-                  <span className="rounded-full bg-emerald-100 px-3 py-1 text-xs font-bold text-emerald-700">
-                    {withdrawSuccessData?.status_label || "Berhasil"}
-                  </span>
-                  <h4 className="mt-3 text-2xl font-extrabold text-slate-900">
-                    {withdrawSuccessData?.jumlah_format || formatRupiah(withdrawSuccessData?.jumlah)}
-                  </h4>
-                  <p className="text-xs text-slate-500 mt-1 font-mono">
-                    Ref: {withdrawSuccessData?.reference_no || "-"}
+                  <p className="text-sm font-semibold text-emerald-700">
+                    {withdrawSuccessData.status_label || "Berhasil"}
+                  </p>
+
+                  <p className="mt-2 text-2xl font-bold text-slate-900">
+                    {withdrawSuccessData.jumlah_format ||
+                      formatRupiah(withdrawSuccessData.jumlah)}
+                  </p>
+
+                  <p className="mt-1 break-all font-mono text-xs text-slate-500">
+                    {withdrawSuccessData.reference_no || "—"}
                   </p>
                 </div>
 
-                <div className="rounded-2xl bg-slate-50 border border-slate-200 p-4 text-left text-xs space-y-2.5">
-                  <div className="flex justify-between border-b border-slate-200/60 pb-2">
-                    <span className="text-slate-500">Bank Tujuan</span>
-                    <span className="font-bold text-slate-900">
-                      {withdrawSuccessData?.rekening_tujuan?.nama_bank || saldoData?.rekening?.nama_bank || "-"}
-                    </span>
-                  </div>
+                <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 text-left text-sm">
+                  <p className="text-xs text-slate-500">
+                    Rekening tujuan
+                  </p>
 
-                  <div className="flex justify-between border-b border-slate-200/60 pb-2">
-                    <span className="text-slate-500">No. Rekening</span>
-                    <span className="font-bold text-slate-900 font-mono">
-                      {withdrawSuccessData?.rekening_tujuan?.no_rekening || saldoData?.rekening?.no_rekening || "-"}
-                    </span>
-                  </div>
+                  <p className="mt-1 font-semibold text-slate-900">
+                    {withdrawSuccessData.rekening_tujuan?.nama_bank ||
+                      saldoData?.rekening?.nama_bank ||
+                      "—"}
+                  </p>
 
-                  <div className="flex justify-between border-b border-slate-200/60 pb-2">
-                    <span className="text-slate-500">Nama Pemilik</span>
-                    <span className="font-bold text-slate-900">
-                      {withdrawSuccessData?.rekening_tujuan?.nama_pemilik || saldoData?.rekening?.nama_pemilik || "-"}
-                    </span>
-                  </div>
+                  <p className="text-xs text-slate-600">
+                    {withdrawSuccessData.rekening_tujuan?.no_rekening ||
+                      saldoData?.rekening?.no_rekening ||
+                      "—"}
+                  </p>
 
-                  <div className="flex justify-between">
-                    <span className="text-slate-500">Waktu Proses</span>
-                    <span className="font-semibold text-slate-700">
-                      {formatTanggal(withdrawSuccessData?.processed_at || new Date())}
-                    </span>
-                  </div>
+                  <p className="mt-1 text-xs text-slate-500">
+                    a.n.{" "}
+                    {withdrawSuccessData.rekening_tujuan?.nama_pemilik ||
+                      saldoData?.rekening?.nama_pemilik ||
+                      "—"}
+                  </p>
+
+                  <p className="mt-3 text-xs text-slate-500">
+                    {withdrawSuccessData.processed_at
+                      ? formatTanggal(withdrawSuccessData.processed_at)
+                      : ""}
+                  </p>
                 </div>
 
                 <button
                   type="button"
                   onClick={closeWithdrawModal}
-                  className="w-full rounded-xl bg-blue-600 py-3 text-xs font-bold text-white shadow-md shadow-blue-200 hover:bg-blue-700 transition active:scale-95"
+                  className="w-full rounded-xl bg-blue-600 py-3 text-sm font-semibold text-white hover:bg-blue-700"
                 >
                   Selesai
                 </button>
               </div>
             ) : (
-              /* FORM INPUT */
-              <div className="space-y-4 text-sm text-slate-600">
-                <div className="rounded-2xl bg-blue-50/70 p-4 space-y-1 border border-blue-100">
-                  <p className="text-xs font-medium text-blue-600">Saldo Tersedia</p>
-                  <p className="text-xl font-extrabold text-blue-900">
-                    {saldoData?.saldo_format || formatRupiah(currentSaldo)}
+              /* FORM PENARIKAN */
+              <form
+                onSubmit={submitWithdraw}
+                className="space-y-4 pt-5"
+              >
+                <div className="rounded-xl bg-blue-50 p-4">
+                  <p className="text-xs text-blue-700">
+                    Saldo tersedia
+                  </p>
+
+                  <p className="mt-1 text-xl font-bold text-blue-900">
+                    {saldoData?.saldo_format ||
+                      formatRupiah(currentSaldo)}
                   </p>
                 </div>
 
-                {saldoData?.rekening && (
-                  <div className="rounded-2xl border border-slate-200 p-4 text-xs space-y-1 bg-slate-50">
-                    <p className="font-semibold text-slate-500">Tujuan Rekening Transaksi:</p>
-                    <p className="text-sm font-bold text-slate-900">
-                      {saldoData.rekening.nama_bank} ({saldoData.rekening.no_rekening})
+                {saldoData?.rekening ? (
+                  <div className="rounded-xl border border-slate-200 p-4 text-sm">
+                    <p className="text-xs text-slate-500">
+                      Rekening tujuan
                     </p>
-                    <p className="text-slate-600">a.n. {saldoData.rekening.nama_pemilik}</p>
-                  </div>
-                )}
 
-                <form onSubmit={submitWithdraw} className="space-y-4 pt-1">
-                  <label className="block space-y-1.5">
-                    <span className="text-xs font-semibold text-slate-700">
-                      Nominal Penarikan (Min. Rp 50.000)
+                    <p className="mt-1 font-semibold text-slate-900">
+                      {saldoData.rekening.nama_bank}
+                    </p>
+
+                    <p className="text-xs text-slate-600">
+                      {saldoData.rekening.no_rekening}
+                    </p>
+
+                    <p className="mt-1 text-xs text-slate-500">
+                      a.n. {saldoData.rekening.nama_pemilik}
+                    </p>
+                  </div>
+                ) : null}
+
+                {/* INPUT NOMINAL */}
+                <label className="block space-y-1.5">
+                  <span className="text-xs font-semibold text-slate-700">
+                    Nominal penarikan
+                  </span>
+
+                  <div className="flex items-center rounded-xl border border-slate-200 bg-white px-3.5 focus-within:border-blue-500 focus-within:ring-2 focus-within:ring-blue-100">
+                    <span className="mr-2 text-sm font-semibold text-slate-500">
+                      Rp
                     </span>
+
                     <input
-                      type="number"
+                      type="text"
+                      inputMode="numeric"
+                      autoComplete="off"
                       value={withdrawAmount}
-                      onChange={(e) => setWithdrawAmount(e.target.value)}
-                      min="50000"
-                      max={currentSaldo}
-                      className="w-full rounded-xl border border-slate-200 px-3.5 py-3 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100 font-bold text-slate-900 bg-white"
-                      required
+                      onChange={(event) =>
+                        setWithdrawAmount(
+                          formatNominalInput(event.target.value)
+                        )
+                      }
+                      placeholder="Masukkan nominal"
+                      className="w-full min-w-0 bg-transparent py-3 text-base font-semibold text-slate-900 outline-none"
                     />
-                  </label>
-
-                  <div className="flex flex-col-reverse sm:flex-row gap-2.5 pt-2">
-                    <button
-                      type="button"
-                      onClick={closeWithdrawModal}
-                      className="w-full sm:flex-1 rounded-xl border border-slate-200 bg-white py-3 text-xs font-semibold text-slate-600 hover:bg-slate-50 active:scale-95 transition"
-                    >
-                      Batal
-                    </button>
-
-                    <button
-                      type="submit"
-                      disabled={withdrawLoading || !withdrawAmount || Number(withdrawAmount) < 50000}
-                      className="w-full sm:flex-1 rounded-xl bg-blue-600 py-3 text-xs font-bold text-white shadow-md shadow-blue-200 hover:bg-blue-700 disabled:opacity-50 active:scale-95 transition"
-                    >
-                      {withdrawLoading ? "Memproses..." : "Konfirmasi Tarik"}
-                    </button>
                   </div>
-                </form>
-              </div>
-            )}
 
+                  <span className="block text-xs text-slate-500">
+                    Minimal penarikan {formatRupiah(minimumWithdraw)}
+                  </span>
+                </label>
+
+                <div className="flex flex-col-reverse gap-2 sm:flex-row">
+                  <button
+                    type="button"
+                    onClick={closeWithdrawModal}
+                    className="w-full rounded-xl border border-slate-200 py-3 text-sm font-semibold text-slate-600 hover:bg-slate-50"
+                  >
+                    Batal
+                  </button>
+
+                  <button
+                    type="submit"
+                    disabled={
+                      withdrawLoading ||
+                      !withdrawAmount ||
+                      !Number.isSafeInteger(withdrawNominal) ||
+                      withdrawNominal < minimumWithdraw ||
+                      withdrawNominal > currentSaldo
+                    }
+                    className="w-full rounded-xl bg-blue-600 py-3 text-sm font-semibold text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    {withdrawLoading
+                      ? "Memproses..."
+                      : "Konfirmasi penarikan"}
+                  </button>
+                </div>
+              </form>
+            )}
           </div>
         </div>
-      )}
+      ) : null}
     </div>
   );
 }

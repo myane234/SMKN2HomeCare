@@ -718,12 +718,16 @@ function BookingAktifContent() {
   useEffect(() => {
     // Pertama kali: ambil list. Setelah itu (ganti pesanan): cukup detail.
     fetchData({ skipList: listRef.current.length > 0 });
-    const id = setInterval(() => fetchData(), 15000);
-    return () => clearInterval(id);
-    fetchData();
+
+    const intervalId = setInterval(() => fetchData(), 15000);
     const handleFocus = () => fetchData();
+
     window.addEventListener("focus", handleFocus);
-    return () => window.removeEventListener("focus", handleFocus);
+
+    return () => {
+      clearInterval(intervalId);
+      window.removeEventListener("focus", handleFocus);
+    };
   }, [fetchData]);
 
   /* Ambil data yg dibutuhkan sebelum render hooks tambahan */
@@ -1011,7 +1015,7 @@ function BookingAktifContent() {
                     ) : (
                       <div className="w-full h-full flex items-center justify-center bg-emerald-50">
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} className="w-6 h-6 sm:w-7 sm:h-7 text-emerald-500">
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7-7h14a7 7 0 00-7 7z" />
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7-7h14a7 7 0 00-7-7z" />
                         </svg>
                       </div>
                     )}
@@ -1062,9 +1066,7 @@ function BookingAktifContent() {
               )}
             </Section>
 
-            {/* BIAYA TAMBAHAN */}
-            <Section title="Biaya Tambahan">
-            {/* BIAYA TAMBAHAN BHP */}
+            {/* BIAYA TAMBAHAN PERLENGKAPAN MEDIS */}
             <Section title="Biaya Tambahan Perlengkapan Medis">
               {biayaTambahanNominalFinal > 0 ? (
                 <>
@@ -1105,7 +1107,6 @@ function BookingAktifContent() {
                       onClick={handleBayarBiayaTambahan}
                       className="w-full mt-4 py-3 rounded-xl bg-amber-500 hover:bg-amber-600 text-white font-bold text-xs sm:text-sm transition-all active:scale-[0.99]"
                     >
-                      Bayar Biaya Tambahan
                       Bayar Biaya Tambahan Perlengkapan Medis
                     </button>
                   )}
@@ -1124,7 +1125,7 @@ function BookingAktifContent() {
                   <div className="flex items-start gap-3 mb-4">
                     <div className="mt-0.5 w-8 h-8 rounded-xl bg-blue-50 border border-blue-100 flex items-center justify-center shrink-0">
                       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="w-4 h-4 text-blue-500">
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 00-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
                         <path strokeLinecap="round" strokeLinejoin="round" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
                       </svg>
                     </div>
