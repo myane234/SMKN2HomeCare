@@ -9,6 +9,8 @@ import Link from "next/link";
 import {
   getRingkasanPenghasilanNakes,
   getRiwayatPenghasilanNakes,
+  getSaldoNakes,          
+  requestWithdrawNakes
 } from "@/services/nakesService";
 
 const PER_PAGE = 15;
@@ -332,7 +334,84 @@ export default function PenghasilanNakesPage() {
     useState(true);
   const [summaryError, setSummaryError] =
     useState("");
+  const [saldoData, setSaldoData] = useState(null);
+  const [saldoLoading, setSaldoLoading] = useState(true);
+  const [withdrawLoading, setWithdrawLoading] = useState(false);
 
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [withdrawAmount, setWithdrawAmount] = useState("");
+  const [withdrawSuccessData, setWithdrawSuccessData] = useState(null);
+
+ const fetchSaldo = useCallback(async () => {
+    setSaldoLoading(true);
+    try {
+      const response = await getSaldoNakes();
+      console.log("RESPONSE SALDO:", response); // Untuk debugging di F12 Console
+      
+      // Ambil data dari berbagai kemungkinan struktur JSON backend
+      const root = response?.data ?? response;
+      setSaldoData(root);
+    } catch (error) {
+      console.error("Gagal memuat saldo:", error);
+    } finally {
+      setSaldoLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchSaldo();
+  }, [fetchSaldo]);
+
+  const openWithdrawModal = () => {
+    if (currentSaldo < 50000) {
+      alert("Minimal withdraw adalah Rp 50.000.");
+      return;
+    }
+    setWithdrawAmount(currentSaldo);
+    setWithdrawSuccessData(null);
+    setIsModalOpen(true);
+  };
+
+  const closeWithdrawModal = () => {
+    setIsModalOpen(false);
+    setWithdrawSuccessData(null);
+  };
+
+  const submitWithdraw = async (event) => {
+    event.preventDefault();
+    const nominal = Number(withdrawAmount);
+
+    if (nominal < 50000) {
+      alert("Minimal penarikan adalah Rp 50.000.");
+      return;
+    }
+
+    if (nominal > currentSaldo) {
+      alert("Nominal penarikan melebihi saldo tersedia.");
+      return;
+    }
+
+    try {
+      setWithdrawLoading(true);
+      const res = await requestWithdrawNakes({ jumlah: nominal });
+      const successData = res?.data ?? res;
+      
+      setWithdrawSuccessData(successData);
+      fetchSaldo();
+    } catch (error) {
+      alert(getErrorMessage(error, "Gagal melakukan request withdraw."));
+    } finally {
+      setWithdrawLoading(false);
+    }
+  };
+
+ const currentSaldo = Number(
+    saldoData?.saldo ?? 
+    saldoData?.total_saldo ?? 
+    saldoData?.nominal ?? 
+    saldoData?.amount ?? 
+    0
+  );
   const [rows, setRows] = useState([]);
   const [pagination, setPagination] =
     useState({
@@ -562,19 +641,61 @@ export default function PenghasilanNakesPage() {
 
   return (
     <div className="min-h-screen bg-slate-50/70 pb-24">
-      <header className="relative mx-auto overflow-hidden rounded-b-3xl bg-gradient-to-r from-blue-600 to-indigo-600 px-4 pb-7 pt-6 text-white shadow-md sm:mx-6 sm:mt-6 sm:rounded-2xl sm:px-6 lg:mx-auto lg:max-w-7xl lg:px-8">
-        <div className="relative z-10 max-w-7xl space-y-1">
-          <span className="text-[10px] font-semibold uppercase tracking-wider text-blue-200 sm:text-xs">
-            Portal Tenaga Medis
-          </span>
+    <header className="relative mx-auto overflow-hidden rounded-b-3xl bg-gradient-to-r from-blue-600 to-indigo-600 px-4 py-6 text-white shadow-md sm:mx-6 sm:mt-6 sm:rounded-2xl sm:px-6 lg:mx-auto lg:max-w-7xl lg:px-8">
+        <div className="relative z-10 flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
+          
+          {/* Kolom Kiri: Judul Halaman */}
+          <div className="space-y-1">
+            <span className="text-[10px] font-semibold uppercase tracking-wider text-blue-200 sm:text-xs">
+              Portal Tenaga Medis
+            </span>
+            <h1 className="text-xl font-bold sm:text-2xl">
+              Penghasilan Saya
+            </h1>
+            <p className="max-w-xl text-xs leading-relaxed text-blue-100 sm:text-sm">
+              Pantau penghasilan bersih dari kunjungan Anda.
+            </p>
+          </div>
 
-          <h1 className="text-xl font-bold sm:text-2xl">
-            Penghasilan Saya
-          </h1>
+          {/* Kolom Kanan: Kotak Saldo, Info Rekening, & Tombol Tarik Saldo */}
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 rounded-2xl bg-white/10 p-4 backdrop-blur-md border border-white/20 sm:min-w-[400px]">
+            <div className="space-y-2">
+              <div>
+                <p className="text-xs font-medium text-blue-100">
+                  Saldo Terkini Siap Tarik
+                </p>
+                <p className="text-xl sm:text-2xl font-bold mt-0.5">
+                  {saldoLoading ? "Memuat..." : (saldoData?.saldo_format || formatRupiah(currentSaldo))}
+                </p>
+              </div>
 
-          <p className="max-w-xl text-xs leading-relaxed text-blue-100 sm:text-sm">
-            Pantau penghasilan bersih dari kunjungan Anda.
-          </p>
+              {/* Informasi Rekening Bank Terdaftar */}
+              {saldoData?.rekening ? (
+                <div className="border-t border-white/20 pt-2 text-xs text-blue-100">
+                  <p className="font-semibold text-white">
+                    {saldoData.rekening.nama_bank} ({saldoData.rekening.no_rekening})
+                  </p>
+                  <p className="text-[11px] text-blue-200">
+                    a.n. {saldoData.rekening.nama_pemilik}
+                  </p>
+                </div>
+              ) : (
+                <p className="text-[11px] text-blue-200">
+                  {saldoLoading ? "Memuat rekening..." : "Belum ada rekening terdaftar"}
+                </p>
+              )}
+            </div>
+
+          <button
+              type="button"
+              onClick={openWithdrawModal}
+              disabled={saldoLoading || currentSaldo <= 0}
+              className="rounded-xl bg-white px-4 py-2.5 text-xs font-bold text-blue-600 shadow transition hover:bg-blue-50 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed shrink-0"
+            >
+              Tarik Saldo
+            </button>
+          </div>
+
         </div>
 
         <div className="pointer-events-none absolute -bottom-10 -right-7 h-40 w-40 rounded-full bg-white/10 blur-2xl" />
@@ -1012,6 +1133,146 @@ export default function PenghasilanNakesPage() {
           ) : null}
         </section>
       </main>
+      {/* ========================================================= */}
+      {/* MODAL POP-UP WITHDRAW & STRUK BERHASIL */}
+      {/* ========================================================= */}
+      {isModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4 backdrop-blur-sm animate-fadeIn">
+          <div className="w-full max-w-md max-h-[90vh] overflow-y-auto rounded-3xl bg-white p-5 sm:p-6 shadow-2xl space-y-4">
+            
+            {/* Header Modal */}
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <h3 className="text-base font-bold text-slate-900">
+                {withdrawSuccessData ? "Struk Penarikan Saldo" : "Konfirmasi Penarikan Saldo"}
+              </h3>
+              <button
+                type="button"
+                onClick={closeWithdrawModal}
+                className="flex h-8 w-8 items-center justify-center rounded-full bg-slate-100 text-slate-500 hover:bg-slate-200 transition"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* JIKA BERHASIL: TAMPILKAN STRUK */}
+            {withdrawSuccessData ? (
+              <div className="space-y-4 text-center">
+                <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-emerald-100 text-emerald-600">
+                  <svg viewBox="0 0 24 24" className="h-8 w-8" fill="none" stroke="currentColor" strokeWidth="2.5">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="m4.5 12.75 6 6 9-13.5" />
+                  </svg>
+                </div>
+
+                <div>
+                  <span className="rounded-full bg-emerald-100 px-3 py-1 text-xs font-bold text-emerald-700">
+                    {withdrawSuccessData?.status_label || "Berhasil"}
+                  </span>
+                  <h4 className="mt-3 text-2xl font-extrabold text-slate-900">
+                    {withdrawSuccessData?.jumlah_format || formatRupiah(withdrawSuccessData?.jumlah)}
+                  </h4>
+                  <p className="text-xs text-slate-500 mt-1 font-mono">
+                    Ref: {withdrawSuccessData?.reference_no || "-"}
+                  </p>
+                </div>
+
+                <div className="rounded-2xl bg-slate-50 border border-slate-200 p-4 text-left text-xs space-y-2.5">
+                  <div className="flex justify-between border-b border-slate-200/60 pb-2">
+                    <span className="text-slate-500">Bank Tujuan</span>
+                    <span className="font-bold text-slate-900">
+                      {withdrawSuccessData?.rekening_tujuan?.nama_bank || saldoData?.rekening?.nama_bank || "-"}
+                    </span>
+                  </div>
+
+                  <div className="flex justify-between border-b border-slate-200/60 pb-2">
+                    <span className="text-slate-500">No. Rekening</span>
+                    <span className="font-bold text-slate-900 font-mono">
+                      {withdrawSuccessData?.rekening_tujuan?.no_rekening || saldoData?.rekening?.no_rekening || "-"}
+                    </span>
+                  </div>
+
+                  <div className="flex justify-between border-b border-slate-200/60 pb-2">
+                    <span className="text-slate-500">Nama Pemilik</span>
+                    <span className="font-bold text-slate-900">
+                      {withdrawSuccessData?.rekening_tujuan?.nama_pemilik || saldoData?.rekening?.nama_pemilik || "-"}
+                    </span>
+                  </div>
+
+                  <div className="flex justify-between">
+                    <span className="text-slate-500">Waktu Proses</span>
+                    <span className="font-semibold text-slate-700">
+                      {formatTanggal(withdrawSuccessData?.processed_at || new Date())}
+                    </span>
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={closeWithdrawModal}
+                  className="w-full rounded-xl bg-blue-600 py-3 text-xs font-bold text-white shadow-md shadow-blue-200 hover:bg-blue-700 transition active:scale-95"
+                >
+                  Selesai
+                </button>
+              </div>
+            ) : (
+              /* FORM INPUT */
+              <div className="space-y-4 text-sm text-slate-600">
+                <div className="rounded-2xl bg-blue-50/70 p-4 space-y-1 border border-blue-100">
+                  <p className="text-xs font-medium text-blue-600">Saldo Tersedia</p>
+                  <p className="text-xl font-extrabold text-blue-900">
+                    {saldoData?.saldo_format || formatRupiah(currentSaldo)}
+                  </p>
+                </div>
+
+                {saldoData?.rekening && (
+                  <div className="rounded-2xl border border-slate-200 p-4 text-xs space-y-1 bg-slate-50">
+                    <p className="font-semibold text-slate-500">Tujuan Rekening Transaksi:</p>
+                    <p className="text-sm font-bold text-slate-900">
+                      {saldoData.rekening.nama_bank} ({saldoData.rekening.no_rekening})
+                    </p>
+                    <p className="text-slate-600">a.n. {saldoData.rekening.nama_pemilik}</p>
+                  </div>
+                )}
+
+                <form onSubmit={submitWithdraw} className="space-y-4 pt-1">
+                  <label className="block space-y-1.5">
+                    <span className="text-xs font-semibold text-slate-700">
+                      Nominal Penarikan (Min. Rp 50.000)
+                    </span>
+                    <input
+                      type="number"
+                      value={withdrawAmount}
+                      onChange={(e) => setWithdrawAmount(e.target.value)}
+                      min="50000"
+                      max={currentSaldo}
+                      className="w-full rounded-xl border border-slate-200 px-3.5 py-3 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100 font-bold text-slate-900 bg-white"
+                      required
+                    />
+                  </label>
+
+                  <div className="flex flex-col-reverse sm:flex-row gap-2.5 pt-2">
+                    <button
+                      type="button"
+                      onClick={closeWithdrawModal}
+                      className="w-full sm:flex-1 rounded-xl border border-slate-200 bg-white py-3 text-xs font-semibold text-slate-600 hover:bg-slate-50 active:scale-95 transition"
+                    >
+                      Batal
+                    </button>
+
+                    <button
+                      type="submit"
+                      disabled={withdrawLoading || !withdrawAmount || Number(withdrawAmount) < 50000}
+                      className="w-full sm:flex-1 rounded-xl bg-blue-600 py-3 text-xs font-bold text-white shadow-md shadow-blue-200 hover:bg-blue-700 disabled:opacity-50 active:scale-95 transition"
+                    >
+                      {withdrawLoading ? "Memproses..." : "Konfirmasi Tarik"}
+                    </button>
+                  </div>
+                </form>
+              </div>
+            )}
+
+          </div>
+        </div>
+      )}
     </div>
   );
 }

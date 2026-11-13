@@ -80,8 +80,8 @@ export default function DaftarPage() {
     golongan_darah: "",
     jenis_kelamin: "",
     alamat_utama: "",
-    latitude: null,
-    longitude: null,
+    latitude:-6.2088,
+    longitude: 106.8456,
     email: "",
     password: "",
     password_confirmation: "",
@@ -246,6 +246,10 @@ export default function DaftarPage() {
 
     setLoading(true);
     try {
+      // Pastikan latitude & longitude selalu terkirim (gunakan default Jakarta jika null)
+      const finalLat = toCoord(form.latitude) ?? -6.2088;
+      const finalLng = toCoord(form.longitude) ?? 106.8456;
+
       await registerUser({
         email: form.email,
         password: form.password,
@@ -255,8 +259,8 @@ export default function DaftarPage() {
         golongan_darah: form.golongan_darah || null,
         jenis_kelamin: form.jenis_kelamin,
         alamat_utama: form.alamat_utama,
-        latitude: toCoord(form.latitude),
-        longitude: toCoord(form.longitude),
+        latitude: finalLat,
+        longitude: finalLng,
       });
 
       setSuccessMsg("Registrasi berhasil! Mengalihkan ke halaman masuk...");
@@ -269,8 +273,8 @@ export default function DaftarPage() {
         golongan_darah: "",
         jenis_kelamin: "",
         alamat_utama: "",
-        latitude: null,
-        longitude: null,
+        latitude: -6.2088,
+        longitude: 106.8456,
         email: "",
         password: "",
         password_confirmation: "",

@@ -70,7 +70,7 @@ export async function loginForm(email, password) {
  * Backend: POST /api/register
  * Fields: email, password, nama_lengkap, nik (16 digit), golongan_darah, jenis_kelamin, alamat_utama
  */
-export async function registerUser({ email, password, nama_lengkap, no_hp, nik, golongan_darah, jenis_kelamin, alamat_utama }) {
+export async function registerUser({ email, password, nama_lengkap, no_hp, nik, golongan_darah, jenis_kelamin, alamat_utama, latitude, longitude }) {
   try {
     const res = await api.post('/api/register', {
       email,
@@ -81,6 +81,8 @@ export async function registerUser({ email, password, nama_lengkap, no_hp, nik, 
       golongan_darah,
       jenis_kelamin,
       alamat_utama,
+      latitude,   // <-- Tambahkan ini
+      longitude,
     });
 
     return res.data;
