@@ -1,185 +1,346 @@
+
 "use client";
 
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { getActivePromos, generatePromoSlug, getTextValue } from "@/services/promoService";
+
+import {
+  getActivePromos,
+  getPromoServiceName,
+  getPromoImagePath,
+  formatPromoDiscount,
+  formatPromoDate,
+} from "@/services/promoService";
+
 import { resolveImageUrl } from "@/services/resolveImage";
 
 export default function Promo() {
   const [promos, setPromos] = useState([]);
   const [activeIndex, setActiveIndex] = useState(0);
-  const [isAutoScrolling, setIsAutoScrolling] = useState(true);
-  const scrollContainerRef = useRef(null);
   const [isDesktop, setIsDesktop] = useState(false);
+  const [loading, setLoading] = useState(true);
 
+  const scrollContainerRef = useRef(null);
+  const activeIndexRef = useRef(0);
+
+  // Ambil maksimal 3 promo aktif dari backend.
   useEffect(() => {
+    let isMounted = true;
+
     async function loadPromos() {
-      const data = await getActivePromos();
-      setPromos(data.slice(0, 6));
-    }
-    loadPromos();
-  }, []);
+      try {
+        const data = await getActivePromos();
 
-  useEffect(() => {
-    const checkDesktop = () => {
-      setIsDesktop(window.innerWidth >= 1024);
-    };
-    checkDesktop();
-    window.addEventListener('resize', checkDesktop);
-    return () => window.removeEventListener('resize', checkDesktop);
-  }, []);
+        if (!isMounted) return;
 
-  useEffect(() => {
-    const container = scrollContainerRef.current;
-    if (!container || promos.length === 0 || isDesktop) return;
+        const validPromos = data
+          .filter(
+            (item) =>
+              item?.id_promo !== null &&
+              item?.id_promo !== undefined
+          )
+          .slice(0, 3);
 
-    const handleScroll = () => {
-      const { scrollLeft, clientWidth } = container;
-      const cardWidth = clientWidth + 16;
-      const index = Math.round(scrollLeft / cardWidth);
-      if (index !== activeIndex && index < promos.length) {
-        setActiveIndex(index);
-      }
-    };
-
-    container.addEventListener('scroll', handleScroll);
-    return () => container.removeEventListener('scroll', handleScroll);
-  }, [promos.length, activeIndex, isDesktop]);
-
-  useEffect(() => {
-    const container = scrollContainerRef.current;
-    if (!container || promos.length === 0 || isDesktop || !isAutoScrolling) return;
-
-    const interval = setInterval(() => {
-      const { scrollLeft, scrollWidth, clientWidth } = container;
-      const maxScroll = scrollWidth - clientWidth;
-      const cardWidth = clientWidth + 16;
-
-      if (scrollLeft >= maxScroll - 10) {
-        container.scrollTo({ left: 0, behavior: "smooth" });
+        setPromos(validPromos);
         setActiveIndex(0);
-      } else {
-        const nextScroll = scrollLeft + cardWidth;
-        container.scrollTo({ left: nextScroll, behavior: "smooth" });
-        const nextIndex = Math.round(nextScroll / cardWidth);
-        if (nextIndex < promos.length) {
-          setActiveIndex(nextIndex);
+        activeIndexRef.current = 0;
+      } catch (error) {
+        console.error("Gagal memuat promo homepage:", error);
+
+        if (isMounted) {
+          setPromos([]);
+        }
+      } finally {
+        if (isMounted) {
+          setLoading(false);
         }
       }
+    }
+
+    loadPromos();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  // Deteksi desktop mulai dari lebar 1024px.
+  useEffect(() => {
+    const mediaQuery = window.matchMedia("(min-width: 1024px)");
+
+    function handleResize() {
+      setIsDesktop(mediaQuery.matches);
+    }
+
+    handleResize();
+    mediaQuery.addEventListener("change", handleResize);
+
+    return () => {
+      mediaQuery.removeEventListener("change", handleResize);
+    };
+  }, []);
+
+  // Perbarui dot aktif berdasarkan posisi kartu yang terlihat.
+  useEffect(() => {
+    const container = scrollContainerRef.current;
+
+    if (!container || promos.length === 0 || isDesktop) return;
+
+    function handleScroll() {
+      const cards = Array.from(
+        container.querySelectorAll("[data-promo-card]")
+      );
+
+      if (cards.length === 0) return;
+
+      const containerRect = container.getBoundingClientRect();
+      const containerCenter =
+        containerRect.left + container.clientWidth / 2;
+
+      let closestIndex = 0;
+      let closestDistance = Infinity;
+
+      cards.forEach((card, index) => {
+        const cardRect = card.getBoundingClientRect();
+        const cardCenter = cardRect.left + cardRect.width / 2;
+
+        const distance = Math.abs(
+          containerCenter - cardCenter
+        );
+
+        if (distance < closestDistance) {
+          closestDistance = distance;
+          closestIndex = index;
+        }
+      });
+
+      activeIndexRef.current = closestIndex;
+      setActiveIndex(closestIndex);
+    }
+
+    container.addEventListener("scroll", handleScroll, {
+      passive: true,
+    });
+
+    return () => {
+      container.removeEventListener("scroll", handleScroll);
+    };
+  }, [promos.length, isDesktop]);
+
+  // Geser ke kartu berdasarkan dot yang diklik.
+  function scrollToCard(index) {
+    const container = scrollContainerRef.current;
+
+    if (!container) return;
+
+    const cards = container.querySelectorAll("[data-promo-card]");
+    const targetCard = cards[index];
+
+    if (!targetCard) return;
+
+    const containerRect = container.getBoundingClientRect();
+    const cardRect = targetCard.getBoundingClientRect();
+
+    const targetPosition =
+      container.scrollLeft +
+      cardRect.left -
+      containerRect.left;
+
+    container.scrollTo({
+      left: targetPosition,
+      behavior: "smooth",
+    });
+
+    activeIndexRef.current = index;
+    setActiveIndex(index);
+  }
+
+  // Auto-slide hanya untuk mobile setiap 5 detik.
+  useEffect(() => {
+    const container = scrollContainerRef.current;
+
+    if (!container || isDesktop || promos.length <= 1) {
+      return;
+    }
+
+    const interval = setInterval(() => {
+      const nextIndex =
+        (activeIndexRef.current + 1) % promos.length;
+
+      const cards = container.querySelectorAll(
+        "[data-promo-card]"
+      );
+
+      const targetCard = cards[nextIndex];
+
+      if (!targetCard) return;
+
+      const containerRect = container.getBoundingClientRect();
+      const cardRect = targetCard.getBoundingClientRect();
+
+      const targetPosition =
+        container.scrollLeft +
+        cardRect.left -
+        containerRect.left;
+
+      container.scrollTo({
+        left: targetPosition,
+        behavior: "smooth",
+      });
+
+      activeIndexRef.current = nextIndex;
+      setActiveIndex(nextIndex);
     }, 5000);
 
     return () => clearInterval(interval);
-  }, [promos.length, isDesktop, isAutoScrolling]);
+  }, [promos.length, isDesktop]);
 
-  const handleMouseEnter = () => setIsAutoScrolling(false);
-  const handleMouseLeave = () => setIsAutoScrolling(true);
+  if (loading) {
+    return (
+      <section className="relative bg-white py-12 sm:py-16">
+        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+          <div className="mb-8 h-8 w-40 animate-pulse rounded-lg bg-slate-100" />
 
-  const scrollToCard = (index) => {
-    const container = scrollContainerRef.current;
-    if (!container) return;
-    
-    const cardWidth = container.clientWidth + 16;
-    container.scrollTo({ left: index * cardWidth, behavior: "smooth" });
-    setActiveIndex(index);
-  };
+          <div className="grid gap-4 lg:grid-cols-3">
+            {[1, 2, 3].map((item) => (
+              <div
+                key={item}
+                className="h-[360px] animate-pulse rounded-2xl bg-slate-100"
+              />
+            ))}
+          </div>
+        </div>
+      </section>
+    );
+  }
 
-  if (!promos || promos.length === 0) {
+  if (promos.length === 0) {
     return null;
   }
 
   return (
-    <section className="relative py-16 sm:py-24 bg-white">
-      <div className="mx-auto max-w-7xl px-6">
-        <div className="mb-8 flex items-center justify-between">
-          <div>
-            <span className="text-2xl font-semibold uppercase tracking-[0.2em] text-blue-600">
-              Promo
-            </span>
-          </div>
+    <section className="relative bg-white py-12 sm:py-16">
+      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+
+        {/* Header - mengikuti layout Artikel */}
+        <div className="mb-8 flex items-center justify-between gap-4">
+          <span className="text-2xl font-semibold uppercase tracking-[0.2em] text-blue-600">
+            Promo
+          </span>
 
           <Link
             href="/promo"
-            className="text-sm font-semibold text-blue-600 hover:text-blue-700 transition"
+            className="text-sm font-semibold text-blue-600 transition-colors duration-300 hover:text-blue-700"
           >
-            Lihat Semua →
+            Lihat Semua
           </Link>
         </div>
 
-        <div 
+        {/* Slider / Grid */}
+        <div
           ref={scrollContainerRef}
-          onMouseEnter={handleMouseEnter}
-          onMouseLeave={handleMouseLeave}
-          className="flex overflow-x-auto gap-4 pb-4 lg:grid lg:grid-cols-3 snap-x snap-mandatory"
-          style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}
+          className="flex snap-x snap-mandatory gap-4 overflow-x-auto pb-4 lg:grid lg:grid-cols-3 lg:overflow-visible lg:pb-0"
+          style={{
+            scrollbarWidth: "none",
+            msOverflowStyle: "none",
+          }}
         >
-          {promos.map((promo, idx) => {
-            const name = getTextValue(promo, ["nama_paket", "nama", "title", "judul"]);
-            const slug = generatePromoSlug(name);
-            const image = resolveImageUrl(getTextValue(promo, ["gambar_promo", "gambar", "image", "foto"]));
-            
+          {promos.map((promo) => {
+            const promoId = promo.id_promo;
+            const promoName = getPromoServiceName(promo);
+
+            const rawImage = getPromoImagePath(promo);
+            const image = rawImage
+              ? resolveImageUrl(rawImage)
+              : "";
+
+            const discount = formatPromoDiscount(promo);
+
             return (
-              <div
-                key={getTextValue(promo, ["id_promo", "id"]) || idx}
-                className="group flex-shrink-0 w-full lg:w-auto bg-white rounded-2xl overflow-hidden shadow-sm border border-gray-100 transition-all duration-300 hover:-translate-y-2 hover:shadow-xl snap-start"
+              <Link
+                key={promoId}
+                href={`/promo/${promoId}`}
+                data-promo-card
+                className="group relative flex w-[85%] flex-shrink-0 snap-start flex-col overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-sm transition-all duration-300 hover:-translate-y-2 hover:shadow-xl lg:w-auto"
               >
-                <Link href={`/promo/${slug || idx}`}>
-                  <div className="relative h-58 w-full overflow-hidden">
+                {/* Image - ukuran lebih besar dan konsisten */}
+                <div className="relative h-56 w-full flex-shrink-0 overflow-hidden bg-slate-200 sm:h-60">
+                  {image ? (
                     <img
                       src={image}
-                      alt={name || "Promo"}
-                      className="h-full w-full object-cover transition duration-500 group-hover:scale-105"
+                      alt={promoName}
+                      className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-110"
                     />
-                    {promo.diskon_persen && (
-                      <div className="absolute top-4 left-4 bg-red-500 text-white px-3 py-1.5 rounded-lg text-xs font-bold uppercase shadow-lg">
-                         Diskon {Number(promo.diskon_persen)}%
-                      </div>
-                    )}
-                  </div>
-                </Link>
+                  ) : (
+                    <div className="flex h-full w-full items-center justify-center text-sm text-slate-400">
+                      Gambar promo tidak tersedia
+                    </div>
+                  )}
 
-                <div className="p-6">
-                  <Link href={`/promo/${slug || idx}`}>
-                    <h3 className="text-lg font-bold text-gray-800 transition hover:text-blue-600 line-clamp-1">
-                      {name}
+                  {/* Gradasi biru hanya pada gambar:
+                      tebal di bawah, memudar ke atas.
+                      Muncul ketika kartu di-hover. */}
+                  <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-blue-800/75 via-blue-700/20 to-transparent opacity-0 transition-opacity duration-500 group-hover:opacity-100" />
+
+                  {discount && (
+                    <span className="absolute left-4 top-4 z-10 inline-flex rounded-full bg-blue-600 px-3 py-1.5 text-xs font-semibold text-white shadow-sm">
+                      Hemat {discount}
+                    </span>
+                  )}
+                </div>
+
+                {/* Content */}
+                <div className="flex flex-grow flex-col justify-between p-4 sm:p-5">
+                  <div>
+                    <h3 className="line-clamp-2 text-base font-bold leading-tight text-slate-950 transition-colors duration-300 group-hover:text-blue-600 sm:text-lg">
+                      {promoName}
                     </h3>
-                  </Link>
 
-                  <p className="mt-2 text-sm text-gray-600 line-clamp-2">
-                    {promo.deskripsi}
-                  </p>
-
-                  <div className="mt-4 pt-4 border-t border-gray-100">
-                    <p className="flex items-center gap-2 text-xs text-gray-500">
-                      Berakhir:{" "}
-                      <span className="font-medium text-gray-700">
-                        {new Date(
-                          getTextValue(promo, ["tanggal_berakhir", "expired_at", "end_date"])
-                        ).toLocaleDateString('id-ID', {
-                          day: 'numeric',
-                          month: 'long',
-                          year: 'numeric'
-                        })}
-                      </span>
+                    <p className="mt-2 line-clamp-2 text-xs leading-relaxed text-slate-600 sm:text-sm">
+                      {promo.deskripsi ||
+                        "Nikmati penawaran khusus untuk layanan HomeCare."}
                     </p>
                   </div>
+
+                  {/* Footer */}
+                  <div className="mt-4 border-t border-slate-100 pt-3">
+                    <div className="flex items-center justify-between gap-3">
+                      <div>
+                        <p className="text-[11px] text-slate-400">
+                          Berlaku sampai
+                        </p>
+
+                        <p className="mt-1 text-xs font-semibold text-slate-700 sm:text-sm">
+                          {formatPromoDate(promo.tanggal_berakhir)}
+                        </p>
+                      </div>
+
+                      <span className="text-xs font-semibold text-blue-600 transition-colors duration-300 group-hover:text-blue-700">
+                        Lihat Detail
+                      </span>
+                    </div>
+                  </div>
                 </div>
-              </div>
+              </Link>
             );
           })}
         </div>
 
-        {!isDesktop && promos.length > 1 && (
-          <div className="flex justify-center gap-2 mt-4">
-            {promos.map((_, index) => (
+        {/* Dot navigation hanya mobile */}
+        {promos.length > 1 && (
+          <div className="mt-4 flex justify-center gap-2 lg:hidden">
+            {promos.map((promo, index) => (
               <button
-                key={index}
+                key={promo.id_promo}
+                type="button"
                 onClick={() => scrollToCard(index)}
-                className={`h-2 rounded-full transition-all duration-500 cursor-pointer ${
+                aria-label={`Tampilkan promo ${index + 1}`}
+                aria-current={activeIndex === index}
+                className={`h-2 rounded-full transition-all duration-300 ${
                   activeIndex === index
-                    ? "w-8 bg-blue-600"
-                    : "w-2 bg-blue-200 hover:bg-blue-300"
+                    ? "w-7 bg-blue-600"
+                    : "w-2 bg-blue-200 hover:bg-blue-400"
                 }`}
-                aria-label={`Go to promo ${index + 1}`}
               />
             ))}
           </div>

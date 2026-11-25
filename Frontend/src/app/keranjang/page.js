@@ -4,26 +4,43 @@ import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 
 import { resolveImageUrl } from "@/services/resolveImage";
+import {
+  getActivePromos,
+  formatPromoDiscount,
+} from "@/services/promoService";
 
 const CART_STORAGE_KEY = "smarthomecare_cart";
+
+/* =========================================================
+   HELPER
+========================================================= */
 
 function getTextValue(item, keys) {
   for (const key of keys) {
     const value = item?.[key];
+
     if (value !== undefined && value !== null && value !== "") {
       return String(value);
     }
   }
+
   return "";
 }
 
 function getServiceId(service) {
-  return getTextValue(service, ["id", "id_layanan", "uuid"]) || getTextValue(service, ["nama_layanan", "nama", "title"]);
+  return (
+    getTextValue(service, ["id_layanan", "id", "uuid"]) ||
+    getTextValue(service, ["nama_layanan", "nama", "title"])
+  );
 }
 
 function formatCurrency(value) {
   const numericValue = Number(value);
-  if (Number.isNaN(numericValue)) return "Rp0";
+
+  if (!Number.isFinite(numericValue)) {
+    return "Rp0";
+  }
+
   return new Intl.NumberFormat("id-ID", {
     style: "currency",
     currency: "IDR",
@@ -31,115 +48,389 @@ function formatCurrency(value) {
   }).format(numericValue);
 }
 
+/**
+ * Menghitung harga tampilan berdasarkan promo aktif.
+ * Harga normal tetap berasal dari data layanan.
+ * Fungsi ini tidak mengubah harga database.
+ */
+function getServicePromoPrice(service, promo = null) {
+  const rawPrice = service?.harga ?? service?.price;
+  const normalPrice = Number(rawPrice);
+
+  if (
+    rawPrice === null ||
+    rawPrice === undefined ||
+    String(rawPrice).trim() === "" ||
+    !Number.isFinite(normalPrice) ||
+    normalPrice < 0
+  ) {
+    return {
+      normalPrice: 0,
+      discountAmount: 0,
+      finalPrice: 0,
+      hasPromo: false,
+    };
+  }
+
+  if (!promo) {
+    return {
+      normalPrice,
+      discountAmount: 0,
+      finalPrice: normalPrice,
+      hasPromo: false,
+    };
+  }
+
+  const discountValue = Number(promo.nilai_diskon);
+  const discountType = String(
+    promo.tipe_diskon || ""
+  ).trim().toLowerCase();
+
+  if (!Number.isFinite(discountValue) || discountValue <= 0) {
+    return {
+      normalPrice,
+      discountAmount: 0,
+      finalPrice: normalPrice,
+      hasPromo: false,
+    };
+  }
+
+  let discountAmount = 0;
+
+  if (discountType === "persen") {
+    discountAmount = Math.round(
+      (normalPrice * discountValue) / 100
+    );
+  } else if (discountType === "nominal") {
+    discountAmount = Math.round(discountValue);
+  }
+
+  discountAmount = Math.min(
+    normalPrice,
+    Math.max(0, discountAmount)
+  );
+
+  return {
+    normalPrice,
+    discountAmount,
+    finalPrice: normalPrice - discountAmount,
+    hasPromo: discountAmount > 0,
+  };
+}
+
 function loadCartFromStorage() {
   if (typeof window === "undefined") return [];
+
   try {
     const raw = window.localStorage.getItem(CART_STORAGE_KEY);
     const parsed = raw ? JSON.parse(raw) : [];
+
     return Array.isArray(parsed) ? parsed : [];
   } catch (error) {
-    console.error("Gagal membaca keranjang", error);
+    console.error("Gagal membaca keranjang:", error);
     return [];
   }
 }
 
 function saveCartToStorage(cart) {
   if (typeof window === "undefined") return;
+
   try {
-    window.localStorage.setItem(CART_STORAGE_KEY, JSON.stringify(cart));
+    window.localStorage.setItem(
+      CART_STORAGE_KEY,
+      JSON.stringify(cart)
+    );
   } catch (error) {
-    console.error("Gagal menyimpan keranjang", error);
+    console.error("Gagal menyimpan keranjang:", error);
   }
 }
 
+/* =========================================================
+   PAGE
+========================================================= */
+
 export default function KeranjangPage() {
   const router = useRouter();
+
   const [cart, setCart] = useState([]);
   const [selectedIds, setSelectedIds] = useState([]);
   const [loading, setLoading] = useState(true);
 
+  // Data promo aktif dari backend
+  const [promos, setPromos] = useState([]);
+  const [isLoadingPromos, setIsLoadingPromos] = useState(true);
+
+  /* =========================================================
+     LOAD CART
+  ========================================================= */
+
   useEffect(() => {
     const loaded = loadCartFromStorage();
+
     setCart(loaded);
-    setSelectedIds(loaded.map((item) => getServiceId(item.service)));
+    setSelectedIds(
+      loaded.map((item) => getServiceId(item.service))
+    );
     setLoading(false);
   }, []);
 
-  const allSelected = cart.length > 0 && selectedIds.length === cart.length;
+  /* =========================================================
+     LOAD PROMO AKTIF
+  ========================================================= */
+
+  useEffect(() => {
+    let isMounted = true;
+
+    const loadPromos = async () => {
+      try {
+        setIsLoadingPromos(true);
+
+        const result = await getActivePromos();
+
+        if (!isMounted) return;
+
+        setPromos(
+          Array.isArray(result) ? result : []
+        );
+      } catch (error) {
+        console.error("Gagal memuat promo keranjang:", error);
+
+        if (isMounted) {
+          setPromos([]);
+        }
+      } finally {
+        if (isMounted) {
+          setIsLoadingPromos(false);
+        }
+      }
+    };
+
+    loadPromos();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  /* =========================================================
+     MAP PROMO BERDASARKAN ID LAYANAN
+  ========================================================= */
+
+  const promoByServiceId = useMemo(() => {
+    const promoMap = new Map();
+
+    // Promo terbaru diprioritaskan bila ada promo aktif
+    // lebih dari satu untuk layanan yang sama.
+    const sortedPromos = [...promos].sort((a, b) => {
+      const dateA = Date.parse(a?.created_at || "") || 0;
+      const dateB = Date.parse(b?.created_at || "") || 0;
+
+      return dateB - dateA;
+    });
+
+    sortedPromos.forEach((promo) => {
+      const serviceId =
+        promo?.id_layanan ??
+        promo?.layanan?.id_layanan;
+
+      if (
+        serviceId === null ||
+        serviceId === undefined ||
+        String(serviceId).trim() === ""
+      ) {
+        return;
+      }
+
+      const key = String(serviceId);
+
+      if (!promoMap.has(key)) {
+        promoMap.set(key, promo);
+      }
+    });
+
+    return promoMap;
+  }, [promos]);
+
+  /* =========================================================
+     HELPER HARGA ITEM
+  ========================================================= */
+
+  const getItemPriceInfo = (service) => {
+    const serviceId = getServiceId(service);
+
+    const promo =
+      promoByServiceId.get(String(serviceId)) || null;
+
+    return {
+      promo,
+      ...getServicePromoPrice(service, promo),
+    };
+  };
+
+  /* =========================================================
+     SELECTION
+  ========================================================= */
+
+  const allSelected =
+    cart.length > 0 &&
+    selectedIds.length === cart.length;
 
   const toggleSelectAll = () => {
     if (allSelected) {
       setSelectedIds([]);
     } else {
-      setSelectedIds(cart.map((item) => getServiceId(item.service)));
+      setSelectedIds(
+        cart.map((item) => getServiceId(item.service))
+      );
     }
   };
 
   const toggleSelectItem = (id) => {
-    setSelectedIds((prev) => (prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]));
+    setSelectedIds((prev) =>
+      prev.includes(id)
+        ? prev.filter((item) => item !== id)
+        : [...prev, id]
+    );
   };
 
   /* =========================================================
-   UPDATE QTY DENGAN VALIDASI KATEGORI
-========================================================= */
-const updateQty = (id, delta) => {
+     UPDATE QTY
+     Satu layanan hanya boleh dipesan satu kali.
+  ========================================================= */
+
+  const updateQty = (id, delta) => {
     setCart((prevCart) => {
       const nextCart = prevCart.map((item) => {
         const itemId = getServiceId(item.service);
+
         if (itemId === id) {
-          const newQty = item.qty + delta;
+          const currentQty = Number(item.qty) || 1;
+          const newQty = currentQty + delta;
+
           if (newQty > 1) {
-            alert("1 jenis layanan yang sama hanya bisa dipesan 1 kali!");
-            return item; // Tetap 1, tidak boleh bertambah
+            alert(
+              "1 jenis layanan yang sama hanya bisa dipesan 1 kali!"
+            );
+            return item;
           }
-          return { ...item, qty: Math.max(1, newQty) };
+
+          return {
+            ...item,
+            qty: Math.max(1, newQty),
+          };
         }
+
         return item;
       });
 
       saveCartToStorage(nextCart);
+
       return nextCart;
     });
   };
+
+  /* =========================================================
+     REMOVE ITEM
+  ========================================================= */
 
   const removeItem = (id) => {
     setCart((prevCart) => {
-      const nextCart = prevCart.filter((item) => getServiceId(item.service) !== id);
+      const nextCart = prevCart.filter(
+        (item) => getServiceId(item.service) !== id
+      );
+
       saveCartToStorage(nextCart);
+
       return nextCart;
     });
-    setSelectedIds((prev) => prev.filter((item) => item !== id));
+
+    setSelectedIds((prev) =>
+      prev.filter((item) => item !== id)
+    );
   };
 
-  // NEW: Fungsi untuk menghapus semua item yang sedang dicentang sekaligus
+  /* =========================================================
+     REMOVE SELECTED ITEMS
+  ========================================================= */
+
   const removeSelectedItems = () => {
     if (selectedIds.length === 0) return;
+
     setCart((prevCart) => {
-      const nextCart = prevCart.filter((item) => !selectedIds.includes(getServiceId(item.service)));
+      const nextCart = prevCart.filter(
+        (item) =>
+          !selectedIds.includes(getServiceId(item.service))
+      );
+
       saveCartToStorage(nextCart);
+
       return nextCart;
     });
+
     setSelectedIds([]);
   };
 
-  const selectedTotal = useMemo(() => {
-    return cart.reduce((total, item) => {
-      const id = getServiceId(item.service);
-      if (!selectedIds.includes(id)) return total;
-      const price = Number(getTextValue(item.service, ["harga", "price"])) || 0;
-      return total + price * item.qty;
-    }, 0);
-  }, [cart, selectedIds]);
+  /* =========================================================
+     CALCULATE SELECTED TOTAL
+  ========================================================= */
+
+  const selectedPriceBreakdown = useMemo(() => {
+    return cart.reduce(
+      (result, item) => {
+        const id = getServiceId(item.service);
+
+        if (!selectedIds.includes(id)) {
+          return result;
+        }
+
+        const qty = Number(item.qty) || 1;
+        const priceInfo = getItemPriceInfo(item.service);
+
+        result.originalTotal +=
+          priceInfo.normalPrice * qty;
+
+        result.discountTotal +=
+          priceInfo.discountAmount * qty;
+
+        result.finalTotal +=
+          priceInfo.finalPrice * qty;
+
+        return result;
+      },
+      {
+        originalTotal: 0,
+        discountTotal: 0,
+        finalTotal: 0,
+      }
+    );
+  }, [cart, selectedIds, promoByServiceId]);
+
+  const selectedTotal =
+    selectedPriceBreakdown.finalTotal;
+
+  const selectedDiscount =
+    selectedPriceBreakdown.discountTotal;
+
+  const selectedOriginalTotal =
+    selectedPriceBreakdown.originalTotal;
 
   const selectedCount = selectedIds.length;
+
+  /* =========================================================
+     RENDER
+  ========================================================= */
 
   return (
     <div
       className="min-h-screen bg-slate-50 pb-28"
-      style={{ fontFamily: '"Poppins", "Inter", "Segoe UI", sans-serif' }}
+      style={{
+        fontFamily: '"Poppins", "Inter", "Segoe UI", sans-serif',
+      }}
     >
       <div className="mx-auto max-w-4xl px-4 py-8 sm:py-10">
-        <h1 className="text-3xl font-bold text-slate-900 sm:text-4xl">Keranjang</h1>
+        <h1 className="text-3xl font-bold text-slate-900 sm:text-4xl">
+          Keranjang
+        </h1>
 
         {loading ? (
           <div className="mt-6 rounded-2xl border border-slate-200 bg-white p-8 text-center text-slate-500 shadow-sm">
@@ -147,105 +438,191 @@ const updateQty = (id, delta) => {
           </div>
         ) : cart.length === 0 ? (
           <div className="mt-6 flex flex-col items-center gap-4 rounded-2xl border border-slate-200 bg-white p-12 text-center shadow-sm">
-            <p className="text-slate-500">Keranjang Anda masih kosong.</p>
+            <p className="text-slate-500">
+              Keranjang Anda masih kosong.
+            </p>
+
             <button
               type="button"
               onClick={() => router.push("/layanan")}
-              className="rounded-full bg-sky-600 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-sky-700"
+              className="rounded-full bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-blue-700"
             >
               Lihat Layanan
             </button>
           </div>
         ) : (
           <div className="mt-6 flex flex-col gap-4">
-            {/* Pilih semua & tombol hapus cepat */}
+
+            {/* PILIH SEMUA */}
             <div className="flex items-center justify-between rounded-2xl border border-slate-200 bg-white px-5 py-4 shadow-sm">
               <div className="flex items-center gap-3">
                 <input
                   type="checkbox"
                   checked={allSelected}
                   onChange={toggleSelectAll}
-                  className="h-5 w-5 rounded-md border-slate-300 text-sky-600 focus:ring-sky-500"
+                  className="h-5 w-5 rounded-md border-slate-300 text-blue-600 focus:ring-blue-500"
                 />
+
                 <span className="font-semibold text-slate-800">
-                  Pilih Semua <span className="font-normal text-slate-400">({cart.length})</span>
+                  Pilih Semua{" "}
+                  <span className="font-normal text-slate-400">
+                    ({cart.length})
+                  </span>
                 </span>
               </div>
+
               {selectedCount > 0 && (
                 <button
                   type="button"
                   onClick={removeSelectedItems}
-                  className="text-xs font-semibold text-rose-500 transition hover:text-rose-700 sm:text-sm"
+                  className="text-xs font-semibold text-rose-600 transition hover:text-rose-700 sm:text-sm"
                 >
                   Hapus Terpilih ({selectedCount})
                 </button>
               )}
             </div>
 
-            {/* Section: layanan */}
+            {/* DAFTAR LAYANAN */}
             <div className="rounded-2xl border border-slate-200 bg-white shadow-sm">
+
               <div className="flex items-center gap-2 border-b border-slate-100 px-5 py-4">
-                <span className="flex h-5 w-5 items-center justify-center rounded-full bg-sky-600 text-white">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" className="h-3 w-3">
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                <span className="flex h-5 w-5 items-center justify-center rounded-full bg-blue-600 text-white">
+                  <svg
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="3"
+                    className="h-3 w-3"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      d="M5 13l4 4L19 7"
+                    />
                   </svg>
                 </span>
-                <span className="font-semibold text-slate-800">SmartHomeCare</span>
+
+                <span className="font-semibold text-slate-800">
+                  SmartHomeCare
+                </span>
               </div>
 
               <div className="divide-y divide-slate-100">
                 {cart.map((item) => {
-                  const service = item.service;
+                  const service = item.service || {};
                   const id = getServiceId(service);
-                  const title = getTextValue(service, ["nama_layanan", "nama", "title"]);
-                  const category = getTextValue(service, ["kategori_layanan", "kategori", "category", "nama_kategori"]);
-                  const imageUrl = resolveImageUrl(getTextValue(service, ["foto_layanan", "foto", "image"]));
-                  const price = Number(getTextValue(service, ["harga", "price"])) || 0;
-                  const originalPrice = Number(getTextValue(service, ["harga_asli", "original_price"])) || 0;
-                  const hasDiscount = originalPrice > price;
-                  const discountPercent = hasDiscount ? Math.round(((originalPrice - price) / originalPrice) * 100) : 0;
+
+                  const title = getTextValue(service, [
+                    "nama_layanan",
+                    "nama",
+                    "title",
+                  ]);
+
+                  const category = getTextValue(service, [
+                    "kategori_layanan",
+                    "kategori",
+                    "category",
+                    "nama_kategori",
+                  ]);
+
+                  const imageUrl = resolveImageUrl(
+                    getTextValue(service, [
+                      "foto_layanan",
+                      "foto",
+                      "image",
+                    ])
+                  );
+
+                  const qty = Number(item.qty) || 1;
+                  const priceInfo = getItemPriceInfo(service);
                   const checked = selectedIds.includes(id);
 
                   return (
-                    <div key={id} className="flex items-start gap-3 px-5 py-5">
+                    <div
+                      key={id}
+                      className="flex items-start gap-3 px-5 py-5"
+                    >
                       <input
                         type="checkbox"
                         checked={checked}
                         onChange={() => toggleSelectItem(id)}
-                        className="mt-2 h-5 w-5 shrink-0 rounded-md border-slate-300 text-sky-600 focus:ring-sky-500"
+                        className="mt-2 h-5 w-5 shrink-0 rounded-md border-slate-300 text-blue-600 focus:ring-blue-500"
                       />
 
+                      {/* GAMBAR */}
                       <div className="relative h-24 w-24 shrink-0 overflow-hidden rounded-xl bg-slate-100 sm:h-28 sm:w-28">
-                        <img src={imageUrl} alt={title} className="h-full w-full object-cover" />
-                        {hasDiscount ? (
-                          <span className="absolute left-0 top-2 rounded-r-full bg-rose-500 px-2 py-0.5 text-[11px] font-bold text-white">
-                            {discountPercent}%
+                        <img
+                          src={imageUrl}
+                          alt={title}
+                          className="h-full w-full object-cover"
+                        />
+
+                        {priceInfo.hasPromo && !isLoadingPromos && (
+                          <span className="absolute left-0 top-2 rounded-r-full bg-emerald-50 px-2.5 py-1 text-[10px] font-bold text-emerald-700 shadow-sm">
+                            Hemat {formatPromoDiscount(priceInfo.promo)}
                           </span>
-                        ) : null}
+                        )}
                       </div>
 
+                      {/* INFORMASI LAYANAN */}
                       <div className="min-w-0 flex-1">
-                        <p className="text-sm leading-6 text-slate-800 sm:text-base">{title}</p>
-                        <p className="mt-1 text-xs text-slate-400 sm:text-sm">{category}</p>
+                        <p className="text-sm leading-6 text-slate-800 sm:text-base">
+                          {title}
+                        </p>
+
+                        <p className="mt-1 text-xs text-slate-400 sm:text-sm">
+                          {category}
+                        </p>
+
+                        {isLoadingPromos && (
+                          <p className="mt-2 text-[11px] text-slate-400">
+                            Memeriksa promo aktif...
+                          </p>
+                        )}
+
                       </div>
 
+                      {/* HARGA DAN ACTION */}
                       <div className="flex flex-col items-end justify-between self-stretch">
                         <div className="text-right">
-                          <p className={`font-bold ${hasDiscount ? "text-rose-500" : "text-slate-900"}`}>
-                            {formatCurrency(price)}
-                          </p>
-                          {hasDiscount ? (
-                            <p className="text-xs text-slate-400 line-through">{formatCurrency(originalPrice)}</p>
-                          ) : null}
+                          {priceInfo.hasPromo && !isLoadingPromos ? (
+                            <>
+                              <p className="font-bold text-emerald-700">
+                                {formatCurrency(
+                                  priceInfo.finalPrice * qty
+                                )}
+                              </p>
+
+                              <p className="mt-0.5 text-xs text-slate-400 line-through">
+                                {formatCurrency(
+                                  priceInfo.normalPrice * qty
+                                )}
+                              </p>
+                            </>
+                          ) : (
+                            <p className="font-bold text-slate-900">
+                              {formatCurrency(
+                                priceInfo.normalPrice * qty
+                              )}
+                            </p>
+                          )}
                         </div>
 
                         <div className="flex items-center gap-3">
+
+                          {/* FAVORIT */}
                           <button
                             type="button"
                             aria-label="Simpan ke favorit"
                             className="text-slate-400 transition hover:text-rose-500"
                           >
-                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="h-5 w-5">
+                            <svg
+                              viewBox="0 0 24 24"
+                              fill="none"
+                              stroke="currentColor"
+                              strokeWidth="2"
+                              className="h-5 w-5"
+                            >
                               <path
                                 strokeLinecap="round"
                                 strokeLinejoin="round"
@@ -253,16 +630,30 @@ const updateQty = (id, delta) => {
                               />
                             </svg>
                           </button>
+
+                          {/* HAPUS */}
                           <button
                             type="button"
                             aria-label="Hapus dari keranjang"
                             onClick={() => removeItem(id)}
-                            className="text-slate-400 transition hover:text-rose-500"
+                            className="text-slate-400 transition hover:text-rose-600"
                           >
-                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="h-5 w-5">
-                              <path strokeLinecap="round" strokeLinejoin="round" d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m3 0-1 14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2L4 6h16Z" />
+                            <svg
+                              viewBox="0 0 24 24"
+                              fill="none"
+                              stroke="currentColor"
+                              strokeWidth="2"
+                              className="h-5 w-5"
+                            >
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m3 0-1 14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2L4 6h16Z"
+                              />
                             </svg>
                           </button>
+
+                          {/* QTY */}
                           <div className="flex items-center rounded-full border border-slate-200">
                             <button
                               type="button"
@@ -272,7 +663,11 @@ const updateQty = (id, delta) => {
                             >
                               −
                             </button>
-                            <span className="w-6 text-center text-sm font-medium text-slate-800">{item.qty}</span>
+
+                            <span className="w-6 text-center text-sm font-medium text-slate-800">
+                              {qty}
+                            </span>
+
                             <button
                               type="button"
                               onClick={() => updateQty(id, 1)}
@@ -293,23 +688,50 @@ const updateQty = (id, delta) => {
         )}
       </div>
 
-      {/* Fixed bottom checkout bar dengan opsi hapus cepat tambahan */}
-      {cart.length > 0 ? (
+      {/* FIXED CHECKOUT BAR */}
+      {cart.length > 0 && (
         <div className="fixed bottom-0 left-0 right-0 z-50 border-t border-slate-200 bg-white px-4 py-4 pb-[calc(1rem+env(safe-area-inset-bottom,0px))] shadow-[0_-4px_16px_rgba(0,0,0,0.06)] lg:pb-4">
           <div className="mx-auto flex max-w-4xl items-center justify-between gap-4">
+
+            {/* TOTAL */}
             <div className="flex items-center gap-3">
               <input
                 type="checkbox"
                 checked={allSelected}
                 onChange={toggleSelectAll}
-                className="h-5 w-5 rounded-md border-slate-300 text-sky-600 focus:ring-sky-500"
+                className="h-5 w-5 rounded-md border-slate-300 text-blue-600 focus:ring-blue-500"
               />
+
               <div>
-                <p className="text-xs text-slate-400">Total</p>
-                <p className="text-lg font-bold text-slate-900">{formatCurrency(selectedTotal)}</p>
+                <p className="text-xs text-slate-400">
+                  {isLoadingPromos ? "Total sementara" : "Total"}
+                </p>
+
+                {selectedDiscount > 0 && !isLoadingPromos && (
+                  <p className="text-xs text-slate-400 line-through">
+                    {formatCurrency(selectedOriginalTotal)}
+                  </p>
+                )}
+
+                <p
+                  className={`text-lg font-bold ${
+                    selectedDiscount > 0 && !isLoadingPromos
+                      ? "text-emerald-700"
+                      : "text-slate-900"
+                  }`}
+                >
+                  {formatCurrency(selectedTotal)}
+                </p>
+
+                {selectedDiscount > 0 && !isLoadingPromos && (
+                  <p className="text-[11px] font-medium text-emerald-700">
+                    Hemat {formatCurrency(selectedDiscount)}
+                  </p>
+                )}
               </div>
             </div>
 
+            {/* ACTION */}
             <div className="flex items-center gap-2 sm:gap-3">
               {selectedCount > 0 && (
                 <button
@@ -320,32 +742,49 @@ const updateQty = (id, delta) => {
                   Hapus ({selectedCount})
                 </button>
               )}
-      <button
-              type="button"
-              disabled={selectedCount === 0}
-              onClick={() => {
-                const selectedCart = cart.filter(item => selectedIds.includes(getServiceId(item.service)));
-                
-                // Cek apakah ada layanan yang kuantitasnya lebih dari 1
-                for (const item of selectedCart) {
-                  if (item.qty > 1) {
-                    const title = getTextValue(item.service, ["nama_layanan", "nama", "title"]);
-                    alert(`Layanan "${title}" hanya bisa dipesan 1 kali!`);
-                    return;
-                  }
-                }
 
-                localStorage.setItem("smarthomecare_checkout", JSON.stringify(selectedCart));
-                router.push("/booking");
-              }}
-              className="rounded-full bg-sky-600 px-6 py-3 text-sm font-semibold text-white transition hover:bg-sky-700 disabled:cursor-not-allowed disabled:bg-slate-300"
-            >
-              Booking ({selectedCount})
-            </button>
+              <button
+                type="button"
+                disabled={selectedCount === 0 || isLoadingPromos}
+                onClick={() => {
+                  const selectedCart = cart.filter((item) =>
+                    selectedIds.includes(
+                      getServiceId(item.service)
+                    )
+                  );
+
+                  // Validasi jumlah layanan
+                  for (const item of selectedCart) {
+                    if ((Number(item.qty) || 1) > 1) {
+                      const title = getTextValue(item.service, [
+                        "nama_layanan",
+                        "nama",
+                        "title",
+                      ]);
+
+                      alert(
+                        `Layanan "${title}" hanya bisa dipesan 1 kali!`
+                      );
+
+                      return;
+                    }
+                  }
+
+                  localStorage.setItem(
+                    "smarthomecare_checkout",
+                    JSON.stringify(selectedCart)
+                  );
+
+                  router.push("/booking");
+                }}
+                className="rounded-full bg-blue-600 px-6 py-3 text-sm font-semibold text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-slate-300"
+              >
+                Booking ({selectedCount})
+              </button>
             </div>
           </div>
         </div>
-      ) : null}
+      )}
     </div>
   );
 }

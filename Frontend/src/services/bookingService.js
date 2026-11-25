@@ -243,6 +243,7 @@ export const getBiayaTambahanBooking = async (bookingCode) => {
     throw error;
   }
 };
+
 /* =========================================================
  * GET BHP BOOKING - NAKES
  * =======================================================*/
@@ -549,15 +550,16 @@ export const getBookingChatHistory = async (bookingId) => {
     }
   }
 };
+
 // --- TAMBAHAN ENDPOINT POIN ---
 
 // 1. Mengambil saldo & ringkasan poin pasien yang sedang login
 export const getPointBalance = async () => {
   try {
-    const res = await api.get('/api/points/balance');
+    const res = await api.get("/api/points/balance");
     return res.data;
   } catch (error) {
-    console.error('Gagal mengambil saldo poin:', error);
+    console.error("Gagal mengambil saldo poin:", error);
     throw error;
   }
 };
@@ -566,29 +568,212 @@ export const getPointBalance = async () => {
 export const previewPointBooking = async (totalTagihan, pointsToUse) => {
   try {
     // Menggunakan 'params' agar terbaca sebagai query/body parameter oleh backend
-    const res = await api.get('/api/points/preview-booking', {
+    const res = await api.get("/api/points/preview-booking", {
       params: {
         total_tagihan: totalTagihan,
         points_to_use: pointsToUse,
-      }
+      },
     });
     return res.data;
   } catch (error) {
-    console.error('Gagal memuat preview diskon poin:', error);
+    console.error("Gagal memuat preview diskon poin:", error);
     throw error;
   }
 };
 
 // 3. Mengambil riwayat mutasi poin pasien (EARN, REDEEM, EXPIRED)
-export const getPointHistory = async (type = '', perPage = 15) => {
+export const getPointHistory = async (type = "", perPage = 15) => {
   try {
     const params = { per_page: perPage };
     if (type) params.type = type;
-    
-    const res = await api.get('/api/points/history', { params });
+
+    const res = await api.get("/api/points/history", { params });
     return res.data;
   } catch (error) {
-    console.error('Gagal mengambil riwayat poin:', error);
+    console.error("Gagal mengambil riwayat poin:", error);
     throw error;
+  }
+};
+
+/* =========================================================
+ * PREVIEW BIAYA BOOKING (SL + SB + ST)
+ * GET /api/booking/kalkulasi-biaya
+ * =======================================================*/
+
+export const getKalkulasiBiayaBooking = async (requestData = {}) => {
+  const {
+    layanan_ids,
+    latitude_kunjungan,
+    longitude_kunjungan,
+    tanggal_kunjungan,
+    jam_kunjungan,
+    durasi_layanan,
+  } = requestData;
+
+  if (!Array.isArray(layanan_ids) || layanan_ids.length === 0) {
+    throw new Error("Layanan belum dipilih.");
+  }
+
+  const latitude = Number(latitude_kunjungan);
+  const longitude = Number(longitude_kunjungan);
+
+  if (
+    latitude_kunjungan === null ||
+    latitude_kunjungan === undefined ||
+    String(latitude_kunjungan).trim() === "" ||
+    longitude_kunjungan === null ||
+    longitude_kunjungan === undefined ||
+    String(longitude_kunjungan).trim() === "" ||
+    !Number.isFinite(latitude) ||
+    !Number.isFinite(longitude) ||
+    latitude < -90 ||
+    latitude > 90 ||
+    longitude < -180 ||
+    longitude > 180 ||
+    (latitude === 0 && longitude === 0)
+  ) {
+    throw new Error("Koordinat lokasi kunjungan tidak valid.");
+  }
+
+  const params = new URLSearchParams();
+
+  layanan_ids.forEach((id) => {
+    const numericId = Number(id);
+
+    if (Number.isInteger(numericId) && numericId > 0) {
+      params.append("layanan_ids[]", String(numericId));
+    }
+  });
+
+  if (!params.has("layanan_ids[]")) {
+    throw new Error("ID layanan tidak valid.");
+  }
+
+  params.set("latitude_kunjungan", String(latitude));
+  params.set("longitude_kunjungan", String(longitude));
+
+  if (tanggal_kunjungan) {
+    params.set("tanggal_kunjungan", String(tanggal_kunjungan));
+  }
+
+  if (jam_kunjungan) {
+    params.set("jam_kunjungan", String(jam_kunjungan));
+  }
+
+  if (durasi_layanan && typeof durasi_layanan === "object") {
+    Object.entries(durasi_layanan).forEach(([id, durasi]) => {
+      const numericDuration = Number(durasi);
+
+      if (Number.isFinite(numericDuration) && numericDuration > 0) {
+        params.set(`durasi_layanan[${id}]`, String(Math.round(numericDuration)));
+      }
+    });
+  }
+
+  try {
+    const response = await api.get(
+      `/api/booking/kalkulasi-biaya?${params.toString()}`,
+      {
+        headers: {
+          Accept: "application/json",
+        },
+      }
+    );
+
+    return response.data;
+  } catch (error) {
+    console.error(
+      "Gagal menghitung biaya booking:",
+      error?.response?.data || error
+    );
+
+    throw error;
+  }
+};
+
+/* =========================================================
+ * SIMPAN / AMBIL PREVIEW BIAYA PER BOOKING
+ * Preview hanya digunakan untuk permintaan estimasi frontend.
+ * Bukan sumber tagihan resmi.
+ * =======================================================*/
+
+const BOOKING_COST_PREVIEW_PREFIX =
+  "smarthomecare_booking_cost_preview_";
+
+export const saveBookingCostPreview = (
+  bookingId,
+  requestData,
+  resultData
+) => {
+  if (typeof window === "undefined" || !bookingId || !requestData) {
+    return false;
+  }
+
+  const result = resultData?.data ?? resultData;
+
+  if (!result?.rincian_biaya) {
+    console.warn("Preview biaya tidak disimpan karena struktur respons tidak valid.");
+    return false;
+  }
+
+  const record = {
+    booking_id: String(bookingId),
+    request: requestData,
+    result,
+    saved_at: new Date().toISOString(),
+  };
+
+  try {
+    localStorage.setItem(
+      `${BOOKING_COST_PREVIEW_PREFIX}${bookingId}`,
+      JSON.stringify(record)
+    );
+    return true;
+  } catch (error) {
+    console.warn("Gagal menyimpan preview biaya booking:", error);
+    return false;
+  }
+};
+
+export const getBookingCostPreview = (bookingId) => {
+  if (typeof window === "undefined" || !bookingId) {
+    return null;
+  }
+
+  try {
+    const raw = localStorage.getItem(
+      `${BOOKING_COST_PREVIEW_PREFIX}${bookingId}`
+    );
+
+    if (!raw) return null;
+
+    const record = JSON.parse(raw);
+
+    if (String(record?.booking_id) !== String(bookingId)) {
+      return null;
+    }
+
+    if (!record?.request || !record?.result?.rincian_biaya) {
+      return null;
+    }
+
+    return record;
+  } catch (error) {
+    console.error("Gagal membaca preview biaya booking:", error);
+    return null;
+  }
+};
+
+export const clearBookingCostPreview = (bookingId) => {
+  if (typeof window === "undefined" || !bookingId) {
+    return;
+  }
+
+  try {
+    localStorage.removeItem(
+      `${BOOKING_COST_PREVIEW_PREFIX}${bookingId}`
+    );
+  } catch (error) {
+    console.warn("Gagal menghapus preview biaya booking:", error);
   }
 };

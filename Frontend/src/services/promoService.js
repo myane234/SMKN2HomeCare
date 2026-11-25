@@ -1,121 +1,226 @@
-import api from './api';
 
-const getBaseUrl = () => process.env.NEXT_PUBLIC_API_URL || 'https://citra.faaruq.com';
+import api from "./api";
 
-export const DEFAULT_PROMOS = [
-  {
-    id_promo: 1,
-    id: 1,
-    nama_paket: "Promo Paket Sehat Lansia",
-    deskripsi: "Diskon 20% untuk pendampingan perawatan lansia homecare selama 7 hari berturut-turut.",
-    diskon_persen: 20,
-    tanggal_berakhir: "2026-12-31",
-    gambar_promo: "/images/hero/hero-1.jpg"
-  },
-  {
-    id_promo: 2,
-    id: 2,
-    nama_paket: "Paket Perawatan Ibu & Bayi Baru Lahir",
-    deskripsi: "Hemat hingga 15% untuk layanan pijat laktasi, perawatan tali pusar, dan senam nifas di rumah.",
-    diskon_persen: 15,
-    tanggal_berakhir: "2026-12-31",
-    gambar_promo: "/images/layanan/pijat-bayi.png"
-  },
-  {
-    id_promo: 3,
-    id: 3,
-    nama_paket: "Voucher Medical Checkup Rumah",
-    deskripsi: "Pemeriksaan darah dan tanda-tanda vital lengkap keluarga dengan potongan langsung Rp 50.000.",
-    diskon_persen: 10,
-    tanggal_berakhir: "2026-12-31",
-    gambar_promo: "/images/icons/mcu.png"
+const isUnauthorized = (error) => error?.response?.status === 401;
+
+const handleError = (error, message, fallback) => {
+  if (isUnauthorized(error)) {
+    return fallback;
   }
-];
 
-// Helper untuk membaca property dengan safe fallbacks
-export function getTextValue(item, keys) {
-  for (const key of keys) {
-    const value = item?.[key];
-    if (value !== undefined && value !== null && value !== "") {
-      return String(value);
-    }
-  }
-  return "";
-}
+  console.error(message, error);
+  throw error;
+};
 
-export function generatePromoSlug(name) {
-  if (!name) return '';
-  return String(name)
-    .toLowerCase()
-    .trim()
-    .normalize('NFKD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/(^-|-$)/g, '');
-}
-
-function extractArray(payload) {
-  if (!payload) return [];
-  if (Array.isArray(payload)) return payload;
-  if (Array.isArray(payload.data)) return payload.data;
-  if (Array.isArray(payload.data?.data)) return payload.data.data;
-  return [];
-}
-
-// ── SSR Fetch untuk Server Components ──────────────────────────────────────────
-export async function getActivePromosSSR(params = {}) {
+/**
+ * Mengambil daftar seluruh promo dari API.
+ */
+export const getAllPromos = async (params = {}) => {
   try {
-    const url = new URL(`${getBaseUrl()}/api/promo`);
-    Object.entries(params).forEach(([k, v]) => url.searchParams.set(k, v));
-    
-    const res = await fetch(url.toString(), { cache: 'no-store' });
-    if (!res.ok) return DEFAULT_PROMOS;
-    const json = await res.json();
-    const items = extractArray(json);
-    return items.length > 0 ? items : DEFAULT_PROMOS;
+    const response = await api.get("/api/promo", { params });
+    return response.data;
   } catch (error) {
-    console.warn('Gagal memuat API promo (SSR), menggunakan data default fallback:', error);
-    return DEFAULT_PROMOS;
-  }
-}
-
-export async function getPromoBySlugSSR(slug) {
-  try {
-    const promos = await getActivePromosSSR();
-    const promo = promos.find((item) => {
-      const name = getTextValue(item, ["nama_paket", "nama", "title", "judul"]);
-      const id = getTextValue(item, ["id_promo", "id"]);
-      return generatePromoSlug(name) === slug || id === String(slug);
+    return handleError(error, "Error fetching promos:", {
+      success: true,
+      message: "",
+      data: [],
     });
-    return promo || DEFAULT_PROMOS[0];
-  } catch (error) {
-    console.warn(`Gagal memuat API promo ${slug} (SSR), menggunakan data default fallback:`, error);
-    return DEFAULT_PROMOS[0];
-  }
-}
-
-// ── Client Side Fetch (Axios) ──────────────────────────────────────────────────
-export const getActivePromos = async (params = {}) => {
-  try {
-    const response = await api.get('/api/promo', { params });
-    const items = extractArray(response.data);
-    return items.length > 0 ? items : DEFAULT_PROMOS;
-  } catch (error) {
-    console.warn('Gagal memuat API promo, menggunakan data default fallback:', error);
-    return DEFAULT_PROMOS;
   }
 };
 
-export const getPromoBySlug = async (slug) => {
-  try {
-    const promos = await getActivePromos();
-    return promos.find((item) => {
-      const name = getTextValue(item, ["nama_paket", "nama", "title", "judul"]);
-      const id = getTextValue(item, ["id_promo", "id"]);
-      return generatePromoSlug(name) === slug || id === String(slug);
-    }) || DEFAULT_PROMOS[0];
-  } catch (error) {
-    console.warn('Gagal memuat API promo by slug, menggunakan data default fallback:', error);
-    return DEFAULT_PROMOS[0];
+/**
+ * Mengubah response API menjadi array promo.
+ */
+export const extractArray = (response) => {
+  if (Array.isArray(response)) return response;
+  if (Array.isArray(response?.data)) return response.data;
+  if (Array.isArray(response?.data?.data)) return response.data.data;
+  if (Array.isArray(response?.items)) return response.items;
+
+  return [];
+};
+
+/**
+ * Mengambil tanggal hari ini berdasarkan zona waktu Jakarta.
+ */
+const getJakartaToday = () => {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: "Asia/Jakarta",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(new Date());
+
+  const values = {};
+
+  parts.forEach((part) => {
+    if (part.type !== "literal") {
+      values[part.type] = part.value;
+    }
+  });
+
+  return `${values.year}-${values.month}-${values.day}`;
+};
+
+/**
+ * Mengambil tanggal YYYY-MM-DD dari response API.
+ * Menghindari pergeseran tanggal akibat timezone.
+ */
+const getDateOnly = (value) => {
+  if (!value) return null;
+
+  const match = String(value).match(/^(\d{4}-\d{2}-\d{2})/);
+
+  return match ? match[1] : null;
+};
+
+/**
+ * Mengecek apakah promo masih aktif dan berada dalam periode berlaku.
+ */
+export const isPromoActive = (promo) => {
+  if (!promo) return false;
+
+  const statusPromo = String(promo.status_promo ?? "")
+    .trim()
+    .toLowerCase();
+
+  const statusAktual = String(promo.status_aktual ?? "")
+    .trim()
+    .toLowerCase();
+
+  // Status manual dari admin harus aktif.
+  if (statusPromo && statusPromo !== "aktif") {
+    return false;
   }
+
+  // Status aktual dari backend harus aktif jika tersedia.
+  if (statusAktual && statusAktual !== "aktif") {
+    return false;
+  }
+
+  // Promo tanpa informasi status tidak ditampilkan.
+  if (!statusPromo && !statusAktual) {
+    return false;
+  }
+
+  const today = getJakartaToday();
+  const tanggalMulai = getDateOnly(promo.tanggal_mulai);
+  const tanggalBerakhir = getDateOnly(promo.tanggal_berakhir);
+
+  if (tanggalMulai && today < tanggalMulai) {
+    return false;
+  }
+
+  if (tanggalBerakhir && today > tanggalBerakhir) {
+    return false;
+  }
+
+  return true;
+};
+
+/**
+ * Mengambil daftar promo aktif.
+ */
+export const getActivePromos = async (params = {}) => {
+  const response = await getAllPromos(params);
+
+  return extractArray(response).filter(isPromoActive);
+};
+
+/**
+ * Alias untuk kebutuhan Server Component.
+ * Menggunakan endpoint dan filter yang sama.
+ */
+export const getActivePromosSSR = async (params = {}) => {
+  return getActivePromos(params);
+};
+
+/**
+ * Membuat slug dari nama layanan.
+ * Dipertahankan untuk kompatibilitas URL lama.
+ */
+export const generatePromoSlug = (value) => {
+  return String(value ?? "")
+    .toLowerCase()
+    .trim()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+};
+
+/**
+ * Mengambil detail promo berdasarkan ID atau slug lama.
+ */
+export const getPromoBySlug = async (slug) => {
+  const promos = await getActivePromos();
+  const target = String(slug);
+
+  const promoById = promos.find(
+    (item) => String(item.id_promo) === target
+  );
+
+  if (promoById) return promoById;
+
+  return promos.find(
+    (item) =>
+      generatePromoSlug(item.layanan?.nama_layanan) === target
+  ) || null;
+};
+
+export const getPromoBySlugSSR = async (slug) => {
+  return getPromoBySlug(slug);
+};
+
+/**
+ * Mengambil nama layanan dari relasi promo.
+ */
+export const getPromoServiceName = (promo) => {
+  return promo?.layanan?.nama_layanan || "Layanan HomeCare";
+};
+
+/**
+ * Mengambil URL gambar promo.
+ */
+export const getPromoImagePath = (promo) => {
+  return promo?.gambar_promo_url || promo?.gambar_promo || "";
+};
+
+/**
+ * Format nilai diskon berdasarkan tipe diskon.
+ */
+export const formatPromoDiscount = (promo) => {
+  if (promo?.nilai_diskon == null) return "";
+
+  const value = Number(promo.nilai_diskon);
+
+  if (!Number.isFinite(value)) return "";
+
+  if (String(promo.tipe_diskon).toLowerCase() === "persen") {
+    return `${value.toLocaleString("id-ID", {
+      maximumFractionDigits: 2,
+    })}%`;
+  }
+
+  return `Rp ${value.toLocaleString("id-ID")}`;
+};
+
+/**
+ * Format tanggal promo.
+ */
+export const formatPromoDate = (value) => {
+  const dateString = getDateOnly(value);
+
+  if (!dateString) return "-";
+
+  const [year, month, day] = dateString.split("-").map(Number);
+  const date = new Date(year, month - 1, day);
+
+  if (Number.isNaN(date.getTime())) return "-";
+
+  return date.toLocaleDateString("id-ID", {
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+  });
 };
