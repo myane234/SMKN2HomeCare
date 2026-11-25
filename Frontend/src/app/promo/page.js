@@ -1,123 +1,139 @@
-import Image from "next/image";
+
 import Link from "next/link";
-import { getActivePromosSSR, generatePromoSlug, getTextValue } from "@/services/promoService";
+import LoadMore from "@/components/LoadMore";
+
+import {
+  getActivePromosSSR,
+  getPromoServiceName,
+  getPromoImagePath,
+  formatPromoDiscount,
+  formatPromoDate,
+} from "@/services/promoService";
+
 import { resolveImageUrl } from "@/services/resolveImage";
 
-function formatDate(dateString) {
-  try {
-    return new Date(dateString).toLocaleDateString('id-ID', {
-      day: 'numeric',
-      month: 'long',
-      year: 'numeric'
-    });
-  } catch {
-    return dateString;
-  }
-}
-
 export default async function PromoPage() {
-  const promos = await getActivePromosSSR();
+  const response = await getActivePromosSSR();
+
+  const promos = response.filter(
+    (item) =>
+      item?.id_promo !== null &&
+      item?.id_promo !== undefined
+  );
 
   return (
-    <main className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-slate-100 py-8">
-      <div className="mx-auto max-w-6xl px-4 sm:px-6">
-        {/* Header Section */}
-        <div className="mb-12 text-center">
-          <span className="inline-flex rounded-full bg-sky-100 px-5 py-2 text-xs font-bold tracking-[0.2em] text-sky-700">
-            PENAWARAN SPESIAL
-          </span>
-          <h1 className="mt-4 text-5xl font-semibold tracking-tight text-sky-800 sm:text-4xl">
-            Promo &amp; Penawaran Menarik
-          </h1>
-          <p className="mt-3 mx-auto max-w-3xl text-base leading-7 text-slate-600">
-            Dapatkan layanan kesehatan terbaik dengan harga spesial. Penawaran terbatas, jangan lewatkan!
+    <main className="mx-auto min-h-screen max-w-7xl px-4 py-10 sm:px-6 sm:py-14">
+
+      {/* Header Center */}
+      <section className="mb-10 text-center">
+        <span className="text-sm font-semibold uppercase tracking-[0.18em] text-blue-600">
+          Penawaran SmartHomeCare
+        </span>
+
+        <h1 className="mt-3 text-3xl font-bold text-slate-950 sm:text-4xl">
+          Promo dan Penawaran
+        </h1>
+
+        <p className="mx-auto mt-3 max-w-2xl text-sm leading-7 text-slate-500 sm:text-base">
+          Temukan berbagai penawaran menarik untuk layanan HomeCare.
+          Pilih layanan yang sesuai dengan kebutuhan Anda.
+        </p>
+      </section>
+
+      {/* Promo List */}
+      {promos.length === 0 ? (
+        <div className="rounded-2xl border border-dashed border-slate-300 bg-slate-50 px-6 py-16 text-center">
+          <h2 className="text-lg font-semibold text-slate-800">
+            Belum ada promo aktif
+          </h2>
+
+          <p className="mt-2 text-sm text-slate-500">
+            Silakan kunjungi kembali halaman ini untuk melihat penawaran terbaru.
           </p>
         </div>
+      ) : (
+        <LoadMore
+          initialCount={9}
+          increment={9}
+          buttonLabel="Muat Promo Lainnya"
+          itemLabel="promo aktif"
+          containerClassName="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4"
+        >
+          {promos.map((promo) => {
+            const promoId = promo.id_promo;
+            const promoName = getPromoServiceName(promo);
 
-        {promos && promos.length > 0 ? (
-          <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
-      {promos.map((promo, idx) => {
-              // 👉 UBAH BAGIAN MENGAMBIL NAMA INI:
-              // Ambil dari relasi layanan.nama_layanan, fallback ke deskripsi jika nama tidak ada
-              const name = promo.layanan?.nama_layanan || getTextValue(promo, ["nama", "title", "judul"]) || "Promo Layanan Kesehatan";
-              const slug = generatePromoSlug(name);
-              const endDate = formatDate(getTextValue(promo, ["tanggal_berakhir", "expired_at", "end_date"]));
-              
-              // Mengambil URL Gambar seperti di artikel
-              const rawImage = getTextValue(promo, ["gambar_promo_url", "gambar_promo", "gambar", "image", "foto"]);
-              const image = resolveImageUrl(rawImage);
+            const rawImage = getPromoImagePath(promo);
+            const image = rawImage
+              ? resolveImageUrl(rawImage)
+              : "";
 
-              return (
-                <div
-                  key={getTextValue(promo, ["id_promo", "id"]) || idx}
-                  className="group relative h-full overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm transition-all duration-500 hover:shadow-lg hover:shadow-blue-400/20"
-                >
-                  <div
-                    className="absolute inset-0 rounded-xl opacity-0 transition-opacity duration-500 group-hover:opacity-100"
-                    style={{
-                      background: 'radial-gradient(circle at center, rgba(59, 130, 246, 0.08) 0%, transparent 70%)',
-                      pointerEvents: 'none'
-                    }}
-                  />
+            const discount = formatPromoDiscount(promo);
 
-                  <Link href={`/promo/${slug || idx}`}>
-                    <div className="relative overflow-hidden h-40 w-full bg-slate-200">
-                      <img
-                        src={image}
-                        alt={name || "Promo"}
-                        className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-110"
-                      />
-                      <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent opacity-0 transition-opacity duration-500 group-hover:opacity-100" />
-                      
-                      {/* 👉 UBAH BAGIAN BADGE DISKON INI: */}
-                      {promo.nilai_diskon && (
-                        <div className="absolute left-3 top-3 rounded-lg bg-blue-600 px-2 py-0.5 text-xs font-bold text-white shadow-lg">
-                          Diskon {promo.tipe_diskon === 'persen' ? `${Number(promo.nilai_diskon)}%` : `Rp ${Number(promo.nilai_diskon).toLocaleString('id-ID')}`}
-                        </div>
-                      )}
+            return (
+              <Link
+                key={promoId}
+                href={`/promo/${promoId}`}
+                className="group flex h-full flex-col overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-xl"
+              >
+                {/* Image */}
+                <div className="relative h-48 w-full flex-shrink-0 overflow-hidden bg-slate-100">
+                  {image ? (
+                    <img
+                      src={image}
+                      alt={promoName}
+                      className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
+                    />
+                  ) : (
+                    <div className="flex h-full w-full items-center justify-center text-sm text-slate-400">
+                      Gambar promo tidak tersedia
                     </div>
-                  </Link>
+                  )}
 
-                  <div className="relative flex flex-col p-4">
-                    <Link href={`/promo/${slug || idx}`}>
-                      <h2 className="text-base font-bold leading-snug text-slate-950 transition-colors duration-300 hover:text-blue-600 line-clamp-2">
-                        {name || "Nama Paket Promo"}
-                      </h2>
-                    </Link>
+                  {/* Gradasi biru hanya di area gambar */}
+                  <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-blue-800/75 via-blue-700/20 to-transparent opacity-0 transition-opacity duration-500 group-hover:opacity-100" />
 
-                    <p className="mt-2 text-xs leading-relaxed text-slate-600 line-clamp-2">
-                      {promo.deskripsi || "Dapatkan penawaran spesial untuk paket ini"}
+                  {discount && (
+                    <span className="absolute left-3 top-3 z-10 rounded-full bg-blue-600 px-3 py-1.5 text-xs font-semibold text-white shadow-sm">
+                      Hemat {discount}
+                    </span>
+                  )}
+                </div>
+
+                {/* Content */}
+                <div className="flex flex-grow flex-col justify-between p-4">
+                  <div>
+                    <h2 className="line-clamp-2 text-base font-bold leading-snug text-slate-950 transition-colors group-hover:text-blue-600">
+                      {promoName}
+                    </h2>
+
+                    <p className="mt-2 line-clamp-2 min-h-[40px] text-sm leading-5 text-slate-500">
+                      {promo.deskripsi || "-"}
                     </p>
+                  </div>
 
-                    <div className="mt-3 pt-3 border-t border-slate-100">
-                      <p className="text-xs font-medium text-slate-700">
-                        Berakhir: <span className="text-blue-600 font-semibold">{endDate || "-"}</span>
+                  {/* Footer */}
+                  <div className="mt-5 flex items-end justify-between gap-2 border-t border-slate-100 pt-4">
+                    <div>
+                      <p className="text-[11px] text-slate-400">
+                        Berlaku sampai
+                      </p>
+
+                      <p className="mt-1 text-xs font-semibold text-slate-700">
+                        {formatPromoDate(promo.tanggal_berakhir)}
                       </p>
                     </div>
 
-                    <div className="mt-3">
-                      <Link
-                        href={`/promo/${slug || idx}`}
-                        className="inline-flex items-center gap-1 text-xs font-semibold text-blue-600 transition-all duration-300 hover:text-blue-700 hover:gap-2"
-                      >
-                        Lihat Detail
-                        <span className="transition-transform duration-300 group-hover:translate-x-0.5">→</span>
-                      </Link>
-                    </div>
+                    <span className="shrink-0 text-xs font-semibold text-blue-600 transition-colors group-hover:text-blue-700">
+                      Lihat Detail
+                    </span>
                   </div>
                 </div>
-              );
-            })}
-          </div>
-        ) : (
-          <div className="rounded-xl border-2 border-dashed border-slate-300 bg-gradient-to-br from-slate-50 to-blue-50 p-8 text-center">
-            <h3 className="text-base font-bold text-slate-900">Belum ada promo aktif</h3>
-            <p className="mt-1 text-sm text-slate-500">
-              Cek kembali nanti untuk melihat promo dan penawaran spesial terbaru kami.
-            </p>
-          </div>
-        )}
-      </div>
+              </Link>
+            );
+          })}
+        </LoadMore>
+      )}
     </main>
   );
 }

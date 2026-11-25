@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useEffect } from "react";
@@ -7,18 +8,16 @@ import Footer from "./Footer";
 import { fetchAndStoreProfile } from "@/services/profileService";
 import { getAuthToken } from "@/services/cookieHelper";
 import ActiveBookingBubble from "@/components/ActiveBookingBubble";
-import MiniUlasanModal from "@/components/MiniUlasanModal";
 
 export default function LayoutShell({ children }) {
   const pathname = usePathname();
 
-  // Sembunyikan top navbar pasien, footer pasien, dan active booking bubble pasien untuk seluruh route Nakes (/nakes/*)
+  // Sembunyikan layout pasien untuk seluruh route Nakes.
   const hideLayout = pathname.startsWith("/nakes");
 
   useEffect(() => {
-    // Fetch and store profile data in cookies when page loads,
-    // but only if user has a valid auth token
     const token = getAuthToken();
+
     if (token) {
       fetchAndStoreProfile();
     }
@@ -34,11 +33,8 @@ export default function LayoutShell({ children }) {
 
       {!hideLayout && <Footer />}
 
-      {/* Floating bubble status booking aktif — hanya untuk pasien login */}
+      {/* Floating bubble booking aktif untuk pasien */}
       {!hideLayout && <ActiveBookingBubble />}
-
-      {/* Pop-up Mini Ulasan Pasca Pelayanan */}
-      {!hideLayout && <MiniUlasanModal />}
     </>
   );
 }

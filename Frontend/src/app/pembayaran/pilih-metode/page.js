@@ -3,9 +3,20 @@
 import { useState, useEffect, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { FiArrowLeft, FiAlertCircle, FiImage } from "react-icons/fi";
+
 import { pembayaranService } from "@/services/pembayaranService";
-import { getBiayaTambahanBooking } from "@/services/bookingService";
+
+import {
+  getBiayaTambahanBooking,
+  getBookingCostPreview,
+  getKalkulasiBiayaBooking,
+} from "@/services/bookingService";
+
 import api from "@/services/api";
+
+/* =========================================================
+   HELPER LOGO
+========================================================= */
 
 const resolvePaymentLogoUrl = (logo) => {
   const value = String(logo ?? "").trim();
@@ -29,6 +40,10 @@ const resolvePaymentLogoUrl = (logo) => {
 
   return path;
 };
+
+/* =========================================================
+   LOGO METODE PEMBAYARAN
+========================================================= */
 
 function PaymentMethodLogo({ logo, alt }) {
   const src = resolvePaymentLogoUrl(logo);
@@ -57,29 +72,63 @@ function PaymentMethodLogo({ logo, alt }) {
   );
 }
 
+/* =========================================================
+   MAIN CONTENT
+========================================================= */
+
 function PilihMetodePembayaranContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
 
+  /* =========================================================
+     STATE METODE PEMBAYARAN
+  ========================================================= */
+
   const [selectedMetode, setSelectedMetode] = useState(null);
   const [selectedMethodId, setSelectedMethodId] = useState(null);
+
   const [metodeList, setMetodeList] = useState([]);
+
   const [isFetching, setIsFetching] = useState(true);
   const [isLoading, setIsLoading] = useState(false);
   const [isCalculating, setIsCalculating] = useState(false);
+
+  /* =========================================================
+     STATE KALKULASI
+  ========================================================= */
+
   const [calculationDetails, setCalculationDetails] = useState(null);
+  const [calculationError, setCalculationError] = useState("");
+  const [calculatedMethodId, setCalculatedMethodId] = useState(null);
+
+  /* =========================================================
+     STATE AKSES
+  ========================================================= */
+
   const [isCheckingAccess, setIsCheckingAccess] = useState(true);
   const [accessAllowed, setAccessAllowed] = useState(false);
+
   const [error, setError] = useState("");
   const [methodError, setMethodError] = useState("");
+
+  /* =========================================================
+     BOOKING
+  ========================================================= */
+
   const [bookingId, setBookingId] = useState("");
   const [bookingCode, setBookingCode] = useState("");
   const [totalAmount, setTotalAmount] = useState("0");
+
   const [openCategories, setOpenCategories] = useState({});
+
   const [pointBalance, setPointBalance] = useState(0);
 
   const paymentType = searchParams.get("type") || "booking";
   const isBhp = paymentType === "bhp";
+
+  /* =========================================================
+     CHECK ACCESS & GET BOOKING
+  ========================================================= */
 
   useEffect(() => {
     let cancelled = false;
@@ -90,6 +139,7 @@ function PilihMetodePembayaranContent() {
         setError("");
 
         const profileRes = await api.get("/api/profile/me");
+
         const userData =
           profileRes?.data?.data ?? profileRes?.data ?? {};
 
@@ -124,8 +174,13 @@ function PilihMetodePembayaranContent() {
         let serverAmount = 0;
         let serverCode = urlBookingCode;
 
+        /* =====================================================
+           BHP TAMBAHAN
+        ====================================================== */
+
         if (isBhp) {
           const ref = urlBookingCode || urlBookingId;
+
           const response = await getBiayaTambahanBooking(ref);
 
           const root =
@@ -169,6 +224,10 @@ function PilihMetodePembayaranContent() {
             return;
           }
         } else {
+          /* =====================================================
+             BOOKING NORMAL
+          ====================================================== */
+
           const response = await api.get(
             `/api/booking/${encodeURIComponent(urlBookingId)}/payment-details`
           );
@@ -190,6 +249,24 @@ function PilihMetodePembayaranContent() {
             root?.kode_booking ||
             "";
 
+          const bookingStatus = String(
+            root?.status_transaksi ??
+              root?.status_pembayaran ??
+              ""
+          ).toLowerCase();
+
+          if (
+            bookingStatus.includes("lunas") ||
+            bookingStatus.includes("paid") ||
+            bookingStatus.includes("settlement") ||
+            bookingStatus.includes("success")
+          ) {
+            router.replace(
+              `/booking/aktif?id=${encodeURIComponent(urlBookingId)}`
+            );
+            return;
+          }
+
           if (!serverAmount || serverAmount <= 0) {
             router.replace(
               `/booking/aktif?id=${encodeURIComponent(urlBookingId)}`
@@ -203,12 +280,26 @@ function PilihMetodePembayaranContent() {
         setBookingId(String(urlBookingId));
         setBookingCode(String(serverCode || ""));
         setTotalAmount(String(serverAmount));
+
         setAccessAllowed(true);
       } catch (error) {
         console.error("Akses pembayaran ditolak:", error);
-        router.replace("/login");
+
+        if (!cancelled) {
+          if (error?.response?.status === 401) {
+            router.replace("/login");
+          } else {
+            setError(
+              error?.response?.data?.message ||
+                error?.message ||
+                "Gagal memeriksa akses pembayaran."
+            );
+          }
+        }
       } finally {
-        if (!cancelled) setIsCheckingAccess(false);
+        if (!cancelled) {
+          setIsCheckingAccess(false);
+        }
       }
     };
 
@@ -218,6 +309,10 @@ function PilihMetodePembayaranContent() {
       cancelled = true;
     };
   }, [searchParams, router, isBhp]);
+
+  /* =========================================================
+     GET METODE PEMBAYARAN
+  ========================================================= */
 
   useEffect(() => {
     if (!accessAllowed) return;
@@ -268,12 +363,16 @@ function PilihMetodePembayaranContent() {
 
         if (!cancelled) {
           setMetodeList([]);
+
           setMethodError(
-            "Metode pembayaran gagal dimuat. Periksa koneksi API lalu muat ulang halaman."
+            error?.response?.data?.message ||
+              "Metode pembayaran gagal dimuat. Periksa koneksi API lalu muat ulang halaman."
           );
         }
       } finally {
-        if (!cancelled) setIsFetching(false);
+        if (!cancelled) {
+          setIsFetching(false);
+        }
       }
     };
 
@@ -284,41 +383,243 @@ function PilihMetodePembayaranContent() {
     };
   }, [accessAllowed]);
 
-  // --- TAMBAHKAN EFFECT KALKULASI HARGA INI ---
+  /* =========================================================
+     KALKULASI HARGA BERDASARKAN METODE
+
+     - Ambil rincian transaksi dan estimasi transport bersamaan.
+     - ST transaksi menjadi prioritas.
+     - Jika ST transaksi masih nol, gunakan estimasi transport terbaru.
+     - Preview hanya untuk tampilan; charge backend tetap sumber tagihan resmi.
+  ========================================================= */
+
   useEffect(() => {
+    if (!bookingId || !selectedMethodId || isBhp) return;
+
     let cancelled = false;
 
-    const fetchKalkulasiHarga = async () => {
-      if (!bookingId || !selectedMethodId || isBhp) return;
+    const isTruthy = (value) =>
+      value === true || value === 1 || value === "1" || value === "true";
+
+    const calculatePrice = async () => {
+      setIsCalculating(true);
+      setCalculationDetails(null);
+      setCalculatedMethodId(null);
+      setCalculationError("");
+      setError("");
 
       try {
-        setIsCalculating(true);
-        const response = await api.post("/api/booking/kalkulasi-harga", {
-          id_booking: Number(bookingId),
-          id_metode: Number(selectedMethodId),
-        });
+        const cachedPreview = getBookingCostPreview(bookingId);
+        const costRequest = cachedPreview?.request ?? null;
 
-        const rootData = response?.data?.data ?? response?.data ?? {};
+        // Kedua request dijalankan bersamaan agar proses lebih efisien.
+        const [priceResult, transportResult] = await Promise.allSettled([
+          pembayaranService.kalkulasiHarga({
+            id_booking: Number(bookingId),
+            id_metode: Number(selectedMethodId),
+          }),
+          costRequest
+            ? getKalkulasiBiayaBooking(costRequest)
+            : Promise.resolve(null),
+        ]);
 
-        if (!cancelled) {
-          setCalculationDetails(rootData);
-          if (rootData.total_akhir) {
-            setTotalAmount(String(rootData.total_akhir));
+        // Kalkulasi harga transaksi adalah request wajib.
+        if (priceResult.status === "rejected") {
+          throw priceResult.reason;
+        }
+
+        const priceResponse = priceResult.value;
+        const priceBody = priceResponse?.data ?? priceResponse ?? {};
+        const priceData = priceBody?.data ?? priceBody;
+
+        if (priceBody?.success === false || !priceData?.rincian_biaya) {
+          throw new Error(
+            priceBody?.message || "Kalkulasi harga gagal."
+          );
+        }
+
+        const serverDetails = priceData.rincian_biaya;
+        const parsedServerSt = Number(serverDetails.st);
+
+        if (!Number.isFinite(parsedServerSt) || parsedServerSt < 0) {
+          throw new Error("Nilai ST transaksi tidak valid.");
+        }
+
+        const serverSt = parsedServerSt;
+
+        // Parse estimasi transport terbaru jika request berhasil.
+        let transportData = null;
+
+        if (transportResult.status === "fulfilled" && transportResult.value) {
+          const transportResponse = transportResult.value;
+          const transportBody =
+            transportResponse?.data ?? transportResponse ?? {};
+          const parsedTransportData =
+            transportBody?.data ?? transportBody;
+
+          if (
+            transportBody?.success !== false &&
+            parsedTransportData?.rincian_biaya
+          ) {
+            transportData = parsedTransportData;
           }
         }
-      } catch (err) {
-        console.error("Gagal melakukan kalkulasi harga:", err);
+
+        // Bila ST belum tersimpan, preview terbaru wajib tersedia.
+        if (serverSt <= 0 && !transportData?.rincian_biaya) {
+          if (!costRequest) {
+            throw new Error(
+              "Data layanan dan koordinat booking tidak ditemukan. Silakan ulangi booking dari halaman layanan terbaru."
+            );
+          }
+
+          const transportError =
+            transportResult.status === "rejected"
+              ? transportResult.reason
+              : null;
+
+          throw new Error(
+            transportError?.response?.data?.message ||
+              transportError?.message ||
+              "Gagal menghitung estimasi biaya transport. Periksa koordinat lokasi dan ketersediaan nakes."
+          );
+        }
+
+        const serviceRows = Array.isArray(transportData?.layanan)
+          ? transportData.layanan
+          : [];
+
+        const requiresTransport = serviceRows.some((item) =>
+          isTruthy(item?.is_transport)
+        );
+
+        const rawAvailableNakes = transportData?.transport?.nakes_tersedia;
+        const hasNakesAvailability =
+          rawAvailableNakes !== null && rawAvailableNakes !== undefined;
+        const availableNakes = Number(rawAvailableNakes);
+
+        if (
+          serverSt <= 0 &&
+          requiresTransport &&
+          hasNakesAvailability &&
+          Number.isFinite(availableNakes) &&
+          availableNakes <= 0
+        ) {
+          throw new Error(
+            transportData?.transport?.peringatan ||
+              "Belum tersedia nakes untuk lokasi dan kategori layanan ini."
+          );
+        }
+
+        const parsedPreviewSt = Number(
+          transportData?.rincian_biaya?.st ?? 0
+        );
+
+        if (!Number.isFinite(parsedPreviewSt) || parsedPreviewSt < 0) {
+          throw new Error("Nilai estimasi ST dari server tidak valid.");
+        }
+
+        // Jangan menimpa ST transaksi yang sudah ditetapkan backend.
+        const finalSt = serverSt > 0 ? serverSt : parsedPreviewSt;
+
+        if (requiresTransport && finalSt <= 0) {
+          throw new Error(
+            transportData?.transport?.peringatan ||
+              "Biaya transport belum berhasil dihitung. Periksa alamat dan ketersediaan nakes."
+          );
+        }
+
+        const sl = Number(serverDetails.sl) || 0;
+        const sb = Number(serverDetails.sb) || 0;
+        const ba = Number(serverDetails.ba) || 0;
+        const ppn = Number(serverDetails.ppn) || 0;
+        const totalDasar = sl + sb + finalSt + ba + ppn;
+
+        const methodData =
+          priceData.metode_pembayaran || selectedMetode || {};
+
+        const rawNilaiPotongan = methodData.nilai_potongan;
+        const nilaiPotongan =
+          rawNilaiPotongan === null ||
+          rawNilaiPotongan === undefined ||
+          rawNilaiPotongan === ""
+            ? 0
+            : Math.max(0, Number(rawNilaiPotongan) || 0);
+
+        const tipePotongan = String(
+          methodData.tipe_potongan || "nominal"
+        ).toLowerCase();
+
+        const rawFee =
+          tipePotongan === "persen"
+            ? totalDasar * (Math.min(100, nilaiPotongan) / 100)
+            : nilaiPotongan;
+
+        const biayaMetode = Math.round(rawFee);
+        const totalAkhir = Math.round(totalDasar + rawFee);
+
+        if (!Number.isFinite(totalAkhir) || totalAkhir <= 0) {
+          throw new Error("Total pembayaran tidak valid.");
+        }
+
+        const keteranganBiayaMetode =
+          tipePotongan === "persen"
+            ? `${nilaiPotongan}% dari total dasar`
+            : nilaiPotongan > 0
+            ? `Biaya tetap Rp ${nilaiPotongan.toLocaleString("id-ID")}`
+            : "Gratis (tidak ada biaya tambahan)";
+
+        const finalResult = {
+          ...priceData,
+          rincian_biaya: {
+            ...serverDetails,
+            sl,
+            sb,
+            st: finalSt,
+            ba,
+            ppn,
+            total_dasar: totalDasar,
+            biaya_metode_pembayaran: biayaMetode,
+            keterangan_biaya_metode: keteranganBiayaMetode,
+          },
+          total_akhir: totalAkhir,
+          total_akhir_format: `Rp ${totalAkhir.toLocaleString("id-ID")}`,
+          preview_transport: transportData?.transport ?? null,
+        };
+
+        if (cancelled) return;
+
+        setCalculationDetails(finalResult);
+        setCalculatedMethodId(String(selectedMethodId));
+        setTotalAmount(String(totalAkhir));
+      } catch (error) {
+        console.error("Gagal menghitung biaya pembayaran:", error);
+
+        if (!cancelled) {
+          setCalculationDetails(null);
+          setCalculatedMethodId(null);
+          setCalculationError(
+            error?.response?.data?.message ||
+              error?.message ||
+              "Gagal menghitung biaya pembayaran."
+          );
+        }
       } finally {
-        if (!cancelled) setIsCalculating(false);
+        if (!cancelled) {
+          setIsCalculating(false);
+        }
       }
     };
 
-    fetchKalkulasiHarga();
+    calculatePrice();
 
     return () => {
       cancelled = true;
     };
   }, [bookingId, selectedMethodId, isBhp]);
+
+  /* =========================================================
+     GROUP METODE PEMBAYARAN
+  ========================================================= */
 
   const groupByCategory = (list) =>
     list.reduce((acc, item) => {
@@ -328,7 +629,10 @@ function PilihMetodePembayaranContent() {
         item.kategori?.nama ||
         "Lainnya";
 
-      if (!acc[categoryName]) acc[categoryName] = [];
+      if (!acc[categoryName]) {
+        acc[categoryName] = [];
+      }
+
       acc[categoryName].push(item);
 
       return acc;
@@ -341,14 +645,34 @@ function PilihMetodePembayaranContent() {
     }));
   };
 
+  /* =========================================================
+     PILIH METODE
+  ========================================================= */
+
   const handlePilihMetode = (metode) => {
     const methodId =
-      metode.id_metode ?? metode.id ?? metode.payment_type;
+      metode.id_metode ??
+      metode.id ??
+      metode.payment_type;
+
+    if (!methodId) {
+      setError("ID metode pembayaran tidak valid.");
+      return;
+    }
 
     setSelectedMetode(metode);
-    setSelectedMethodId(methodId);
+    setSelectedMethodId(Number(methodId));
+
+    // Bersihkan hasil kalkulasi metode sebelumnya.
+    setCalculationDetails(null);
+    setCalculatedMethodId(null);
+    setCalculationError("");
     setError("");
   };
+
+  /* =========================================================
+     LANJUTKAN PEMBAYARAN
+  ========================================================= */
 
   const handleLanjutkanPembayaran = () => {
     if (!accessAllowed) {
@@ -362,9 +686,7 @@ function PilihMetodePembayaranContent() {
     }
 
     if (!selectedMetode.payment_type) {
-      setError(
-        "Kode metode pembayaran tidak tersedia dari API."
-      );
+      setError("Kode metode pembayaran tidak tersedia dari API.");
       return;
     }
 
@@ -373,43 +695,78 @@ function PilihMetodePembayaranContent() {
       return;
     }
 
-    if (!Number(totalAmount) || Number(totalAmount) <= 0) {
-      setError("Tagihan pembayaran tidak tersedia.");
+    if (isCalculating) {
+      setError("Tunggu sampai kalkulasi harga selesai.");
+      return;
+    }
+
+    if (
+      !isBhp &&
+      (
+        !calculationDetails ||
+        calculatedMethodId !== String(selectedMethodId)
+      )
+    ) {
+      setError(
+        calculationError || "Kalkulasi harga belum berhasil."
+      );
+      return;
+    }
+
+    const finalAmount = isBhp
+      ? Number(totalAmount)
+      : Number(calculationDetails?.total_akhir);
+
+    if (!Number.isFinite(finalAmount) || finalAmount <= 0) {
+      setError("Tagihan pembayaran tidak valid.");
       return;
     }
 
     setIsLoading(true);
 
-    const paymentMethod = selectedMetode.payment_type;
-    const typeParam = isBhp ? "&type=bhp" : "";
-    const codeParam = bookingCode
-      ? `&booking_code=${encodeURIComponent(bookingCode)}`
-      : "";
+    const params = new URLSearchParams({
+      metode: selectedMetode.payment_type,
+      booking_id: bookingId,
+      total: String(finalAmount),
+    });
 
-    const pointParam =
-      pointBalance > 0
-        ? `&use_points=true&points_to_use=${encodeURIComponent(pointBalance)}`
-        : "&use_points=false";
+    if (bookingCode) {
+      params.set("booking_code", bookingCode);
+    }
+
+    if (isBhp) {
+      params.set("type", "bhp");
+    }
 
     router.push(
-      `/pembayaran/payment?metode=${encodeURIComponent(paymentMethod)}&booking_id=${encodeURIComponent(bookingId)}${codeParam}&total=${encodeURIComponent(totalAmount)}${typeParam}${pointParam}`
+      `/pembayaran/payment?${params.toString()}`
     );
   };
+
+  /* =========================================================
+     FORMAT RUPIAH
+  ========================================================= */
 
   const formatCurrency = (value) => {
     const num = Number(value);
 
-    if (!Number.isFinite(num) || num <= 0) return "Rp 0";
+    if (!Number.isFinite(num)) {
+      return "Rp 0";
+    }
 
-    return `Rp ${num.toLocaleString("id-ID")}`;
+    return `Rp ${Math.round(num).toLocaleString("id-ID")}`;
   };
 
   const getPotonganText = (metode) => {
-    if (metode.keterangan) return metode.keterangan;
+    if (metode.keterangan) {
+      return metode.keterangan;
+    }
 
     const nilai = Number(metode.nilai_potongan);
 
-    if (!Number.isFinite(nilai) || nilai <= 0) return "";
+    if (!Number.isFinite(nilai) || nilai <= 0) {
+      return "";
+    }
 
     return metode.tipe_potongan === "persen"
       ? `Admin: ${nilai}%`
@@ -418,24 +775,42 @@ function PilihMetodePembayaranContent() {
 
   const groupedMetode = groupByCategory(metodeList);
 
+  /* =========================================================
+     LOADING
+  ========================================================= */
+
   if (isCheckingAccess || !accessAllowed) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-slate-50">
         <div className="text-center">
           <div className="mx-auto h-10 w-10 animate-spin rounded-full border-b-2 border-sky-600" />
+
           <p className="mt-4 text-sm text-slate-500">
             Memeriksa akses pembayaran...
           </p>
+
+          {error && (
+            <p className="mt-3 text-sm text-red-600">
+              {error}
+            </p>
+          )}
         </div>
       </div>
     );
   }
 
+  /* =========================================================
+     UI
+  ========================================================= */
+
   return (
     <div className="min-h-screen bg-slate-50 pb-12 font-sans text-slate-800">
+
+      {/* HEADER */}
       <div className="sticky top-0 z-20 border-b border-slate-200 bg-white shadow-sm">
         <div className="mx-auto w-full max-w-7xl px-4 py-4 sm:px-6 lg:px-8">
           <div className="flex items-center gap-3">
+
             <button
               type="button"
               onClick={() => router.back()}
@@ -447,13 +822,22 @@ function PilihMetodePembayaranContent() {
             <h1 className="text-lg font-bold text-slate-800 sm:text-xl">
               Pilih Metode Pembayaran
             </h1>
+
           </div>
         </div>
       </div>
 
+      {/* CONTENT */}
       <div className="mx-auto w-full max-w-7xl px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
+
         <div className="flex flex-col-reverse items-start justify-between gap-8 lg:flex-row">
+
+          {/* =====================================================
+              LEFT: METODE PEMBAYARAN
+          ====================================================== */}
+
           <div className="w-full lg:flex-1">
+
             <div className="mb-4">
               <p className="text-xs font-bold uppercase tracking-wider text-slate-400">
                 Pilih Pembayaran
@@ -463,6 +847,7 @@ function PilihMetodePembayaranContent() {
             {isFetching ? (
               <div className="rounded-2xl border border-slate-200 bg-white py-12 text-center shadow-sm">
                 <div className="mx-auto h-8 w-8 animate-spin rounded-full border-b-2 border-sky-600" />
+
                 <p className="mt-3 text-sm text-slate-500">
                   Memuat metode pembayaran...
                 </p>
@@ -473,10 +858,12 @@ function PilihMetodePembayaranContent() {
                 className="rounded-2xl border border-slate-200 bg-white px-5 py-10 text-center text-sm text-slate-500 shadow-sm"
               >
                 <FiAlertCircle className="mx-auto mb-3 h-6 w-6 text-slate-400" />
+
                 {methodError}
               </div>
             ) : (
               <div className="space-y-4">
+
                 {Object.entries(groupedMetode).map(
                   ([categoryName, items]) => {
                     const isOpen = !!openCategories[categoryName];
@@ -486,6 +873,7 @@ function PilihMetodePembayaranContent() {
                         key={categoryName}
                         className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm"
                       >
+
                         <button
                           type="button"
                           onClick={() => toggleCategory(categoryName)}
@@ -518,6 +906,7 @@ function PilihMetodePembayaranContent() {
 
                         {isOpen && (
                           <div className="divide-y divide-slate-100 border-t border-slate-100 bg-slate-50/40">
+
                             {items.map((metode) => {
                               const methodId =
                                 metode.id_metode ??
@@ -542,7 +931,9 @@ function PilihMetodePembayaranContent() {
                                       : "bg-white hover:bg-slate-100/60"
                                   }`}
                                 >
+
                                   <div className="flex min-w-0 items-center gap-4 pr-2">
+
                                     <PaymentMethodLogo
                                       logo={metode.logo}
                                       alt={
@@ -564,6 +955,7 @@ function PilihMetodePembayaranContent() {
                                         </p>
                                       )}
                                     </div>
+
                                   </div>
 
                                   <div className="ml-3 flex h-5 w-5 shrink-0 items-center justify-center rounded-full border">
@@ -571,98 +963,141 @@ function PilihMetodePembayaranContent() {
                                       <div className="h-2 w-2 rounded-full bg-sky-500" />
                                     )}
                                   </div>
+
                                 </button>
                               );
                             })}
+
                           </div>
                         )}
+
                       </div>
                     );
                   }
                 )}
+
               </div>
             )}
+
           </div>
 
+          {/* =====================================================
+              RIGHT: RINCIAN BIAYA
+          ====================================================== */}
+
           <div className="w-full shrink-0 lg:sticky lg:top-24 lg:w-[400px]">
+
             <div className="rounded-2xl bg-gradient-to-r from-sky-400 to-blue-500 p-6 text-white shadow-md sm:p-8">
+
               <p className="text-xs font-medium tracking-wide text-sky-50 sm:text-sm">
                 {isBhp ? "Total BHP Tambahan" : "Total Pembayaran"}
               </p>
 
-             {/* Angka Total Pembayaran */}
-  <p className="mb-2 mt-1 text-2xl font-bold sm:text-3xl">
-    {calculationDetails?.total_akhir_format || formatCurrency(totalAmount)}
-  </p>
+              {/* TOTAL */}
+              <p className="mb-2 mt-1 text-2xl font-bold sm:text-3xl">
+                {isBhp
+                  ? formatCurrency(totalAmount)
+                  : isCalculating
+                  ? "Menghitung..."
+                  : calculationDetails?.total_akhir_format ||
+                    "Pilih metode"}
+              </p>
 
-  {/* --- RINCIAN BIAYA LENGKAP DARIPADA RESPONSE API --- */}
-  {calculationDetails?.rincian_biaya && (
-    <div className="mb-6 space-y-1.5 border-t border-white/20 pt-4 text-xs sm:text-sm text-sky-50">
-      {/* 1. Subtotal Layanan (sl) */}
-      {Number(calculationDetails.rincian_biaya.sl) > 0 && (
-        <div className="flex justify-between">
-          <span>Subtotal Layanan:</span>
-          <span>{formatCurrency(calculationDetails.rincian_biaya.sl)}</span>
-        </div>
-      )}
+              {isBhp && (
+                <p className="border-t border-white/20 pt-3 text-xs text-sky-50">
+                  Tagihan BHP tambahan berdasarkan data server.
+                </p>
+              )}
 
-      {/* 2. Subtotal Bahan / Alat (sb) */}
-      {Number(calculationDetails.rincian_biaya.sb) > 0 && (
-        <div className="flex justify-between">
-          <span>Subtotal Alat / Bahan:</span>
-          <span>{formatCurrency(calculationDetails.rincian_biaya.sb)}</span>
-        </div>
-      )}
+              {/* ERROR KALKULASI */}
+              {!isBhp &&
+                calculationError &&
+                !isCalculating && (
+                  <div className="mb-4 rounded-xl border border-red-200/40 bg-red-500/20 p-3 text-xs text-white">
+                    {calculationError}
+                  </div>
+                )}
 
-      {/* 3. Subtotal Transport (st) */}
-      {Number(calculationDetails.rincian_biaya.st) > 0 && (
-        <div className="flex justify-between">
-          <span>Biaya Transport:</span>
-          <span>{formatCurrency(calculationDetails.rincian_biaya.st)}</span>
-        </div>
-      )}
+              {/* RINCIAN BIAYA */}
+              {!isBhp &&
+                calculationDetails?.rincian_biaya && (
+                  <div className="mb-6 space-y-1.5 border-t border-white/20 pt-4 text-xs text-sky-50 sm:text-sm">
 
-      {/* 4. Biaya Aplikasi / Admin System (ba) */}
-      {Number(calculationDetails.rincian_biaya.ba) > 0 && (
-        <div className="flex justify-between">
-          <span>Biaya Aplikasi:</span>
-          <span>{formatCurrency(calculationDetails.rincian_biaya.ba)}</span>
-        </div>
-      )}
+                    <div className="flex justify-between gap-3">
+                      <span>Subtotal Layanan (SL):</span>
+                      <span>
+                        {formatCurrency(
+                          calculationDetails.rincian_biaya.sl
+                        )}
+                      </span>
+                    </div>
 
-      {/* 5. PPN (ppn) */}
-      {Number(calculationDetails.rincian_biaya.ppn) > 0 && (
-        <div className="flex justify-between">
-          <span>PPN:</span>
-          <span>{formatCurrency(calculationDetails.rincian_biaya.ppn)}</span>
-        </div>
-      )}
+                    <div className="flex justify-between gap-3">
+                      <span>Subtotal Alat / Bahan (SB):</span>
+                      <span>
+                        {formatCurrency(
+                          calculationDetails.rincian_biaya.sb
+                        )}
+                      </span>
+                    </div>
 
-      {/* Garis Pemisah untuk Total Dasar */}
-      <div className="my-1 border-t border-white/10" />
+                    <div className="flex justify-between gap-3">
+                      <span>Biaya Transport (ST):</span>
+                      <span>
+                        {formatCurrency(
+                          calculationDetails.rincian_biaya.st
+                        )}
+                      </span>
+                    </div>
 
-      {/* 6. Total Dasar */}
-      <div className="flex justify-between font-medium text-white">
-        <span>Total dasar:</span>
-        <span>{formatCurrency(calculationDetails.rincian_biaya.total_dasar)}</span>
-      </div>
+                    <div className="flex justify-between gap-3">
+                      <span>Biaya Aplikasi (BA):</span>
+                      <span>
+                        {formatCurrency(
+                          calculationDetails.rincian_biaya.ba
+                        )}
+                      </span>
+                    </div>
 
- {/* 7. Biaya Metode Pembayaran (Font diperbesar jadi lebih besar) */}
-      {calculationDetails.rincian_biaya.biaya_metode_pembayaran !== undefined && (
-        <div className="flex justify-between text-base font-bold text-white">
-          <span className="truncate pr-2">
-            Biaya Metode Pembayaran:
-          </span>
-          <span>
-            {calculationDetails.rincian_biaya.biaya_metode_pembayaran === 0
-              ? "Rp 0"
-              : formatCurrency(calculationDetails.rincian_biaya.biaya_metode_pembayaran)}
-          </span>
-        </div>
-      )}
-    </div>
-  )}
+                    <div className="flex justify-between gap-3">
+                      <span>PPN:</span>
+                      <span>
+                        {formatCurrency(
+                          calculationDetails.rincian_biaya.ppn
+                        )}
+                      </span>
+                    </div>
 
+                    <div className="my-1 border-t border-white/10" />
+
+                    <div className="flex justify-between gap-3 font-semibold text-white">
+                      <span>Total dasar:</span>
+                      <span>
+                        {formatCurrency(
+                          calculationDetails.rincian_biaya.total_dasar
+                        )}
+                      </span>
+                    </div>
+
+                    <div className="flex justify-between gap-3 pt-1 text-base font-bold text-white">
+                      <span>Biaya Metode Pembayaran:</span>
+                      <span>
+                        {formatCurrency(
+                          calculationDetails.rincian_biaya.biaya_metode_pembayaran
+                        )}
+                      </span>
+                    </div>
+
+                    {calculationDetails.rincian_biaya.keterangan_biaya_metode && (
+                      <p className="pt-1 text-[11px] text-sky-100">
+                        {calculationDetails.rincian_biaya.keterangan_biaya_metode}
+                      </p>
+                    )}
+
+                  </div>
+                )}
+
+              {/* GENERAL ERROR */}
               {error && (
                 <div className="mb-4 flex items-start gap-2 rounded-xl border border-red-200/40 bg-red-500/20 p-3 text-xs text-white">
                   <FiAlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
@@ -670,7 +1105,8 @@ function PilihMetodePembayaranContent() {
                 </div>
               )}
 
-             <button
+              {/* BAYAR */}
+              <button
                 type="button"
                 onClick={handleLanjutkanPembayaran}
                 disabled={
@@ -678,14 +1114,30 @@ function PilihMetodePembayaranContent() {
                   isFetching ||
                   isCalculating ||
                   !!methodError ||
-                  !selectedMetode
+                  !!calculationError ||
+                  !selectedMetode ||
+                  (
+                    !isBhp &&
+                    (
+                      !calculationDetails ||
+                      calculatedMethodId !== String(selectedMethodId)
+                    )
+                  )
                 }
                 className={`flex w-full items-center justify-center gap-2 rounded-xl px-4 py-3.5 text-sm font-bold text-white transition sm:text-base ${
                   isLoading ||
                   isFetching ||
                   isCalculating ||
                   !!methodError ||
-                  !selectedMetode
+                  !!calculationError ||
+                  !selectedMetode ||
+                  (
+                    !isBhp &&
+                    (
+                      !calculationDetails ||
+                      calculatedMethodId !== String(selectedMethodId)
+                    )
+                  )
                     ? "cursor-not-allowed border border-white/20 bg-white/30 text-white/70"
                     : "bg-sky-600 shadow-lg hover:bg-sky-700 active:scale-[0.99]"
                 }`}
@@ -699,15 +1151,19 @@ function PilihMetodePembayaranContent() {
                   "Bayar"
                 )}
               </button>
-              {/* ========================================================= */}
 
             </div>
           </div>
+
         </div>
       </div>
     </div>
   );
 }
+
+/* =========================================================
+   PAGE WRAPPER
+========================================================= */
 
 export default function PilihMetodePembayaranPage() {
   return (

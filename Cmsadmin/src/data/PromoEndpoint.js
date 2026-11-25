@@ -1,101 +1,175 @@
+
 import { URL } from '../utils/getUrl.js';
 import { getAuthHeaders } from '../utils/auth.js';
 
-// Helper untuk membuat FormData dari payload
-function objectToFormData(obj) {
-  const formData = new FormData();
-  Object.keys(obj).forEach((key) => {
-    const value = obj[key];
-    if (value !== null && value !== undefined) {
-      formData.append(key, value);
-    }
-  });
-  return formData;
-}
-
 function buildHeaders() {
-  return getAuthHeaders({ 'Content-Type': 'application/json', 'Accept': 'application/json' });
+  return getAuthHeaders({
+    Accept: 'application/json',
+  });
 }
 
 async function parseJsonResponse(response) {
+  const body = await response.json().catch(() => null);
+
   if (!response.ok) {
-    const body = await response.json().catch(() => null);
-    const message = body?.message ?? `Error ${response.status}: Terjadi kesalahan`;
+    const message =
+      body?.message ||
+      body?.errors
+        ? body?.message || 'Data yang dikirim tidak valid.'
+        : `Error ${response.status}: Terjadi kesalahan.`;
+
     throw new Error(message);
   }
-  return await response.json().catch(() => null);
+
+  return body;
 }
 
 function extractData(body) {
-  return (body && typeof body === 'object' && body.data !== undefined) ? body.data : body;
+  return body?.data !== undefined ? body.data : body;
 }
 
-// PERUBAHAN UTAMA: Menyesuaikan mapping response dengan API contract baru
 function normalizePromo(raw) {
-  if (!raw || typeof raw !== 'object') return raw;
+  if (!raw || typeof raw !== 'object') {
+    return null;
+  }
+
+  const layanan = raw.layanan ?? null;
 
   return {
     ...raw,
+
     id: raw.id ?? raw.id_promo,
-    // Field diskon baru
-    tipe_diskon: raw.tipe_diskon ?? 'persen',
-    nilai_diskon: raw.nilai_diskon ?? 0,
-    // Field layanan tunggal
-    id_layanan: raw.id_layanan ?? (raw.layanan ? raw.layanan.id_layanan : null),
-    layanan: raw.layanan ?? null,
+    id_promo: raw.id_promo ?? raw.id,
+
+    id_layanan:
+      raw.id_layanan ??
+      layanan?.id_layanan ??
+      null,
+
     deskripsi: raw.deskripsi ?? '',
+
+    tipe_diskon: raw.tipe_diskon ?? 'persen',
+    nilai_diskon: raw.nilai_diskon ?? '',
+
+    tanggal_mulai: raw.tanggal_mulai ?? '',
+    tanggal_berakhir: raw.tanggal_berakhir ?? '',
+
     status_promo: raw.status_promo ?? 'Tidak Aktif',
-    gambar_promo: raw.gambar_promo_url ?? raw.gambar_promo ?? null,
+    status_aktual: raw.status_aktual ?? raw.status_promo ?? null,
+
+    layanan,
+
+    gambar_promo:
+      raw.gambar_promo ??
+      raw.gambar_promo_url ??
+      null,
+
+    gambar_promo_url:
+      raw.gambar_promo_url ?? null,
+
+    created_at: raw.created_at ?? null,
     updated_at: raw.updated_at ?? null,
   };
 }
 
+function createPromoFormData(payload) {
+  const formData = new FormData();
+
+  Object.entries(payload).forEach(([key, value]) => {
+    if (value === null || value === undefined || value === '') {
+      return;
+    }
+
+    if (value instanceof File) {
+      formData.append(key, value);
+      return;
+    }
+
+    formData.append(key, String(value));
+  });
+
+  return formData;
+}
+
 export async function getAllPromo() {
-  const res = await fetch(`${URL}/promo`, { method: 'GET', headers: buildHeaders() });
-  const json = await parseJsonResponse(res);
-  const data = extractData(json);
-  return Array.isArray(data) ? data.map(normalizePromo) : (data ? [normalizePromo(data)] : []);
+  const response = await fetch(`${URL}/promo`, {
+    method: 'GET',
+    headers: buildHeaders(),
+  });
+
+  const body = await parseJsonResponse(response);
+  const data = extractData(body);
+
+  if (!Array.isArray(data)) {
+    throw new Error('Format response daftar promo tidak valid.');
+  }
+
+  return data.map(normalizePromo).filter(Boolean);
 }
 
 export async function getPromoById(id_promo) {
-  const res = await fetch(`${URL}/promo/${encodeURIComponent(id_promo)}`, { method: 'GET', headers: buildHeaders() });
-  const json = await parseJsonResponse(res);
-  return normalizePromo(extractData(json));
+  const response = await fetch(
+    `${URL}/promo/${encodeURIComponent(id_promo)}`,
+    {
+      method: 'GET',
+      headers: buildHeaders(),
+    }
+  );
+
+  const body = await parseJsonResponse(response);
+  const data = normalizePromo(extractData(body));
+
+  if (!data) {
+    throw new Error('Data promo tidak ditemukan.');
+  }
+
+  return data;
 }
 
 export async function createPromo(payload) {
-  // Payload sekarang mengirim: id_layanan, tipe_diskon, nilai_diskon, dll.
-  const formData = objectToFormData(payload);
-  
-  const res = await fetch(`${URL}/promo`, {
+  const formData = createPromoFormData(payload);
+
+  const response = await fetch(`${URL}/promo`, {
     method: 'POST',
-    headers: getAuthHeaders({ 'Accept': 'application/json' }),
+    headers: buildHeaders(),
     body: formData,
   });
 
-  const json = await parseJsonResponse(res);
-  return normalizePromo(extractData(json));
+  const body = await parseJsonResponse(response);
+
+  return normalizePromo(extractData(body));
 }
 
 export async function updatePromo(id_promo, payload) {
-  const formData = objectToFormData(payload);
+  const formData = createPromoFormData(payload);
+
+  // Laravel menerima multipart update melalui method spoofing.
   formData.append('_method', 'PUT');
 
-  const res = await fetch(`${URL}/promo/${encodeURIComponent(id_promo)}`, {
-    method: 'POST',
-    headers: getAuthHeaders({ 'Accept': 'application/json' }),
-    body: formData,
-  });
+  const response = await fetch(
+    `${URL}/promo/${encodeURIComponent(id_promo)}`,
+    {
+      method: 'POST',
+      headers: buildHeaders(),
+      body: formData,
+    }
+  );
 
-  const json = await parseJsonResponse(res);
-  return normalizePromo(extractData(json));
+  const body = await parseJsonResponse(response);
+
+  return normalizePromo(extractData(body));
 }
 
 export async function deletePromo(id_promo) {
-  const res = await fetch(`${URL}/promo/${encodeURIComponent(id_promo)}`, {
-    method: 'DELETE',
-    headers: buildHeaders(),
-  });
-  await parseJsonResponse(res);
+  const response = await fetch(
+    `${URL}/promo/${encodeURIComponent(id_promo)}`,
+    {
+      method: 'DELETE',
+      headers: buildHeaders(),
+    }
+  );
+
+  await parseJsonResponse(response);
+
   return true;
 }

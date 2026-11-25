@@ -9,6 +9,10 @@ import { showToast } from "@/components/Toast";
 import Link from "next/link";
 import { resolveImageUrl } from "@/services/resolveImage";
 import api from "@/services/api";
+import {
+  getActivePromos,
+  formatPromoDiscount,
+} from "@/services/promoService";
 
 const CART_STORAGE_KEY = "smarthomecare_cart";
 const FONT_STACK = '"Poppins", "Inter", "Segoe UI", sans-serif';
@@ -283,6 +287,68 @@ function getServiceId(service) {
   return getTextValue(service, ["id_layanan", "id", "uuid"]) || getTextValue(service, ["nama_layanan", "nama", "title"]);
 }
 
+/**
+ * Menghitung harga tampilan berdasarkan promo aktif milik layanan.
+ * Fungsi ini hanya untuk UI katalog, bukan sumber tagihan backend.
+ */
+function getServicePromoPrice(service, promo = null) {
+  const rawPrice = service?.harga ?? service?.price;
+  const normalPrice = Number(rawPrice);
+
+  if (
+    rawPrice === null ||
+    rawPrice === undefined ||
+    String(rawPrice).trim() === "" ||
+    !Number.isFinite(normalPrice) ||
+    normalPrice < 0
+  ) {
+    return {
+      normalPrice: 0,
+      discountAmount: 0,
+      finalPrice: 0,
+      hasPromo: false,
+    };
+  }
+
+  if (!promo) {
+    return {
+      normalPrice,
+      discountAmount: 0,
+      finalPrice: normalPrice,
+      hasPromo: false,
+    };
+  }
+
+  const discountValue = Number(promo.nilai_diskon);
+  const discountType = String(promo.tipe_diskon || "").trim().toLowerCase();
+
+  if (!Number.isFinite(discountValue) || discountValue <= 0) {
+    return {
+      normalPrice,
+      discountAmount: 0,
+      finalPrice: normalPrice,
+      hasPromo: false,
+    };
+  }
+
+  let discountAmount = 0;
+
+  if (discountType === "persen") {
+    discountAmount = Math.round((normalPrice * discountValue) / 100);
+  } else if (discountType === "nominal") {
+    discountAmount = Math.round(discountValue);
+  }
+
+  discountAmount = Math.min(normalPrice, Math.max(0, discountAmount));
+
+  return {
+    normalPrice,
+    discountAmount,
+    finalPrice: normalPrice - discountAmount,
+    hasPromo: discountAmount > 0,
+  };
+}
+
 function loadCartFromStorage() {
   if (typeof window === "undefined") return [];
   try {
@@ -332,6 +398,41 @@ function LayananPageContent() {
   const [articles, setArticles] = useState([]);
   const [loadingArticles, setLoadingArticles] = useState(true);
 
+  // Satu layanan dicocokkan dengan promo berdasarkan id_layanan.
+  // Jika ada promo aktif ganda pada layanan yang sama, promo terbaru diprioritaskan.
+  const promoByServiceId = useMemo(() => {
+    const promoMap = new Map();
+
+    const sortedPromos = [...promos].sort((a, b) => {
+      const dateA = Date.parse(a?.created_at || "") || 0;
+      const dateB = Date.parse(b?.created_at || "") || 0;
+      return dateB - dateA;
+    });
+
+    sortedPromos.forEach((promo) => {
+      const serviceId = promo?.id_layanan ?? promo?.layanan?.id_layanan;
+
+      if (serviceId === null || serviceId === undefined || String(serviceId).trim() === "") {
+        return;
+      }
+
+      const key = String(serviceId);
+      if (!promoMap.has(key)) {
+        promoMap.set(key, promo);
+      }
+    });
+
+    return promoMap;
+  }, [promos]);
+
+  const selectedServicePromo = selectedService
+    ? promoByServiceId.get(String(getServiceId(selectedService))) || null
+    : null;
+
+  const selectedServicePrice = selectedService
+    ? getServicePromoPrice(selectedService, selectedServicePromo)
+    : null;
+
   const handleRemoveFromCart = (event, service) => {
     event.stopPropagation();
     const serviceId = getServiceId(service);
@@ -347,8 +448,8 @@ function LayananPageContent() {
   };
 
   // Fungsi handleAddToCart yang sudah ada sebelumnya...
-  
-  
+
+
 
   useEffect(() => {
     setIsLoggedIn(document.cookie.includes("is_logged_in=true"));
@@ -402,19 +503,24 @@ function LayananPageContent() {
     };
   }, []);
 
-  // Fetch Promo aktif dari API /api/promo/active
+  // Ambil seluruh promo dari API, lalu promoService menyaring yang masih aktif.
   useEffect(() => {
     let isMounted = true;
 
     async function loadPromos() {
       try {
         setLoadingPromos(true);
-        const res = await api.get("/api/promo/active");
-        const data = res.data?.data || res.data;
+
+        const data = await getActivePromos();
+
         if (!isMounted) return;
         setPromos(Array.isArray(data) ? data : []);
       } catch (error) {
         console.error("Gagal memuat data promo", error);
+
+        if (isMounted) {
+          setPromos([]);
+        }
       } finally {
         if (isMounted) setLoadingPromos(false);
       }
@@ -593,13 +699,13 @@ const handleAddToCart = (event, service) => {
 
     const serviceId = getServiceId(service);
     const title = getTextValue(service, ["nama_layanan", "nama", "title"]);
-    
+
     // Ambil data keranjang langsung dari storage/state saat ini
     const currentCart = loadCartFromStorage();
-    
+
     // Cek apakah layanan spesifik ini sudah ada di keranjang
     const existing = currentCart.find((item) => getServiceId(item.service) === serviceId);
-    
+
     if (existing) {
       showToast(`"${title}" sudah ada di keranjang dan maksimal 1x pemesanan per layanan`, "info");
       return; 
@@ -607,11 +713,11 @@ const handleAddToCart = (event, service) => {
 
     // Buat keranjang baru
     const nextCart = [...currentCart, { service, qty: 1 }];
-    
+
     // Jalankan efek samping (storage, state, dan toast) di luar updater
     saveCartToStorage(nextCart);
     setCart(nextCart);
-    
+
     setAddedServiceId(serviceId);
     window.setTimeout(() => setAddedServiceId(null), 1200);
 
@@ -783,10 +889,11 @@ const handleAddToCart = (event, service) => {
   const description = getTextValue(service, ["deskripsi_layanan", "deskripsi", "keterangan", "description"]);
   const imageUrl = resolveImageUrl(getTextValue(service, ["foto_layanan", "foto", "image"]));
   const category = getTextValue(service, ["kategori_layanan", "kategori", "category", "nama_kategori"]);
-  const price = getTextValue(service, ["harga", "price"]);
   const duration = getTextValue(service, ["durasi_menit", "durasi", "duration"]);
   const serviceId = getServiceId(service);
-  
+  const servicePromo = promoByServiceId.get(String(serviceId)) || null;
+  const servicePrice = getServicePromoPrice(service, servicePromo);
+
   const isInCart = cart.some((item) => getServiceId(item.service) === serviceId);
   const isPressed = pressedServiceId === serviceId;
   const transportIncluded = isTransportIncluded(service);
@@ -848,8 +955,26 @@ const handleAddToCart = (event, service) => {
         </div>
 
         <div className="mt-2 flex items-center justify-between">
-          <span className="text-sm font-bold text-slate-900 sm:text-base">{formatCurrency(price)}</span>
-          
+          <div className="flex min-w-0 flex-wrap items-baseline gap-x-2 gap-y-1">
+            {servicePrice.hasPromo ? (
+              <>
+                <span className="text-xs text-slate-400 line-through">
+                  {formatCurrency(servicePrice.normalPrice)}
+                </span>
+                <span className="text-sm font-bold text-emerald-700 sm:text-base">
+                  {formatCurrency(servicePrice.finalPrice)}
+                </span>
+                <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-bold text-emerald-700">
+                  Hemat {formatPromoDiscount(servicePromo)}
+                </span>
+              </>
+            ) : (
+              <span className="text-sm font-bold text-slate-900 sm:text-base">
+                {formatCurrency(servicePrice.normalPrice)}
+              </span>
+            )}
+          </div>
+
           {/* BUNGKUS TOMBOL DENGAN ONCLICK STOP PROPAGATION YANG KETAT */}
           <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
             {isInCart && (
@@ -878,7 +1003,7 @@ const handleAddToCart = (event, service) => {
     </article>
   );
 })}
-              
+
                 </div>
               )}
             </>
@@ -962,9 +1087,11 @@ const handleAddToCart = (event, service) => {
                   <div className="-mx-4 flex snap-x snap-mandatory gap-3 overflow-x-auto px-4 pb-1 md:mx-0 md:px-0 md:grid md:grid-cols-3 md:overflow-visible [&::-webkit-scrollbar]:hidden">
                     {promos.map((promo, index) => {
                       const promoId = promo.id_promo || promo.id || index;
-                      const title = getTextValue(promo, ["nama_paket", "nama", "title"]);
+                      const title =
+                        getTextValue(promo, ["nama_paket", "nama", "title"]) ||
+                        getTextValue(promo?.layanan, ["nama_layanan", "nama", "title"]);
                       const desc = getTextValue(promo, ["deskripsi", "description"]);
-                      const disc = promo.diskon_persen;
+                      const disc = formatPromoDiscount(promo);
                       const rawImage = promo.gambar_promo_url || promo.gambar_promo || promo.image;
                       const image = rawImage
                         ? /^https?:\/\//i.test(rawImage)
@@ -997,7 +1124,7 @@ const handleAddToCart = (event, service) => {
                             {disc ? (
                               <span className="absolute left-2 top-2 inline-flex items-center gap-1 rounded-full bg-blue-600 px-2 py-0.5 text-[10px] font-bold text-white shadow-sm">
                                 <TagIcon className="h-3 w-3" />
-                                Diskon {Number(disc)}%
+                                Diskon {disc}
                               </span>
                             ) : null}
                           </div>
@@ -1155,10 +1282,35 @@ const handleAddToCart = (event, service) => {
               </p>
 
               <div className="mt-6 space-y-3 rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-600">
-                <div className="flex items-center justify-between">
-                  <span className="font-medium text-slate-700">Harga</span>
-                  <span className="font-semibold text-blue-600">{formatCurrency(getTextValue(selectedService, ["harga", "price"]))}</span>
-                </div>
+                {selectedServicePrice?.hasPromo ? (
+                  <>
+                    <div className="flex items-center justify-between gap-3">
+                      <span className="font-medium text-slate-700">Harga Normal</span>
+                      <span className="text-slate-400 line-through">
+                        {formatCurrency(selectedServicePrice.normalPrice)}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between gap-3">
+                      <span className="font-medium text-emerald-700">Harga Setelah Promo</span>
+                      <span className="font-bold text-emerald-700">
+                        {formatCurrency(selectedServicePrice.finalPrice)}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between gap-3">
+                      <span className="font-medium text-slate-700">Diskon</span>
+                      <span className="font-semibold text-emerald-700">
+                        -{formatCurrency(selectedServicePrice.discountAmount)}
+                      </span>
+                    </div>
+                  </>
+                ) : (
+                  <div className="flex items-center justify-between">
+                    <span className="font-medium text-slate-700">Harga</span>
+                    <span className="font-semibold text-blue-600">
+                      {formatCurrency(selectedServicePrice?.normalPrice ?? 0)}
+                    </span>
+                  </div>
+                )}
                 {getTextValue(selectedService, ["tipe_layanan"]) === "durasi" ? (
                   <div className="flex items-center justify-between">
                     <span className="font-medium text-slate-700">Durasi</span>
@@ -1191,10 +1343,10 @@ const handleAddToCart = (event, service) => {
                     const serviceId = getServiceId(selectedService);
                     const title = getTextValue(selectedService, ["nama_layanan", "nama", "title"]);
                     const currentCart = loadCartFromStorage();
-                    
+
                     // Validasi: Cek apakah LAYANAN SPESIFIK ini sudah ada di keranjang
                     const existing = currentCart.find((item) => getServiceId(item.service) === serviceId);
-                    
+
                     if (existing) {
                       showToast(`"${title}" sudah ada di keranjang dan maksimal 1x pemesanan per layanan`, "info");
                       return;
